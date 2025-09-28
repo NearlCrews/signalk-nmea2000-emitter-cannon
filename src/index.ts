@@ -78,6 +78,63 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
   }
 
   /**
+   * Extract PGN numbers from a conversion module
+   */
+  function extractPGNsFromConversion(conv: ConversionModule): number[] {
+    const pgns = new Set<number>()
+    
+    // Extract PGNs from test cases
+    if (conv.tests && Array.isArray(conv.tests)) {
+      for (const test of conv.tests) {
+        if (test.expected && Array.isArray(test.expected)) {
+          for (const expected of test.expected) {
+            if (typeof expected === 'object' && expected && 'pgn' in expected) {
+              const pgnValue = (expected as { pgn: unknown }).pgn
+              if (typeof pgnValue === 'number') {
+                pgns.add(pgnValue)
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    // If no PGNs found in tests, try to extract from title
+    if (pgns.size === 0) {
+      const titleMatch = conv.title.match(/\((\d+(?:\s*[&,]\s*\d+)*)\)/)
+      if (titleMatch && titleMatch[1]) {
+        const pgnString = titleMatch[1]
+        const pgnNumbers = pgnString.split(/[&,]/).map(p => parseInt(p.trim()))
+        pgnNumbers.forEach(pgn => {
+          if (!isNaN(pgn)) pgns.add(pgn)
+        })
+      }
+    }
+    
+    return Array.from(pgns).sort((a, b) => a - b)
+  }
+
+  /**
+   * Format title and description for configuration UI
+   */
+  function formatConversionUIInfo(conv: ConversionModule): { title: string; description: string } {
+    const pgns = extractPGNsFromConversion(conv)
+    
+    // Clean title by removing PGN numbers in parentheses
+    const cleanTitle = conv.title.replace(/\s*\([^)]*\)/, '').trim()
+    
+    // Format PGNs in italic text
+    const pgnDescription = pgns.length > 0 
+      ? `*PGNs: ${pgns.join(', ')}*`
+      : ''
+    
+    return {
+      title: `**${cleanTitle}**`,
+      description: pgnDescription
+    }
+  }
+
+  /**
    * Create the plugin configuration schema
    */
   function createPluginSchema(): JSONSchema {
@@ -94,9 +151,12 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
       const conversionArray = Array.isArray(conversion) ? conversion : [conversion]
       
       for (const conv of conversionArray) {
+        const { title, description } = formatConversionUIInfo(conv)
+        
         const obj: JSONSchema = {
           type: 'object',
-          title: conv.title,
+          title: title,
+          description: description,
           properties: {
             enabled: {
               title: 'Enabled',

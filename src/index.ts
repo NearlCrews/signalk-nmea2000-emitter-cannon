@@ -113,6 +113,534 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
             }
           }
         }
+      },
+      SPEED: {
+        type: 'object',
+        title: 'Speed Through Water',
+        description: 'PGNs: 128259',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 },
+          navigationspeedThroughWater: { title: 'Source for navigation.speedThroughWater', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' }
+        }
+      },
+      RUDDER: {
+        type: 'object',
+        title: 'Rudder Position',
+        description: 'PGNs: 127245',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 },
+          steeringrudderpositioning: { title: 'Source for steering.rudder.position', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' }
+        }
+      },
+      GPS: {
+        type: 'object',
+        title: 'GPS Position',
+        description: 'PGNs: 129025, 129029',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 },
+          navigationposition: { title: 'Source for navigation.position', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' },
+          navigationgnssgeoidalSeparation: { title: 'Source for navigation.gnss.geoidalSeparation', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' },
+          navigationgnssmethod: { title: 'Source for navigation.gnss.method', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' },
+          navigationgnssnumberOfSatellites: { title: 'Source for navigation.gnss.numberOfSatellites', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' },
+          navigationgnsshorizontalDilution: { title: 'Source for navigation.gnss.horizontalDilution', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' }
+        }
+      },
+      TEMPERATURE_OUTSIDE: {
+        type: 'object',
+        title: 'Outside Temperature',
+        description: 'PGNs: 130312',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 },
+          environmentoutsidetemperature: { title: 'Source for environment.outside.temperature', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' }
+        }
+      },
+      TEMPERATURE_INSIDE: {
+        type: 'object',
+        title: 'Inside Temperature',
+        description: 'PGNs: 130312',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 },
+          environmentinsidetemperature: { title: 'Source for environment.inside.temperature', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' }
+        }
+      },
+      PRESSURE: {
+        type: 'object',
+        title: 'Atmospheric Pressure',
+        description: 'PGNs: 130314',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 },
+          environmentoutsidepressure: { title: 'Source for environment.outside.pressure', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' }
+        }
+      },
+      HUMIDITY_OUTSIDE: {
+        type: 'object',
+        title: 'Outside Humidity',
+        description: 'PGNs: 130313',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 },
+          environmentoutsidehumidity: { title: 'Source for environment.outside.humidity', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' }
+        }
+      },
+      HUMIDITY_INSIDE: {
+        type: 'object',
+        title: 'Inside Humidity',
+        description: 'PGNs: 130313',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 },
+          environmentinsidehumidity: { title: 'Source for environment.inside.humidity', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' }
+        }
+      },
+      ENGINE_PARAMETERS: {
+        type: 'object',
+        title: 'Engine Parameters',
+        description: 'PGNs: 127488, 127489, 130312',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 },
+          engines: {
+            title: 'Engine Mapping',
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                signalkId: { title: 'Signal K engine id', type: 'string' },
+                instanceId: { title: 'NMEA2000 Engine Instance Id', type: 'number' }
+              }
+            }
+          }
+        }
+      },
+      TANKS: {
+        type: 'object',
+        title: 'Tank Levels',
+        description: 'PGNs: 127505',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 },
+          tanks: {
+            title: 'Tank Mapping',
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                signalkId: { title: 'Signal K tank id', type: 'string' },
+                instanceId: { title: 'NMEA2000 Tank Instance Id', type: 'number' }
+              }
+            }
+          }
+        }
+      },
+      SYSTEM_TIME: {
+        type: 'object',
+        title: 'System Time',
+        description: 'PGNs: 126992',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 }
+        }
+      },
+      SEA_TEMP: {
+        type: 'object',
+        title: 'Sea Temperature',
+        description: 'PGNs: 130310',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 },
+          environmentwatertemperature: { title: 'Source for environment.water.temperature', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' },
+          environmentoutsidetemperature: { title: 'Source for environment.outside.temperature', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' }
+        }
+      },
+      SOLAR: {
+        type: 'object',
+        title: 'Solar Panels',
+        description: 'PGNs: 127508',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 },
+          chargers: {
+            title: 'Solar Panel Mapping',
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                signalkId: { title: 'Signal K charger id', type: 'string' },
+                panelInstanceId: { title: 'NMEA2000 Panel Instance Id', type: 'number' }
+              }
+            }
+          }
+        }
+      },
+      ENVIRONMENT_PARAMETERS: {
+        type: 'object',
+        title: 'Environmental Parameters',
+        description: 'PGNs: 130311',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 },
+          environmentoutsidepressure: { title: 'Source for environment.outside.pressure', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' }
+        }
+      },
+      MAGNETIC_VARIANCE: {
+        type: 'object',
+        title: 'Magnetic Variance',
+        description: 'PGNs: 127258',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 },
+          navigationmagneticVariance: { title: 'Source for navigation.magneticVariance', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' }
+        }
+      },
+      RATE_OF_TURN: {
+        type: 'object',
+        title: 'Rate of Turn',
+        description: 'PGNs: 127251',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 },
+          navigationrateOfTurn: { title: 'Source for navigation.rateOfTurn', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' }
+        }
+      },
+      TRUE_HEADING: {
+        type: 'object',
+        title: 'True Heading',
+        description: 'PGNs: 127250',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 },
+          navigationheadingTrue: { title: 'Source for navigation.headingTrue', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' }
+        }
+      },
+      LEEWAY: {
+        type: 'object',
+        title: 'Leeway Angle',
+        description: 'PGNs: 128000',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 },
+          performanceleeway: { title: 'Source for performance.leeway', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' }
+        }
+      },
+      SET_DRIFT: {
+        type: 'object',
+        title: 'Set and Drift',
+        description: 'PGNs: 129291',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 },
+          environmentcurrentsetTrue: { title: 'Source for environment.current.setTrue', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' },
+          environmentcurrentdrift: { title: 'Source for environment.current.drift', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' }
+        }
+      },
+      ATTITUDE: {
+        type: 'object',
+        title: 'Vessel Attitude',
+        description: 'PGNs: 127257',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 },
+          navigationattituderoll: { title: 'Source for navigation.attitude.roll', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' },
+          navigationattitudepitch: { title: 'Source for navigation.attitude.pitch', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' },
+          navigationattitudeyaw: { title: 'Source for navigation.attitude.yaw', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' }
+        }
+      },
+      HEAVE: {
+        type: 'object',
+        title: 'Vessel Heave',
+        description: 'PGNs: 127252',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 },
+          navigationheave: { title: 'Source for navigation.heave', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' }
+        }
+      },
+      DIRECTION_DATA: {
+        type: 'object',
+        title: 'Direction Data',
+        description: 'PGNs: 130577',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 }
+        }
+      },
+      GNSS_DOPS: {
+        type: 'object',
+        title: 'GNSS DOPs',
+        description: 'PGNs: 129539',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 }
+        }
+      },
+      GNSS_SATELLITES: {
+        type: 'object',
+        title: 'GNSS Satellites',
+        description: 'PGNs: 129540',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 }
+        }
+      },
+      AIS: {
+        type: 'object',
+        title: 'AIS',
+        description: 'PGNs: 129038, 129794, 129041',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 }
+        }
+      },
+      AIS_CLASS_B_POSITION: {
+        type: 'object',
+        title: 'AIS Class B Position',
+        description: 'PGNs: 129039',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 }
+        }
+      },
+      AIS_CLASS_B_EXTENDED: {
+        type: 'object',
+        title: 'AIS Class B Extended',
+        description: 'PGNs: 129040',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 }
+        }
+      },
+      CROSS_TRACK_ERROR: {
+        type: 'object',
+        title: 'Cross Track Error',
+        description: 'PGNs: 129283',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 }
+        }
+      },
+      NAVIGATION_DATA: {
+        type: 'object',
+        title: 'Navigation Data',
+        description: 'PGNs: 129284',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 }
+        }
+      },
+      BEARING_DISTANCE_MARKS: {
+        type: 'object',
+        title: 'Bearing Distance Between Marks',
+        description: 'PGNs: 129302',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 }
+        }
+      },
+      ROUTE_WAYPOINT: {
+        type: 'object',
+        title: 'Route and Waypoint Information',
+        description: 'PGNs: 129285',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 }
+        }
+      },
+      TIME_TO_MARK: {
+        type: 'object',
+        title: 'Time to Mark',
+        description: 'PGNs: 129301',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 }
+        }
+      },
+      WIND_TRUE_GROUND: {
+        type: 'object',
+        title: 'Wind True Over Ground',
+        description: 'PGNs: 130306',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 }
+        }
+      },
+      WIND_TRUE: {
+        type: 'object',
+        title: 'Wind True Over Water',
+        description: 'PGNs: 130306',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 }
+        }
+      },
+      ENGINE_STATIC: {
+        type: 'object',
+        title: 'Engine Configuration Parameters',
+        description: 'PGNs: 127498',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 }
+        }
+      },
+      TRANSMISSION_PARAMETERS: {
+        type: 'object',
+        title: 'Transmission Parameters',
+        description: 'PGNs: 127493',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 }
+        }
+      },
+      SMALL_CRAFT_STATUS: {
+        type: 'object',
+        title: 'Small Craft Status',
+        description: 'PGNs: 130576',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 }
+        }
+      },
+      NOTIFICATIONS: {
+        type: 'object',
+        title: 'Notifications',
+        description: 'PGNs: 126983, 126985',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 }
+        }
+      },
+      PRODUCT_INFO: {
+        type: 'object',
+        title: 'Product Information',
+        description: 'PGNs: 126996',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 }
+        }
+      },
+      ISO_ACKNOWLEDGMENT: {
+        type: 'object',
+        title: 'ISO Acknowledgment',
+        description: 'PGNs: 59392',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 }
+        }
+      },
+      ISO_REQUEST: {
+        type: 'object',
+        title: 'ISO Request',
+        description: 'PGNs: 59904',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 }
+        }
+      },
+      ISO_ADDRESS_CLAIM: {
+        type: 'object',
+        title: 'ISO Address Claim',
+        description: 'PGNs: 60928',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 }
+        }
+      },
+      DSC_CALLS: {
+        type: 'object',
+        title: 'DSC Call Information',
+        description: 'PGNs: 129808',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 }
+        }
+      },
+      RAYMARINE_ALARMS: {
+        type: 'object',
+        title: 'Raymarine Alarms',
+        description: 'PGNs: 65288',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 }
+        }
+      },
+      PGN_LIST: {
+        type: 'object',
+        title: 'PGN List',
+        description: 'PGNs: 126464',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 }
+        }
+      },
+      RADIO_FREQUENCY: {
+        type: 'object',
+        title: 'Radio Frequency',
+        description: 'PGNs: 129799',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 }
+        }
+      },
+      RAYMARINE_BRIGHTNESS: {
+        type: 'object',
+        title: 'Raymarine Display Brightness',
+        description: 'PGNs: 126720',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 }
+        }
       }
     }
   }

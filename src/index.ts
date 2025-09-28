@@ -51,7 +51,7 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
       WIND: {
         type: 'object',
         title: 'Wind',
-        description: '<i>PGNs: 130306</i>',
+        description: 'PGNs: 130306',
         properties: {
           enabled: { title: 'Enabled', type: 'boolean', default: false },
           resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
@@ -63,7 +63,7 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
       DEPTH: {
         type: 'object',
         title: 'Water Depth',
-        description: '<i>PGNs: 128267</i>',
+        description: 'PGNs: 128267',
         properties: {
           enabled: { title: 'Enabled', type: 'boolean', default: false },
           resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
@@ -73,7 +73,7 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
       COG_SOG: {
         type: 'object', 
         title: 'COG & SOG',
-        description: '<i>PGNs: 129026</i>',
+        description: 'PGNs: 129026',
         properties: {
           enabled: { title: 'Enabled', type: 'boolean', default: false },
           resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
@@ -85,7 +85,7 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
       HEADING: {
         type: 'object',
         title: 'Vessel Heading', 
-        description: '<i>PGNs: 127250</i>',
+        description: 'PGNs: 127250',
         properties: {
           enabled: { title: 'Enabled', type: 'boolean', default: false },
           resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
@@ -96,7 +96,7 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
       BATTERY: {
         type: 'object',
         title: 'Battery',
-        description: '<i>PGNs: 127506, 127508</i>',
+        description: 'PGNs: 127506, 127508',
         properties: {
           enabled: { title: 'Enabled', type: 'boolean', default: false },
           resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },

@@ -66,7 +66,6 @@ export default function createHeadingConversion(): ConversionModule {
             fields: {
               sid: 87,
               heading: 2.5,
-              variation: null,
               reference: "Magnetic",
             },
           },

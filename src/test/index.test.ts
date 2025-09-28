@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { readdir } from 'node:fs/promises'
-import { join, basename } from 'node:path'
+import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { pgnToActisenseSerialFormat, FromPgn } from '@canboat/canboatjs'
 
-import type { ConversionModule, N2KMessage, SignalKApp } from '../types/index.js'
+import type { ConversionModule, SignalKApp } from '../types/index.js'
 import { validateN2KMessage, cleanN2KMessage } from '../utils/messageUtils.js'
 import { isDefined } from '../utils/pathUtils.js'
 
@@ -23,9 +23,29 @@ const mockApp: SignalKApp = {
   debug: () => {}, // Silent during tests
   error: (msg) => console.error(msg),
   emit: () => {},
-  streambundle: {} as any,
-  subscriptionmanager: {} as any,
-  signalk: {} as any,
+  streambundle: {
+    getSelfBus: () => {
+      interface MockStream {
+        value: null
+        map: () => MockStream
+        filter: () => MockStream
+        onValue: () => () => void
+      }
+      const mockStream: MockStream = {
+        value: null,
+        map: () => mockStream,
+        filter: () => mockStream,
+        onValue: () => () => {},
+      }
+      return mockStream
+    },
+  },
+  subscriptionmanager: {
+    subscribe: () => {},
+  },
+  signalk: {
+    on: () => {},
+  },
 }
 
 /**
@@ -70,7 +90,7 @@ describe('Conversion modules', () => {
     console.log(`Loaded ${conversions.length} conversion modules`)
   })
 
-  it('should have tests for every conversion', () => {
+  it('should have tests for every conversion', async () => {
     for (const conversion of conversions) {
       const conversionArray = Array.isArray(conversion) ? conversion : [conversion]
 
@@ -96,7 +116,7 @@ describe('Conversion modules', () => {
     }
   })
 
-  describe('Conversion tests', () => {
+  it('should execute all conversion tests', async () => {
     for (const conversion of conversions) {
       const conversionArray = Array.isArray(conversion) ? conversion : [conversion]
 
@@ -105,7 +125,7 @@ describe('Conversion modules', () => {
           ? conv.testOptions
           : [conv.testOptions]
 
-        for (const [optionIndex, options] of optionsList.entries()) {
+        for (const [_optionIndex, options] of optionsList.entries()) {
           // Get sub-conversions
           let subConversions = conv.conversions
           if (!subConversions) {
@@ -117,64 +137,73 @@ describe('Conversion modules', () => {
           if (subConversions) {
             for (const subConv of subConversions) {
               if (subConv.tests) {
-                for (const [testIndex, test] of subConv.tests.entries()) {
-                  it(`${conv.title} test #${optionIndex}/${testIndex} should work`, async () => {
-                    // Set up test data
-                    skData = test.skData || {}
-                    skSelfData = test.skSelfData || {}
+                for (const [_testIndex, test] of subConv.tests.entries()) {
+                  // Set up test data
+                  skData = test.skData || {}
+                  skSelfData = test.skSelfData || {}
 
-                    // Execute the conversion callback
-                    const result = subConv.callback!(...test.input)
+                  // Execute the conversion callback
+                  const result = subConv.callback?.(...test.input)
+                  
+                  if (!result) {
+                    console.log(`Callback returned null for ${conv.title}, skipping test`)
+                    continue
+                  }
+
+                  const results = await Promise.resolve(result)
+                  if (!Array.isArray(results)) {
+                    throw new Error(`Expected array but got: ${typeof results}`)
+                  }
+
+                  const validResults = results.filter(isDefined)
+                  const pgns = await Promise.all(validResults)
+
+                  expect(pgns).toHaveLength(test.expected.length)
+
+                  // Test each PGN
+                  for (const [pgnIndex, pgn] of pgns.entries()) {
+                    expect(pgn).toBeTruthy()
+                    expect(typeof pgn).toBe('object')
+                    expect(pgn.pgn).toBeDefined()
+
+                    // Validate with CanboatJS
+                    const encoded = pgnToActisenseSerialFormat(pgn)
+                    expect(encoded).toBeTruthy()
+
+                    if (!encoded) {
+                      throw new Error('Failed to encode N2K message')
+                    }
+
+                    const parsed = parser.parseString(encoded)
+                    expect(parsed).toBeTruthy()
+
+                    if (!parsed) {
+                      throw new Error('Failed to parse N2K message')
+                    }
+
+                    // Clean up parsed message
+                    const cleanParsed = cleanN2KMessage(parsed as unknown as Record<string, unknown>)
                     
-                    if (!result) {
-                      console.log(`Callback returned null for ${conv.title}, skipping test`)
-                      return
+                    let expected = test.expected[pgnIndex]
+                    if (typeof expected === 'function') {
+                      expected = expected(options)
                     }
 
-                    const results = await Promise.resolve(result)
-                    if (!Array.isArray(results)) {
-                      throw new Error(`Expected array but got: ${typeof results}`)
-                    }
-
-                    const validResults = results.filter(isDefined)
-                    const pgns = await Promise.all(validResults)
-
-                    expect(pgns).toHaveLength(test.expected.length)
-
-                    // Test each PGN
-                    for (const [pgnIndex, pgn] of pgns.entries()) {
-                      expect(pgn).toBeTruthy()
-                      expect(typeof pgn).toBe('object')
-                      expect(pgn.pgn).toBeDefined()
-
-                      // Validate with CanboatJS
-                      const encoded = pgnToActisenseSerialFormat(pgn)
-                      expect(encoded).toBeTruthy()
-
-                      const parsed = parser.parseString(encoded!)
-                      expect(parsed).toBeTruthy()
-
-                      // Clean up parsed message
-                      const cleanParsed = cleanN2KMessage(parsed! as unknown as Record<string, unknown>)
-                      
-                      let expected = test.expected[pgnIndex]
-                      if (typeof expected === 'function') {
-                        expected = expected(options)
+                    // Handle preprocessing if defined
+                    if ('__preprocess__' in expected) {
+                      const expectedWithPreprocess = expected as Record<string, unknown> & {
+                        __preprocess__?: (testResult: Record<string, unknown>) => void
                       }
-
-                      // Handle preprocessing if defined
-                      if ('__preprocess__' in expected) {
-                        const preprocess = (expected as any).__preprocess__
-                        if (typeof preprocess === 'function') {
-                          preprocess(cleanParsed)
-                        }
-                        delete (expected as any).__preprocess__
+                      const preprocess = expectedWithPreprocess.__preprocess__
+                      if (typeof preprocess === 'function') {
+                        preprocess(cleanParsed as unknown as Record<string, unknown>)
                       }
-
-                      // Validate the parsed message matches expected
-                      expect(cleanParsed).toEqual(expected)
+                      delete expectedWithPreprocess.__preprocess__
                     }
-                  })
+
+                    // Validate the parsed message matches expected
+                    expect(cleanParsed).toEqual(expected)
+                  }
                 }
               }
             }

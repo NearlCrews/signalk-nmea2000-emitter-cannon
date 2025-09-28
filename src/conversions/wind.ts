@@ -82,7 +82,6 @@ export default function createWindConversion(): ConversionModule {
             dst: 255,
             fields: {
               windSpeed: 0,
-              windAngle: null,
               reference: "Apparent",
             },
           },

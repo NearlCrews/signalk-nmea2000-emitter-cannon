@@ -63,7 +63,6 @@ export default function createCogSogConversion(): ConversionModule {
             dst: 255,
             fields: {
               cogReference: "True",
-              cog: null,
               sog: 5.5,
             },
           },
@@ -80,7 +79,6 @@ export default function createCogSogConversion(): ConversionModule {
             fields: {
               cogReference: "True",
               cog: 1.57,
-              sog: null,
             },
           },
         ],

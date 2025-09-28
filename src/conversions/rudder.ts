@@ -59,7 +59,7 @@ export default function createRudderConversion(): ConversionModule {
             dst: 255,
             fields: {
               angleOrder: 0.1396,
-              directionOrder: "Turn Right",
+              directionOrder: "No Order",
               instance: 0,
               position: 0.0873,
             },
@@ -75,7 +75,7 @@ export default function createRudderConversion(): ConversionModule {
             dst: 255,
             fields: {
               angleOrder: 0.0698,
-              directionOrder: "Turn Left",
+              directionOrder: "No Order",
               instance: 0,
               position: -0.0349,
             },

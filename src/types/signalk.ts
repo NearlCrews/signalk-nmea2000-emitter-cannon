@@ -30,6 +30,12 @@ export interface SignalKApp {
   }
   /** Optional function to report output message count */
   reportOutputMessages?: (count: number) => void
+  /** Optional function to set provider error status */
+  setProviderError?: (error: string) => void
+  /** Handle incoming message/delta */
+  handleMessage?: (pluginId: string, delta: Delta) => void
+  /** Self vessel ID */
+  selfId?: string
 }
 
 /**

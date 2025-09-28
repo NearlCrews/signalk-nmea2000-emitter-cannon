@@ -87,17 +87,27 @@ export interface ConversionModule {
 }
 
 /**
+ * Test expectation that allows preprocessing of test results
+ */
+export type TestExpectedMessage = N2KMessage & {
+  /** Optional preprocessing function to modify test results for validation */
+  __preprocess__?: (testResult: N2KMessage) => void
+}
+
+/**
  * Test case for a conversion module
  */
 export interface ConversionTest {
-  /** Input values to pass to the conversion callback */
+  /** Input values for the conversion function */
   input: unknown[]
   /** Expected N2K messages output */
-  expected: N2KMessage[]
-  /** Signal K data context for the test */
+  expected: TestExpectedMessage[] | ((testOptions: Record<string, unknown>) => TestExpectedMessage)[]
+  /** Signal K data context for the test (app.getPath) */
   skData?: Record<string, unknown>
-  /** Signal K self data context for the test */
+  /** Signal K self vessel data context for the test (app.getSelfPath) */
   skSelfData?: Record<string, unknown>
+  /** Test options passed to expected function generators */
+  testOptions?: Record<string, unknown>
 }
 
 /**

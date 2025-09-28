@@ -28,14 +28,14 @@ export interface TimedN2KMessage extends N2KMessage {
 /**
  * NMEA 2000 field value types
  */
-export type N2KFieldValue = 
-  | string 
-  | number 
-  | boolean 
-  | null 
+export type N2KFieldValue =
+  | string
+  | number
+  | boolean
+  | null
   | undefined
   | N2KFieldValue[]
-  | Record<string, any>
+  | Record<string, unknown>
 
 /**
  * Common NMEA 2000 field names and their expected types

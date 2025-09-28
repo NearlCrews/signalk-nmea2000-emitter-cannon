@@ -77,6 +77,11 @@ export function isValidN2KFieldValue(value: unknown): value is N2KFieldValue {
   if (Array.isArray(value)) {
     return value.every(isValidN2KFieldValue)
   }
+  if (typeof value === 'object' && value !== null) {
+    // Allow objects (Record<string, unknown>)
+    const obj = value as Record<string, unknown>
+    return Object.values(obj).every(isValidN2KFieldValue)
+  }
   return false
 }
 

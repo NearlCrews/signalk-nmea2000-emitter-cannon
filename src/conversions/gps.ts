@@ -121,12 +121,12 @@ export default function createGpsConversion(): ConversionModule {
                 },
               ],
             },
-            __preprocess__: (testResult: any) => {
+            __preprocess__: (testResult: N2KMessage) => {
               // Remove dynamic date/time fields for testing
               delete testResult.fields.date
               delete testResult.fields.time
             },
-          } as any,
+          },
         ],
       },
       {

@@ -102,11 +102,11 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
     // If no PGNs found in tests, try to extract from title
     if (pgns.size === 0) {
       const titleMatch = conv.title.match(/\((\d+(?:\s*[&,]\s*\d+)*)\)/)
-      if (titleMatch && titleMatch[1]) {
+      if (titleMatch?.[1]) {
         const pgnString = titleMatch[1]
-        const pgnNumbers = pgnString.split(/[&,]/).map(p => parseInt(p.trim()))
+        const pgnNumbers = pgnString.split(/[&,]/).map(p => parseInt(p.trim(), 10))
         pgnNumbers.forEach(pgn => {
-          if (!isNaN(pgn)) pgns.add(pgn)
+          if (!Number.isNaN(pgn)) pgns.add(pgn)
         })
       }
     }

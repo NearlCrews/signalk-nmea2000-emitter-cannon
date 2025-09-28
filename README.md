@@ -34,9 +34,17 @@ A modern TypeScript Signal K server plugin that converts Signal K data to NMEA 2
 
 ### Manual Installation
 
+**Option 1: From npm registry**
 ```bash
 cd ~/.signalk
 npm install sk-n2k-emitter
+```
+
+**Option 2: Manual copy (for development)**
+```bash
+# After building from source
+npm run build
+cp -r dist/sk-n2k-emitter ~/.signalk/node_modules/
 ```
 
 ## Configuration

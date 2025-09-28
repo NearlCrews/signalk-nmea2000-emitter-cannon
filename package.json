@@ -11,7 +11,8 @@
     "CHANGELOG.md"
   ],
   "scripts": {
-    "build": "esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --outfile=dist/index.js --external:@canboat/canboatjs --external:rxjs --external:es-toolkit --external:path-scurry",
+    "build": "npm run clean && mkdir -p dist/sk-n2k-emitter && esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --outfile=dist/sk-n2k-emitter/index.js --external:@canboat/canboatjs --external:rxjs --external:es-toolkit --external:path-scurry && cp package.json README.md LICENSE CHANGELOG.md dist/sk-n2k-emitter/",
+    "build:npm": "esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --outfile=dist/index.js --external:@canboat/canboatjs --external:rxjs --external:es-toolkit --external:path-scurry",
     "build:watch": "npm run build -- --watch",
     "dev": "tsx src/index.ts",
     "test": "vitest",
@@ -22,7 +23,7 @@
     "check": "biome check src/",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
-    "prepack": "npm run clean && npm run build",
+    "prepack": "npm run clean && npm run build:npm",
     "create-release": "github-create-release --owner NearlCrews --repository sk-n2k-emitter",
     "release": "git tag -d v$npm_package_version ; git tag v$npm_package_version && git push --tags && git push && npm run create-release"
   },

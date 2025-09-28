@@ -50,71 +50,6 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
     app.error(`Failed to load conversions: ${error instanceof Error ? error.message : String(error)}`)
   })
 
-  /**
-   * Static schema definitions for all available conversions
-   * This ensures the configuration UI works immediately without async loading
-   */
-  function getStaticSchemaDefinitions(): Array<{ optionKey: string; title: string; pgns: number[] }> {
-    return [
-      { optionKey: 'WIND', title: 'Wind', pgns: [130306] },
-      { optionKey: 'DEPTH', title: 'Water Depth', pgns: [128267] },
-      { optionKey: 'BATTERY', title: 'Battery', pgns: [127506, 127508] },
-      { optionKey: 'COG_SOG', title: 'Course & Speed Over Ground', pgns: [129026] },
-      { optionKey: 'HEADING', title: 'Vessel Heading', pgns: [127250] },
-      { optionKey: 'SPEED', title: 'Speed Through Water', pgns: [128259] },
-      { optionKey: 'RUDDER', title: 'Rudder Position', pgns: [127245] },
-      { optionKey: 'GPS', title: 'GPS Position', pgns: [129025, 129029] },
-      { optionKey: 'TEMPERATURE_OUTSIDE', title: 'Outside Temperature', pgns: [130312] },
-      { optionKey: 'TEMPERATURE_INSIDE', title: 'Inside Temperature', pgns: [130312] },
-      { optionKey: 'TEMPERATURE_GENERIC', title: 'Generic Temperature', pgns: [130316] },
-      { optionKey: 'PRESSURE', title: 'Atmospheric Pressure', pgns: [130314] },
-      { optionKey: 'HUMIDITY_OUTSIDE', title: 'Outside Humidity', pgns: [130313] },
-      { optionKey: 'HUMIDITY_INSIDE', title: 'Inside Humidity', pgns: [130313] },
-      { optionKey: 'ENGINE_PARAMETERS', title: 'Engine Parameters', pgns: [127488, 127489, 130312] },
-      { optionKey: 'TANKS', title: 'Tank Levels', pgns: [127505] },
-      { optionKey: 'SYSTEM_TIME', title: 'System Time', pgns: [126992] },
-      { optionKey: 'SEA_TEMP', title: 'Sea Temperature', pgns: [130310] },
-      { optionKey: 'SOLAR', title: 'Solar Panels', pgns: [127508] },
-      { optionKey: 'ENVIRONMENT_PARAMETERS', title: 'Environmental Parameters', pgns: [130311] },
-      { optionKey: 'MAGNETIC_VARIANCE', title: 'Magnetic Variance', pgns: [127258] },
-      { optionKey: 'RATE_OF_TURN', title: 'Rate of Turn', pgns: [127251] },
-      { optionKey: 'TRUE_HEADING', title: 'True Heading', pgns: [127250] },
-      { optionKey: 'LEEWAY', title: 'Leeway Angle', pgns: [128000] },
-      { optionKey: 'SET_DRIFT', title: 'Set and Drift', pgns: [129291] },
-      { optionKey: 'ATTITUDE', title: 'Vessel Attitude', pgns: [127257] },
-      { optionKey: 'HEAVE', title: 'Vessel Heave', pgns: [127252] },
-      { optionKey: 'DIRECTION_DATA', title: 'Direction Data', pgns: [130577] },
-      { optionKey: 'GNSS_DOPS', title: 'GNSS DOPs', pgns: [129539] },
-      { optionKey: 'GNSS_SATELLITES', title: 'GNSS Satellites', pgns: [129540] },
-      { optionKey: 'AIS_CLASS_B_POSITION', title: 'AIS Class B Position', pgns: [129039] },
-      { optionKey: 'AIS_CLASS_B_EXTENDED', title: 'AIS Class B Extended', pgns: [129040] },
-      { optionKey: 'AIS_SAR_AIRCRAFT', title: 'AIS SAR Aircraft', pgns: [129798] },
-      { optionKey: 'AIS_SAFETY_MESSAGE', title: 'AIS Safety Message', pgns: [129802] },
-      { optionKey: 'CROSS_TRACK_ERROR', title: 'Cross Track Error', pgns: [129283] },
-      { optionKey: 'NAVIGATION_DATA', title: 'Navigation Data', pgns: [129284] },
-      { optionKey: 'NAVIGATION_DATA_GREAT_CIRCLE', title: 'Navigation Data Great Circle', pgns: [129284] },
-      { optionKey: 'BEARING_DISTANCE_MARKS', title: 'Bearing Distance Between Marks', pgns: [129302] },
-      { optionKey: 'ROUTE_WAYPOINT', title: 'Route and Waypoint Information', pgns: [129285] },
-      { optionKey: 'ROUTE_WP_LIST', title: 'Route Waypoint List', pgns: [130074] },
-      { optionKey: 'TIME_TO_MARK', title: 'Time to Mark', pgns: [129301] },
-      { optionKey: 'WIND_TRUE_GROUND', title: 'Wind True Over Ground', pgns: [130306] },
-      { optionKey: 'WIND_TRUE', title: 'Wind True Over Water', pgns: [130306] },
-      { optionKey: 'ENGINE_STATIC', title: 'Engine Configuration Parameters', pgns: [127498] },
-      { optionKey: 'TRANSMISSION_PARAMETERS', title: 'Transmission Parameters', pgns: [127493] },
-      { optionKey: 'SMALL_CRAFT_STATUS', title: 'Small Craft Status', pgns: [130576] },
-      { optionKey: 'NOTIFICATIONS', title: 'Notifications', pgns: [126983, 126985] },
-      { optionKey: 'PRODUCT_INFO', title: 'Product Information', pgns: [126996] },
-      { optionKey: 'ISO_ACKNOWLEDGMENT', title: 'ISO Acknowledgment', pgns: [59392] },
-      { optionKey: 'ISO_REQUEST', title: 'ISO Request', pgns: [59904] },
-      { optionKey: 'ISO_ADDRESS_CLAIM', title: 'ISO Address Claim', pgns: [60928] },
-      { optionKey: 'DSC_CALLS', title: 'DSC Call Information', pgns: [129808] },
-      { optionKey: 'RAYMARINE_ALARMS', title: 'Raymarine Alarms', pgns: [65288] },
-      { optionKey: 'PGN_LIST', title: 'PGN List', pgns: [126464] },
-      { optionKey: 'RADIO_FREQUENCY', title: 'Radio Frequency', pgns: [129799] },
-      { optionKey: 'RAYMARINE_BRIGHTNESS', title: 'Raymarine Display Brightness', pgns: [126720] },
-      { optionKey: 'AIS', title: 'AIS', pgns: [129038, 129794, 129041] }
-    ]
-  }
 
   /**
    * Load all conversion modules from the conversions directory
@@ -177,8 +112,8 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
         
         const obj: JSONSchema = {
           type: 'object',
-          title: cleanTitle, // Regular title (Signal K will render as bold)
-          description: pgnText ? `PGNs: ${pgnText}` : '', // Simple PGN description
+          title: cleanTitle, // Normal title (Signal K renders this as bold automatically)
+          description: pgnText ? `<i>PGNs: ${pgnText}</i>` : '', // HTML italic formatting for PGNs
           properties: {
             enabled: {
               title: 'Enabled',

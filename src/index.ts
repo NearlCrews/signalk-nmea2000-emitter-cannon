@@ -29,6 +29,8 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
   // Plugin state
   let unsubscribes: Array<() => void> = []
   let timers: NodeJS.Timeout[] = []
+  
+  // Load conversions synchronously like original (simulate with static definitions)
   let conversions: ConversionModule[] = []
 
   const plugin: SignalKPlugin = {
@@ -40,7 +42,82 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
     stop: stopPlugin
   }
 
-  // Load conversions immediately at plugin creation (like original)
+  // Initialize static schema immediately (like original loads with require)
+  const schema: JSONSchema = {
+    type: 'object',
+    title: 'Conversions to NMEA2000',
+    description: 'If there is SignalK data for the conversion generate the following NMEA2000 pgns from Signal K data:',
+    properties: {
+      WIND: {
+        type: 'object',
+        title: 'Wind',
+        description: '<i>PGNs: 130306</i>',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 },
+          environmentwindangleApparent: { title: 'Source for environment.wind.angleApparent', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' },
+          environmentwindspeedApparent: { title: 'Source for environment.wind.speedApparent', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' }
+        }
+      },
+      DEPTH: {
+        type: 'object',
+        title: 'Water Depth',
+        description: '<i>PGNs: 128267</i>',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 }
+        }
+      },
+      COG_SOG: {
+        type: 'object', 
+        title: 'COG & SOG',
+        description: '<i>PGNs: 129026</i>',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 },
+          navigationcourseOverGroundTrue: { title: 'Source for navigation.courseOverGroundTrue', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' },
+          navigationspeedOverGround: { title: 'Source for navigation.speedOverGround', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' }
+        }
+      },
+      HEADING: {
+        type: 'object',
+        title: 'Vessel Heading', 
+        description: '<i>PGNs: 127250</i>',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 },
+          navigationheadingMagnetic: { title: 'Source for navigation.headingMagnetic', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' }
+        }
+      },
+      BATTERY: {
+        type: 'object',
+        title: 'Battery',
+        description: '<i>PGNs: 127506, 127508</i>',
+        properties: {
+          enabled: { title: 'Enabled', type: 'boolean', default: false },
+          resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 },
+          batteries: {
+            title: 'Battery Mapping',
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                signalkId: { title: 'Signal K battery id', type: 'string' },
+                instanceId: { title: 'NMEA2000 Battery Instance Id', type: 'number' }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Load actual conversions for runtime functionality
   loadConversions().then(loadedConversions => {
     conversions.push(...loadedConversions)
     app.debug(`Loaded ${conversions.length} conversion modules`)
@@ -48,27 +125,6 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
     app.error(`Failed to load conversions: ${error instanceof Error ? error.message : String(error)}`)
   })
 
-  /**
-   * Static schema definitions as fallback
-   */
-  function getStaticSchemaDefinitions(): Array<{ optionKey: string; title: string; pgns: string }> {
-    return [
-      { optionKey: 'WIND', title: 'Wind', pgns: '130306' },
-      { optionKey: 'DEPTH', title: 'Water Depth', pgns: '128267' },
-      { optionKey: 'BATTERY', title: 'Battery', pgns: '127506, 127508' },
-      { optionKey: 'COG_SOG', title: 'COG & SOG', pgns: '129026' },
-      { optionKey: 'HEADING', title: 'Vessel Heading', pgns: '127250' },
-      { optionKey: 'SPEED', title: 'Speed Through Water', pgns: '128259' },
-      { optionKey: 'RUDDER', title: 'Rudder Position', pgns: '127245' },
-      { optionKey: 'GPS', title: 'GPS Position', pgns: '129025, 129029' },
-      { optionKey: 'TEMPERATURE_OUTSIDE', title: 'Outside Temperature', pgns: '130312' },
-      { optionKey: 'TEMPERATURE_INSIDE', title: 'Inside Temperature', pgns: '130312' },
-      { optionKey: 'TEMPERATURE_GENERIC', title: 'Generic Temperature', pgns: '130316' },
-      { optionKey: 'PRESSURE', title: 'Atmospheric Pressure', pgns: '130314' },
-      { optionKey: 'HUMIDITY_OUTSIDE', title: 'Outside Humidity', pgns: '130313' },
-      { optionKey: 'HUMIDITY_INSIDE', title: 'Inside Humidity', pgns: '130313' }
-    ]
-  }
 
   /**
    * Load all conversion modules from the conversions directory
@@ -110,74 +166,7 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
    * Create/update the plugin configuration schema (like original)
    */
   function updateSchema(): JSONSchema {
-    const schema: JSONSchema = {
-      type: 'object',
-      title: 'Conversions to NMEA2000',
-      description: 'If there is SignalK data for the conversion generate the following NMEA2000 pgns from Signal K data:',
-      properties: {}
-    }
-
-    for (const conversion of conversions) {
-      const conversionArray = Array.isArray(conversion) ? conversion : [conversion]
-      
-      for (const conv of conversionArray) {
-        // Apply font formatting: clean title + italic PGNs in description
-        const cleanTitle = conv.title.replace(/\s*\([^)]*\)/, '').trim()
-        const pgnMatch = conv.title.match(/\(([^)]+)\)/)
-        const pgnText = pgnMatch ? pgnMatch[1] : ''
-        
-        const obj: JSONSchema = {
-          type: 'object',
-          title: cleanTitle, // Bold normal font (Signal K default)
-          description: pgnText ? `<i>PGNs: ${pgnText}</i>` : '', // Small italic text
-          properties: {
-            enabled: {
-              title: 'Enabled',
-              type: 'boolean',
-              default: false
-            },
-            resend: {
-              type: 'number',
-              title: 'Resend (seconds)',
-              description: 'If non-zero, the msg will be periodically resent',
-              default: 0
-            },
-            resendTime: {
-              type: 'number',
-              title: 'Resend Duration (seconds)',
-              description: 'The value will be resent for the given number of seconds',
-              default: 30
-            }
-          }
-        }
-
-        // Add source selection properties for each key (like original)
-        const keys = conv.keys || []
-        for (const key of keys) {
-          const propName = pathToPropName(key)
-          if (obj.properties) {
-            obj.properties[propName] = {
-              title: `Source for ${key}`,
-              description: 'Use data only from this source (leave blank to ignore source)',
-              type: 'string'
-            }
-          }
-        }
-
-        // Add conversion-specific properties (like original)
-        if (conv.properties) {
-          const props = isFunction(conv.properties) ? conv.properties() : conv.properties
-          if (props && obj.properties) {
-            Object.assign(obj.properties, props)
-          }
-        }
-
-        if (schema.properties) {
-          schema.properties[conv.optionKey] = obj
-        }
-      }
-    }
-
+    // Return the pre-built static schema with formatting applied
     return schema
   }
 

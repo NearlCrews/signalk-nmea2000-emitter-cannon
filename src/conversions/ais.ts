@@ -408,7 +408,7 @@ function generateAtoN(vessel: Vessel, mmsi: string, delta: AisDelta): N2KMessage
     return null;
   }
 
-  const name = vessel.name || (findDeltaValue(vessel, delta, "name") as string);
+  const name = vessel?.name || (findDeltaValue(vessel, delta, "name") as string);
   // AtoN type (not currently used in message)
   // const typeObj = findDeltaValue(vessel, delta, "atonType") as { id?: number; name?: string };
   const lengthObj = findDeltaValue(vessel, delta, "design.length") as { overall?: number };

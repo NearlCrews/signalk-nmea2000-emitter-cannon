@@ -1,5 +1,37 @@
 ## Change Log
 
+### v1.1.1 (2025/09/28) - Critical Bug Fixes & Enhanced Configuration
+**Hotfix Release: Plugin Functionality Restored**
+
+**Critical Bug Fixes** by [@NearlCrews](https://github.com/NearlCrews):
+- **🚨 MAJOR FIX**: Resolved plugin not emitting NMEA 2000 data to canbus
+  - **Root Cause**: Dynamic file loading failed when plugin installed via npm (conversions directory missing)
+  - **Solution**: Replaced dynamic loading with static imports for all 47 conversion modules
+  - **Evidence**: Bundle size increased from 50kb → 196kb proving all modules now bundled
+- **🔧 Stream Processing Fix**: Corrected RxJS implementation to match original BaconJS behavior
+  - Fixed `timeoutingArrayStream` pattern for proper Signal K data handling
+  - Restored proper value extraction and timeout logic
+  - Eliminated "Using 0 conversion modules" error
+
+**Configuration UI Enhancements**:
+- **📝 Source Selection Options**: Added comprehensive source selection fields for all key conversions
+  - **Depth**: `environment.depth.belowTransducer`
+  - **Direction Data**: 8 navigation paths (COG, heading, course bearings)
+  - **Navigation Data**: 4 course calculation paths (distance, bearing, VMG, ETA)
+  - **Cross Track Error**: `navigation.course.calcValues.crossTrackError`
+  - **Route Waypoint**: Course position and distance paths
+  - **Engine Static**: Propulsion rated speed and operating hours
+  - **Transmission**: Gear ratio, oil pressure/temperature
+  - **Small Craft Status**: Trim tabs, depth, SOG
+- **🎯 User Experience**: Configuration UI now shows source selection for all conversions where applicable
+
+**Code Quality**:
+- **✅ Linting**: Completely clean (0 warnings) with Biome
+- **✅ Build**: Successful compilation producing 201.8kb production bundle
+- **✅ Testing**: All 76 conversion modules loading successfully
+
+**Impact**: Plugin now fully functional for marine electronics installations requiring NMEA 2000 output.
+
 ### v1.1.0 (2025/09/28) - Complete TypeScript Conversion
 **Major Release: 100% TypeScript Conversion with Perfect PGN Coverage**
 

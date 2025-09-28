@@ -1,8 +1,5 @@
-import { BehaviorSubject, combineLatest, debounceTime, map } from 'rxjs'
+import { BehaviorSubject, debounceTime } from 'rxjs'
 import { isFunction, isUndefined } from 'es-toolkit'
-import { readdir } from 'node:fs/promises'
-import { join } from 'node:path'
-import { pathToFileURL } from 'node:url'
 
 import type {
   SignalKApp,
@@ -18,6 +15,54 @@ import type {
 
 import { pathToPropName, isDefined } from './utils/pathUtils.js'
 import { validateN2KMessage, formatN2KMessage } from './utils/messageUtils.js'
+
+// Import all conversion modules statically
+import createWindConversion from './conversions/wind.js'
+import createDepthConversion from './conversions/depth.js'
+import createCogSogConversion from './conversions/cogSOG.js'
+import createHeadingConversion from './conversions/heading.js'
+import createBatteryConversion from './conversions/battery.js'
+import createSpeedConversion from './conversions/speed.js'
+import createRudderConversion from './conversions/rudder.js'
+import createGpsConversion from './conversions/gps.js'
+import createTemperatureConversion from './conversions/temperature.js'
+import createPressureConversion from './conversions/pressure.js'
+import createHumidityConversion from './conversions/humidity.js'
+import createEngineParametersConversion from './conversions/engineParameters.js'
+import createTanksConversion from './conversions/tanks.js'
+import createSystemTimeConversion from './conversions/systemTime.js'
+import createSeaTempConversion from './conversions/seaTemp.js'
+import createSolarConversion from './conversions/solar.js'
+import createEnvironmentParametersConversion from './conversions/environmentParameters.js'
+import createMagneticVarianceConversion from './conversions/magneticVariance.js'
+import createRateOfTurnConversion from './conversions/rateOfTurn.js'
+import createTrueHeadingConversion from './conversions/trueheading.js'
+import createLeewayConversion from './conversions/leeway.js'
+import createSetDriftConversion from './conversions/setdrift.js'
+import createAttitudeConversion from './conversions/attitude.js'
+import createHeaveConversion from './conversions/heave.js'
+import createDirectionDataConversion from './conversions/directionData.js'
+import createGnssDataConversion from './conversions/gnssData.js'
+import createRouteWaypointConversion from './conversions/routeWaypoint.js'
+import createRouteWpListConversion from './conversions/routeWpList.js'
+import createTimeToMarkConversion from './conversions/timeToMark.js'
+import createWindTrueGroundConversion from './conversions/windTrueGround.js'
+import createWindTrueWaterConversion from './conversions/windTrueWater.js'
+import createEngineStaticConversion from './conversions/engineStatic.js'
+import createTransmissionParametersConversion from './conversions/transmissionParameters.js'
+import createSmallCraftStatusConversion from './conversions/smallCraftStatus.js'
+import createProductInfoConversion from './conversions/productInfo.js'
+import createIsoMessagesConversion from './conversions/isoMessages.js'
+import createRaymarineAlarmsConversion from './conversions/raymarineAlarms.js'
+import createPgnListConversion from './conversions/pgnList.js'
+import createNavigationDataConversion from './conversions/navigationData.js'
+import createDscCallsConversion from './conversions/dscCalls.js'
+import createAisExtendedConversion from './conversions/aisExtended.js'
+import createBearingDistanceBetweenMarksConversion from './conversions/bearingDistanceBetweenMarks.js'
+import createRadioFrequencyConversion from './conversions/radioFrequency.js'
+import createRaymarineBrightnessConversion from './conversions/raymarineBrightness.js'
+import createAisConversion from './conversions/ais.js'
+import createNotificationsConversion from './conversions/notifications.js'
 
 /**
  * Signal K to NMEA 2000 conversion plugin factory
@@ -67,7 +112,8 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
         properties: {
           enabled: { title: 'Enabled', type: 'boolean', default: false },
           resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
-          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 }
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 },
+          environmentdepthbelowTransducer: { title: 'Source for environment.depth.belowTransducer', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' }
         }
       },
       COG_SOG: {
@@ -389,7 +435,15 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
         properties: {
           enabled: { title: 'Enabled', type: 'boolean', default: false },
           resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
-          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 }
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 },
+          navigationcourseOverGroundTrue: { title: 'Source for navigation.courseOverGroundTrue', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' },
+          navigationcourseOverGroundMagnetic: { title: 'Source for navigation.courseOverGroundMagnetic', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' },
+          navigationheadingTrue: { title: 'Source for navigation.headingTrue', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' },
+          navigationheadingMagnetic: { title: 'Source for navigation.headingMagnetic', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' },
+          navigationcourseRhumblinenextPointbearingTrue: { title: 'Source for navigation.courseRhumbline.nextPoint.bearingTrue', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' },
+          navigationcourseRhumblinenextPointbearingMagnetic: { title: 'Source for navigation.courseRhumbline.nextPoint.bearingMagnetic', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' },
+          navigationcourseGreatCirclenextPointbearingTrue: { title: 'Source for navigation.courseGreatCircle.nextPoint.bearingTrue', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' },
+          navigationcourseGreatCirclenextPointbearingMagnetic: { title: 'Source for navigation.courseGreatCircle.nextPoint.bearingMagnetic', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' }
         }
       },
       GNSS_DOPS: {
@@ -455,7 +509,8 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
         properties: {
           enabled: { title: 'Enabled', type: 'boolean', default: false },
           resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
-          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 }
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 },
+          navigationcoursecalcValuescrossTrackError: { title: 'Source for navigation.course.calcValues.crossTrackError', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' }
         }
       },
       NAVIGATION_DATA: {
@@ -465,7 +520,11 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
         properties: {
           enabled: { title: 'Enabled', type: 'boolean', default: false },
           resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
-          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 }
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 },
+          navigationcoursecalcValuesdistance: { title: 'Source for navigation.course.calcValues.distance', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' },
+          navigationcoursecalcValuesbearing: { title: 'Source for navigation.course.calcValues.bearing', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' },
+          navigationcoursecalcValuesvelocityMadeGood: { title: 'Source for navigation.course.calcValues.velocityMadeGood', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' },
+          navigationcoursecalcValueseta: { title: 'Source for navigation.course.calcValues.eta', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' }
         }
       },
       BEARING_DISTANCE_MARKS: {
@@ -475,7 +534,9 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
         properties: {
           enabled: { title: 'Enabled', type: 'boolean', default: false },
           resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
-          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 }
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 },
+          navigationcoursenextPointbearingMagnetic: { title: 'Source for navigation.course.nextPoint.bearingMagnetic', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' },
+          navigationcoursenextPointdistance: { title: 'Source for navigation.course.nextPoint.distance', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' }
         }
       },
       ROUTE_WAYPOINT: {
@@ -485,7 +546,9 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
         properties: {
           enabled: { title: 'Enabled', type: 'boolean', default: false },
           resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
-          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 }
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 },
+          navigationcoursenextPointposition: { title: 'Source for navigation.course.nextPoint.position', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' },
+          navigationcoursenextPointdistance: { title: 'Source for navigation.course.nextPoint.distance', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' }
         }
       },
       TIME_TO_MARK: {
@@ -495,7 +558,8 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
         properties: {
           enabled: { title: 'Enabled', type: 'boolean', default: false },
           resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
-          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 }
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 },
+          navigationcoursenextPointtimeToGo: { title: 'Source for navigation.course.nextPoint.timeToGo', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' }
         }
       },
       WIND_TRUE_GROUND: {
@@ -529,7 +593,9 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
         properties: {
           enabled: { title: 'Enabled', type: 'boolean', default: false },
           resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
-          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 }
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 },
+          propulsionmainratedEngineSpeed: { title: 'Source for propulsion.main.ratedEngineSpeed', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' },
+          propulsionmainengineoperatingHours: { title: 'Source for propulsion.main.engine.operatingHours', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' }
         }
       },
       TRANSMISSION_PARAMETERS: {
@@ -539,7 +605,10 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
         properties: {
           enabled: { title: 'Enabled', type: 'boolean', default: false },
           resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
-          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 }
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 },
+          propulsionmaintransmissiongearRatio: { title: 'Source for propulsion.main.transmission.gearRatio', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' },
+          propulsionmaintransmissionoilPressure: { title: 'Source for propulsion.main.transmission.oilPressure', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' },
+          propulsionmaintransmissionoilTemperature: { title: 'Source for propulsion.main.transmission.oilTemperature', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' }
         }
       },
       SMALL_CRAFT_STATUS: {
@@ -549,7 +618,11 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
         properties: {
           enabled: { title: 'Enabled', type: 'boolean', default: false },
           resend: { type: 'number', title: 'Resend (seconds)', description: 'If non-zero, the msg will be periodically resent', default: 0 },
-          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 }
+          resendTime: { type: 'number', title: 'Resend Duration (seconds)', description: 'The value will be resent for the given number of seconds', default: 30 },
+          steeringtrimTabport: { title: 'Source for steering.trimTab.port', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' },
+          steeringtrimTabstarboard: { title: 'Source for steering.trimTab.starboard', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' },
+          environmentdepthbelowTransducer: { title: 'Source for environment.depth.belowTransducer', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' },
+          navigationspeedOverGround: { title: 'Source for navigation.speedOverGround', description: 'Use data only from this source (leave blank to ignore source)', type: 'string' }
         }
       },
       NOTIFICATIONS: {
@@ -655,50 +728,79 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
     }
   }
 
-  // Load actual conversions for runtime functionality
-  loadConversions().then(loadedConversions => {
-    conversions.push(...loadedConversions)
-    app.debug(`Loaded ${conversions.length} conversion modules`)
-  }).catch(error => {
-    app.error(`Failed to load conversions: ${error instanceof Error ? error.message : String(error)}`)
-  })
-
-
-  /**
-   * Load all conversion modules from the conversions directory
-   */
-  async function loadConversions(): Promise<ConversionModule[]> {
-    try {
-      const conversionsPath = new URL('./conversions', import.meta.url).pathname
-      const files = await readdir(conversionsPath)
-      
-      const loadedConversions: ConversionModule[] = []
-      
-      for (const file of files) {
-        if (!file.endsWith('.js') && !file.endsWith('.ts')) continue
-        
-        try {
-          const modulePath = pathToFileURL(join(conversionsPath, file)).href
-          const module = await import(modulePath)
-          
-          if (isFunction(module.default)) {
-            const result = module.default(app, plugin)
-            if (result) {
-              const conversionArray = Array.isArray(result) ? result : [result]
-              loadedConversions.push(...conversionArray.filter(isDefined))
-            }
+  // Load conversions using static imports (bundled approach)
+  function loadConversions(): ConversionModule[] {
+    const conversionFactories = [
+      createWindConversion,
+      createDepthConversion,
+      createCogSogConversion,
+      createHeadingConversion,
+      createBatteryConversion,
+      createSpeedConversion,
+      createRudderConversion,
+      createGpsConversion,
+      createTemperatureConversion,
+      createPressureConversion,
+      createHumidityConversion,
+      createEngineParametersConversion,
+      createTanksConversion,
+      createSystemTimeConversion,
+      createSeaTempConversion,
+      createSolarConversion,
+      createEnvironmentParametersConversion,
+      createMagneticVarianceConversion,
+      createRateOfTurnConversion,
+      createTrueHeadingConversion,
+      createLeewayConversion,
+      createSetDriftConversion,
+      createAttitudeConversion,
+      createHeaveConversion,
+      createDirectionDataConversion,
+      createGnssDataConversion,
+      createRouteWaypointConversion,
+      createRouteWpListConversion,
+      createTimeToMarkConversion,
+      createWindTrueGroundConversion,
+      createWindTrueWaterConversion,
+      createEngineStaticConversion,
+      createTransmissionParametersConversion,
+      createSmallCraftStatusConversion,
+      createProductInfoConversion,
+      createIsoMessagesConversion,
+      createRaymarineAlarmsConversion,
+      createPgnListConversion,
+      createNavigationDataConversion,
+      createDscCallsConversion,
+      createAisExtendedConversion,
+      createBearingDistanceBetweenMarksConversion,
+      createRadioFrequencyConversion,
+      createRaymarineBrightnessConversion,
+      createAisConversion,
+      createNotificationsConversion
+    ]
+    
+    const loadedConversions: ConversionModule[] = []
+    
+    for (const factory of conversionFactories) {
+      try {
+        if (isFunction(factory)) {
+          const result = factory(app, plugin)
+          if (result) {
+            const conversionArray = Array.isArray(result) ? result : [result]
+            loadedConversions.push(...conversionArray.filter(isDefined))
           }
-        } catch (error) {
-          app.error(`Failed to load conversion module ${file}: ${error instanceof Error ? error.message : String(error)}`)
         }
+      } catch (error) {
+        app.error(`Failed to load conversion: ${error instanceof Error ? error.message : String(error)}`)
       }
-      
-      return loadedConversions.filter(isDefined)
-    } catch (error) {
-      app.error(`Failed to load conversions: ${error instanceof Error ? error.message : String(error)}`)
-      return []
     }
+    
+    return loadedConversions.filter(isDefined)
   }
+
+  // Load conversions synchronously at plugin creation
+  conversions = loadConversions()
+  app.debug(`Loaded ${conversions.length} conversion modules at plugin creation`)
 
   /**
    * Create/update the plugin configuration schema (like original)
@@ -791,68 +893,94 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
   }
 
   /**
-   * Map RxJS-based value change conversions (replaces BaconJS)
+   * Map Signal K stream-based value change conversions using BaconJS-like pattern
    */
   function mapRxJS(conversion: ConversionModule, options: unknown): void {
     const pluginOptions = options as PluginOptions[string]
     const keys = conversion.keys || []
     const timeouts = conversion.timeouts || []
     
-    // Create observables for each Signal K path
-    const observables = keys.map((key, index) => {
-      const sourceRef = pluginOptions[pathToPropName(key)] as string | undefined
-      const timeout = timeouts[index] || 60000
+    app.debug(`Setting up conversion: ${conversion.title} with keys: ${JSON.stringify(keys)}`)
+    app.debug(`Timeouts: ${JSON.stringify(timeouts)}`)
+    
+    // Replicate the original BaconJS timeoutingArrayStream pattern
+    const lastValues: Record<string, { timestamp: number; value: unknown }> = {}
+    
+    // Initialize lastValues for all keys
+    keys.forEach(key => {
+      lastValues[key] = {
+        timestamp: Date.now(),
+        value: null
+      }
+    })
+    
+    // Create a subject to combine all streams (like Bacon.Bus)
+    const combinedBus = new BehaviorSubject<unknown[]>([])
+    
+    // Set up individual stream subscriptions
+    keys.forEach(skKey => {
+      const sourceRef = pluginOptions[pathToPropName(skKey)] as string | undefined
+      app.debug(`Setting up ${skKey} with sourceRef: ${sourceRef}`)
       
-      app.debug(`Setting up observable for ${key} with timeout ${timeout}ms`)
-      
-      // Create a BehaviorSubject to track the latest value with timestamp
-      const subject = new BehaviorSubject<{ value: unknown; timestamp: number }>({
-        value: null,
-        timestamp: Date.now()
-      })
-      
-      // Get the current bus and set up subscription
-      const bus = app.streambundle.getSelfBus(key)
-      let filteredBus = bus
+      let bus = app.streambundle.getSelfBus(skKey)
       
       if (sourceRef) {
-        filteredBus = bus.filter((x: unknown) => {
+        bus = bus.filter((x: unknown) => {
           const obj = x as { $source?: string }
           return obj.$source === sourceRef
         })
       }
       
-      const unsubscribe = filteredBus.map('.value').onValue((value: unknown) => {
-        subject.next({
-          value,
-          timestamp: Date.now()
+      // This is the critical fix - use the exact same pattern as original
+      const unsubscribe = bus.onValue((streamData: unknown) => {
+        // Extract value exactly like the original: bus.map(".value")
+        let value: unknown
+        if (streamData && typeof streamData === 'object' && 'value' in (streamData as object)) {
+          value = (streamData as { value: unknown }).value
+        } else {
+          value = streamData
+        }
+        
+        app.debug(`${skKey}: received value ${JSON.stringify(value)}`)
+        
+        // Update the last value for this key
+        lastValues[skKey] = {
+          timestamp: Date.now(),
+          value
+        }
+        
+        // Push current values array (like original Bacon.Bus.push)
+        const now = Date.now()
+        const currentValues = keys.map((key, i) => {
+          const timeout = timeouts[i]
+          return (!isDefined(timeout) || (lastValues[key]?.timestamp || 0) + (timeout || 0) > now)
+            ? lastValues[key]?.value
+            : null
         })
+        
+        app.debug(`Pushing combined values: ${JSON.stringify(currentValues)}`)
+        combinedBus.next(currentValues)
       })
       
-      unsubscribes.push(unsubscribe)
-      
-      // Return observable that filters by timeout
-      return subject.pipe(
-        map(({ value, timestamp }) => {
-          const now = Date.now()
-          return isDefined(timeouts[index]) && timestamp + timeout < now ? null : value
-        })
-      )
+      if (unsubscribe) {
+        unsubscribes.push(unsubscribe)
+      }
     })
     
-    // Combine all observables and debounce
-    const combined = combineLatest(observables).pipe(
+    // Debounce and process like the original
+    const subscription = combinedBus.pipe(
       debounceTime(10)
-    )
-    
-    const subscription = combined.subscribe((values) => {
+    ).subscribe((values) => {
       try {
+        app.debug(`*** CALLBACK TRIGGERED for ${conversion.title} with values: ${JSON.stringify(values)}`)
         if (conversion.callback) {
           const result = conversion.callback(...values)
+          app.debug(`*** CALLBACK RESULT for ${conversion.title}: ${JSON.stringify(result)}`)
           processOutput(conversion, pluginOptions, result)
         }
       } catch (err) {
         app.error(err instanceof Error ? err : new Error(String(err)))
+        console.error('Error in callback:', err)
       }
     })
     
@@ -975,13 +1103,21 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
   /**
    * Start the plugin
    */
-  async function startPlugin(options: PluginOptions): Promise<void> {
+  function startPlugin(options: PluginOptions): void {
     try {
-      // Load conversions first
-      conversions = await loadConversions()
-      app.debug(`Loaded ${conversions.length} conversion modules`)
-
-      // Conversions loaded, schema will be generated dynamically
+      app.debug(`=== SK-N2K-EMITTER STARTING ===`)
+      app.debug(`Plugin options received: ${JSON.stringify(Object.keys(options))}`)
+      app.debug(`Using ${conversions.length} conversion modules`)
+      
+      // Count enabled conversions
+      let enabledCount = 0
+      for (const key of Object.keys(options)) {
+        if (options[key]?.enabled) {
+          enabledCount++
+          app.debug(`${key} is ENABLED in options`)
+        }
+      }
+      app.debug(`Total enabled conversions in options: ${enabledCount}`)
 
       // Start enabled conversions
       for (const conversion of conversions) {
@@ -989,11 +1125,13 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
         
         for (const conv of conversionArray) {
           const convOptions = options[conv.optionKey]
+          app.debug(`Checking conversion ${conv.title} (${conv.optionKey}) - enabled: ${convOptions?.enabled}`)
+          
           if (!convOptions?.enabled) {
             continue
           }
 
-          app.debug(`${conv.title} is enabled`)
+          app.debug(`*** SETTING UP ENABLED CONVERSION: ${conv.title} ***`)
 
           let subConversions = conv.conversions
           if (isUndefined(subConversions)) {
@@ -1002,13 +1140,20 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
             subConversions = subConversions(convOptions)
           }
 
-          if (!subConversions) continue
+          if (!subConversions) {
+            app.debug(`No subconversions for ${conv.title}`)
+            continue
+          }
+
+          app.debug(`Setting up ${subConversions.length} subconversions for ${conv.title}`)
 
           for (const subConversion of subConversions) {
             if (isUndefined(subConversion)) continue
 
             const sourceType = subConversion.sourceType || 'onValueChange'
             const mapper = sourceTypes[sourceType]
+
+            app.debug(`Setting up subconversion with sourceType: ${sourceType}`)
 
             if (!mapper) {
               console.error(`Unknown conversion type: ${sourceType}`)
@@ -1020,12 +1165,17 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
               subConversion.outputType = 'to-n2k'
             }
 
+            app.debug(`Calling mapper for ${subConversion.title || 'unnamed subconversion'}`)
             mapper(subConversion, convOptions)
+            app.debug(`Mapper completed for ${subConversion.title || 'unnamed subconversion'}`)
           }
         }
       }
+      
+      app.debug(`=== SK-N2K-EMITTER STARTUP COMPLETE ===`)
     } catch (error) {
       app.error(`Failed to start plugin: ${error instanceof Error ? error.message : String(error)}`)
+      console.error('Full startup error:', error)
     }
   }
 

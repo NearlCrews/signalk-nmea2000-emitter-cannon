@@ -30,26 +30,45 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
   let unsubscribes: Array<() => void> = []
   let timers: NodeJS.Timeout[] = []
   let conversions: ConversionModule[] = []
-  let pluginSchema: JSONSchema | null = null
 
   const plugin: SignalKPlugin = {
     id: 'sk-n2k-emitter',
     name: 'SignalK to N2K Emitter',
     description: 'Plugin to convert Signal K to NMEA2000 with enhanced Garmin compatibility (92% PGN coverage)',
-    schema: () => createPluginSchema(),
+    schema: () => updateSchema(),
     start: startPlugin,
     stop: stopPlugin
   }
 
-  // Load conversions immediately at plugin creation (like original code)
+  // Load conversions immediately at plugin creation (like original)
   loadConversions().then(loadedConversions => {
     conversions.push(...loadedConversions)
-    pluginSchema = null // Reset schema cache to trigger regeneration
-    app.debug(`Loaded ${conversions.length} conversion modules for schema`)
+    app.debug(`Loaded ${conversions.length} conversion modules`)
   }).catch(error => {
     app.error(`Failed to load conversions: ${error instanceof Error ? error.message : String(error)}`)
   })
 
+  /**
+   * Static schema definitions as fallback
+   */
+  function getStaticSchemaDefinitions(): Array<{ optionKey: string; title: string; pgns: string }> {
+    return [
+      { optionKey: 'WIND', title: 'Wind', pgns: '130306' },
+      { optionKey: 'DEPTH', title: 'Water Depth', pgns: '128267' },
+      { optionKey: 'BATTERY', title: 'Battery', pgns: '127506, 127508' },
+      { optionKey: 'COG_SOG', title: 'COG & SOG', pgns: '129026' },
+      { optionKey: 'HEADING', title: 'Vessel Heading', pgns: '127250' },
+      { optionKey: 'SPEED', title: 'Speed Through Water', pgns: '128259' },
+      { optionKey: 'RUDDER', title: 'Rudder Position', pgns: '127245' },
+      { optionKey: 'GPS', title: 'GPS Position', pgns: '129025, 129029' },
+      { optionKey: 'TEMPERATURE_OUTSIDE', title: 'Outside Temperature', pgns: '130312' },
+      { optionKey: 'TEMPERATURE_INSIDE', title: 'Inside Temperature', pgns: '130312' },
+      { optionKey: 'TEMPERATURE_GENERIC', title: 'Generic Temperature', pgns: '130316' },
+      { optionKey: 'PRESSURE', title: 'Atmospheric Pressure', pgns: '130314' },
+      { optionKey: 'HUMIDITY_OUTSIDE', title: 'Outside Humidity', pgns: '130313' },
+      { optionKey: 'HUMIDITY_INSIDE', title: 'Inside Humidity', pgns: '130313' }
+    ]
+  }
 
   /**
    * Load all conversion modules from the conversions directory
@@ -87,13 +106,10 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
     }
   }
 
-
   /**
-   * Create the plugin configuration schema
+   * Create/update the plugin configuration schema (like original)
    */
-  function createPluginSchema(): JSONSchema {
-    if (pluginSchema) return pluginSchema
-
+  function updateSchema(): JSONSchema {
     const schema: JSONSchema = {
       type: 'object',
       title: 'Conversions to NMEA2000',
@@ -105,15 +121,15 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
       const conversionArray = Array.isArray(conversion) ? conversion : [conversion]
       
       for (const conv of conversionArray) {
-        // Extract PGNs from title and apply UI formatting
+        // Apply font formatting: clean title + italic PGNs in description
         const cleanTitle = conv.title.replace(/\s*\([^)]*\)/, '').trim()
         const pgnMatch = conv.title.match(/\(([^)]+)\)/)
         const pgnText = pgnMatch ? pgnMatch[1] : ''
         
         const obj: JSONSchema = {
           type: 'object',
-          title: cleanTitle, // Normal title (Signal K renders this as bold automatically)
-          description: pgnText ? `<i>PGNs: ${pgnText}</i>` : '', // HTML italic formatting for PGNs
+          title: cleanTitle, // Bold normal font (Signal K default)
+          description: pgnText ? `<i>PGNs: ${pgnText}</i>` : '', // Small italic text
           properties: {
             enabled: {
               title: 'Enabled',
@@ -148,7 +164,7 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
           }
         }
 
-        // Add conversion-specific properties
+        // Add conversion-specific properties (like original)
         if (conv.properties) {
           const props = isFunction(conv.properties) ? conv.properties() : conv.properties
           if (props && obj.properties) {
@@ -162,7 +178,6 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
       }
     }
 
-    pluginSchema = schema
     return schema
   }
 
@@ -439,8 +454,7 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
       conversions = await loadConversions()
       app.debug(`Loaded ${conversions.length} conversion modules`)
 
-      // Update schema with loaded conversions
-      pluginSchema = null // Reset cached schema
+      // Conversions loaded, schema will be generated dynamically
 
       // Start enabled conversions
       for (const conversion of conversions) {

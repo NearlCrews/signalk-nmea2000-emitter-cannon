@@ -166,39 +166,64 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
       properties: {}
     }
 
-    // Use static schema definitions to ensure UI works immediately
-    const staticDefinitions = getStaticSchemaDefinitions()
-    
-    for (const def of staticDefinitions) {
-      const pgnDescription = `*PGNs: ${def.pgns.join(', ')}*`
+    for (const conversion of conversions) {
+      const conversionArray = Array.isArray(conversion) ? conversion : [conversion]
       
-      const obj: JSONSchema = {
-        type: 'object',
-        title: `**${def.title}**`,
-        description: pgnDescription,
-        properties: {
-          enabled: {
-            title: 'Enabled',
-            type: 'boolean',
-            default: false
-          },
-          resend: {
-            type: 'number',
-            title: 'Resend (seconds)',
-            description: 'If non-zero, the msg will be periodically resent',
-            default: 0
-          },
-          resendTime: {
-            type: 'number',
-            title: 'Resend Duration (seconds)',
-            description: 'The value will be resent for the given number of seconds',
-            default: 30
+      for (const conv of conversionArray) {
+        // Extract PGNs from title and apply UI formatting
+        const cleanTitle = conv.title.replace(/\s*\([^)]*\)/, '').trim()
+        const pgnMatch = conv.title.match(/\(([^)]+)\)/)
+        const pgnText = pgnMatch ? pgnMatch[1] : ''
+        
+        const obj: JSONSchema = {
+          type: 'object',
+          title: cleanTitle, // Regular title (Signal K will render as bold)
+          description: pgnText ? `PGNs: ${pgnText}` : '', // Simple PGN description
+          properties: {
+            enabled: {
+              title: 'Enabled',
+              type: 'boolean',
+              default: false
+            },
+            resend: {
+              type: 'number',
+              title: 'Resend (seconds)',
+              description: 'If non-zero, the msg will be periodically resent',
+              default: 0
+            },
+            resendTime: {
+              type: 'number',
+              title: 'Resend Duration (seconds)',
+              description: 'The value will be resent for the given number of seconds',
+              default: 30
+            }
           }
         }
-      }
 
-      if (schema.properties) {
-        schema.properties[def.optionKey] = obj
+        // Add source selection properties for each key (like original)
+        const keys = conv.keys || []
+        for (const key of keys) {
+          const propName = pathToPropName(key)
+          if (obj.properties) {
+            obj.properties[propName] = {
+              title: `Source for ${key}`,
+              description: 'Use data only from this source (leave blank to ignore source)',
+              type: 'string'
+            }
+          }
+        }
+
+        // Add conversion-specific properties
+        if (conv.properties) {
+          const props = isFunction(conv.properties) ? conv.properties() : conv.properties
+          if (props && obj.properties) {
+            Object.assign(obj.properties, props)
+          }
+        }
+
+        if (schema.properties) {
+          schema.properties[conv.optionKey] = obj
+        }
       }
     }
 

@@ -26,6 +26,12 @@ import { validateN2KMessage, formatN2KMessage } from './utils/messageUtils.js'
  * @returns Plugin instance
  */
 export default function createPlugin(app: SignalKApp): SignalKPlugin {
+  // Plugin state
+  let unsubscribes: Array<() => void> = []
+  let timers: NodeJS.Timeout[] = []
+  let conversions: ConversionModule[] = []
+  let pluginSchema: JSONSchema | null = null
+
   const plugin: SignalKPlugin = {
     id: 'sk-n2k-emitter',
     name: 'SignalK to N2K Emitter',
@@ -35,11 +41,80 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
     stop: stopPlugin
   }
 
-  // Plugin state
-  let unsubscribes: Array<() => void> = []
-  let timers: NodeJS.Timeout[] = []
-  let conversions: ConversionModule[] = []
-  let pluginSchema: JSONSchema | null = null
+  // Load conversions immediately at plugin creation (like original code)
+  loadConversions().then(loadedConversions => {
+    conversions.push(...loadedConversions)
+    pluginSchema = null // Reset schema cache to trigger regeneration
+    app.debug(`Loaded ${conversions.length} conversion modules for schema`)
+  }).catch(error => {
+    app.error(`Failed to load conversions: ${error instanceof Error ? error.message : String(error)}`)
+  })
+
+  /**
+   * Static schema definitions for all available conversions
+   * This ensures the configuration UI works immediately without async loading
+   */
+  function getStaticSchemaDefinitions(): Array<{ optionKey: string; title: string; pgns: number[] }> {
+    return [
+      { optionKey: 'WIND', title: 'Wind', pgns: [130306] },
+      { optionKey: 'DEPTH', title: 'Water Depth', pgns: [128267] },
+      { optionKey: 'BATTERY', title: 'Battery', pgns: [127506, 127508] },
+      { optionKey: 'COG_SOG', title: 'Course & Speed Over Ground', pgns: [129026] },
+      { optionKey: 'HEADING', title: 'Vessel Heading', pgns: [127250] },
+      { optionKey: 'SPEED', title: 'Speed Through Water', pgns: [128259] },
+      { optionKey: 'RUDDER', title: 'Rudder Position', pgns: [127245] },
+      { optionKey: 'GPS', title: 'GPS Position', pgns: [129025, 129029] },
+      { optionKey: 'TEMPERATURE_OUTSIDE', title: 'Outside Temperature', pgns: [130312] },
+      { optionKey: 'TEMPERATURE_INSIDE', title: 'Inside Temperature', pgns: [130312] },
+      { optionKey: 'TEMPERATURE_GENERIC', title: 'Generic Temperature', pgns: [130316] },
+      { optionKey: 'PRESSURE', title: 'Atmospheric Pressure', pgns: [130314] },
+      { optionKey: 'HUMIDITY_OUTSIDE', title: 'Outside Humidity', pgns: [130313] },
+      { optionKey: 'HUMIDITY_INSIDE', title: 'Inside Humidity', pgns: [130313] },
+      { optionKey: 'ENGINE_PARAMETERS', title: 'Engine Parameters', pgns: [127488, 127489, 130312] },
+      { optionKey: 'TANKS', title: 'Tank Levels', pgns: [127505] },
+      { optionKey: 'SYSTEM_TIME', title: 'System Time', pgns: [126992] },
+      { optionKey: 'SEA_TEMP', title: 'Sea Temperature', pgns: [130310] },
+      { optionKey: 'SOLAR', title: 'Solar Panels', pgns: [127508] },
+      { optionKey: 'ENVIRONMENT_PARAMETERS', title: 'Environmental Parameters', pgns: [130311] },
+      { optionKey: 'MAGNETIC_VARIANCE', title: 'Magnetic Variance', pgns: [127258] },
+      { optionKey: 'RATE_OF_TURN', title: 'Rate of Turn', pgns: [127251] },
+      { optionKey: 'TRUE_HEADING', title: 'True Heading', pgns: [127250] },
+      { optionKey: 'LEEWAY', title: 'Leeway Angle', pgns: [128000] },
+      { optionKey: 'SET_DRIFT', title: 'Set and Drift', pgns: [129291] },
+      { optionKey: 'ATTITUDE', title: 'Vessel Attitude', pgns: [127257] },
+      { optionKey: 'HEAVE', title: 'Vessel Heave', pgns: [127252] },
+      { optionKey: 'DIRECTION_DATA', title: 'Direction Data', pgns: [130577] },
+      { optionKey: 'GNSS_DOPS', title: 'GNSS DOPs', pgns: [129539] },
+      { optionKey: 'GNSS_SATELLITES', title: 'GNSS Satellites', pgns: [129540] },
+      { optionKey: 'AIS_CLASS_B_POSITION', title: 'AIS Class B Position', pgns: [129039] },
+      { optionKey: 'AIS_CLASS_B_EXTENDED', title: 'AIS Class B Extended', pgns: [129040] },
+      { optionKey: 'AIS_SAR_AIRCRAFT', title: 'AIS SAR Aircraft', pgns: [129798] },
+      { optionKey: 'AIS_SAFETY_MESSAGE', title: 'AIS Safety Message', pgns: [129802] },
+      { optionKey: 'CROSS_TRACK_ERROR', title: 'Cross Track Error', pgns: [129283] },
+      { optionKey: 'NAVIGATION_DATA', title: 'Navigation Data', pgns: [129284] },
+      { optionKey: 'NAVIGATION_DATA_GREAT_CIRCLE', title: 'Navigation Data Great Circle', pgns: [129284] },
+      { optionKey: 'BEARING_DISTANCE_MARKS', title: 'Bearing Distance Between Marks', pgns: [129302] },
+      { optionKey: 'ROUTE_WAYPOINT', title: 'Route and Waypoint Information', pgns: [129285] },
+      { optionKey: 'ROUTE_WP_LIST', title: 'Route Waypoint List', pgns: [130074] },
+      { optionKey: 'TIME_TO_MARK', title: 'Time to Mark', pgns: [129301] },
+      { optionKey: 'WIND_TRUE_GROUND', title: 'Wind True Over Ground', pgns: [130306] },
+      { optionKey: 'WIND_TRUE', title: 'Wind True Over Water', pgns: [130306] },
+      { optionKey: 'ENGINE_STATIC', title: 'Engine Configuration Parameters', pgns: [127498] },
+      { optionKey: 'TRANSMISSION_PARAMETERS', title: 'Transmission Parameters', pgns: [127493] },
+      { optionKey: 'SMALL_CRAFT_STATUS', title: 'Small Craft Status', pgns: [130576] },
+      { optionKey: 'NOTIFICATIONS', title: 'Notifications', pgns: [126983, 126985] },
+      { optionKey: 'PRODUCT_INFO', title: 'Product Information', pgns: [126996] },
+      { optionKey: 'ISO_ACKNOWLEDGMENT', title: 'ISO Acknowledgment', pgns: [59392] },
+      { optionKey: 'ISO_REQUEST', title: 'ISO Request', pgns: [59904] },
+      { optionKey: 'ISO_ADDRESS_CLAIM', title: 'ISO Address Claim', pgns: [60928] },
+      { optionKey: 'DSC_CALLS', title: 'DSC Call Information', pgns: [129808] },
+      { optionKey: 'RAYMARINE_ALARMS', title: 'Raymarine Alarms', pgns: [65288] },
+      { optionKey: 'PGN_LIST', title: 'PGN List', pgns: [126464] },
+      { optionKey: 'RADIO_FREQUENCY', title: 'Radio Frequency', pgns: [129799] },
+      { optionKey: 'RAYMARINE_BRIGHTNESS', title: 'Raymarine Display Brightness', pgns: [126720] },
+      { optionKey: 'AIS', title: 'AIS', pgns: [129038, 129794, 129041] }
+    ]
+  }
 
   /**
    * Load all conversion modules from the conversions directory
@@ -77,62 +152,6 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
     }
   }
 
-  /**
-   * Extract PGN numbers from a conversion module
-   */
-  function extractPGNsFromConversion(conv: ConversionModule): number[] {
-    const pgns = new Set<number>()
-    
-    // Extract PGNs from test cases
-    if (conv.tests && Array.isArray(conv.tests)) {
-      for (const test of conv.tests) {
-        if (test.expected && Array.isArray(test.expected)) {
-          for (const expected of test.expected) {
-            if (typeof expected === 'object' && expected && 'pgn' in expected) {
-              const pgnValue = (expected as { pgn: unknown }).pgn
-              if (typeof pgnValue === 'number') {
-                pgns.add(pgnValue)
-              }
-            }
-          }
-        }
-      }
-    }
-    
-    // If no PGNs found in tests, try to extract from title
-    if (pgns.size === 0) {
-      const titleMatch = conv.title.match(/\((\d+(?:\s*[&,]\s*\d+)*)\)/)
-      if (titleMatch?.[1]) {
-        const pgnString = titleMatch[1]
-        const pgnNumbers = pgnString.split(/[&,]/).map(p => parseInt(p.trim(), 10))
-        pgnNumbers.forEach(pgn => {
-          if (!Number.isNaN(pgn)) pgns.add(pgn)
-        })
-      }
-    }
-    
-    return Array.from(pgns).sort((a, b) => a - b)
-  }
-
-  /**
-   * Format title and description for configuration UI
-   */
-  function formatConversionUIInfo(conv: ConversionModule): { title: string; description: string } {
-    const pgns = extractPGNsFromConversion(conv)
-    
-    // Clean title by removing PGN numbers in parentheses
-    const cleanTitle = conv.title.replace(/\s*\([^)]*\)/, '').trim()
-    
-    // Format PGNs in italic text
-    const pgnDescription = pgns.length > 0 
-      ? `*PGNs: ${pgns.join(', ')}*`
-      : ''
-    
-    return {
-      title: `**${cleanTitle}**`,
-      description: pgnDescription
-    }
-  }
 
   /**
    * Create the plugin configuration schema
@@ -147,61 +166,39 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
       properties: {}
     }
 
-    for (const conversion of conversions) {
-      const conversionArray = Array.isArray(conversion) ? conversion : [conversion]
+    // Use static schema definitions to ensure UI works immediately
+    const staticDefinitions = getStaticSchemaDefinitions()
+    
+    for (const def of staticDefinitions) {
+      const pgnDescription = `*PGNs: ${def.pgns.join(', ')}*`
       
-      for (const conv of conversionArray) {
-        const { title, description } = formatConversionUIInfo(conv)
-        
-        const obj: JSONSchema = {
-          type: 'object',
-          title: title,
-          description: description,
-          properties: {
-            enabled: {
-              title: 'Enabled',
-              type: 'boolean',
-              default: false
-            },
-            resend: {
-              type: 'number',
-              title: 'Resend (seconds)',
-              description: 'If non-zero, the msg will be periodically resent',
-              default: 0
-            },
-            resendTime: {
-              type: 'number',
-              title: 'Resend Duration (seconds)',
-              description: 'The value will be resent for the given number of seconds',
-              default: 30
-            }
+      const obj: JSONSchema = {
+        type: 'object',
+        title: `**${def.title}**`,
+        description: pgnDescription,
+        properties: {
+          enabled: {
+            title: 'Enabled',
+            type: 'boolean',
+            default: false
+          },
+          resend: {
+            type: 'number',
+            title: 'Resend (seconds)',
+            description: 'If non-zero, the msg will be periodically resent',
+            default: 0
+          },
+          resendTime: {
+            type: 'number',
+            title: 'Resend Duration (seconds)',
+            description: 'The value will be resent for the given number of seconds',
+            default: 30
           }
         }
+      }
 
-        // Add source selection properties for each key
-        const keys = conv.keys || []
-        for (const key of keys) {
-          const propName = pathToPropName(key)
-          if (obj.properties) {
-            obj.properties[propName] = {
-              title: `Source for ${key}`,
-              description: 'Use data only from this source (leave blank to ignore source)',
-              type: 'string'
-            }
-          }
-        }
-
-        // Add conversion-specific properties
-        if (conv.properties) {
-          const props = isFunction(conv.properties) ? conv.properties() : conv.properties
-          if (props && obj.properties) {
-            Object.assign(obj.properties, props)
-          }
-        }
-
-        if (schema.properties) {
-          schema.properties[conv.optionKey] = obj
-        }
+      if (schema.properties) {
+        schema.properties[def.optionKey] = obj
       }
     }
 

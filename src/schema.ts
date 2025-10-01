@@ -1270,66 +1270,6 @@ export const schema: JSONSchema = {
         },
       },
     },
-    ISO_ACKNOWLEDGMENT: {
-      type: "object",
-      title: "ISO Acknowledgment",
-      description: "PGNs: 59392",
-      properties: {
-        enabled: { title: "Enabled", type: "boolean", default: false },
-        resend: {
-          type: "number",
-          title: "Resend (seconds)",
-          description: "If non-zero, the msg will be periodically resent",
-          default: 0,
-        },
-        resendTime: {
-          type: "number",
-          title: "Resend Duration (seconds)",
-          description: "The value will be resent for the given number of seconds",
-          default: 30,
-        },
-      },
-    },
-    ISO_REQUEST: {
-      type: "object",
-      title: "ISO Request",
-      description: "PGNs: 59904",
-      properties: {
-        enabled: { title: "Enabled", type: "boolean", default: false },
-        resend: {
-          type: "number",
-          title: "Resend (seconds)",
-          description: "If non-zero, the msg will be periodically resent",
-          default: 0,
-        },
-        resendTime: {
-          type: "number",
-          title: "Resend Duration (seconds)",
-          description: "The value will be resent for the given number of seconds",
-          default: 30,
-        },
-      },
-    },
-    ISO_ADDRESS_CLAIM: {
-      type: "object",
-      title: "ISO Address Claim",
-      description: "PGNs: 60928",
-      properties: {
-        enabled: { title: "Enabled", type: "boolean", default: false },
-        resend: {
-          type: "number",
-          title: "Resend (seconds)",
-          description: "If non-zero, the msg will be periodically resent",
-          default: 0,
-        },
-        resendTime: {
-          type: "number",
-          title: "Resend Duration (seconds)",
-          description: "The value will be resent for the given number of seconds",
-          default: 30,
-        },
-      },
-    },
     DSC_CALLS: {
       type: "object",
       title: "DSC Call Information",

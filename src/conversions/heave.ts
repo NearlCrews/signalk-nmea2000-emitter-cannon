@@ -1,15 +1,23 @@
-import type { ConversionModule, N2KMessage } from '../types/index.js'
+import type {
+  ConversionModule,
+  N2KMessage,
+  SignalKApp,
+  SignalKPlugin,
+  ConversionCallback,
+} from '../types/index.js'
 
 /**
  * Heave conversion module - converts Signal K heave motion to NMEA 2000 PGN 127252
  */
-export default function createHeaveConversion(): ConversionModule {
+export default function createHeaveConversion(
+  app: SignalKApp,
+): ConversionModule<[number | null]> {
   return {
-    title: "Heave (127252)",
-    optionKey: "HEAVE",
-    keys: ["navigation.heave"],
+    title: 'Heave (127252)',
+    optionKey: 'HEAVE',
+    keys: ['navigation.heave'],
     timeouts: [1000], // 1 second for responsive motion data
-    callback: (heave: unknown): N2KMessage[] => {
+    callback: ((heave: number | null) => {
       try {
         // Validate heave input - required field
         if (typeof heave !== 'number') {
@@ -28,10 +36,10 @@ export default function createHeaveConversion(): ConversionModule {
           },
         ]
       } catch (err) {
-        console.error('Error in heave conversion:', err)
+        app.error(err as Error)
         return []
       }
-    },
+    }) as ConversionCallback<[number | null]>,
 
     tests: [
       {

@@ -1,4 +1,10 @@
-import type { ConversionModule, N2KMessage } from '../types/index.js'
+import type {
+  ConversionModule,
+  N2KMessage,
+  SignalKApp,
+  SignalKPlugin,
+  ConversionCallback,
+} from '../types/index.js'
 
 /**
  * Attitude data interface
@@ -12,19 +18,19 @@ interface AttitudeData {
 /**
  * Attitude conversion module - converts Signal K attitude data to NMEA 2000 PGN 127257
  */
-export default function createAttitudeConversion(): ConversionModule {
+export default function createAttitudeConversion(
+  app: SignalKApp,
+): ConversionModule<[AttitudeData]> {
   return {
-    title: "Attitude (127257)",
-    optionKey: "ATTITUDE",
-    keys: ["navigation.attitude"],
-    callback: (attitude: unknown): N2KMessage[] => {
+    title: 'Attitude (127257)',
+    optionKey: 'ATTITUDE',
+    keys: ['navigation.attitude'],
+    callback: ((attitude: AttitudeData) => {
       try {
         // Validate attitude input
         if (!attitude || typeof attitude !== 'object') {
           return []
         }
-
-        const attitudeData = attitude as AttitudeData
 
         return [
           {
@@ -33,17 +39,17 @@ export default function createAttitudeConversion(): ConversionModule {
             dst: 255,
             fields: {
               sid: 87,
-              pitch: attitudeData.pitch,
-              yaw: attitudeData.yaw,
-              roll: attitudeData.roll,
+              pitch: attitude.pitch,
+              yaw: attitude.yaw,
+              roll: attitude.roll,
             },
           },
         ]
       } catch (err) {
-        console.error('Error in attitude conversion:', err)
+        app.error(err as Error)
         return []
       }
-    },
+    }) as ConversionCallback<[AttitudeData]>,
 
     tests: [
       {

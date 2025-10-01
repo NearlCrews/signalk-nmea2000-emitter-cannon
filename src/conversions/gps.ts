@@ -1,4 +1,10 @@
-import type { ConversionModule, N2KMessage } from '../types/index.js'
+import type {
+  ConversionModule,
+  N2KMessage,
+  SignalKApp,
+  SignalKPlugin,
+  ConversionCallback,
+} from '../types/index.js'
 
 /**
  * GPS position interface for Signal K position data
@@ -12,14 +18,16 @@ interface Position {
 /**
  * GPS conversion module - converts Signal K position data to NMEA 2000 PGNs 129025 & 129029
  */
-export default function createGpsConversion(): ConversionModule {
+export default function createGpsConversion(
+  app: SignalKApp,
+): ConversionModule<[Position | null]> {
   let lastUpdate: Date | null = null
 
   return {
-    title: "Location (129025,129029)",
-    optionKey: "GPS_LOCATION",
-    keys: ["navigation.position"],
-    callback: (position: unknown): N2KMessage[] => {
+    title: 'Location (129025,129029)',
+    optionKey: 'GPS_LOCATION',
+    keys: ['navigation.position'],
+    callback: ((position: Position | null) => {
       try {
         // Validate position input
         if (!position || typeof position !== 'object') {
@@ -50,9 +58,10 @@ export default function createGpsConversion(): ConversionModule {
 
           const dateObj = new Date()
           const date = Math.trunc(dateObj.getTime() / 86400 / 1000)
-          const time = dateObj.getUTCHours() * (60 * 60) + 
-                      dateObj.getUTCMinutes() * 60 + 
-                      dateObj.getUTCSeconds()
+          const time =
+            dateObj.getUTCHours() * (60 * 60) +
+            dateObj.getUTCMinutes() * 60 +
+            dateObj.getUTCSeconds()
 
           res.push({
             prio: 2,
@@ -63,16 +72,16 @@ export default function createGpsConversion(): ConversionModule {
               time,
               latitude: pos.latitude,
               longitude: pos.longitude,
-              gnssType: "GPS+SBAS/WAAS",
-              method: "DGNSS fix",
-              integrity: "No integrity checking",
+              gnssType: 'GPS+SBAS/WAAS',
+              method: 'DGNSS fix',
+              integrity: 'No integrity checking',
               numberOfSvs: 16,
               hdop: 0.64,
               geoidalSeparation: -0.01,
               referenceStations: 1,
               list: [
                 {
-                  referenceStationType: "GPS+SBAS/WAAS",
+                  referenceStationType: 'GPS+SBAS/WAAS',
                   referenceStationId: 7,
                 },
               ],
@@ -82,10 +91,10 @@ export default function createGpsConversion(): ConversionModule {
 
         return res
       } catch (err) {
-        console.error('Error in GPS conversion:', err)
+        app.error(err as Error)
         return []
       }
-    },
+    }) as ConversionCallback<[Position | null]>,
 
     tests: [
       {
@@ -107,16 +116,16 @@ export default function createGpsConversion(): ConversionModule {
             fields: {
               latitude: 32.0631296,
               longitude: -75.487264,
-              gnssType: "GPS+SBAS/WAAS",
-              method: "DGNSS fix",
-              integrity: "No integrity checking",
+              gnssType: 'GPS+SBAS/WAAS',
+              method: 'DGNSS fix',
+              integrity: 'No integrity checking',
               numberOfSvs: 16,
               hdop: 0.64,
               geoidalSeparation: -0.01,
               referenceStations: 1,
               list: [
                 {
-                  referenceStationType: "GPS+SBAS/WAAS",
+                  referenceStationType: 'GPS+SBAS/WAAS',
                   referenceStationId: 7,
                 },
               ],

@@ -1,5 +1,13 @@
-import type { JSONSchema } from './signalk.js'
+import type { JSONSchema, SignalKApp } from './signalk.js'
 import type { N2KMessage } from './nmea2000.js'
+
+/**
+ * Generic callback for NMEA 2000 conversions.
+ * @template T - An array of types for the callback arguments.
+ */
+export type ConversionCallback<T extends unknown[] = unknown[]> = (
+  ...values: T
+) => N2KMessage[] | Promise<N2KMessage[]>
 
 /**
  * Signal K plugin interface
@@ -21,21 +29,26 @@ export interface SignalKPlugin {
 }
 
 /**
- * Plugin configuration options
+ * Configuration options for a single conversion.
+ */
+export interface ConversionOptions {
+  enabled: boolean
+  resend?: number
+  resendTime?: number
+  [optionKey: string]: unknown
+}
+
+/**
+ * Plugin configuration options, mapping conversion keys to their settings.
  */
 export interface PluginOptions {
-  [key: string]: {
-    enabled: boolean
-    resend?: number
-    resendTime?: number
-    [optionKey: string]: unknown
-  }
+  [key: string]: ConversionOptions
 }
 
 /**
  * Sub-conversion module (used within conversions array)
  */
-export interface SubConversionModule {
+export interface SubConversionModule<T extends unknown[] = unknown[]> {
   /** Signal K paths that this conversion listens to */
   keys?: string[]
   /** Source type for data input */
@@ -47,7 +60,7 @@ export interface SubConversionModule {
   /** Timer interval for timer-based conversions (ms) */
   interval?: number
   /** Function that converts Signal K data to N2K messages */
-  callback?: (...values: unknown[]) => N2KMessage[] | Promise<N2KMessage[]>
+  callback?: ConversionCallback<T>
   /** Test cases for this conversion */
   tests?: ConversionTest[]
 }
@@ -55,7 +68,7 @@ export interface SubConversionModule {
 /**
  * Conversion module configuration
  */
-export interface ConversionModule {
+export interface ConversionModule<T extends unknown[] = unknown[]> {
   /** Human-readable title for this conversion */
   title: string
   /** Option key used in plugin configuration */
@@ -73,9 +86,11 @@ export interface ConversionModule {
   /** Timer interval for timer-based conversions (ms) */
   interval?: number
   /** Function that converts Signal K data to N2K messages */
-  callback?: (...values: unknown[]) => N2KMessage[] | Promise<N2KMessage[]>
+  callback?: ConversionCallback<T>
   /** Sub-conversions for complex conversion modules */
-  conversions?: SubConversionModule[] | ((options: unknown) => SubConversionModule[] | null)
+  conversions?:
+    | SubConversionModule<T>[]
+    | ((options: unknown) => SubConversionModule<T>[] | null)
   /** Additional configuration properties for this conversion */
   properties?: JSONSchema['properties'] | (() => JSONSchema['properties'])
   /** Test cases for this conversion */
@@ -132,9 +147,9 @@ export type PluginFactory = (app: unknown) => SignalKPlugin
  * Conversion module factory function type
  */
 export type ConversionModuleFactory = (
-  app: unknown,
-  plugin: unknown
-) => ConversionModule | ConversionModule[]
+  app: SignalKApp,
+  plugin: SignalKPlugin,
+) => ConversionModule<any> | ConversionModule<any>[]
 
 /**
  * Options for message processing

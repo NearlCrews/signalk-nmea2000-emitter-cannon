@@ -2,7 +2,7 @@
 Project-specific guidelines for organizing files and managing project structure, particularly for Signal K plugins and renaming operations.
 
 ## File organization
-- Temporary files, non-critical files, and test-related files should be placed in a `.cline-files` directory
+- Temporary files, non-critical files, and test-related files should be placed in a `.clinefiles` directory
 - Keep the main project directory clean and focused on essential project files
 - Separate working files from deliverable project structure
 

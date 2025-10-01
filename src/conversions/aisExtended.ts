@@ -1,59 +1,64 @@
-import type { ConversionModule, N2KMessage } from '../types/index.js';
+import type {
+  ConversionModule,
+  N2KMessage,
+  SignalKApp,
+  SignalKPlugin,
+  ConversionCallback,
+} from '../types/index.js'
 
 interface Position {
-  latitude?: number;
-  longitude?: number;
+  latitude?: number
+  longitude?: number
 }
 
 interface AisShipType {
-  id?: number;
-  name?: string;
+  id?: number
+  name?: string
 }
 
-export default function createAisExtendedConversions(): ConversionModule[] {
+export default function createAisExtendedConversions(
+  app: SignalKApp,
+  plugin: SignalKPlugin,
+): ConversionModule<any>[] {
   return [
     // AIS Class B Position Report (PGN 129039)
     {
-      title: "AIS Class B Position Report (129039)",
-      optionKey: "AIS_CLASS_B_POSITION",
+      title: 'AIS Class B Position Report (129039)',
+      optionKey: 'AIS_CLASS_B_POSITION',
       keys: [
-        "sensors.ais.class",
-        "navigation.position",
-        "navigation.courseOverGroundTrue",
-        "navigation.speedOverGround",
-        "navigation.headingTrue",
-        "sensors.ais.fromCenter",
-        "sensors.ais.fromBow",
-        "design.length",
-        "design.beam",
+        'sensors.ais.class',
+        'navigation.position',
+        'navigation.courseOverGroundTrue',
+        'navigation.speedOverGround',
+        'navigation.headingTrue',
+        'sensors.ais.fromCenter',
+        'sensors.ais.fromBow',
+        'design.length',
+        'design.beam',
       ],
       timeouts: [10000, 10000, 10000, 10000, 10000, 10000, 10000, 10000, 10000], // 10 seconds
-      callback: (
-        aisClass: unknown,
-        position: unknown,
-        cog: unknown,
-        sog: unknown,
-        heading: unknown,
-        _fromCenter: unknown,
-        _fromBow: unknown,
-        _length: unknown,
-        _beam: unknown
-      ): N2KMessage[] => {
-        if (aisClass !== "B" || 
-            typeof position !== 'object' || 
-            position == null ||
-            !(position as Position).latitude || 
-            !(position as Position).longitude) {
-          return [];
+      callback: ((
+        aisClass: string | null,
+        position: Position | null,
+        cog: number | null,
+        sog: number | null,
+        heading: number | null,
+        _fromCenter: number | null,
+        _fromBow: number | null,
+        _length: number | null,
+        _beam: number | null,
+      ) => {
+        if (
+          aisClass !== 'B' ||
+          typeof position !== 'object' ||
+          position == null ||
+          !position.latitude ||
+          !position.longitude
+        ) {
+          return []
         }
 
-        const pos = position as Position;
-
-        // Calculate position reference points (not used in this PGN)
-        // let _fromStarboard: number | null = null;
-        // if (typeof beam === 'number' && typeof fromCenter === 'number') {
-        //   _fromStarboard = beam / 2 + fromCenter;
-        // }
+        const pos = position as Position
 
         return [
           {
@@ -61,34 +66,46 @@ export default function createAisExtendedConversions(): ConversionModule[] {
             pgn: 129039,
             dst: 255,
             fields: {
-              messageId: "Standard Class B position report",
-              repeatIndicator: "Initial",
+              messageId: 'Standard Class B position report',
+              repeatIndicator: 'Initial',
               userId: 123456789, // Should be derived from MMSI
               longitude: pos.longitude,
               latitude: pos.latitude,
-              positionAccuracy: "Low",
-              raim: "not in use",
-              timeStamp: "0",
+              positionAccuracy: 'Low',
+              raim: 'not in use',
+              timeStamp: '0',
               cog: typeof cog === 'number' ? cog : undefined,
               sog: typeof sog === 'number' ? sog : undefined,
-              aisTransceiverInformation: "Channel A VDL reception",
+              aisTransceiverInformation: 'Channel A VDL reception',
               heading: typeof heading === 'number' ? heading : undefined,
               regionalApplication: 0,
-              unitType: "SOTDMA",
-              integratedDisplay: "No",
-              dsc: "Yes",
-              band: "Top 525 kHz of marine band",
-              canHandleMsg22: "Yes",
-              aisMode: "Assigned",
-              aisCommunicationState: "SOTDMA",
+              unitType: 'SOTDMA',
+              integratedDisplay: 'No',
+              dsc: 'Yes',
+              band: 'Top 525 kHz of marine band',
+              canHandleMsg22: 'Yes',
+              aisMode: 'Assigned',
+              aisCommunicationState: 'SOTDMA',
             },
           },
-        ];
-      },
+        ]
+      }) as ConversionCallback<
+        [
+          string | null,
+          Position | null,
+          number | null,
+          number | null,
+          number | null,
+          number | null,
+          number | null,
+          number | null,
+          number | null,
+        ]
+      >,
       tests: [
         {
           input: [
-            "B",
+            'B',
             { latitude: 39.1296, longitude: -76.3947 },
             1.501,
             0.05,
@@ -104,25 +121,25 @@ export default function createAisExtendedConversions(): ConversionModule[] {
               pgn: 129039,
               dst: 255,
               fields: {
-                aisCommunicationState: "SOTDMA",
-                aisMode: "Assigned",
-                aisTransceiverInformation: "Channel A VDL reception",
-                band: "Top 525 kHz of marine band",
-                canHandleMsg22: "Yes",
+                aisCommunicationState: 'SOTDMA',
+                aisMode: 'Assigned',
+                aisTransceiverInformation: 'Channel A VDL reception',
+                band: 'Top 525 kHz of marine band',
+                canHandleMsg22: 'Yes',
                 cog: 1.501,
-                dsc: "Yes",
+                dsc: 'Yes',
                 heading: 5.6199,
-                integratedDisplay: "No",
+                integratedDisplay: 'No',
                 latitude: 39.1296,
                 longitude: -76.3947,
-                messageId: "Standard Class B position report",
-                positionAccuracy: "Low",
-                raim: "not in use",
+                messageId: 'Standard Class B position report',
+                positionAccuracy: 'Low',
+                raim: 'not in use',
                 regionalApplication: 0,
-                repeatIndicator: "Initial",
+                repeatIndicator: 'Initial',
                 sog: 0.05,
-                timeStamp: "0",
-                unitType: "SOTDMA",
+                timeStamp: '0',
+                unitType: 'SOTDMA',
                 userId: 123456789,
               },
             },
@@ -133,50 +150,52 @@ export default function createAisExtendedConversions(): ConversionModule[] {
 
     // AIS Class B Extended Position Report (PGN 129040)
     {
-      title: "AIS Class B Extended Position Report (129040)",
-      optionKey: "AIS_CLASS_B_EXTENDED",
+      title: 'AIS Class B Extended Position Report (129040)',
+      optionKey: 'AIS_CLASS_B_EXTENDED',
       keys: [
-        "sensors.ais.class",
-        "navigation.position",
-        "navigation.courseOverGroundTrue",
-        "navigation.speedOverGround",
-        "navigation.headingTrue",
-        "design.aisShipType",
-        "sensors.ais.fromCenter",
-        "sensors.ais.fromBow",
-        "design.length",
-        "design.beam",
+        'sensors.ais.class',
+        'navigation.position',
+        'navigation.courseOverGroundTrue',
+        'navigation.speedOverGround',
+        'navigation.headingTrue',
+        'design.aisShipType',
+        'sensors.ais.fromCenter',
+        'sensors.ais.fromBow',
+        'design.length',
+        'design.beam',
       ],
       timeouts: [10000, 10000, 10000, 10000, 10000, 10000, 10000, 10000, 10000, 10000],
-      callback: (
-        aisClass: unknown,
-        position: unknown,
-        cog: unknown,
-        sog: unknown,
-        heading: unknown,
-        shipType: unknown,
-        fromCenter: unknown,
-        fromBow: unknown,
-        length: unknown,
-        beam: unknown
-      ): N2KMessage[] => {
-        if (aisClass !== "B" || 
-            typeof position !== 'object' || 
-            position == null ||
-            !(position as Position).latitude || 
-            !(position as Position).longitude) {
-          return [];
+      callback: ((
+        aisClass: string | null,
+        position: Position | null,
+        cog: number | null,
+        sog: number | null,
+        heading: number | null,
+        shipType: AisShipType | null,
+        fromCenter: number | null,
+        fromBow: number | null,
+        length: number | null,
+        beam: number | null,
+      ) => {
+        if (
+          aisClass !== 'B' ||
+          typeof position !== 'object' ||
+          position == null ||
+          !position.latitude ||
+          !position.longitude
+        ) {
+          return []
         }
 
-        const pos = position as Position;
+        const pos = position as Position
 
         // Calculate position reference points
-        let fromStarboard: number | null = null;
+        let fromStarboard: number | null = null
         if (typeof beam === 'number' && typeof fromCenter === 'number') {
-          fromStarboard = beam / 2 + fromCenter;
+          fromStarboard = beam / 2 + fromCenter
         }
 
-        const shipTypeName = (shipType as AisShipType)?.name || "Sailing";
+        const shipTypeName = shipType?.name || 'Sailing'
 
         return [
           {
@@ -184,39 +203,52 @@ export default function createAisExtendedConversions(): ConversionModule[] {
             pgn: 129040,
             dst: 255,
             fields: {
-              messageId: "Extended Class B position report",
-              repeatIndicator: "Initial",
+              messageId: 'Extended Class B position report',
+              repeatIndicator: 'Initial',
               userId: 123456789, // Should be derived from MMSI
               longitude: pos.longitude,
               latitude: pos.latitude,
-              positionAccuracy: "Low",
-              raim: "not in use",
-              timeStamp: "0",
+              positionAccuracy: 'Low',
+              raim: 'not in use',
+              timeStamp: '0',
               cog: typeof cog === 'number' ? cog : undefined,
               sog: typeof sog === 'number' ? sog : undefined,
-              aisTransceiverInformation: "Channel A VDL reception",
+              aisTransceiverInformation: 'Channel A VDL reception',
               heading: typeof heading === 'number' ? heading : undefined,
               typeOfShip: shipTypeName,
               length: typeof length === 'number' ? length : undefined,
               beam: typeof beam === 'number' ? beam : undefined,
               positionReferenceFromStarboard: fromStarboard,
               positionReferenceFromBow: typeof fromBow === 'number' ? fromBow : undefined,
-              name: "UNKNOWN", // Should be derived from vessel data
-              dte: "Available",
-              aisMode: "Assigned",
+              name: 'UNKNOWN', // Should be derived from vessel data
+              dte: 'Available',
+              aisMode: 'Assigned',
             },
           },
-        ];
-      },
+        ]
+      }) as ConversionCallback<
+        [
+          string | null,
+          Position | null,
+          number | null,
+          number | null,
+          number | null,
+          AisShipType | null,
+          number | null,
+          number | null,
+          number | null,
+          number | null,
+        ]
+      >,
       tests: [
         {
           input: [
-            "B",
+            'B',
             { latitude: 39.1296, longitude: -76.3947 },
             1.501,
             0.05,
             5.6199,
-            { id: 36, name: "Sailing" },
+            { id: 36, name: 'Sailing' },
             0,
             9,
             30,
@@ -228,24 +260,24 @@ export default function createAisExtendedConversions(): ConversionModule[] {
               pgn: 129040,
               dst: 255,
               fields: {
-                aisMode: "Assigned",
-                aisTransceiverInformation: "Channel A VDL reception",
+                aisMode: 'Assigned',
+                aisTransceiverInformation: 'Channel A VDL reception',
                 beam: 7,
                 cog: 1.501,
-                dte: "Available",
+                dte: 'Available',
                 latitude: 39.1296,
                 length: 30,
                 longitude: -76.3947,
-                messageId: "Extended Class B position report",
-                name: "UNKNOWN",
-                positionAccuracy: "Low",
+                messageId: 'Extended Class B position report',
+                name: 'UNKNOWN',
+                positionAccuracy: 'Low',
                 positionReferenceFromBow: 9,
                 positionReferenceFromStarboard: 3.5,
-                raim: "not in use",
-                repeatIndicator: "Initial",
+                raim: 'not in use',
+                repeatIndicator: 'Initial',
                 sog: 0.05,
-                timeStamp: "0",
-                typeOfShip: "Sailing",
+                timeStamp: '0',
+                typeOfShip: 'Sailing',
                 userId: 123456789,
               },
             },
@@ -256,26 +288,34 @@ export default function createAisExtendedConversions(): ConversionModule[] {
 
     // AIS SAR Aircraft Position Report (PGN 129798)
     {
-      title: "AIS SAR Aircraft Position Report (129798)",
-      optionKey: "AIS_SAR_AIRCRAFT",
+      title: 'AIS SAR Aircraft Position Report (129798)',
+      optionKey: 'AIS_SAR_AIRCRAFT',
       keys: [
-        "sensors.ais.class",
-        "navigation.position",
-        "navigation.courseOverGroundTrue",
-        "navigation.speedOverGround",
-        "navigation.altitude",
+        'sensors.ais.class',
+        'navigation.position',
+        'navigation.courseOverGroundTrue',
+        'navigation.speedOverGround',
+        'navigation.altitude',
       ],
       timeouts: [5000, 5000, 5000, 5000, 5000], // 5 seconds for aircraft
-      callback: (aisClass: unknown, position: unknown, cog: unknown, sog: unknown, altitude: unknown): N2KMessage[] => {
-        if (aisClass !== "SAR" || 
-            typeof position !== 'object' || 
-            position == null ||
-            !(position as Position).latitude || 
-            !(position as Position).longitude) {
-          return [];
+      callback: ((
+        aisClass: string | null,
+        position: Position | null,
+        cog: number | null,
+        sog: number | null,
+        altitude: number | null,
+      ) => {
+        if (
+          aisClass !== 'SAR' ||
+          typeof position !== 'object' ||
+          position == null ||
+          !position.latitude ||
+          !position.longitude
+        ) {
+          return []
         }
 
-        const pos = position as Position;
+        const pos = position as Position
 
         return [
           {
@@ -283,27 +323,29 @@ export default function createAisExtendedConversions(): ConversionModule[] {
             pgn: 129798,
             dst: 255,
             fields: {
-              messageId: "Standard SAR aircraft position report",
-              repeatIndicator: "Initial",
+              messageId: 'Standard SAR aircraft position report',
+              repeatIndicator: 'Initial',
               userId: 111000001, // SAR aircraft MMSI format
               longitude: pos.longitude,
               latitude: pos.latitude,
-              positionAccuracy: "High",
-              raim: "in use",
-              timeStamp: "0",
+              positionAccuracy: 'High',
+              raim: 'in use',
+              timeStamp: '0',
               cog: typeof cog === 'number' ? cog : undefined,
               sog: typeof sog === 'number' ? sog : undefined,
-              aisTransceiverInformation: "Channel A VDL reception",
+              aisTransceiverInformation: 'Channel A VDL reception',
               altitude: typeof altitude === 'number' ? altitude : 0,
-              dte: "Available",
+              dte: 'Available',
             },
           },
-        ];
-      },
+        ]
+      }) as ConversionCallback<
+        [string | null, Position | null, number | null, number | null, number | null]
+      >,
       tests: [
         {
           input: [
-            "SAR",
+            'SAR',
             { latitude: 40.7128, longitude: -74.006 },
             0.7854, // 45 degrees
             25.7, // 50 knots
@@ -315,18 +357,18 @@ export default function createAisExtendedConversions(): ConversionModule[] {
               pgn: 129798,
               dst: 255,
               fields: {
-                aisTransceiverInformation: "Channel A VDL reception",
+                aisTransceiverInformation: 'Channel A VDL reception',
                 altitude: 500,
                 cog: 0.7854,
-                dte: "Available",
+                dte: 'Available',
                 latitude: 40.7128,
                 longitude: -74.006,
-                messageId: "Standard SAR aircraft position report",
-                positionAccuracy: "High",
-                raim: "in use",
-                repeatIndicator: "Initial",
+                messageId: 'Standard SAR aircraft position report',
+                positionAccuracy: 'High',
+                raim: 'in use',
+                repeatIndicator: 'Initial',
                 sog: 25.7,
-                timeStamp: "0",
+                timeStamp: '0',
                 userId: 111000001,
               },
             },
@@ -337,16 +379,16 @@ export default function createAisExtendedConversions(): ConversionModule[] {
 
     // AIS Safety Related Broadcast Message (PGN 129802)
     {
-      title: "AIS Safety Related Broadcast Message (129802)",
-      optionKey: "AIS_SAFETY_MESSAGE",
-      keys: ["communication.ais.safetyMessage", "communication.ais.safetyMessageSeqId"],
+      title: 'AIS Safety Related Broadcast Message (129802)',
+      optionKey: 'AIS_SAFETY_MESSAGE',
+      keys: ['communication.ais.safetyMessage', 'communication.ais.safetyMessageSeqId'],
       timeouts: [300000, 300000], // 5 minutes
-      callback: (safetyMessage: unknown, seqId: unknown): N2KMessage[] => {
+      callback: ((safetyMessage: string | null, seqId: number | null) => {
         if (typeof safetyMessage !== 'string') {
-          return [];
+          return []
         }
 
-        const sequenceId = typeof seqId === 'number' ? seqId : 0;
+        const sequenceId = typeof seqId === 'number' ? seqId : 0
 
         return [
           {
@@ -354,29 +396,29 @@ export default function createAisExtendedConversions(): ConversionModule[] {
             pgn: 129802,
             dst: 255,
             fields: {
-              messageId: "Satety related broadcast message",
-              repeatIndicator: "Initial",
+              messageId: 'Satety related broadcast message',
+              repeatIndicator: 'Initial',
               userId: 123456789, // Should be derived from MMSI
               sequenceId: sequenceId,
               destinationId: 0, // Broadcast
-              retransmitFlag: "No retransmission",
+              retransmitFlag: 'No retransmission',
               safetyText: safetyMessage.substring(0, 156), // Max 156 characters
               reserved: 1,
             },
           },
-        ];
-      },
+        ]
+      }) as ConversionCallback<[string | null, number | null]>,
       tests: [
         {
-          input: ["STORM WARNING: SEVERE WEATHER APPROACHING FROM WEST", 1],
+          input: ['STORM WARNING: SEVERE WEATHER APPROACHING FROM WEST', 1],
           expected: [
             {
               prio: 2,
               pgn: 129802,
               dst: 255,
               fields: {
-                messageId: "Satety related broadcast message",
-                repeatIndicator: "Initial",
+                messageId: 'Satety related broadcast message',
+                repeatIndicator: 'Initial',
                 reserved: 1,
               },
             },
@@ -384,5 +426,5 @@ export default function createAisExtendedConversions(): ConversionModule[] {
         },
       ],
     },
-  ];
+  ]
 }

@@ -1,21 +1,25 @@
-import type { ConversionModule, N2KMessage } from '../types/index.js'
+import type {
+  ConversionModule,
+  N2KMessage,
+  SignalKApp,
+  SignalKPlugin,
+  ConversionCallback,
+} from '../types/index.js'
 
 /**
  * Heading conversion module - converts Signal K heading and magnetic variation to NMEA 2000 PGN 127250
  */
-export default function createHeadingConversion(): ConversionModule {
+export default function createHeadingConversion(
+  app: SignalKApp,
+): ConversionModule<[number | null, number | null]> {
   return {
-    title: "Heading (127250)",
-    optionKey: "HEADING",
-    keys: ["navigation.headingMagnetic", "navigation.magneticVariation"],
-    callback: (heading: unknown, variation: unknown): N2KMessage[] => {
+    title: 'Heading (127250)',
+    optionKey: 'HEADING',
+    keys: ['navigation.headingMagnetic', 'navigation.magneticVariation'],
+    callback: ((heading: number | null, variation: number | null) => {
       try {
-        // Validate inputs - convert to numbers or null
-        const headingValue = typeof heading === 'number' ? heading : null
-        const variationValue = typeof variation === 'number' ? variation : null
-
         // Return empty array if no heading data available
-        if (headingValue === null) {
+        if (heading === null) {
           return []
         }
 
@@ -26,17 +30,17 @@ export default function createHeadingConversion(): ConversionModule {
             dst: 255,
             fields: {
               sid: 87,
-              heading: headingValue,
-              variation: variationValue,
-              reference: "Magnetic",
+              heading: heading,
+              variation: variation,
+              reference: 'Magnetic',
             },
           },
         ]
       } catch (err) {
-        console.error('Error in heading conversion:', err)
+        app.error(err as Error)
         return []
       }
-    },
+    }) as ConversionCallback<[number | null, number | null]>,
 
     tests: [
       {
@@ -50,7 +54,7 @@ export default function createHeadingConversion(): ConversionModule {
               sid: 87,
               heading: 1.2,
               variation: 0.7,
-              reference: "Magnetic",
+              reference: 'Magnetic',
             },
           },
         ],
@@ -66,7 +70,7 @@ export default function createHeadingConversion(): ConversionModule {
             fields: {
               sid: 87,
               heading: 2.5,
-              reference: "Magnetic",
+              reference: 'Magnetic',
             },
           },
         ],
@@ -83,7 +87,7 @@ export default function createHeadingConversion(): ConversionModule {
               sid: 87,
               heading: 0,
               variation: 0.1,
-              reference: "Magnetic",
+              reference: 'Magnetic',
             },
           },
         ],

@@ -1,12 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { readdir } from 'node:fs/promises'
-import { join } from 'node:path'
-import { pathToFileURL } from 'node:url'
 import { pgnToActisenseSerialFormat, FromPgn } from '@canboat/canboatjs'
 
-import type { ConversionModule, SignalKApp } from '../types/index.js'
+import type { ConversionModule, SignalKApp, SignalKPlugin } from '../types/index.js'
 import { validateN2KMessage, cleanN2KMessage } from '../utils/messageUtils.js'
 import { isDefined } from '../utils/pathUtils.js'
+import { createConversionModules } from '../conversions/index.js'
+import { schema } from '../schema.js'
 
 /**
  * Mock Signal K data storage
@@ -49,48 +48,33 @@ const mockApp: SignalKApp = {
 }
 
 /**
- * Load all conversion modules
+ * Mock plugin instance
  */
-async function loadConversions(): Promise<ConversionModule[]> {
-  const conversionsPath = new URL('../conversions', import.meta.url).pathname
-  const files = await readdir(conversionsPath)
-  
-  const conversions: ConversionModule[] = []
-  
-  for (const file of files) {
-    if (!file.endsWith('.js') && !file.endsWith('.ts')) continue
-    
-    const modulePath = pathToFileURL(join(conversionsPath, file)).href
-    const module = await import(modulePath)
-    
-    if (typeof module.default === 'function') {
-      const result = module.default(mockApp, {})
-      if (result) {
-        const conversionArray = Array.isArray(result) ? result : [result]
-        conversions.push(...conversionArray.filter(isDefined))
-      }
-    }
-  }
-  
-  return conversions
+const mockPlugin: SignalKPlugin = {
+  id: 'sk-n2k-emitter',
+  name: 'Test Plugin',
+  description: 'Test plugin',
+  schema: () => schema,
+  start: () => {},
+  stop: () => {}
 }
 
 describe('Conversion modules', () => {
   let conversions: ConversionModule[]
   const parser = new FromPgn()
 
-  beforeEach(async () => {
-    conversions = await loadConversions()
+  beforeEach(() => {
+    conversions = createConversionModules(mockApp, mockPlugin)
     skSelfData = {}
     skData = {}
   })
 
-  it('should load all conversion modules', async () => {
+  it('should load all conversion modules', () => {
     expect(conversions.length).toBeGreaterThan(0)
     console.log(`Loaded ${conversions.length} conversion modules`)
   })
 
-  it('should have tests for every conversion', async () => {
+  it('should have tests for every conversion', () => {
     for (const conversion of conversions) {
       const conversionArray = Array.isArray(conversion) ? conversion : [conversion]
 

@@ -1,15 +1,23 @@
 import { isUndefined } from 'es-toolkit'
-import type { ConversionModule, N2KMessage, SignalKApp } from '../types/index.js'
+import type {
+  ConversionModule,
+  N2KMessage,
+  SignalKApp,
+  SignalKPlugin,
+  ConversionCallback,
+} from '../types/index.js'
 
 /**
  * Depth conversion module - converts Signal K depth data to NMEA 2000 PGN 128267
  */
-export default function createDepthConversion(app: SignalKApp): ConversionModule {
+export default function createDepthConversion(
+  app: SignalKApp,
+): ConversionModule<[number | null]> {
   return {
-    title: "Depth (128267)",
-    optionKey: "DEPTH",
-    keys: ["environment.depth.belowTransducer"],
-    callback: (belowTransducer: unknown): N2KMessage[] => {
+    title: 'Depth (128267)',
+    optionKey: 'DEPTH',
+    keys: ['environment.depth.belowTransducer'],
+    callback: ((belowTransducer: number | null) => {
       try {
         // Validate depth input
         if (typeof belowTransducer !== 'number') {
@@ -17,15 +25,19 @@ export default function createDepthConversion(app: SignalKApp): ConversionModule
         }
 
         // Get additional depth data from Signal K app
-        const surfaceToTransducer = app.getSelfPath("environment.depth.surfaceToTransducer.value") as number | undefined
-        const transducerToKeel = app.getSelfPath("environment.depth.transducerToKeel.value") as number | undefined
-        
+        const surfaceToTransducer = app.getSelfPath(
+          'environment.depth.surfaceToTransducer.value',
+        ) as number | undefined
+        const transducerToKeel = app.getSelfPath(
+          'environment.depth.transducerToKeel.value',
+        ) as number | undefined
+
         // Calculate offset - prefer surfaceToTransducer, fallback to transducerToKeel, default to 0
-        const offset = !isUndefined(surfaceToTransducer) 
+        const offset = !isUndefined(surfaceToTransducer)
           ? surfaceToTransducer
           : !isUndefined(transducerToKeel)
-            ? transducerToKeel
-            : 0
+          ? transducerToKeel
+          : 0
 
         return [
           {
@@ -39,16 +51,16 @@ export default function createDepthConversion(app: SignalKApp): ConversionModule
           },
         ]
       } catch (err) {
-        console.error('Error in depth conversion:', err)
+        app.error(err as Error)
         return []
       }
-    },
+    }) as ConversionCallback<[number | null]>,
 
     tests: [
       {
         input: [4.5],
         skSelfData: {
-          "environment.depth.surfaceToTransducer.value": 1,
+          'environment.depth.surfaceToTransducer.value': 1,
         },
         expected: [
           {
@@ -65,7 +77,7 @@ export default function createDepthConversion(app: SignalKApp): ConversionModule
       {
         input: [2.1],
         skSelfData: {
-          "environment.depth.transducerToKeel.value": 3,
+          'environment.depth.transducerToKeel.value': 3,
         },
         expected: [
           {

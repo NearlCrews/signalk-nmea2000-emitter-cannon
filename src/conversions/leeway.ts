@@ -1,14 +1,20 @@
-import type { ConversionModule, N2KMessage } from '../types/index.js'
+import type {
+  ConversionModule,
+  SignalKApp,
+  ConversionCallback,
+} from '../types/index.js'
 
 /**
  * Leeway conversion module - converts Signal K leeway angle to NMEA 2000 PGN 128000
  */
-export default function createLeewayConversion(): ConversionModule {
+export default function createLeewayConversion(
+  app: SignalKApp,
+): ConversionModule<[number | null]> {
   return {
-    title: "Leeway (128000)",
-    optionKey: "LEEWAY",
-    keys: ["performance.leeway"],
-    callback: (leeway: unknown): N2KMessage[] => {
+    title: 'Leeway (128000)',
+    optionKey: 'LEEWAY',
+    keys: ['performance.leeway'],
+    callback: ((leeway: number | null) => {
       try {
         // Validate leeway input - required field
         if (typeof leeway !== 'number') {
@@ -26,10 +32,10 @@ export default function createLeewayConversion(): ConversionModule {
           },
         ]
       } catch (err) {
-        console.error('Error in leeway conversion:', err)
+        app.error(err as Error)
         return []
       }
-    },
+    }) as ConversionCallback<[number | null]>,
 
     tests: [
       {
@@ -41,6 +47,19 @@ export default function createLeewayConversion(): ConversionModule {
             dst: 255,
             fields: {
               leewayAngle: 0.24,
+            },
+          },
+        ],
+      },
+      {
+        input: [-0.15], // Negative leeway
+        expected: [
+          {
+            prio: 2,
+            pgn: 128000,
+            dst: 255,
+            fields: {
+              leewayAngle: -0.15,
             },
           },
         ],

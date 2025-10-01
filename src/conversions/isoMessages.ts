@@ -1,23 +1,31 @@
-import type { ConversionModule, N2KMessage } from '../types/index.js';
+import type {
+  ConversionModule,
+  N2KMessage,
+  SignalKApp,
+  SignalKPlugin,
+  ConversionCallback,
+} from '../types/index.js'
 
 interface AcknowledgmentPath {
-  pgn?: number;
+  pgn?: number
 }
 
-export default function createIsoMessagesConversions(): ConversionModule[] {
+export default function createIsoMessagesConversions(
+  app: SignalKApp,
+): ConversionModule<any>[] {
   return [
     // ISO Acknowledgment (PGN 59392)
     {
-      title: "ISO Acknowledgment (59392)",
-      optionKey: "ISO_ACKNOWLEDGMENT",
-      keys: ["communication.pathToAcknowledge"],
+      title: 'ISO Acknowledgment (59392)',
+      optionKey: 'ISO_ACKNOWLEDGMENT',
+      keys: ['communication.pathToAcknowledge'],
       timeouts: [30000],
-      callback: (pathToAcknowledge: unknown): N2KMessage[] => {
+      callback: ((pathToAcknowledge: AcknowledgmentPath | null) => {
         if (pathToAcknowledge == null) {
-          return [];
+          return []
         }
 
-        const path = pathToAcknowledge as AcknowledgmentPath;
+        const path = pathToAcknowledge as AcknowledgmentPath
 
         return [
           {
@@ -31,8 +39,8 @@ export default function createIsoMessagesConversions(): ConversionModule[] {
               reserved: 16777215,
             },
           },
-        ];
-      },
+        ]
+      }) as ConversionCallback<[AcknowledgmentPath | null]>,
       tests: [
         {
           input: [{ pgn: 126992 }],
@@ -55,16 +63,16 @@ export default function createIsoMessagesConversions(): ConversionModule[] {
 
     // ISO Request (PGN 59904)
     {
-      title: "ISO Request (59904)",
-      optionKey: "ISO_REQUEST",
-      keys: ["communication.requestedPGN"],
+      title: 'ISO Request (59904)',
+      optionKey: 'ISO_REQUEST',
+      keys: ['communication.requestedPGN'],
       timeouts: [30000],
-      callback: (requestedPGN: unknown): N2KMessage[] => {
+      callback: ((requestedPGN: number | null) => {
         if (requestedPGN == null) {
-          return [];
+          return []
         }
 
-        const pgn = typeof requestedPGN === 'number' ? requestedPGN : 0;
+        const pgn = typeof requestedPGN === 'number' ? requestedPGN : 0
 
         return [
           {
@@ -75,8 +83,8 @@ export default function createIsoMessagesConversions(): ConversionModule[] {
               pgn: pgn,
             },
           },
-        ];
-      },
+        ]
+      }) as ConversionCallback<[number | null]>,
       tests: [
         {
           input: [126992],
@@ -96,29 +104,29 @@ export default function createIsoMessagesConversions(): ConversionModule[] {
 
     // ISO Address Claim (PGN 60928)
     {
-      title: "ISO Address Claim (60928)",
-      optionKey: "ISO_ADDRESS_CLAIM",
+      title: 'ISO Address Claim (60928)',
+      optionKey: 'ISO_ADDRESS_CLAIM',
       keys: [
-        "design.manufacturer.industryCode",
-        "design.manufacturer.deviceInstance",
-        "design.manufacturer.deviceFunction",
-        "design.manufacturer.deviceClass",
-        "design.manufacturer.systemInstance",
+        'design.manufacturer.industryCode',
+        'design.manufacturer.deviceInstance',
+        'design.manufacturer.deviceFunction',
+        'design.manufacturer.deviceClass',
+        'design.manufacturer.systemInstance',
       ],
       timeouts: [300000, 300000, 300000, 300000, 300000], // 5 minutes
-      callback: (
-        industryCode: unknown,
-        deviceInstance: unknown,
-        deviceFunction: unknown,
-        deviceClass: unknown,
-        systemInstance: unknown
-      ): N2KMessage[] => {
+      callback: ((
+        industryCode: number | null,
+        deviceInstance: number | null,
+        deviceFunction: number | null,
+        deviceClass: number | null,
+        systemInstance: number | null,
+      ) => {
         // Only send address claim if we have basic device info
         if (industryCode == null && deviceFunction == null) {
-          return [];
+          return []
         }
 
-        const deviceInstanceValue = typeof deviceInstance === 'number' ? deviceInstance : 0;
+        const deviceInstanceValue = typeof deviceInstance === 'number' ? deviceInstance : 0
 
         return [
           {
@@ -130,7 +138,8 @@ export default function createIsoMessagesConversions(): ConversionModule[] {
               manufacturerCode: typeof industryCode === 'number' ? industryCode : 1851, // Default to Signal K
               deviceInstanceLower: deviceInstanceValue & 0x07,
               deviceInstanceUpper: (deviceInstanceValue >> 3) & 0x1f,
-              deviceFunction: typeof deviceFunction === 'number' ? deviceFunction : 130, // Navigation display/chartplotter
+              deviceFunction:
+                typeof deviceFunction === 'number' ? deviceFunction : 130, // Navigation display/chartplotter
               reserved: 0,
               deviceClass: typeof deviceClass === 'number' ? deviceClass : 25, // Inter/Intranetwork Device
               systemInstance: typeof systemInstance === 'number' ? systemInstance : 0,
@@ -138,8 +147,10 @@ export default function createIsoMessagesConversions(): ConversionModule[] {
               arbitraryAddressCapable: 1,
             },
           },
-        ];
-      },
+        ]
+      }) as ConversionCallback<
+        [number | null, number | null, number | null, number | null, number | null]
+      >,
       tests: [
         {
           input: [1851, 1, 130, 25, 0],
@@ -165,5 +176,5 @@ export default function createIsoMessagesConversions(): ConversionModule[] {
         },
       ],
     },
-  ];
+  ]
 }

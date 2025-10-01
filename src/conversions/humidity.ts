@@ -1,4 +1,10 @@
-import type { ConversionModule, N2KMessage } from '../types/index.js'
+import type {
+  ConversionModule,
+  N2KMessage,
+  SignalKApp,
+  SignalKPlugin,
+  ConversionCallback,
+} from '../types/index.js'
 
 /**
  * Create a humidity message for NMEA 2000
@@ -21,24 +27,26 @@ function createHumidityMessage(humidity: number, source: string): N2KMessage[] {
 /**
  * Humidity conversion modules - converts Signal K humidity data to NMEA 2000 PGN 130313
  */
-export default function createHumidityConversions(): ConversionModule[] {
+export default function createHumidityConversions(
+  app: SignalKApp,
+): ConversionModule<any>[] {
   return [
     {
-      title: "Outside Humidity (130313)",
-      optionKey: "HUMIDITY_OUTSIDE",
-      keys: ["environment.outside.relativeHumidity"],
-      callback: (humidity: unknown): N2KMessage[] => {
+      title: 'Outside Humidity (130313)',
+      optionKey: 'HUMIDITY_OUTSIDE',
+      keys: ['environment.outside.relativeHumidity'],
+      callback: ((humidity: number | null) => {
         try {
           if (typeof humidity !== 'number') {
             return []
           }
 
-          return createHumidityMessage(humidity, "Outside")
+          return createHumidityMessage(humidity, 'Outside')
         } catch (err) {
-          console.error('Error in outside humidity conversion:', err)
+          app.error(err as Error)
           return []
         }
-      },
+      }) as ConversionCallback<[number | null]>,
 
       tests: [
         {
@@ -50,7 +58,7 @@ export default function createHumidityConversions(): ConversionModule[] {
               dst: 255,
               fields: {
                 instance: 100,
-                source: "Outside",
+                source: 'Outside',
                 actualHumidity: 0.5,
               },
             },
@@ -66,7 +74,7 @@ export default function createHumidityConversions(): ConversionModule[] {
               dst: 255,
               fields: {
                 instance: 100,
-                source: "Outside",
+                source: 'Outside',
                 actualHumidity: 0.948,
               },
             },
@@ -75,21 +83,21 @@ export default function createHumidityConversions(): ConversionModule[] {
       ],
     },
     {
-      title: "Inside Humidity (130313)",
-      optionKey: "HUMIDITY_INSIDE",
-      keys: ["environment.inside.relativeHumidity"],
-      callback: (humidity: unknown): N2KMessage[] => {
+      title: 'Inside Humidity (130313)',
+      optionKey: 'HUMIDITY_INSIDE',
+      keys: ['environment.inside.relativeHumidity'],
+      callback: ((humidity: number | null) => {
         try {
           if (typeof humidity !== 'number') {
             return []
           }
 
-          return createHumidityMessage(humidity, "Inside")
+          return createHumidityMessage(humidity, 'Inside')
         } catch (err) {
-          console.error('Error in inside humidity conversion:', err)
+          app.error(err as Error)
           return []
         }
-      },
+      }) as ConversionCallback<[number | null]>,
 
       tests: [
         {
@@ -101,7 +109,7 @@ export default function createHumidityConversions(): ConversionModule[] {
               dst: 255,
               fields: {
                 instance: 100,
-                source: "Inside",
+                source: 'Inside',
                 actualHumidity: 1.0,
               },
             },
@@ -117,7 +125,7 @@ export default function createHumidityConversions(): ConversionModule[] {
               dst: 255,
               fields: {
                 instance: 100,
-                source: "Inside",
+                source: 'Inside',
                 actualHumidity: 0.348,
               },
             },

@@ -50,7 +50,7 @@ const mockApp: SignalKApp = {
  * Mock plugin instance
  */
 const mockPlugin: SignalKPlugin = {
-  id: "sk-n2k-emitter",
+  id: "signalk-nmea2000-emitter-cannon",
   name: "Test Plugin",
   description: "Test plugin",
   schema: () => schema,

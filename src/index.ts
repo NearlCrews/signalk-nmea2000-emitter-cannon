@@ -13,8 +13,8 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
   let pluginManager: PluginManager | null = null;
 
   const plugin: SignalKPlugin = {
-    id: "sk-n2k-emitter",
-    name: "SignalK N2K Emitter",
+    id: "signalk-nmea2000-emitter-cannon",
+    name: "Signal K NMEA2000 Emitter Cannon",
     description:
       "Plugin to convert Signal K to NMEA2000 with enhanced Garmin compatibility (92% PGN coverage)",
     schema: () => schema,

@@ -36,7 +36,7 @@ export class PluginManager {
    */
   start(options: PluginOptions): void {
     try {
-      this.app.debug(`=== SK-N2K-EMITTER STARTING ===`);
+      this.app.debug(`=== SIGNALK-NMEA2000-EMITTER-CANNON STARTING ===`);
       this.app.debug(`Plugin options received: ${JSON.stringify(Object.keys(options))}`);
       this.app.debug(`Using ${this.conversions.length} conversion modules`);
 
@@ -107,7 +107,7 @@ export class PluginManager {
         }
       }
 
-      this.app.debug(`=== SK-N2K-EMITTER STARTUP COMPLETE ===`);
+      this.app.debug(`=== SIGNALK-NMEA2000-EMITTER-CANNON STARTUP COMPLETE ===`);
     } catch (error) {
       this.app.error(
         `Failed to start plugin: ${error instanceof Error ? error.message : String(error)}`

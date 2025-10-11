@@ -1,10 +1,13 @@
-# SignalK to N2K Emitter
+# SignalK NMEA2000 Emitter Cannon
 
-![npm version](https://badge.fury.io/js/sk-n2k-emitter.svg)
+![npm version](https://badge.fury.io/js/signalk-nmea2000-emitter-cannon.svg)
 ![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat&logo=typescript&logoColor=white)
 ![Signal K](https://img.shields.io/badge/Signal%20K-00D4AA?style=flat&logo=sailboat&logoColor=white)
 
 A modern TypeScript Signal K server plugin that converts Signal K data to NMEA 2000 format with enhanced Garmin compatibility. Features complete TypeScript conversion with 100% PGN coverage for comprehensive marine electronics integration.
+
+> **Built on the foundation of [signalk-to-nmea2000](https://github.com/SignalK/signalk-to-nmea2000)**
+> This plugin is a modernized and enhanced version of the original signalk-to-nmea2000 plugin by Scott Bender and the Signal K community. Full credit to the original authors for the excellent foundation and protocol implementation.
 
 ## Features
 
@@ -30,7 +33,7 @@ A modern TypeScript Signal K server plugin that converts Signal K data to NMEA 2
 
 1. Open Signal K server admin interface
 2. Navigate to AppStore
-3. Search for "sk-n2k-emitter"
+3. Search for "signalk-nmea2000-emitter-cannon"
 4. Click Install
 
 ### Manual Installation
@@ -38,14 +41,14 @@ A modern TypeScript Signal K server plugin that converts Signal K data to NMEA 2
 **Option 1: From npm registry**
 ```bash
 cd ~/.signalk
-npm install sk-n2k-emitter
+npm install signalk-nmea2000-emitter-cannon
 ```
 
 **Option 2: Manual copy (for development)**
 ```bash
 # After building from source
 npm run build
-cp -r dist/sk-n2k-emitter ~/.signalk/node_modules/
+cp -r dist/signalk-nmea2000-emitter-cannon ~/.signalk/node_modules/
 ```
 
 ## Configuration
@@ -105,8 +108,8 @@ cp -r dist/sk-n2k-emitter ~/.signalk/node_modules/
 ### Setup
 
 ```bash
-git clone https://github.com/NearlCrews/sk-n2k-emitter.git
-cd sk-n2k-emitter
+git clone https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon.git
+cd signalk-nmea2000-emitter-cannon
 npm install
 ```
 
@@ -272,6 +275,15 @@ ISC License - see [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 
-- Signal K project for the excellent marine data standard
-- Canboat project for NMEA 2000 protocol implementation
-- Signal K community for feedback and testing
+This plugin builds upon the excellent foundation of the [**signalk-to-nmea2000**](https://github.com/SignalK/signalk-to-nmea2000) project:
+
+- **Original Implementation**: [signalk-to-nmea2000](https://github.com/SignalK/signalk-to-nmea2000) by Scott Bender and the Signal K community
+- **Core Protocol Logic**: NMEA 2000 conversion framework and PGN implementations from the original project
+- **Foundation**: All conversion patterns and Signal K integration based on the original work
+
+**Additional Thanks**:
+- [Signal K Project](https://signalk.org/) for the excellent marine data standard
+- [Canboat Project](https://github.com/canboat/canboat) for NMEA 2000 protocol implementation
+- Signal K community for feedback, testing, and contributions
+
+This modernized version adds TypeScript conversion, enhanced Garmin compatibility, and updated dependencies while maintaining the excellent protocol implementation of the original.

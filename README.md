@@ -7,6 +7,7 @@
 A modern TypeScript Signal K server plugin that converts Signal K data to NMEA 2000 format with enhanced Garmin compatibility. Features complete TypeScript conversion with 100% PGN coverage for comprehensive marine electronics integration.
 
 > **Built on the foundation of [signalk-to-nmea2000](https://github.com/SignalK/signalk-to-nmea2000)**
+>
 > This plugin is a modernized and enhanced version of the original signalk-to-nmea2000 plugin by Scott Bender and the Signal K community. Full credit to the original authors for the excellent foundation and protocol implementation.
 
 ## Features

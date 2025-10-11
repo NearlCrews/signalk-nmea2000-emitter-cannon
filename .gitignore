@@ -93,7 +93,6 @@ coverage/
 .vitest/
 
 # Temporary files
-.cline-files/
 temp/
 tmp/
 
@@ -103,7 +102,3 @@ logs/
 
 # Signal K specific
 .signalk/
-
-# Cline
-.clinefiles/
-.clinerules/

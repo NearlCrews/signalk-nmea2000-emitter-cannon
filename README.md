@@ -15,7 +15,7 @@ A modern TypeScript Signal K server plugin that converts Signal K data to NMEA 2
 - ⚓ **Complete PGN Coverage**: Supports 100% of essential NMEA 2000 Parameter Group Numbers (74 conversion modules)
 - 🔌 **Signal K Native**: Seamless integration with Signal K server ecosystem
 - 🎯 **Garmin Compatibility**: Aligned with Garmin PGN specifications and canboatjs framework
-- �� **Reactive Processing**: Built on RxJS for efficient real-time data processing (replaced BaconJS)
+- 🔄 **Reactive Processing**: Built on RxJS for efficient real-time data processing (replaced BaconJS)
 - ⚡ **High Performance**: Modern build system with esbuild 0.25.10 for fast compilation (200.7kb bundle)
 - 🧪 **Fully Tested**: Comprehensive test suite with Vitest 3.2.4 and CanboatJS validation
 - 🏗️ **Modern Dependencies**: Latest es-toolkit 1.40.0, RxJS 7.8.2, pure ESM modules

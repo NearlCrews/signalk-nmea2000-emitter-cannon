@@ -56,7 +56,7 @@
       "url": "https://github.com/NearlCrews"
     }
   ],
-  "license": "ISC",
+  "license": "Apache-2.0",
   "dependencies": {
     "es-toolkit": "^1.40.0",
     "path-scurry": "^2.0.0",

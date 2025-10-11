@@ -49,7 +49,7 @@ npm install signalk-nmea2000-emitter-cannon
 ```bash
 # After building from source
 npm run build
-cp -r dist/signalk-nmea2000-emitter-cannon ~/.signalk/node_modules/
+cp -r dist ~/.signalk/node_modules/signalk-nmea2000-emitter-cannon
 ```
 
 ## Configuration

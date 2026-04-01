@@ -1,3 +1,4 @@
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import type { ConversionCallback, ConversionModule, SignalKApp } from "../types/index.js";
 
 interface Position {
@@ -76,9 +77,9 @@ export default function createDscCallsConversion(
 
       return [
         {
-          prio: 2,
+          prio: N2K_DEFAULT_PRIORITY,
           pgn: 129808,
-          dst: 255,
+          dst: N2K_BROADCAST_DST,
           fields: {
             dscFormat: callTypeMapping[callTypeString] || "Routine Individual",
             dscCategory:
@@ -130,6 +131,7 @@ export default function createDscCallsConversion(
               dscFormat: "Distress",
               dscCategory: "Distress",
               dscMessageAddress: 367123456,
+              mmsiOfShipInDistress: 4294967295,
               natureOfDistress: 0,
               subsequentCommunicationModeOr2ndTelecommand: "No information",
               list: [],

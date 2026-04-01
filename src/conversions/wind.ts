@@ -1,4 +1,6 @@
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, N2K_DEFAULT_SID } from "../constants.js";
 import type { ConversionCallback, ConversionModule, SignalKApp } from "../types/index.js";
+import { toValidNumber } from "../utils/validation.js";
 
 /**
  * Wind conversion module - converts Signal K wind data to NMEA 2000 PGN 130306
@@ -12,28 +14,33 @@ export default function createWindConversion(
     keys: ["environment.wind.angleApparent", "environment.wind.speedApparent"],
     callback: ((angle: number | null, speed: number | null) => {
       try {
-        if (angle === null && speed === null) {
+        // Validate inputs (reject NaN/Infinity)
+        const validAngle = toValidNumber(angle);
+        const validSpeed = toValidNumber(speed);
+
+        if (validAngle === null && validSpeed === null) {
           return [];
         }
 
         // Convert negative angles to positive (0-2π range)
-        const normalizedAngle = angle !== null && angle < 0 ? angle + Math.PI * 2 : angle;
+        const normalizedAngle =
+          validAngle !== null && validAngle < 0 ? validAngle + Math.PI * 2 : validAngle;
 
         return [
           {
-            prio: 2,
+            prio: N2K_DEFAULT_PRIORITY,
             pgn: 130306,
-            dst: 255,
+            dst: N2K_BROADCAST_DST,
             fields: {
-              sid: 87,
-              windSpeed: speed,
+              sid: N2K_DEFAULT_SID,
+              windSpeed: validSpeed,
               windAngle: normalizedAngle,
               reference: "Apparent",
             },
           },
         ];
       } catch (err) {
-        app.error(err as Error);
+        app.error(err instanceof Error ? err.message : String(err));
         return [];
       }
     }) as ConversionCallback<[number | null, number | null]>,

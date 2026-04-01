@@ -1370,5 +1370,105 @@ export const schema: JSONSchema = {
         },
       },
     },
+    EXHAUST_TEMPERATURE: {
+      type: "object",
+      title: "Exhaust Temperature",
+      description: "PGNs: 130312",
+      properties: {
+        enabled: { title: "Enabled", type: "boolean", default: false },
+        resend: {
+          type: "number",
+          title: "Resend (seconds)",
+          description: "If non-zero, the msg will be periodically resent",
+          default: 0,
+        },
+        resendTime: {
+          type: "number",
+          title: "Resend Duration (seconds)",
+          description: "The value will be resent for the given number of seconds",
+          default: 30,
+        },
+      },
+    },
+    AIS_SAR_AIRCRAFT: {
+      type: "object",
+      title: "AIS SAR Aircraft Position",
+      description: "PGNs: 129798",
+      properties: {
+        enabled: { title: "Enabled", type: "boolean", default: false },
+        resend: {
+          type: "number",
+          title: "Resend (seconds)",
+          description: "If non-zero, the msg will be periodically resent",
+          default: 0,
+        },
+        resendTime: {
+          type: "number",
+          title: "Resend Duration (seconds)",
+          description: "The value will be resent for the given number of seconds",
+          default: 30,
+        },
+      },
+    },
+    AIS_SAFETY_MESSAGE: {
+      type: "object",
+      title: "AIS Safety Related Broadcast Message",
+      description: "PGNs: 129802",
+      properties: {
+        enabled: { title: "Enabled", type: "boolean", default: false },
+        resend: {
+          type: "number",
+          title: "Resend (seconds)",
+          description: "If non-zero, the msg will be periodically resent",
+          default: 0,
+        },
+        resendTime: {
+          type: "number",
+          title: "Resend Duration (seconds)",
+          description: "The value will be resent for the given number of seconds",
+          default: 30,
+        },
+      },
+    },
+    NAVIGATION_DATA_GREAT_CIRCLE: {
+      type: "object",
+      title: "Navigation Data (Great Circle)",
+      description: "PGNs: 129284",
+      properties: {
+        enabled: { title: "Enabled", type: "boolean", default: false },
+        resend: {
+          type: "number",
+          title: "Resend (seconds)",
+          description: "If non-zero, the msg will be periodically resent",
+          default: 0,
+        },
+        resendTime: {
+          type: "number",
+          title: "Resend Duration (seconds)",
+          description: "The value will be resent for the given number of seconds",
+          default: 30,
+        },
+      },
+    },
+    ROUTE_WP_LIST: {
+      type: "object",
+      title: "Route/WP List",
+      description: "PGNs: 129285",
+      properties: {
+        enabled: { title: "Enabled", type: "boolean", default: false },
+        resend: {
+          type: "number",
+          title: "Resend (seconds)",
+          description: "If non-zero, the msg will be periodically resent",
+          default: 0,
+        },
+        resendTime: {
+          type: "number",
+          title: "Resend Duration (seconds)",
+          description: "The value will be resent for the given number of seconds",
+          default: 30,
+        },
+      },
+    },
   },
 };

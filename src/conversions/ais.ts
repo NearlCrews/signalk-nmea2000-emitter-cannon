@@ -1,3 +1,4 @@
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import type {
   ConversionCallback,
   ConversionModule,
@@ -328,9 +329,9 @@ function generateStatic(vessel: Vessel, mmsi: string, delta: AisDelta): N2KMessa
   const mmsiNumber = Number.parseInt(mmsi, 10);
 
   return {
-    prio: 2,
+    prio: N2K_DEFAULT_PRIORITY,
     pgn: 129794,
-    dst: 255,
+    dst: N2K_BROADCAST_DST,
     fields: {
       messageId: "Static and voyage related data",
       userId: mmsiNumber,
@@ -374,9 +375,9 @@ function generatePosition(vessel: Vessel, mmsi: string, delta: AisDelta): N2KMes
   const mmsiNumber = Number.parseInt(mmsi, 10);
 
   return {
-    prio: 2,
+    prio: N2K_DEFAULT_PRIORITY,
     pgn: 129038,
-    dst: 255,
+    dst: N2K_BROADCAST_DST,
     fields: {
       messageId: "Scheduled Class A position report",
       userId: mmsiNumber,
@@ -420,9 +421,9 @@ function generateAtoN(vessel: Vessel, mmsi: string, delta: AisDelta): N2KMessage
   const mmsiNumber = Number.parseInt(mmsi, 10);
 
   return {
-    prio: 2,
+    prio: N2K_DEFAULT_PRIORITY,
     pgn: 129041,
-    dst: 255,
+    dst: N2K_BROADCAST_DST,
     fields: {
       messageId: 0,
       repeatIndicator: "Initial",

@@ -1,4 +1,5 @@
-import type { ConversionModule, JSONSchema, N2KMessage } from "../types/index.js";
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
+import type { ConversionModule, JSONSchema, N2KMessage, SignalKApp } from "../types/index.js";
 
 /**
  * Solar charger configuration interface
@@ -22,7 +23,7 @@ interface SolarOptions {
 /**
  * Solar conversion module - converts Signal K solar data to NMEA 2000 battery PGNs 127506 & 127508
  */
-export default function createSolarConversion(): ConversionModule {
+export default function createSolarConversion(app: SignalKApp): ConversionModule {
   const solarKeys = ["voltage", "current", "panelCurrent", "panelVoltage"];
 
   return {
@@ -93,9 +94,9 @@ export default function createSolarConversion(): ConversionModule {
             // Solar charger output (battery instance)
             if (voltageValue !== null || currentValue !== null) {
               res.push({
-                prio: 2,
+                prio: N2K_DEFAULT_PRIORITY,
                 pgn: 127508,
-                dst: 255,
+                dst: N2K_BROADCAST_DST,
                 fields: {
                   instance: charger.instanceId,
                   voltage: voltageValue,
@@ -107,9 +108,9 @@ export default function createSolarConversion(): ConversionModule {
             // Solar panel input (panel instance)
             if (panelVoltageValue !== null || panelCurrentValue !== null) {
               res.push({
-                prio: 2,
+                prio: N2K_DEFAULT_PRIORITY,
                 pgn: 127508,
-                dst: 255,
+                dst: N2K_BROADCAST_DST,
                 fields: {
                   instance: charger.panelInstanceId,
                   voltage: panelVoltageValue,
@@ -120,7 +121,7 @@ export default function createSolarConversion(): ConversionModule {
 
             return res;
           } catch (err) {
-            console.error("Error in solar conversion:", err);
+            app.error(err instanceof Error ? err.message : String(err));
             return [];
           }
         },

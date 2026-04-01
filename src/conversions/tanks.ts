@@ -1,3 +1,4 @@
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import type { ConversionModule, JSONSchema, N2KMessage, SignalKApp } from "../types/index.js";
 
 /**
@@ -125,9 +126,9 @@ export default function createTanksConversion(app: SignalKApp): ConversionModule
 
                 return [
                   {
-                    prio: 2,
+                    prio: N2K_DEFAULT_PRIORITY,
                     pgn: 127505,
-                    dst: 255,
+                    dst: N2K_BROADCAST_DST,
                     fields: {
                       instance: tank.instanceId,
                       type,
@@ -137,7 +138,7 @@ export default function createTanksConversion(app: SignalKApp): ConversionModule
                   },
                 ];
               } catch (err) {
-                console.error("Error in tank conversion:", err);
+                app.error(err instanceof Error ? err.message : String(err));
                 return [];
               }
             },

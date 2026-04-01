@@ -1,3 +1,4 @@
+import type { Context, Path } from "@signalk/server-api";
 import { isFunction, isUndefined } from "es-toolkit";
 import { BehaviorSubject, debounceTime } from "rxjs";
 import { createConversionModules } from "./conversions/index.js";
@@ -22,6 +23,7 @@ export class PluginManager {
   private conversions: ConversionModule[] = [];
   private unsubscribes: Array<() => void> = [];
   private timers: NodeJS.Timeout[] = [];
+  private nmea2000Ready = false;
 
   constructor(app: SignalKApp, plugin: SignalKPlugin) {
     this.app = app;
@@ -29,6 +31,12 @@ export class PluginManager {
     // Load conversions at initialization
     this.conversions = createConversionModules(app, plugin);
     this.app.debug(`Loaded ${this.conversions.length} conversion modules`);
+
+    // Wait for NMEA2000 output to be available before emitting
+    this.app.on("nmea2000OutAvailable", () => {
+      this.nmea2000Ready = true;
+      this.app.debug("NMEA2000 output is now available");
+    });
   }
 
   /**
@@ -36,6 +44,7 @@ export class PluginManager {
    */
   start(options: PluginOptions): void {
     try {
+      this.app.setPluginStatus("Starting...");
       this.app.debug(`=== SIGNALK-NMEA2000-EMITTER-CANNON STARTING ===`);
       this.app.debug(`Plugin options received: ${JSON.stringify(Object.keys(options))}`);
       this.app.debug(`Using ${this.conversions.length} conversion modules`);
@@ -89,7 +98,7 @@ export class PluginManager {
             this.app.debug(`Setting up subconversion with sourceType: ${sourceType}`);
 
             if (!mapper) {
-              console.error(`Unknown conversion type: ${sourceType}`);
+              this.app.error(`Unknown conversion type: ${sourceType}`);
               continue;
             }
 
@@ -108,11 +117,11 @@ export class PluginManager {
       }
 
       this.app.debug(`=== SIGNALK-NMEA2000-EMITTER-CANNON STARTUP COMPLETE ===`);
+      this.app.setPluginStatus(`Running with ${enabledCount} conversions enabled`);
     } catch (error) {
-      this.app.error(
-        `Failed to start plugin: ${error instanceof Error ? error.message : String(error)}`
-      );
-      console.error("Full startup error:", error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.app.error(`Failed to start plugin: ${errorMsg}`);
+      this.app.setPluginError(`Startup failed: ${errorMsg}`);
     }
   }
 
@@ -125,7 +134,7 @@ export class PluginManager {
       try {
         unsubscribe();
       } catch (err) {
-        console.error("Error during unsubscribe:", err);
+        this.app.error(`Error during unsubscribe: ${err}`);
       }
     }
     this.unsubscribes = [];
@@ -168,7 +177,7 @@ export class PluginManager {
             await processor.call(this, values);
           }
         } catch (err) {
-          console.error("Error in resend timer:", err);
+          this.app.error(`Error in resend timer: ${err}`);
         }
 
         if (Date.now() - startedAt > (options.resendTime || 30) * 1000) {
@@ -189,7 +198,7 @@ export class PluginManager {
         await processor.call(this, values);
       }
     } catch (err) {
-      console.error("Error processing output:", err);
+      this.app.error(`Error processing output: ${err}`);
     }
   }
 
@@ -214,15 +223,14 @@ export class PluginManager {
       return;
     }
 
-    this.app.signalk.on("delta", (delta) => {
+    this.app.on("delta", (delta) => {
       try {
         if (conversion.callback) {
           const result = conversion.callback(delta);
           this.processOutput(conversion, processingOptions, result);
         }
       } catch (err) {
-        this.app.error(err instanceof Error ? err : new Error(String(err)));
-        console.error(err);
+        this.app.error(`Error in delta handler: ${err}`);
       }
     });
   }
@@ -257,7 +265,7 @@ export class PluginManager {
       const sourceRef = pluginOptions[pathToPropName(skKey)] as string | undefined;
       this.app.debug(`Setting up ${skKey} with sourceRef: ${sourceRef}`);
 
-      let bus = this.app.streambundle.getSelfBus(skKey);
+      let bus = this.app.streambundle.getSelfBus(skKey as Path);
 
       if (sourceRef) {
         bus = bus.filter((x: unknown) => {
@@ -303,20 +311,30 @@ export class PluginManager {
     });
 
     // Debounce and process like the original
-    const subscription = combinedBus.pipe(debounceTime(10)).subscribe((values) => {
-      try {
-        this.app.debug(
-          `*** CALLBACK TRIGGERED for ${conversion.title} with values: ${JSON.stringify(values)}`
-        );
-        if (conversion.callback) {
-          const result = conversion.callback(...values);
-          this.app.debug(`*** CALLBACK RESULT for ${conversion.title}: ${JSON.stringify(result)}`);
-          this.processOutput(conversion, pluginOptions, result);
+    const subscription = combinedBus.pipe(debounceTime(10)).subscribe({
+      next: (values) => {
+        try {
+          this.app.debug(
+            `*** CALLBACK TRIGGERED for ${conversion.title} with values: ${JSON.stringify(values)}`
+          );
+          if (conversion.callback) {
+            const result = conversion.callback(...values);
+            this.app.debug(
+              `*** CALLBACK RESULT for ${conversion.title}: ${JSON.stringify(result)}`
+            );
+            this.processOutput(conversion, pluginOptions, result);
+          }
+        } catch (err) {
+          this.app.error(
+            `Error in callback for ${conversion.title}: ${err instanceof Error ? err.message : String(err)}`
+          );
         }
-      } catch (err) {
-        this.app.error(err instanceof Error ? err : new Error(String(err)));
-        console.error("Error in callback:", err);
-      }
+      },
+      error: (err) => {
+        this.app.error(
+          `Stream error for ${conversion.title}: ${err instanceof Error ? err.message : String(err)}`
+        );
+      },
     });
 
     this.unsubscribes.push(() => subscription.unsubscribe());
@@ -327,25 +345,21 @@ export class PluginManager {
    */
   private mapSubscription(conversion: ConversionModule, options: unknown): void {
     const pluginOptions = options as PluginOptions[string];
-    const subscription = {
-      context: conversion.context || "vessels.self",
-      subscribe: [] as Array<{ path: string }>,
-    };
-
     const keys = isFunction(conversion.keys)
       ? (conversion.keys as (options: unknown) => string[])(options)
       : conversion.keys || [];
 
-    for (const key of keys) {
-      subscription.subscribe.push({ path: key });
-    }
+    const subscription = {
+      context: (conversion.context || "vessels.self") as Context,
+      subscribe: keys.map((key) => ({ path: key as Path })),
+    };
 
     this.app.debug(`subscription: ${JSON.stringify(subscription)}`);
 
     this.app.subscriptionmanager.subscribe(
       subscription,
       this.unsubscribes,
-      (err: Error) => this.app.error(err.toString()),
+      (err: unknown) => this.app.error(err instanceof Error ? err.message : String(err)),
       (delta) => {
         try {
           if (conversion.callback) {
@@ -353,7 +367,7 @@ export class PluginManager {
             this.processOutput(conversion, pluginOptions, result);
           }
         } catch (err) {
-          this.app.error(err instanceof Error ? err : new Error(String(err)));
+          this.app.error(err instanceof Error ? err.message : String(err));
         }
       }
     );
@@ -381,7 +395,7 @@ export class PluginManager {
           this.processOutput(conversion, processingOptions, result);
         }
       } catch (err) {
-        this.app.error(err instanceof Error ? err : new Error(String(err)));
+        this.app.error(err instanceof Error ? err.message : String(err));
       }
     }, conversion.interval);
 
@@ -404,6 +418,12 @@ export class PluginManager {
   private async processToN2K(values: N2KMessage[] | null): Promise<void> {
     if (!values) return;
 
+    // Check if NMEA2000 output is available
+    if (!this.nmea2000Ready) {
+      this.app.debug("NMEA2000 output not yet available, queuing message");
+      return;
+    }
+
     try {
       const pgns = await Promise.all(values);
       const validPgns = pgns.filter(isDefined);
@@ -415,8 +435,7 @@ export class PluginManager {
           this.app.debug(`emit nmea2000JsonOut ${formatN2KMessage(validatedPgn)}`);
           this.app.emit("nmea2000JsonOut", validatedPgn);
         } catch (err) {
-          console.error(`error writing pgn ${JSON.stringify(pgn)}`);
-          console.error(err);
+          this.app.error(`Error writing PGN ${JSON.stringify(pgn)}: ${err}`);
         }
       }
 
@@ -424,7 +443,7 @@ export class PluginManager {
         this.app.reportOutputMessages(validPgns.length);
       }
     } catch (err) {
-      console.error("Error processing N2K values:", err);
+      this.app.error(`Error processing N2K values: ${err}`);
     }
   }
 

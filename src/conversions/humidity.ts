@@ -1,3 +1,4 @@
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import type {
   ConversionCallback,
   ConversionModule,
@@ -11,9 +12,9 @@ import type {
 function createHumidityMessage(humidity: number, source: string): N2KMessage[] {
   return [
     {
-      prio: 2,
+      prio: N2K_DEFAULT_PRIORITY,
       pgn: 130313,
-      dst: 255,
+      dst: N2K_BROADCAST_DST,
       fields: {
         instance: 100,
         source,
@@ -40,7 +41,7 @@ export default function createHumidityConversions(app: SignalKApp): ConversionMo
 
           return createHumidityMessage(humidity, "Outside");
         } catch (err) {
-          app.error(err as Error);
+          app.error(err instanceof Error ? err.message : String(err));
           return [];
         }
       }) as ConversionCallback<[number | null]>,
@@ -91,7 +92,7 @@ export default function createHumidityConversions(app: SignalKApp): ConversionMo
 
           return createHumidityMessage(humidity, "Inside");
         } catch (err) {
-          app.error(err as Error);
+          app.error(err instanceof Error ? err.message : String(err));
           return [];
         }
       }) as ConversionCallback<[number | null]>,

@@ -1,3 +1,4 @@
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import type { ConversionModule, N2KFieldValue, N2KMessage } from "../types/index.js";
 
 export default function createSmallCraftStatusConversion(): ConversionModule {
@@ -79,9 +80,9 @@ export default function createSmallCraftStatusConversion(): ConversionModule {
 
       return [
         {
-          prio: 2,
+          prio: N2K_DEFAULT_PRIORITY,
           pgn: 130576,
-          dst: 255,
+          dst: N2K_BROADCAST_DST,
           fields,
         },
       ];

@@ -1,6 +1,6 @@
 {
   "name": "signalk-nmea2000-emitter-cannon",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Signal K server plugin to convert Signal K to NMEA2000 with Garmin PGN specification alignment and canboatjs framework compatibility",
   "main": "dist/index.js",
   "type": "module",
@@ -24,6 +24,7 @@
     "check": "biome check src/",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
+    "prepare": "husky",
     "prepack": "npm run build",
     "create-release": "github-create-release --owner NearlCrews --repository signalk-nmea2000-emitter-cannon",
     "release": "git tag -d v$npm_package_version ; git tag v$npm_package_version && git push --tags && git push && npm run create-release"
@@ -44,22 +45,15 @@
     "displayName": "Signal K NMEA2000 Emitter Cannon"
   },
   "author": {
-    "name": "Scott Bender",
-    "email": "scott@scottbender.net"
+    "name": "NearlCrews",
+    "email": "NearlCrews@users.noreply.github.com",
+    "url": "https://github.com/NearlCrews"
   },
-  "contributors": [
-    {
-      "name": "Teppo Kurki"
-    },
-    {
-      "name": "NearlCrews",
-      "url": "https://github.com/NearlCrews"
-    }
-  ],
   "license": "Apache-2.0",
   "dependencies": {
-    "es-toolkit": "^1.40.0",
-    "path-scurry": "^2.0.0",
+    "@signalk/server-api": "^2.10.2",
+    "es-toolkit": "^1.44.0",
+    "path-scurry": "^2.0.1",
     "rxjs": "^7.8.2"
   },
   "repository": {
@@ -71,19 +65,29 @@
     "url": "https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/issues"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.2.5",
-    "@canboat/canboatjs": "^3.11.0",
-    "@types/node": "^24.7.2",
-    "@vitest/ui": "^3.2.4",
-    "esbuild": "^0.25.10",
-    "sharp": "^0.34.4",
-    "signalk-server": "^2.16.0",
-    "tsx": "^4.20.6",
+    "@biomejs/biome": "^2.3.11",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.5.1",
+    "@canboat/canboatjs": "^3.13.0",
+    "@types/node": "^25.0.9",
+    "@vitest/ui": "^4.0.17",
+    "esbuild": "^0.27.2",
+    "sharp": "^0.34.5",
+    "signalk-server": "^2.20.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3",
-    "vitest": "^3.2.4"
+    "vitest": "^4.0.17"
   },
   "engines": {
     "node": ">=20"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "biome check --write"
+    ],
+    "*.{json,md}": [
+      "biome format --write"
+    ]
   },
   "overrides": {
     "cookie": "^0.7.0",

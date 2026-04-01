@@ -1,4 +1,6 @@
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, N2K_DEFAULT_SID } from "../constants.js";
 import type { ConversionCallback, ConversionModule, SignalKApp } from "../types/index.js";
+import { toValidNumber } from "../utils/validation.js";
 
 /**
  * COG & SOG conversion module - converts Signal K course and speed data to NMEA 2000 PGN 129026
@@ -12,26 +14,30 @@ export default function createCogSogConversion(
     keys: ["navigation.courseOverGroundTrue", "navigation.speedOverGround"],
     callback: ((course: number | null, speed: number | null) => {
       try {
-        // Return empty array if both values are null
-        if (course === null && speed === null) {
+        // Validate inputs (reject NaN/Infinity)
+        const validCourse = toValidNumber(course);
+        const validSpeed = toValidNumber(speed);
+
+        // Return empty array if both values are null/invalid
+        if (validCourse === null && validSpeed === null) {
           return [];
         }
 
         return [
           {
-            prio: 2,
+            prio: N2K_DEFAULT_PRIORITY,
             pgn: 129026,
-            dst: 255,
+            dst: N2K_BROADCAST_DST,
             fields: {
-              sid: 87,
+              sid: N2K_DEFAULT_SID,
               cogReference: "True",
-              cog: course,
-              sog: speed,
+              cog: validCourse,
+              sog: validSpeed,
             },
           },
         ];
       } catch (err) {
-        app.error(err as Error);
+        app.error(err instanceof Error ? err.message : String(err));
         return [];
       }
     }) as ConversionCallback<[number | null, number | null]>,

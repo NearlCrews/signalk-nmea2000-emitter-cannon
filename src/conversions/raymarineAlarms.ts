@@ -1,4 +1,5 @@
-import type { ConversionModule, N2KMessage } from "../types/index.js";
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
+import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
 
 interface AlarmValue {
   state: string;
@@ -19,9 +20,9 @@ interface AlarmPGN extends N2KMessage {
   path: string;
 }
 
-let pgns: AlarmPGN[] = [];
-
-export default function createRaymarineAlarmsConversion(): ConversionModule {
+export default function createRaymarineAlarmsConversion(app: SignalKApp): ConversionModule {
+  // Instance-scoped state (cleared when plugin restarts)
+  let pgns: AlarmPGN[] = [];
   return {
     title: "Raymarine (Seatalk) Alarms (65288)",
     optionKey: "RAYMARINE_ALARMS",
@@ -88,9 +89,9 @@ export default function createRaymarineAlarmsConversion(): ConversionModule {
 
       if (state && alarmId) {
         pgns.push({
-          prio: 2,
+          prio: N2K_DEFAULT_PRIORITY,
           pgn: 65288,
-          dst: 255,
+          dst: N2K_BROADCAST_DST,
           path: path,
           fields: {
             sid: 1,
@@ -107,7 +108,7 @@ export default function createRaymarineAlarmsConversion(): ConversionModule {
       try {
         return pgns;
       } catch (err) {
-        console.error(err);
+        app.error(err instanceof Error ? err.message : String(err));
         return [];
       }
     },

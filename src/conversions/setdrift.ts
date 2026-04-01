@@ -1,9 +1,10 @@
-import type { ConversionModule, N2KMessage } from "../types/index.js";
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
+import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
 
 /**
  * Set/Drift conversion module - converts Signal K current data to NMEA 2000 PGN 129291
  */
-export default function createSetDriftConversion(): ConversionModule {
+export default function createSetDriftConversion(app: SignalKApp): ConversionModule {
   return {
     title: "Set/Drift (129291)",
     optionKey: "SET_DRIFT",
@@ -21,9 +22,9 @@ export default function createSetDriftConversion(): ConversionModule {
 
         return [
           {
-            prio: 2,
+            prio: N2K_DEFAULT_PRIORITY,
             pgn: 129291,
-            dst: 255,
+            dst: N2K_BROADCAST_DST,
             fields: {
               set: setValue,
               drift: driftValue,
@@ -32,7 +33,7 @@ export default function createSetDriftConversion(): ConversionModule {
           },
         ];
       } catch (err) {
-        console.error("Error in set/drift conversion:", err);
+        app.error(err instanceof Error ? err.message : String(err));
         return [];
       }
     },

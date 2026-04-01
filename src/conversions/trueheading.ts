@@ -1,9 +1,10 @@
-import type { ConversionModule, N2KMessage } from "../types/index.js";
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, N2K_DEFAULT_SID } from "../constants.js";
+import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
 
 /**
  * True Heading conversion module - converts Signal K true heading to NMEA 2000 PGN 127250
  */
-export default function createTrueHeadingConversion(): ConversionModule {
+export default function createTrueHeadingConversion(app: SignalKApp): ConversionModule {
   return {
     title: "TrueHeading (127250)",
     optionKey: "TRUE_HEADING",
@@ -17,11 +18,11 @@ export default function createTrueHeadingConversion(): ConversionModule {
 
         return [
           {
-            prio: 2,
+            prio: N2K_DEFAULT_PRIORITY,
             pgn: 127250,
-            dst: 255,
+            dst: N2K_BROADCAST_DST,
             fields: {
-              sid: 87,
+              sid: N2K_DEFAULT_SID,
               heading,
               variation: undefined,
               reference: "True",
@@ -29,7 +30,7 @@ export default function createTrueHeadingConversion(): ConversionModule {
           },
         ];
       } catch (err) {
-        console.error("Error in true heading conversion:", err);
+        app.error(err instanceof Error ? err.message : String(err));
         return [];
       }
     },

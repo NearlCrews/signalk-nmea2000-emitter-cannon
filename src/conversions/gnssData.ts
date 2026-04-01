@@ -1,3 +1,4 @@
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import type { ConversionCallback, ConversionModule, SignalKApp } from "../types/index.js";
 
 interface SatelliteData {
@@ -40,9 +41,9 @@ export default function createGnssDataConversions(_app: SignalKApp): ConversionM
 
         return [
           {
-            prio: 2,
+            prio: N2K_DEFAULT_PRIORITY,
             pgn: 129539,
-            dst: 255,
+            dst: N2K_BROADCAST_DST,
             fields: {
               sid: 0,
               desiredMode: modeString === "3D" ? "3D" : modeString === "2D" ? "2D" : "Auto",
@@ -105,9 +106,9 @@ export default function createGnssDataConversions(_app: SignalKApp): ConversionM
 
         return [
           {
-            prio: 2,
+            prio: N2K_DEFAULT_PRIORITY,
             pgn: 129540,
-            dst: 255,
+            dst: N2K_BROADCAST_DST,
             fields: {
               sid: 0,
               mode: "Auto",

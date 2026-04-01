@@ -1,5 +1,59 @@
 ## Change Log
 
+### v1.1.0 (2026/01/20) - Code Quality & Developer Experience
+
+**Constants & Code Consistency**:
+- Introduced centralized constants (`N2K_DEFAULT_PRIORITY`, `N2K_BROADCAST_DST`, `N2K_DEFAULT_SID`) used across all 46 conversion modules
+- Eliminated hardcoded magic numbers throughout the codebase
+- Improved code maintainability and consistency
+
+**Fixed Global Mutable State**:
+- Moved module-level mutable state to instance scope in:
+  - `battery.ts` - smoothing state now instance-scoped
+  - `notifications.ts` - alert IDs and PGN arrays moved inside factory
+  - `raymarineAlarms.ts` - PGN array moved inside factory
+- Prevents state pollution between plugin restarts
+
+**Input Validation**:
+- Added `src/utils/validation.ts` with type-safe validation utilities
+  - `isValidNumber()` - checks for finite numbers (rejects NaN/Infinity)
+  - `toValidNumber()` - coerces values with null fallback
+  - `isValidString()`, `toValidString()` - string validation helpers
+- Applied NaN/Infinity validation to critical conversions: wind, heading, speed, COG/SOG
+
+**New Utilities**:
+- Added `src/utils/smoothing.ts` with `ExponentialSmoother` class
+  - Extracted from battery conversion for reusability
+  - Supports multiple instances with key-based state management
+- Enhanced `src/utils/dateUtils.ts` with NMEA 2000 date/time helpers
+
+**GitHub Actions CI**:
+- Added `.github/workflows/ci.yml` with comprehensive CI pipeline
+  - Runs on Node.js 20.x and 22.x
+  - Includes linting, type checking, build, and test stages
+  - Separate code quality job for formatting checks
+
+**Pre-commit Hooks**:
+- Added husky + lint-staged for automated code quality
+- Automatically runs Biome on staged TypeScript and JSON/Markdown files
+- Ensures consistent code quality before commits
+
+**TypeScript Improvements**:
+- Fixed type errors in battery.ts with proper `SubConversionModule` typing
+- All 60 source files pass strict TypeScript checking
+- Improved type annotations throughout
+
+**Documentation**:
+- Comprehensive JSDoc comments on all utility functions
+- Updated project structure documentation
+- All constants and types fully documented
+
+**Dependencies**:
+- Added `husky` ^9.1.7 for Git hooks
+- Added `lint-staged` ^15.5.1 for pre-commit automation
+
+---
+
 ### v1.0.1 (2025/10/11) - Repository Best Practices Update
 
 **GitHub Community Files**:
@@ -107,13 +161,9 @@ This is a mature Signal K NMEA2000 plugin with 92% Garmin PGN coverage, built on
 - **Non-Interactive Tests**: CI/CD compatible with `vitest --run`
 
 **Attribution**:
-This plugin builds upon the excellent foundation of [signalk-to-nmea2000](https://github.com/SignalK/signalk-to-nmea2000) originally developed by Scott Bender, with contributions from Teppo Kurki and the Signal K community. Enhanced and modernized by [@NearlCrews](https://github.com/NearlCrews) with TypeScript conversion, expanded Garmin compatibility, and production hardening.
+This plugin builds upon the excellent foundation of [signalk-to-nmea2000](https://github.com/SignalK/signalk-to-nmea2000) originally created by Scott Bender and the Signal K community. Enhanced and modernized by [@NearlCrews](https://github.com/NearlCrews) with TypeScript conversion, expanded Garmin compatibility, and production hardening.
 
-**Original Contributors**:
-- Scott Bender - Original author and primary contributor
-- Teppo Kurki - Core contributions and maintenance
-- Signal K Community - Feature additions and improvements
-- Various contributors - See original project for full attribution
+**Original Project**: See the [signalk-to-nmea2000 contributors](https://github.com/SignalK/signalk-to-nmea2000/graphs/contributors) for full attribution.
 
 ---
 

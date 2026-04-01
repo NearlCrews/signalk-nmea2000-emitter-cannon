@@ -44,7 +44,7 @@ export default function createDepthConversion(app: SignalKApp): ConversionModule
           },
         ];
       } catch (err) {
-        app.error(err as Error);
+        app.error(err instanceof Error ? err.message : String(err));
         return [];
       }
     }) as ConversionCallback<[number | null]>,

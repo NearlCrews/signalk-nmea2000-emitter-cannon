@@ -12,15 +12,17 @@ A modern TypeScript Signal K server plugin that converts Signal K data to NMEA 2
 
 ## Features
 
-- 🚀 **Modern TypeScript**: Fully converted to TypeScript 5.9.3 with strict type safety
-- ⚓ **Complete PGN Coverage**: Supports 100% of essential NMEA 2000 Parameter Group Numbers (74 conversion modules)
-- 🔌 **Signal K Native**: Seamless integration with Signal K server ecosystem
-- 🎯 **Garmin Compatibility**: Aligned with Garmin PGN specifications and canboatjs framework
-- 🔄 **Reactive Processing**: Built on RxJS for efficient real-time data processing (replaced BaconJS)
-- ⚡ **High Performance**: Modern build system with esbuild 0.25.10 for fast compilation (200.7kb bundle)
-- 🧪 **Fully Tested**: Comprehensive test suite with Vitest 3.2.4 and CanboatJS validation
-- 🏗️ **Modern Dependencies**: Latest es-toolkit 1.40.0, RxJS 7.8.2, pure ESM modules
-- 🔧 **Latest Tooling**: Biome 2.2.5 for linting/formatting, zero errors and warnings
+- **Modern TypeScript**: Fully converted to TypeScript 5.9+ with strict type safety
+- **Complete PGN Coverage**: Supports 100% of essential NMEA 2000 Parameter Group Numbers (74 conversion modules)
+- **Signal K Native**: Seamless integration with Signal K server ecosystem using official `@signalk/server-api`
+- **Garmin Compatibility**: Aligned with Garmin PGN specifications and canboatjs framework
+- **Reactive Processing**: Built on RxJS 7.8 for efficient real-time data processing
+- **High Performance**: Modern build system with esbuild for fast compilation (~209kb bundle)
+- **Fully Tested**: Comprehensive test suite with Vitest and CanboatJS validation
+- **Modern Dependencies**: es-toolkit, RxJS 7.8, pure ESM modules
+- **Latest Tooling**: Biome for linting/formatting, zero errors and warnings
+- **CI/CD Ready**: GitHub Actions workflow with multi-version Node.js testing
+- **Developer Experience**: Pre-commit hooks with husky + lint-staged
 
 ## Installation
 
@@ -141,21 +143,31 @@ npm run format
 ```
 src/
 ├── index.ts              # Main plugin entry point
-├── types/               # TypeScript type definitions
-│   ├── signalk.ts       # Signal K server types
-│   ├── nmea2000.ts      # NMEA 2000 message types
-│   ├── plugin.ts        # Plugin-specific types
-│   └── index.ts         # Type re-exports
-├── utils/               # Utility functions
-│   ├── pathUtils.ts     # Signal K path manipulation
-│   └── messageUtils.ts  # NMEA 2000 message utilities
-├── conversions/         # PGN conversion modules
-│   ├── wind.ts          # Wind data conversion
-│   ├── depth.ts         # Depth conversion
-│   ├── battery.ts       # Battery status conversion
-│   └── ...              # Additional conversions
-└── test/               # Test suites
-    └── index.test.ts    # Main test file
+├── plugin-manager.ts     # Core plugin lifecycle management
+├── schema.ts             # Configuration schema for Signal K admin UI
+├── constants.ts          # NMEA 2000 default values (priority, dst, SID)
+├── types/                # TypeScript type definitions
+│   ├── signalk.ts        # Signal K server types (extends @signalk/server-api)
+│   ├── nmea2000.ts       # NMEA 2000 message types
+│   ├── plugin.ts         # Plugin-specific types
+│   └── index.ts          # Type re-exports
+├── utils/                # Utility functions
+│   ├── pathUtils.ts      # Signal K path manipulation
+│   ├── messageUtils.ts   # NMEA 2000 message utilities
+│   ├── dateUtils.ts      # Date/time conversions for N2K
+│   ├── validation.ts     # Input validation (NaN/Infinity checks)
+│   └── smoothing.ts      # Exponential smoothing for sensor data
+├── conversions/          # PGN conversion modules (46 modules)
+│   ├── index.ts          # Module loader
+│   ├── wind.ts           # Wind data conversion
+│   ├── depth.ts          # Depth conversion
+│   ├── battery.ts        # Battery status conversion
+│   └── ...               # Additional conversions
+└── test/                 # Test suites
+    └── index.test.ts     # Main test file
+.github/
+└── workflows/
+    └── ci.yml            # GitHub Actions CI pipeline
 ```
 
 ### Adding New Conversions
@@ -261,30 +273,28 @@ All conversion modules include embedded test cases that validate:
 
 - **Signal K Server**: 2.16.0+
 - **Node.js**: 20.0.0+
-- **CanboatJS**: 3.11.0+
-- **TypeScript**: 5.9.0+
+- **CanboatJS**: 3.13.0+
+- **@signalk/server-api**: 2.10.0+
 
 ## License
 
-ISC License - see [LICENSE](LICENSE) file for details.
+Apache 2.0 License - see [LICENSE](LICENSE) file for details.
 
-## Authors
+## Author
 
-- **Scott Bender** - Original author
-- **Teppo Kurki** - Contributor  
-- **NearlCrews** - Maintainer and TypeScript conversion
+- **[NearlCrews](https://github.com/NearlCrews)** - Maintainer and TypeScript conversion
 
 ## Acknowledgments
 
 This plugin builds upon the excellent foundation of the [**signalk-to-nmea2000**](https://github.com/SignalK/signalk-to-nmea2000) project:
 
-- **Original Implementation**: [signalk-to-nmea2000](https://github.com/SignalK/signalk-to-nmea2000) by Scott Bender and the Signal K community
-- **Core Protocol Logic**: NMEA 2000 conversion framework and PGN implementations from the original project
+- **Original Author**: Scott Bender and the Signal K community
+- **Original Implementation**: [signalk-to-nmea2000](https://github.com/SignalK/signalk-to-nmea2000) - NMEA 2000 conversion framework and PGN implementations
 - **Foundation**: All conversion patterns and Signal K integration based on the original work
 
 **Additional Thanks**:
 - [Signal K Project](https://signalk.org/) for the excellent marine data standard
 - [Canboat Project](https://github.com/canboat/canboat) for NMEA 2000 protocol implementation
-- Signal K community for feedback, testing, and contributions
+- The Signal K community for feedback, testing, and contributions
 
 This modernized version adds TypeScript conversion, enhanced Garmin compatibility, and updated dependencies while maintaining the excellent protocol implementation of the original.

@@ -1,3 +1,4 @@
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, N2K_DEFAULT_SID } from "../constants.js";
 import type { ConversionCallback, ConversionModule, SignalKApp } from "../types/index.js";
 
 /**
@@ -28,11 +29,11 @@ export default function createAttitudeConversion(
 
         return [
           {
-            prio: 2,
+            prio: N2K_DEFAULT_PRIORITY,
             pgn: 127257,
-            dst: 255,
+            dst: N2K_BROADCAST_DST,
             fields: {
-              sid: 87,
+              sid: N2K_DEFAULT_SID,
               pitch: attitude.pitch,
               yaw: attitude.yaw,
               roll: attitude.roll,
@@ -40,7 +41,7 @@ export default function createAttitudeConversion(
           },
         ];
       } catch (err) {
-        app.error(err as Error);
+        app.error(err instanceof Error ? err.message : String(err));
         return [];
       }
     }) as ConversionCallback<[AttitudeData]>,

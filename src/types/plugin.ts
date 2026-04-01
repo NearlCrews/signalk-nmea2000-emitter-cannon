@@ -1,3 +1,4 @@
+import type { Plugin } from "@signalk/server-api";
 import type { N2KMessage } from "./nmea2000.js";
 import type { JSONSchema, SignalKApp } from "./signalk.js";
 
@@ -11,21 +12,11 @@ export type ConversionCallback<T extends unknown[] = unknown[]> = (
 
 /**
  * Signal K plugin interface
- * Main structure that every Signal K plugin must implement
+ * Extends the official Plugin interface with additional properties
  */
-export interface SignalKPlugin {
-  /** Unique plugin identifier */
-  id: string;
-  /** Human-readable plugin name */
-  name: string;
+export interface SignalKPlugin extends Plugin {
   /** Plugin description */
   description: string;
-  /** Function that returns the plugin's configuration schema */
-  schema: () => JSONSchema;
-  /** Function called when the plugin starts */
-  start: (options: PluginOptions) => void;
-  /** Function called when the plugin stops */
-  stop: () => void;
 }
 
 /**

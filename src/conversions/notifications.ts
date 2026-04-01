@@ -1,3 +1,4 @@
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
 
 interface AlertValue {
@@ -27,14 +28,15 @@ const alertTypes: Record<string, string> = {
 const alertCategory = "Technical";
 const alertSystem = 5;
 
-let idCounter = 0;
-const ids: Record<string, { alertId: number }> = {};
-let pgns: N2KMessage[] = [];
-
 export default function createNotificationsConversion(
   app: SignalKApp,
   plugin: { id: string }
 ): ConversionModule {
+  // Instance-scoped state (cleared when plugin restarts)
+  let idCounter = 0;
+  const ids: Record<string, { alertId: number }> = {};
+  let pgns: N2KMessage[] = [];
+
   return {
     title: "Notifications (126983, 126985)",
     optionKey: "NOTIFICATIONS",
@@ -99,9 +101,9 @@ export default function createNotificationsConversion(
           const idName = alertId.toString().padStart(16, "0");
 
           pgns.push({
-            prio: 2,
+            prio: N2K_DEFAULT_PRIORITY,
             pgn: 126985,
-            dst: 255,
+            dst: N2K_BROADCAST_DST,
             fields: {
               alertId: alertId,
               alertType: type,
@@ -118,9 +120,9 @@ export default function createNotificationsConversion(
           });
 
           pgns.push({
-            prio: 2,
+            prio: N2K_DEFAULT_PRIORITY,
             pgn: 126983,
-            dst: 255,
+            dst: N2K_BROADCAST_DST,
             fields: {
               alertId: alertId,
               alertType: type,
@@ -196,7 +198,7 @@ export default function createNotificationsConversion(
       try {
         return pgns;
       } catch (err) {
-        console.error(err);
+        app.error(err instanceof Error ? err.message : String(err));
         return [];
       }
     },

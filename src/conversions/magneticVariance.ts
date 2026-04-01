@@ -1,9 +1,10 @@
-import type { ConversionModule, N2KMessage } from "../types/index.js";
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
+import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
 
 /**
  * Magnetic Variance conversion module - converts Signal K magnetic variation to NMEA 2000 PGN 127258
  */
-export default function createMagneticVarianceConversion(): ConversionModule {
+export default function createMagneticVarianceConversion(app: SignalKApp): ConversionModule {
   return {
     title: "Magnetic Variance (127258)",
     optionKey: "MAGNETIC_VARIANCE",
@@ -20,9 +21,9 @@ export default function createMagneticVarianceConversion(): ConversionModule {
 
         return [
           {
-            prio: 2,
+            prio: N2K_DEFAULT_PRIORITY,
             pgn: 127258,
-            dst: 255,
+            dst: N2K_BROADCAST_DST,
             fields: {
               sid: 0,
               variationSource: "Table",
@@ -32,7 +33,7 @@ export default function createMagneticVarianceConversion(): ConversionModule {
           },
         ];
       } catch (err) {
-        console.error("Error in magnetic variance conversion:", err);
+        app.error(err instanceof Error ? err.message : String(err));
         return [];
       }
     },

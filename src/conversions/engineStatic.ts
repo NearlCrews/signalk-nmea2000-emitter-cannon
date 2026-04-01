@@ -1,3 +1,4 @@
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import type { ConversionCallback, ConversionModule, SignalKApp } from "../types/index.js";
 
 export default function createEngineStaticConversion(
@@ -24,9 +25,9 @@ export default function createEngineStaticConversion(
 
       return [
         {
-          prio: 2,
+          prio: N2K_DEFAULT_PRIORITY,
           pgn: 127498,
-          dst: 255,
+          dst: N2K_BROADCAST_DST,
           fields: {
             engineInstance: 0,
             typeOfEngine: "Gasoline",

@@ -1,4 +1,5 @@
-import type { ConversionModule, N2KMessage } from "../types/index.js";
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
+import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
 
 /**
  * Create a pressure message for NMEA 2000
@@ -6,9 +7,9 @@ import type { ConversionModule, N2KMessage } from "../types/index.js";
 function createPressureMessage(pressure: number, source: string): N2KMessage[] {
   return [
     {
-      prio: 2,
+      prio: N2K_DEFAULT_PRIORITY,
       pgn: 130314,
-      dst: 255,
+      dst: N2K_BROADCAST_DST,
       fields: {
         instance: 100,
         source,
@@ -21,11 +22,11 @@ function createPressureMessage(pressure: number, source: string): N2KMessage[] {
 /**
  * Pressure conversion modules - converts Signal K pressure data to NMEA 2000 PGN 130314
  */
-export default function createPressureConversions(): ConversionModule[] {
+export default function createPressureConversions(app: SignalKApp): ConversionModule[] {
   return [
     {
       title: "Atmospheric Pressure (130314)",
-      optionKey: "PRESSURE_ATMOSPHERIC",
+      optionKey: "PRESSURE",
       keys: ["environment.outside.pressure"],
       callback: (pressure: unknown): N2KMessage[] => {
         try {
@@ -35,7 +36,7 @@ export default function createPressureConversions(): ConversionModule[] {
 
           return createPressureMessage(pressure, "Atmospheric");
         } catch (err) {
-          console.error("Error in atmospheric pressure conversion:", err);
+          app.error(err instanceof Error ? err.message : String(err));
           return [];
         }
       },

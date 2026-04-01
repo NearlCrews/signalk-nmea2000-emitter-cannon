@@ -1,33 +1,35 @@
-import type { ConversionModule, N2KMessage } from "../types/index.js";
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, N2K_DEFAULT_SID } from "../constants.js";
+import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
+import { isValidNumber } from "../utils/validation.js";
 
 /**
  * Speed conversion module - converts Signal K speed through water to NMEA 2000 PGN 128259
  */
-export default function createSpeedConversion(): ConversionModule {
+export default function createSpeedConversion(app: SignalKApp): ConversionModule {
   return {
     title: "Speed (128259)",
     optionKey: "SPEED",
     keys: ["navigation.speedThroughWater"],
     callback: (speed: unknown): N2KMessage[] => {
       try {
-        // Validate input
-        if (typeof speed !== "number") {
+        // Validate input (reject non-numbers, NaN, and Infinity)
+        if (!isValidNumber(speed)) {
           return [];
         }
 
         return [
           {
-            prio: 2,
+            prio: N2K_DEFAULT_PRIORITY,
             pgn: 128259,
-            dst: 255,
+            dst: N2K_BROADCAST_DST,
             fields: {
-              sid: 87,
+              sid: N2K_DEFAULT_SID,
               speedWaterReferenced: speed,
             },
           },
         ];
       } catch (err) {
-        console.error("Error in speed conversion:", err);
+        app.error(err instanceof Error ? err.message : String(err));
         return [];
       }
     },

@@ -1,9 +1,11 @@
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, N2K_DEFAULT_SID } from "../constants.js";
 import type {
   ConversionCallback,
   ConversionModule,
   N2KMessage,
   SignalKApp,
 } from "../types/index.js";
+import { toN2KDateTime } from "../utils/dateUtils.js";
 
 /**
  * GPS position interface for Signal K position data
@@ -22,7 +24,7 @@ export default function createGpsConversion(app: SignalKApp): ConversionModule<[
 
   return {
     title: "Location (129025,129029)",
-    optionKey: "GPS_LOCATION",
+    optionKey: "GPS",
     keys: ["navigation.position"],
     callback: ((position: Position | null) => {
       try {
@@ -39,9 +41,9 @@ export default function createGpsConversion(app: SignalKApp): ConversionModule<[
         // Always generate basic position message (PGN 129025)
         const res: N2KMessage[] = [
           {
-            prio: 2,
+            prio: N2K_DEFAULT_PRIORITY,
             pgn: 129025,
-            dst: 255,
+            dst: N2K_BROADCAST_DST,
             fields: {
               latitude: pos.latitude,
               longitude: pos.longitude,
@@ -53,19 +55,14 @@ export default function createGpsConversion(app: SignalKApp): ConversionModule<[
         if (lastUpdate === null || Date.now() - lastUpdate.getTime() > 1000) {
           lastUpdate = new Date();
 
-          const dateObj = new Date();
-          const date = Math.trunc(dateObj.getTime() / 86400 / 1000);
-          const time =
-            dateObj.getUTCHours() * (60 * 60) +
-            dateObj.getUTCMinutes() * 60 +
-            dateObj.getUTCSeconds();
+          const { date, time } = toN2KDateTime();
 
           res.push({
-            prio: 2,
+            prio: N2K_DEFAULT_PRIORITY,
             pgn: 129029,
-            dst: 255,
+            dst: N2K_BROADCAST_DST,
             fields: {
-              sid: 87,
+              sid: N2K_DEFAULT_SID,
               date,
               time,
               latitude: pos.latitude,
@@ -89,7 +86,7 @@ export default function createGpsConversion(app: SignalKApp): ConversionModule<[
 
         return res;
       } catch (err) {
-        app.error(err as Error);
+        app.error(err instanceof Error ? err.message : String(err));
         return [];
       }
     }) as ConversionCallback<[Position | null]>,

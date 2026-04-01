@@ -1,6 +1,7 @@
-import type { ConversionModule, N2KMessage } from "../types/index.js";
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
+import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
 
-export default function createWindTrueGroundConversion(): ConversionModule {
+export default function createWindTrueGroundConversion(app: SignalKApp): ConversionModule {
   return {
     title: "Wind True over ground (130306)",
     optionKey: "WIND_TRUE_GROUND",
@@ -13,9 +14,9 @@ export default function createWindTrueGroundConversion(): ConversionModule {
       try {
         return [
           {
-            prio: 2,
+            prio: N2K_DEFAULT_PRIORITY,
             pgn: 130306,
-            dst: 255,
+            dst: N2K_BROADCAST_DST,
             fields: {
               windSpeed: speed,
               windAngle: angle < 0 ? angle + Math.PI * 2 : angle,
@@ -24,7 +25,7 @@ export default function createWindTrueGroundConversion(): ConversionModule {
           },
         ];
       } catch (err) {
-        console.error(err);
+        app.error(err instanceof Error ? err.message : String(err));
         return [];
       }
     },

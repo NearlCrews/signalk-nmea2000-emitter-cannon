@@ -1,9 +1,10 @@
-import type { ConversionModule, N2KMessage } from "../types/index.js";
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
+import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
 
 /**
  * Rate of Turn conversion module - converts Signal K rate of turn to NMEA 2000 PGN 127251
  */
-export default function createRateOfTurnConversion(): ConversionModule {
+export default function createRateOfTurnConversion(app: SignalKApp): ConversionModule {
   return {
     title: "Rate of Turn (127251)",
     optionKey: "RATE_OF_TURN",
@@ -17,18 +18,17 @@ export default function createRateOfTurnConversion(): ConversionModule {
 
         return [
           {
-            prio: 2,
+            prio: N2K_DEFAULT_PRIORITY,
             pgn: 127251,
-            dst: 255,
+            dst: N2K_BROADCAST_DST,
             fields: {
               sid: 0,
               rate: rateOfTurn, // Rate of turn in rad/s
-              reserved: 16777215,
             },
           },
         ];
       } catch (err) {
-        console.error("Error in rate of turn conversion:", err);
+        app.error(err instanceof Error ? err.message : String(err));
         return [];
       }
     },
@@ -44,7 +44,6 @@ export default function createRateOfTurnConversion(): ConversionModule {
             fields: {
               sid: 0,
               rate: 0.0175,
-              reserved: 16777215,
             },
           },
         ],
@@ -59,7 +58,6 @@ export default function createRateOfTurnConversion(): ConversionModule {
             fields: {
               sid: 0,
               rate: -0.0349,
-              reserved: 16777215,
             },
           },
         ],

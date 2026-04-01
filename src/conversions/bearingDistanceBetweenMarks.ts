@@ -1,3 +1,4 @@
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import type {
   ConversionCallback,
   ConversionModule,
@@ -65,9 +66,9 @@ export default function createBearingDistanceBetweenMarksConversion(
 
       return [
         {
-          prio: 2,
+          prio: N2K_DEFAULT_PRIORITY,
           pgn: 129302,
-          dst: 255,
+          dst: N2K_BROADCAST_DST,
           fields,
         },
       ];

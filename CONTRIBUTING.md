@@ -70,10 +70,16 @@ npm run build:watch
 ```
 src/
 ├── index.ts              # Main plugin entry point
-├── types/               # TypeScript type definitions
-├── utils/               # Utility functions
-├── conversions/         # PGN conversion modules
-└── test/               # Test suites
+├── plugin-manager.ts     # Core plugin lifecycle management
+├── schema.ts             # Configuration schema
+├── constants.ts          # NMEA 2000 default values
+├── types/                # TypeScript type definitions
+├── utils/                # Utility functions (validation, smoothing, dates)
+├── conversions/          # PGN conversion modules (46 modules)
+└── test/                 # Test suites
+.github/
+└── workflows/
+    └── ci.yml            # GitHub Actions CI pipeline
 ```
 
 ## Development Guidelines
@@ -84,11 +90,18 @@ src/
 - **Formatting**: Code is automatically formatted with Biome
 - **Naming**: Use descriptive variable and function names
 - **Comments**: Add comments for complex logic
+- **Constants**: Use values from `src/constants.ts` instead of magic numbers
 
-Run formatting before committing:
+Pre-commit hooks automatically run linting on staged files. To manually format:
 ```bash
 npm run format
 ```
+
+### Pre-commit Hooks
+
+This project uses husky + lint-staged for automated code quality. After running `npm install`, pre-commit hooks will automatically:
+- Run Biome check on staged TypeScript files
+- Format staged JSON and Markdown files
 
 ### Adding New PGN Conversions
 
@@ -196,7 +209,7 @@ Feel free to:
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the Apache 2.0 License.
+By contributing, you agree that your contributions will be licensed under the same Apache 2.0 License that covers this project.
 
 ## Attribution
 

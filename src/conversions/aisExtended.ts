@@ -1,3 +1,4 @@
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import type {
   ConversionCallback,
   ConversionModule,
@@ -61,9 +62,9 @@ export default function createAisExtendedConversions(
 
         return [
           {
-            prio: 2,
+            prio: N2K_DEFAULT_PRIORITY,
             pgn: 129039,
-            dst: 255,
+            dst: N2K_BROADCAST_DST,
             fields: {
               messageId: "Standard Class B position report",
               repeatIndicator: "Initial",
@@ -198,9 +199,9 @@ export default function createAisExtendedConversions(
 
         return [
           {
-            prio: 2,
+            prio: N2K_DEFAULT_PRIORITY,
             pgn: 129040,
-            dst: 255,
+            dst: N2K_BROADCAST_DST,
             fields: {
               messageId: "Extended Class B position report",
               repeatIndicator: "Initial",
@@ -318,9 +319,9 @@ export default function createAisExtendedConversions(
 
         return [
           {
-            prio: 2,
+            prio: N2K_DEFAULT_PRIORITY,
             pgn: 129798,
-            dst: 255,
+            dst: N2K_BROADCAST_DST,
             fields: {
               messageId: "Standard SAR aircraft position report",
               repeatIndicator: "Initial",
@@ -391,9 +392,9 @@ export default function createAisExtendedConversions(
 
         return [
           {
-            prio: 2,
+            prio: N2K_DEFAULT_PRIORITY,
             pgn: 129802,
-            dst: 255,
+            dst: N2K_BROADCAST_DST,
             fields: {
               messageId: "Satety related broadcast message",
               repeatIndicator: "Initial",

@@ -1,3 +1,4 @@
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import type {
   ConversionModule,
   PluginOptions,
@@ -35,9 +36,9 @@ export default function createRaymarineBrightnessConversion(
 
         return [
           {
-            prio: 2,
+            prio: N2K_DEFAULT_PRIORITY,
             pgn: 126720,
-            dst: 255,
+            dst: N2K_BROADCAST_DST,
             fields: {
               manufacturerCode: "Raymarine",
               industryCode: "Marine Industry",

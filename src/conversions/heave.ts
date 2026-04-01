@@ -1,3 +1,4 @@
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import type { ConversionCallback, ConversionModule, SignalKApp } from "../types/index.js";
 
 /**
@@ -18,9 +19,9 @@ export default function createHeaveConversion(app: SignalKApp): ConversionModule
 
         return [
           {
-            prio: 2,
+            prio: N2K_DEFAULT_PRIORITY,
             pgn: 127252,
-            dst: 255,
+            dst: N2K_BROADCAST_DST,
             fields: {
               sid: 0,
               heave,
@@ -28,7 +29,7 @@ export default function createHeaveConversion(app: SignalKApp): ConversionModule
           },
         ];
       } catch (err) {
-        app.error(err as Error);
+        app.error(err instanceof Error ? err.message : String(err));
         return [];
       }
     }) as ConversionCallback<[number | null]>,

@@ -1,12 +1,13 @@
-import type { ConversionModule, N2KMessage } from "../types/index.js";
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
+import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
 
 /**
  * Sea/Air Temperature conversion module - converts Signal K environmental data to NMEA 2000 PGN 130310
  */
-export default function createSeaTempConversion(): ConversionModule {
+export default function createSeaTempConversion(app: SignalKApp): ConversionModule {
   return {
     title: "Sea/Air Temp (130310)",
-    optionKey: "SEA_TEMPERATURE",
+    optionKey: "SEA_TEMP",
     keys: [
       "environment.water.temperature",
       "environment.outside.temperature",
@@ -21,9 +22,9 @@ export default function createSeaTempConversion(): ConversionModule {
 
         return [
           {
-            prio: 2,
+            prio: N2K_DEFAULT_PRIORITY,
             pgn: 130310,
-            dst: 255,
+            dst: N2K_BROADCAST_DST,
             fields: {
               sid: 0xff,
               waterTemperature,
@@ -33,7 +34,7 @@ export default function createSeaTempConversion(): ConversionModule {
           },
         ];
       } catch (err) {
-        console.error("Error in sea/air temperature conversion:", err);
+        app.error(err instanceof Error ? err.message : String(err));
         return [];
       }
     },

@@ -1,3 +1,4 @@
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import type { ConversionModule, N2KMessage } from "../types/index.js";
 
 interface Position {
@@ -46,9 +47,9 @@ export default function createRouteWpListConversion(): ConversionModule {
 
       return [
         {
-          prio: 2,
+          prio: N2K_DEFAULT_PRIORITY,
           pgn: 130074,
-          dst: 255,
+          dst: N2K_BROADCAST_DST,
           fields: {
             startWp: 0, // Starting waypoint index
             nitems: Math.min(waypoints.length, 16),

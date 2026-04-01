@@ -1,3 +1,4 @@
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import type { ConversionModule, N2KMessage } from "../types/index.js";
 
 export default function createProductInfoConversion(): ConversionModule {
@@ -21,15 +22,15 @@ export default function createProductInfoConversion(): ConversionModule {
       certificationLevel: unknown
     ): N2KMessage[] => {
       // Send product info if we have at least manufacturer or model
-      if (manufacturerName == null && modelNumber == null) {
+      if (manufacturerName === null && modelNumber === null) {
         return [];
       }
 
       return [
         {
-          prio: 2,
+          prio: N2K_DEFAULT_PRIORITY,
           pgn: 126996,
-          dst: 255,
+          dst: N2K_BROADCAST_DST,
           fields: {
             nmea2000Version: 2100, // NMEA 2000 version 2.1
             productCode: 12345, // Generic product code, could be made configurable

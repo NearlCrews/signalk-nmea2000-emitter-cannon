@@ -1,9 +1,10 @@
-import type { ConversionModule, N2KMessage } from "../types/index.js";
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
+import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
 
 /**
  * Rudder position conversion module - converts Signal K rudder data to NMEA 2000 PGN 127245
  */
-export default function createRudderConversion(): ConversionModule {
+export default function createRudderConversion(app: SignalKApp): ConversionModule {
   return {
     title: "Rudder Position (127245)",
     optionKey: "RUDDER",
@@ -32,9 +33,9 @@ export default function createRudderConversion(): ConversionModule {
 
         return [
           {
-            prio: 2,
+            prio: N2K_DEFAULT_PRIORITY,
             pgn: 127245,
-            dst: 255,
+            dst: N2K_BROADCAST_DST,
             fields: {
               instance: 0,
               directionOrder,
@@ -44,7 +45,7 @@ export default function createRudderConversion(): ConversionModule {
           },
         ];
       } catch (err) {
-        console.error("Error in rudder conversion:", err);
+        app.error(err instanceof Error ? err.message : String(err));
         return [];
       }
     },

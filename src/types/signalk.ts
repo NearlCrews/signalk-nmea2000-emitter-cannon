@@ -1,52 +1,22 @@
+import type { Delta as OfficialDelta, ServerAPI } from "@signalk/server-api";
+
+// Re-export official types
+export type { OfficialDelta };
+
 /**
  * Signal K server application interface
- * Defines the API that Signal K server provides to plugins
+ * Extends the official ServerAPI with additional properties used by this plugin
  */
-export interface SignalKApp {
-  /** Get a value from the vessel's own data */
-  getSelfPath(path: string): unknown;
-  /** Get a value from any vessel's data */
-  getPath(path: string): unknown;
-  /** Debug logging function */
-  debug: (msg: string) => void;
-  /** Error logging function */
-  error: (error: Error | string) => void;
-  /** Emit an event to the Signal K server */
+export interface SignalKApp extends ServerAPI {
+  /** Emit an event to the Signal K server (for NMEA2000 output) */
   emit: (event: string, data: unknown) => void;
-  /** Stream bundle for reactive data access */
-  streambundle: StreamBundle;
-  /** Subscription manager for data subscriptions */
-  subscriptionmanager: {
-    subscribe(
-      subscription: Subscription,
-      unsubscribes: Array<() => void>,
-      errorCallback: (err: Error) => void,
-      callback: (delta: Delta) => void
-    ): void;
-  };
-  /** Signal K event emitter */
-  signalk: {
-    on(event: string, callback: (data: unknown) => void): void;
-  };
-  /** Optional function to report output message count */
-  reportOutputMessages?: (count: number) => void;
-  /** Optional function to set provider error status */
-  setProviderError?: (error: string) => void;
-  /** Handle incoming message/delta */
-  handleMessage?: (pluginId: string, delta: Delta) => void;
-  /** Self vessel ID */
-  selfId?: string;
+  /** Signal K event emitter for listening to server events */
+  on: (event: string, callback: (data: unknown) => void) => void;
 }
 
 /**
- * Stream bundle interface for reactive data streams
- */
-export interface StreamBundle {
-  getSelfBus(path: string): StreamBus;
-}
-
-/**
- * Stream bus interface for individual data streams
+ * Stream bus interface for individual data streams (BaconJS compatible)
+ * This extends the official StreamBundle with the specific methods used by this plugin
  */
 export interface StreamBus {
   map(selector: string | ((value: unknown) => unknown)): StreamBus;
@@ -55,7 +25,7 @@ export interface StreamBus {
 }
 
 /**
- * Signal K subscription configuration
+ * Signal K subscription configuration (plugin-specific format)
  */
 export interface Subscription {
   /** Context for the subscription (e.g., 'vessels.self') */
@@ -65,7 +35,7 @@ export interface Subscription {
 }
 
 /**
- * Signal K delta message structure
+ * Signal K delta message structure (plugin-specific format)
  */
 export interface Delta {
   context: string;

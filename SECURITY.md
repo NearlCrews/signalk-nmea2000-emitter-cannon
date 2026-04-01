@@ -19,8 +19,8 @@ We take the security of Signal K NMEA2000 Emitter Cannon seriously. If you disco
 
 Instead, please report them via one of these methods:
 
-1. **Email**: Contact the maintainer directly at the email listed in package.json
-2. **GitHub Security Advisory**: Use the [GitHub Security Advisory](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/security/advisories/new) feature (preferred)
+1. **GitHub Security Advisory**: Use the [GitHub Security Advisory](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/security/advisories/new) feature (preferred)
+2. **GitHub Issues**: For non-sensitive security concerns, open an [issue](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/issues)
 
 ### What to Include
 

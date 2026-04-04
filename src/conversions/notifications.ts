@@ -36,6 +36,7 @@ export default function createNotificationsConversion(
   let idCounter = 0;
   const ids: Record<string, { alertId: number }> = {};
   let pgns: N2KMessage[] = [];
+  let excludePrefixes: string[] = [];
 
   return {
     title: "Notifications (126983, 126985)",
@@ -43,6 +44,16 @@ export default function createNotificationsConversion(
     keys: ["notifications.*"],
     context: "vessels.self",
     sourceType: "subscription",
+    onOptionsLoaded: (options: Record<string, unknown>) => {
+      const raw = typeof options.excludePaths === "string" ? options.excludePaths : "";
+      excludePrefixes = raw
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+      if (excludePrefixes.length > 0) {
+        app.debug(`Notifications excluding paths: ${excludePrefixes.join(", ")}`);
+      }
+    },
     callback: (delta: unknown): N2KMessage[] => {
       if (!delta || typeof delta !== "object") {
         return [];
@@ -72,6 +83,14 @@ export default function createNotificationsConversion(
 
       // Don't create a loop by sending out notifications we received from NMEA
       if (update.path.includes("notifications.nmea")) {
+        return pgns;
+      }
+
+      // Skip excluded notification paths
+      if (
+        excludePrefixes.length > 0 &&
+        excludePrefixes.some((prefix) => update.path.startsWith(prefix))
+      ) {
         return pgns;
       }
 
@@ -165,10 +184,6 @@ export default function createNotificationsConversion(
             context: deltaMsg.context,
             updates: [
               {
-                source: {
-                  label: plugin.id,
-                  type: "plugin",
-                },
                 timestamp: new Date().toISOString(),
                 values: [
                   {

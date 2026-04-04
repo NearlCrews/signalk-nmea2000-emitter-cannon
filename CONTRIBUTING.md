@@ -75,7 +75,7 @@ src/
 ├── constants.ts          # NMEA 2000 default values
 ├── types/                # TypeScript type definitions
 ├── utils/                # Utility functions (validation, smoothing, dates)
-├── conversions/          # PGN conversion modules (46 modules)
+├── conversions/          # PGN conversion modules (45 modules)
 └── test/                 # Test suites
 .github/
 └── workflows/

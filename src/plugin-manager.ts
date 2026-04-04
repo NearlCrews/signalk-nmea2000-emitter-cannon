@@ -75,6 +75,10 @@ export class PluginManager {
 
           this.app.debug(`*** SETTING UP ENABLED CONVERSION: ${conv.title} ***`);
 
+          if (conv.onOptionsLoaded) {
+            conv.onOptionsLoaded(convOptions as Record<string, unknown>);
+          }
+
           let subConversions = conv.conversions;
           if (isUndefined(subConversions)) {
             subConversions = [conv];

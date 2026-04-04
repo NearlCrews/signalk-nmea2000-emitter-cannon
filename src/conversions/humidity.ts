@@ -5,11 +5,15 @@ import type {
   N2KMessage,
   SignalKApp,
 } from "../types/index.js";
+import { isValidNumber } from "../utils/validation.js";
 
 /**
  * Create a humidity message for NMEA 2000
  */
 function createHumidityMessage(humidity: number, source: string): N2KMessage[] {
+  // Signal K spec: relativeHumidity is a ratio (0-1)
+  // NMEA 2000 PGN 130313 actualHumidity expects percentage (0-100)
+  const pct = humidity * 100;
   return [
     {
       prio: N2K_DEFAULT_PRIORITY,
@@ -18,7 +22,7 @@ function createHumidityMessage(humidity: number, source: string): N2KMessage[] {
       fields: {
         instance: 100,
         source,
-        actualHumidity: humidity,
+        actualHumidity: pct,
       },
     },
   ];
@@ -35,7 +39,7 @@ export default function createHumidityConversions(app: SignalKApp): ConversionMo
       keys: ["environment.outside.relativeHumidity"],
       callback: ((humidity: number | null) => {
         try {
-          if (typeof humidity !== "number") {
+          if (!isValidNumber(humidity)) {
             return [];
           }
 
@@ -57,7 +61,7 @@ export default function createHumidityConversions(app: SignalKApp): ConversionMo
               fields: {
                 instance: 100,
                 source: "Outside",
-                actualHumidity: 0.5,
+                actualHumidity: 50,
               },
             },
           ],
@@ -73,7 +77,7 @@ export default function createHumidityConversions(app: SignalKApp): ConversionMo
               fields: {
                 instance: 100,
                 source: "Outside",
-                actualHumidity: 0.948,
+                actualHumidity: 95,
               },
             },
           ],
@@ -86,7 +90,7 @@ export default function createHumidityConversions(app: SignalKApp): ConversionMo
       keys: ["environment.inside.relativeHumidity"],
       callback: ((humidity: number | null) => {
         try {
-          if (typeof humidity !== "number") {
+          if (!isValidNumber(humidity)) {
             return [];
           }
 
@@ -108,7 +112,7 @@ export default function createHumidityConversions(app: SignalKApp): ConversionMo
               fields: {
                 instance: 100,
                 source: "Inside",
-                actualHumidity: 1.0,
+                actualHumidity: 100,
               },
             },
           ],
@@ -124,7 +128,7 @@ export default function createHumidityConversions(app: SignalKApp): ConversionMo
               fields: {
                 instance: 100,
                 source: "Inside",
-                actualHumidity: 0.348,
+                actualHumidity: 35,
               },
             },
           ],

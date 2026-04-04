@@ -88,6 +88,8 @@ export interface ConversionModule<T extends unknown[] = unknown[]> {
   testOptions?: unknown;
   /** Timer reference for cleanup */
   resendTimer?: NodeJS.Timeout;
+  /** Called with conversion options before first callback, for option-dependent setup */
+  onOptionsLoaded?: (options: Record<string, unknown>) => void;
 }
 
 /**

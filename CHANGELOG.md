@@ -3,7 +3,7 @@
 ### v1.1.0 (2026/01/20) - Code Quality & Developer Experience
 
 **Constants & Code Consistency**:
-- Introduced centralized constants (`N2K_DEFAULT_PRIORITY`, `N2K_BROADCAST_DST`, `N2K_DEFAULT_SID`) used across all 46 conversion modules
+- Introduced centralized constants (`N2K_DEFAULT_PRIORITY`, `N2K_BROADCAST_DST`, `N2K_DEFAULT_SID`) used across all 45 conversion modules
 - Eliminated hardcoded magic numbers throughout the codebase
 - Improved code maintainability and consistency
 
@@ -161,9 +161,7 @@ This is a mature Signal K NMEA2000 plugin with 92% Garmin PGN coverage, built on
 - **Non-Interactive Tests**: CI/CD compatible with `vitest --run`
 
 **Attribution**:
-This plugin builds upon the excellent foundation of [signalk-to-nmea2000](https://github.com/SignalK/signalk-to-nmea2000) originally created by Scott Bender and the Signal K community. Enhanced and modernized by [@NearlCrews](https://github.com/NearlCrews) with TypeScript conversion, expanded Garmin compatibility, and production hardening.
-
-**Original Project**: See the [signalk-to-nmea2000 contributors](https://github.com/SignalK/signalk-to-nmea2000/graphs/contributors) for full attribution.
+This plugin builds upon the excellent foundation of [signalk-to-nmea2000](https://github.com/SignalK/signalk-to-nmea2000) originally created by Scott Bender and the Signal K community. Enhanced and modernized by [Nearl Crews](https://github.com/NearlCrews) with TypeScript conversion, expanded Garmin compatibility, and production hardening.
 
 ---
 

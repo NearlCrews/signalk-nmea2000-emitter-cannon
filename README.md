@@ -13,11 +13,11 @@ A modern TypeScript Signal K server plugin that converts Signal K data to NMEA 2
 ## Features
 
 - **Modern TypeScript**: Fully converted to TypeScript 5.9+ with strict type safety
-- **Complete PGN Coverage**: Supports 100% of essential NMEA 2000 Parameter Group Numbers (74 conversion modules)
+- **Complete PGN Coverage**: 45 conversion modules supporting 74 NMEA 2000 Parameter Group Numbers
 - **Signal K Native**: Seamless integration with Signal K server ecosystem using official `@signalk/server-api`
 - **Garmin Compatibility**: Aligned with Garmin PGN specifications and canboatjs framework
 - **Reactive Processing**: Built on RxJS 7.8 for efficient real-time data processing
-- **High Performance**: Modern build system with esbuild for fast compilation (~209kb bundle)
+- **High Performance**: Modern build system with esbuild for fast compilation (~212kb bundle)
 - **Fully Tested**: Comprehensive test suite with Vitest and CanboatJS validation
 - **Modern Dependencies**: es-toolkit, RxJS 7.8, pure ESM modules
 - **Latest Tooling**: Biome for linting/formatting, zero errors and warnings
@@ -89,7 +89,7 @@ cp -r dist ~/.signalk/node_modules/signalk-nmea2000-emitter-cannon
 - **PGN 130311**: Environmental parameters (pressure)
 - **PGN 130312**: Temperature
 
-### Complete Coverage (74 Conversion Modules)
+### Complete Coverage (45 Modules, 74 PGNs)
 
 **All essential marine electronics protocols supported including:**
 - AIS (Class A, B, SAR, AtoN) - Multiple PGNs
@@ -157,7 +157,7 @@ src/
 │   ├── dateUtils.ts      # Date/time conversions for N2K
 │   ├── validation.ts     # Input validation (NaN/Infinity checks)
 │   └── smoothing.ts      # Exponential smoothing for sensor data
-├── conversions/          # PGN conversion modules (46 modules)
+├── conversions/          # PGN conversion modules (45 modules)
 │   ├── index.ts          # Module loader
 │   ├── wind.ts           # Wind data conversion
 │   ├── depth.ts          # Depth conversion
@@ -282,7 +282,7 @@ Apache 2.0 License - see [LICENSE](LICENSE) file for details.
 
 ## Author
 
-- **[NearlCrews](https://github.com/NearlCrews)** - Maintainer and TypeScript conversion
+- **[Nearl Crews](https://github.com/NearlCrews)** - Author, maintainer, and TypeScript conversion
 
 ## Acknowledgments
 
@@ -290,11 +290,8 @@ This plugin builds upon the excellent foundation of the [**signalk-to-nmea2000**
 
 - **Original Author**: Scott Bender and the Signal K community
 - **Original Implementation**: [signalk-to-nmea2000](https://github.com/SignalK/signalk-to-nmea2000) - NMEA 2000 conversion framework and PGN implementations
-- **Foundation**: All conversion patterns and Signal K integration based on the original work
 
 **Additional Thanks**:
 - [Signal K Project](https://signalk.org/) for the excellent marine data standard
 - [Canboat Project](https://github.com/canboat/canboat) for NMEA 2000 protocol implementation
 - The Signal K community for feedback, testing, and contributions
-
-This modernized version adds TypeScript conversion, enhanced Garmin compatibility, and updated dependencies while maintaining the excellent protocol implementation of the original.

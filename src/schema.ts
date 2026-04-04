@@ -16,7 +16,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -46,7 +46,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -71,7 +71,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -101,7 +101,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -126,7 +126,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -157,7 +157,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -182,7 +182,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -207,7 +207,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -252,7 +252,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -277,7 +277,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -302,7 +302,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -327,7 +327,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -352,7 +352,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -377,7 +377,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -408,7 +408,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -439,7 +439,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -459,7 +459,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -489,7 +489,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -520,7 +520,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -545,7 +545,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -570,7 +570,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -595,7 +595,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -620,7 +620,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -645,7 +645,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -675,7 +675,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -710,7 +710,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -735,7 +735,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -795,7 +795,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -835,7 +835,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -865,7 +865,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -885,7 +885,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -905,7 +905,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -925,7 +925,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -950,7 +950,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -990,7 +990,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -1020,7 +1020,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -1050,7 +1050,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -1075,7 +1075,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -1105,7 +1105,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -1135,7 +1135,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -1165,7 +1165,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -1200,7 +1200,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -1240,13 +1240,20 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
           title: "Resend Duration (seconds)",
           description: "The value will be resent for the given number of seconds",
           default: 30,
+        },
+        excludePaths: {
+          type: "string",
+          title: "Exclude Paths",
+          description:
+            "Comma-separated list of notification path prefixes to ignore (e.g. notifications.sensors.AccessoryBattery,notifications.sensors.EngineBattery)",
+          default: "",
         },
       },
     },
@@ -1260,7 +1267,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -1280,7 +1287,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -1300,7 +1307,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -1320,7 +1327,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -1340,7 +1347,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -1360,7 +1367,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -1380,7 +1387,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -1400,7 +1407,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -1420,7 +1427,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -1440,7 +1447,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",
@@ -1460,7 +1467,7 @@ export const schema: JSONSchema = {
           type: "number",
           title: "Resend (seconds)",
           description: "If non-zero, the msg will be periodically resent",
-          default: 0,
+          default: 5,
         },
         resendTime: {
           type: "number",

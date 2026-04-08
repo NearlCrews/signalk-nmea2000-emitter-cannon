@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Signal K NMEA2000 Emitter Cannon is a TypeScript Signal K server plugin that converts Signal K marine navigation data to NMEA 2000 format. It supports 45 conversion modules covering 74 PGNs with Garmin compatibility.
+Signal K NMEA2000 Emitter Cannon is a TypeScript Signal K server plugin that converts Signal K marine navigation data to NMEA 2000 format. It supports 45 conversion modules covering 57 PGNs with Garmin compatibility.
 
 ## Common Commands
 
@@ -49,10 +49,10 @@ The registry `src/conversions/index.ts` imports all factories and exports `creat
 - `src/types/signalk.ts` - `SignalKApp`, subscriptions, delta messages
 
 ### Utilities
-- `src/utils/messageUtils.ts` - N2K message validation, creation, formatting
-- `src/utils/pathUtils.ts` - Path manipulation, `isDefined()` type guard
+- `src/utils/messageUtils.ts` - N2K message validation (`validateN2KMessage`), formatting (`formatN2KMessage`), cleaning (`cleanN2KMessage`)
+- `src/utils/pathUtils.ts` - `pathToPropName()` for config keys, `isDefined()` type guard
 - `src/utils/dateUtils.ts` - NMEA 2000 date/time conversions (`toN2KDate`, `toN2KTime`, `toN2KDateTime`)
-- `src/utils/validation.ts` - Input validation (`isValidNumber`, `toValidNumber` - rejects NaN/Infinity)
+- `src/utils/validation.ts` - Input validation (`isValidNumber`, `toValidNumber` - rejects NaN/Infinity), `normalizeAngle()`
 - `src/utils/smoothing.ts` - `ExponentialSmoother` class for sensor data smoothing
 - `src/constants.ts` - Standard N2K values (`N2K_DEFAULT_PRIORITY`, `N2K_BROADCAST_DST`, `N2K_DEFAULT_SID`)
 

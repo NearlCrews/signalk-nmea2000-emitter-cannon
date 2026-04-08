@@ -6,18 +6,7 @@ import type { ConversionCallback, ConversionModule, SignalKApp } from "../types/
  */
 export default function createDirectionDataConversion(
   app: SignalKApp
-): ConversionModule<
-  [
-    number | null,
-    number | null,
-    number | null,
-    number | null,
-    number | null,
-    number | null,
-    number | null,
-    number | null,
-  ]
-> {
+): ConversionModule<[number | null, number | null, number | null, number | null]> {
   return {
     title: "Direction Data (130577)",
     optionKey: "DIRECTION_DATA",
@@ -26,22 +15,12 @@ export default function createDirectionDataConversion(
       "navigation.courseOverGroundMagnetic",
       "navigation.headingTrue",
       "navigation.headingMagnetic",
-      "navigation.courseRhumbline.nextPoint.bearingTrue",
-      "navigation.courseRhumbline.nextPoint.bearingMagnetic",
-      "navigation.courseGreatCircle.nextPoint.bearingTrue",
-      "navigation.courseGreatCircle.nextPoint.bearingMagnetic",
     ],
-    // Note: Bearing parameters are subscribed but not currently used in output
-    // They are kept for future expansion to include bearing data in the PGN
     callback: ((
       cogTrue: number | null,
       cogMagnetic: number | null,
       headingTrue: number | null,
-      headingMagnetic: number | null,
-      _rhumbBearingTrue: number | null,
-      _rhumbBearingMagnetic: number | null,
-      _gcBearingTrue: number | null,
-      _gcBearingMagnetic: number | null
+      headingMagnetic: number | null
     ) => {
       try {
         // Send direction data if we have at least one direction value
@@ -88,18 +67,7 @@ export default function createDirectionDataConversion(
         app.error(err instanceof Error ? err.message : String(err));
         return [];
       }
-    }) as ConversionCallback<
-      [
-        number | null,
-        number | null,
-        number | null,
-        number | null,
-        number | null,
-        number | null,
-        number | null,
-        number | null,
-      ]
-    >,
+    }) as ConversionCallback<[number | null, number | null, number | null, number | null]>,
 
     tests: [
       {

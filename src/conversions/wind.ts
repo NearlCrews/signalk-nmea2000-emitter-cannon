@@ -1,6 +1,6 @@
 import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, N2K_DEFAULT_SID } from "../constants.js";
 import type { ConversionCallback, ConversionModule, SignalKApp } from "../types/index.js";
-import { toValidNumber } from "../utils/validation.js";
+import { normalizeAngle, toValidNumber } from "../utils/validation.js";
 
 /**
  * Wind conversion module - converts Signal K wind data to NMEA 2000 PGN 130306
@@ -22,9 +22,7 @@ export default function createWindConversion(
           return [];
         }
 
-        // Convert negative angles to positive (0-2π range)
-        const normalizedAngle =
-          validAngle !== null && validAngle < 0 ? validAngle + Math.PI * 2 : validAngle;
+        const normalizedAngle = validAngle !== null ? normalizeAngle(validAngle) : validAngle;
 
         return [
           {

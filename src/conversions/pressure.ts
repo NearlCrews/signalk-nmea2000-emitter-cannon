@@ -1,4 +1,4 @@
-import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
+import { N2K_BROADCAST_DST, N2K_DEFAULT_INSTANCE, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
 
 /**
@@ -11,7 +11,7 @@ function createPressureMessage(pressure: number, source: string): N2KMessage[] {
       pgn: 130314,
       dst: N2K_BROADCAST_DST,
       fields: {
-        instance: 100,
+        instance: N2K_DEFAULT_INSTANCE,
         source,
         pressure,
       },

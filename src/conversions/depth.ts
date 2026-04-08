@@ -1,5 +1,6 @@
-import { isUndefined } from "es-toolkit";
+import { N2K_BROADCAST_DST, N2K_DEFAULT_SID } from "../constants.js";
 import type { ConversionCallback, ConversionModule, SignalKApp } from "../types/index.js";
+import { isValidNumber } from "../utils/validation.js";
 
 /**
  * Depth conversion module - converts Signal K depth data to NMEA 2000 PGN 128267
@@ -11,12 +12,10 @@ export default function createDepthConversion(app: SignalKApp): ConversionModule
     keys: ["environment.depth.belowTransducer"],
     callback: ((belowTransducer: number | null) => {
       try {
-        // Validate depth input
-        if (typeof belowTransducer !== "number") {
+        if (!isValidNumber(belowTransducer)) {
           return [];
         }
 
-        // Get additional depth data from Signal K app
         const surfaceToTransducer = app.getSelfPath(
           "environment.depth.surfaceToTransducer.value"
         ) as number | undefined;
@@ -24,20 +23,15 @@ export default function createDepthConversion(app: SignalKApp): ConversionModule
           | number
           | undefined;
 
-        // Calculate offset - prefer surfaceToTransducer, fallback to transducerToKeel, default to 0
-        const offset = !isUndefined(surfaceToTransducer)
-          ? surfaceToTransducer
-          : !isUndefined(transducerToKeel)
-            ? transducerToKeel
-            : 0;
+        const offset = surfaceToTransducer ?? transducerToKeel ?? 0;
 
         return [
           {
             prio: 3,
             pgn: 128267,
-            dst: 255,
+            dst: N2K_BROADCAST_DST,
             fields: {
-              sid: 87,
+              sid: N2K_DEFAULT_SID,
               depth: belowTransducer,
               offset,
             },

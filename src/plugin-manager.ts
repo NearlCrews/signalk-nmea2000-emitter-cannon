@@ -1,5 +1,5 @@
 import type { Context, Path } from "@signalk/server-api";
-import { isFunction, isUndefined } from "es-toolkit";
+import { isFunction } from "es-toolkit";
 import { BehaviorSubject, debounceTime } from "rxjs";
 import { createConversionModules } from "./conversions/index.js";
 import type {
@@ -80,7 +80,7 @@ export class PluginManager {
           }
 
           let subConversions = conv.conversions;
-          if (isUndefined(subConversions)) {
+          if (subConversions === undefined) {
             subConversions = [conv];
           } else if (isFunction(subConversions)) {
             subConversions = subConversions(convOptions);
@@ -94,9 +94,10 @@ export class PluginManager {
           this.app.debug(`Setting up ${subConversions.length} subconversions for ${conv.title}`);
 
           for (const subConversion of subConversions) {
-            if (isUndefined(subConversion)) continue;
+            if (subConversion === undefined) continue;
 
-            const sourceType = subConversion.sourceType || "onValueChange";
+            const sourceType: NonNullable<ConversionModule["sourceType"]> =
+              subConversion.sourceType || "onValueChange";
             const mapper = this.sourceTypes[sourceType];
 
             this.app.debug(`Setting up subconversion with sourceType: ${sourceType}`);
@@ -107,12 +108,12 @@ export class PluginManager {
             }
 
             // Set default output type
-            if (isUndefined(subConversion.outputType)) {
+            if (subConversion.outputType === undefined) {
               subConversion.outputType = "to-n2k";
             }
 
             this.app.debug(`Calling mapper for ${subConversion.title || "unnamed subconversion"}`);
-            mapper.call(this, subConversion, convOptions);
+            mapper(subConversion, convOptions);
             this.app.debug(
               `Mapper completed for ${subConversion.title || "unnamed subconversion"}`
             );
@@ -166,19 +167,29 @@ export class PluginManager {
     options: ProcessingOptions | null,
     output: N2KMessage[] | Promise<N2KMessage[]>
   ): Promise<void> {
-    // Handle resend functionality
-    if (options?.resend && options.resend > 0) {
-      if (conversion.resendTimer) {
-        this.clearResendInterval(conversion.resendTimer);
+    // Process the output immediately
+    try {
+      const values = await Promise.resolve(output);
+      const processor = this.outputTypes["to-n2k"];
+      if (processor) {
+        await processor(values);
       }
+      // Store for resend timer to re-emit
+      conversion.lastOutput = values;
+    } catch (err) {
+      this.app.error(`Error processing output: ${err}`);
+    }
 
+    // Set up resend timer once, subsequent calls just update lastOutput above
+    if (options?.resend && options.resend > 0 && !conversion.resendTimer) {
       const startedAt = Date.now();
       conversion.resendTimer = setInterval(async () => {
         try {
-          const values = await Promise.resolve(output);
-          const processor = this.outputTypes["to-n2k"];
-          if (processor) {
-            await processor.call(this, values);
+          if (conversion.lastOutput) {
+            const processor = this.outputTypes["to-n2k"];
+            if (processor) {
+              await processor(conversion.lastOutput);
+            }
           }
         } catch (err) {
           this.app.error(`Error in resend timer: ${err}`);
@@ -187,22 +198,12 @@ export class PluginManager {
         if (Date.now() - startedAt > (options.resendTime || 30) * 1000) {
           if (conversion.resendTimer) {
             this.clearResendInterval(conversion.resendTimer);
+            delete conversion.resendTimer;
           }
         }
       }, options.resend * 1000);
 
       this.timers.push(conversion.resendTimer);
-    }
-
-    // Process the output immediately
-    try {
-      const values = await Promise.resolve(output);
-      const processor = this.outputTypes["to-n2k"];
-      if (processor) {
-        await processor.call(this, values);
-      }
-    } catch (err) {
-      this.app.error(`Error processing output: ${err}`);
     }
   }
 
@@ -227,7 +228,7 @@ export class PluginManager {
       return;
     }
 
-    this.app.on("delta", (delta) => {
+    const handler = (delta: unknown) => {
       try {
         if (conversion.callback) {
           const result = conversion.callback(delta);
@@ -236,7 +237,9 @@ export class PluginManager {
       } catch (err) {
         this.app.error(`Error in delta handler: ${err}`);
       }
-    });
+    };
+    this.app.on("delta", handler);
+    this.unsubscribes.push(() => this.app.removeListener("delta", handler));
   }
 
   /**
@@ -247,10 +250,8 @@ export class PluginManager {
     const keys = conversion.keys || [];
     const timeouts = conversion.timeouts || [];
 
-    this.app.debug(`Setting up conversion: ${conversion.title} with keys: ${JSON.stringify(keys)}`);
-    this.app.debug(`Timeouts: ${JSON.stringify(timeouts)}`);
+    this.app.debug(`Setting up conversion: ${conversion.title} with ${keys.length} keys`);
 
-    // Replicate the original BaconJS timeoutingArrayStream pattern
     const lastValues: Record<string, { timestamp: number; value: unknown }> = {};
 
     // Initialize lastValues for all keys
@@ -278,9 +279,7 @@ export class PluginManager {
         });
       }
 
-      // This is the critical fix - use the exact same pattern as original
       const unsubscribe = bus.onValue((streamData: unknown) => {
-        // Extract value exactly like the original: bus.map(".value")
         let value: unknown;
         if (streamData && typeof streamData === "object" && "value" in (streamData as object)) {
           value = (streamData as { value: unknown }).value;
@@ -288,7 +287,7 @@ export class PluginManager {
           value = streamData;
         }
 
-        this.app.debug(`${skKey}: received value ${JSON.stringify(value)}`);
+        this.app.debug(`${skKey}: received value update`);
 
         // Update the last value for this key
         lastValues[skKey] = {
@@ -305,7 +304,7 @@ export class PluginManager {
             : null;
         });
 
-        this.app.debug(`Pushing combined values: ${JSON.stringify(currentValues)}`);
+        this.app.debug(`Pushing combined values for ${conversion.title}`);
         combinedBus.next(currentValues);
       });
 
@@ -318,13 +317,11 @@ export class PluginManager {
     const subscription = combinedBus.pipe(debounceTime(10)).subscribe({
       next: (values) => {
         try {
-          this.app.debug(
-            `*** CALLBACK TRIGGERED for ${conversion.title} with values: ${JSON.stringify(values)}`
-          );
+          this.app.debug(`Callback triggered for ${conversion.title}`);
           if (conversion.callback) {
             const result = conversion.callback(...values);
             this.app.debug(
-              `*** CALLBACK RESULT for ${conversion.title}: ${JSON.stringify(result)}`
+              `Callback result for ${conversion.title}: ${Array.isArray(result) ? result.length : 0} messages`
             );
             this.processOutput(conversion, pluginOptions, result);
           }
@@ -409,11 +406,11 @@ export class PluginManager {
   /**
    * Source type mappers
    */
-  private sourceTypes: Record<string, SourceTypeMapper> = {
-    onDelta: this.mapOnDelta,
-    onValueChange: this.mapRxJS,
-    subscription: this.mapSubscription,
-    timer: this.mapTimer,
+  private sourceTypes: Record<NonNullable<ConversionModule["sourceType"]>, SourceTypeMapper> = {
+    onDelta: (...args) => this.mapOnDelta(...args),
+    onValueChange: (...args) => this.mapRxJS(...args),
+    subscription: (...args) => this.mapSubscription(...args),
+    timer: (...args) => this.mapTimer(...args),
   };
 
   /**
@@ -429,14 +426,16 @@ export class PluginManager {
     }
 
     try {
-      const pgns = await Promise.all(values);
+      const pgns = values;
       const validPgns = pgns.filter(isDefined);
 
       for (const pgn of validPgns) {
         try {
           // Validate message format
           const validatedPgn = validateN2KMessage(pgn);
-          this.app.debug(`emit nmea2000JsonOut ${formatN2KMessage(validatedPgn)}`);
+          if (process.env.DEBUG) {
+            this.app.debug(`emit nmea2000JsonOut ${formatN2KMessage(validatedPgn)}`);
+          }
           this.app.emit("nmea2000JsonOut", validatedPgn);
         } catch (err) {
           this.app.error(`Error writing PGN ${JSON.stringify(pgn)}: ${err}`);
@@ -455,6 +454,6 @@ export class PluginManager {
    * Output type processors
    */
   private outputTypes: Record<string, OutputTypeProcessor> = {
-    "to-n2k": this.processToN2K,
+    "to-n2k": (...args) => this.processToN2K(...args),
   };
 }

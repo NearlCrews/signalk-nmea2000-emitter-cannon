@@ -33,8 +33,3 @@ export const N2K_DEFAULT_INSTANCE = 100;
  * Default timeout for data freshness in milliseconds
  */
 export const DEFAULT_DATA_TIMEOUT_MS = 10000;
-
-/**
- * Rate limiting interval for high-frequency messages in milliseconds
- */
-export const RATE_LIMIT_INTERVAL_MS = 1000;

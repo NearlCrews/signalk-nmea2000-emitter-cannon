@@ -13,11 +13,11 @@ A modern TypeScript Signal K server plugin that converts Signal K data to NMEA 2
 ## Features
 
 - **Modern TypeScript**: Fully converted to TypeScript 5.9+ with strict type safety
-- **Complete PGN Coverage**: 45 conversion modules supporting 74 NMEA 2000 Parameter Group Numbers
+- **Complete PGN Coverage**: 45 conversion modules supporting 57 NMEA 2000 Parameter Group Numbers
 - **Signal K Native**: Seamless integration with Signal K server ecosystem using official `@signalk/server-api`
 - **Garmin Compatibility**: Aligned with Garmin PGN specifications and canboatjs framework
 - **Reactive Processing**: Built on RxJS 7.8 for efficient real-time data processing
-- **High Performance**: Modern build system with esbuild for fast compilation (~212kb bundle)
+- **High Performance**: Modern build system with esbuild for fast compilation (~204kb bundle)
 - **Fully Tested**: Comprehensive test suite with Vitest and CanboatJS validation
 - **Modern Dependencies**: es-toolkit, RxJS 7.8, pure ESM modules
 - **Latest Tooling**: Biome for linting/formatting, zero errors and warnings
@@ -30,6 +30,7 @@ A modern TypeScript Signal K server plugin that converts Signal K data to NMEA 2
 
 - Node.js 20 or higher
 - Signal K server
+- A supported NMEA 2000 gateway (e.g., Actisense NGT-1, Yacht Devices YDNR-02) connected to Signal K for messages to reach the NMEA 2000 bus
 - npm or compatible package manager
 
 ### Install via Signal K AppStore
@@ -47,58 +48,137 @@ cd ~/.signalk
 npm install signalk-nmea2000-emitter-cannon
 ```
 
-**Option 2: Manual copy (for development)**
+**Option 2: Link for development**
 ```bash
-# After building from source
+# Build and link from the source directory
 npm run build
-cp -r dist ~/.signalk/node_modules/signalk-nmea2000-emitter-cannon
+cd ~/.signalk
+npm link /path/to/signalk-nmea2000-emitter-cannon
 ```
 
 ## Configuration
 
 1. Navigate to Server → Plugin Config in Signal K admin interface
-2. Find "SignalK to N2K Emitter" in the plugin list
+2. Find "Signal K NMEA2000 Emitter Cannon" in the plugin list
 3. Enable the plugin
-4. Configure individual PGN conversions as needed:
-   - Enable specific message types (Wind, Depth, Battery, etc.)
-   - Set resend intervals for periodic transmission
-   - Configure source filtering for multi-source environments
+4. Configure individual PGN conversions as needed
 
-## Supported PGNs
+### Configuration Options
 
-### Navigation Data
-- **PGN 127245**: Rudder position
-- **PGN 127250**: Vessel heading
-- **PGN 128259**: Speed (water/ground)
-- **PGN 128267**: Water depth
-- **PGN 129025**: Position (latitude/longitude)
-- **PGN 129026**: COG & SOG rapid update
-- **PGN 130306**: Wind data
+Each conversion can be individually enabled and configured:
+
+- **Enabled**: Toggle individual PGN conversions on/off
+- **Resend interval** (seconds): How often to re-emit the message even when the source value hasn't changed. Many NMEA 2000 displays expect periodic updates — set to 0 to only send on value change.
+- **Resend duration** (seconds): How long to keep resending after the last source update. Prevents stale data from being emitted indefinitely.
+- **Source filter**: When multiple Signal K sources provide the same data path (e.g., two GPS receivers), enter a source name here to use only that source. Leave blank to accept any source.
+
+Some conversions require instance mapping to match your NMEA 2000 network:
+
+- **Battery**: Map each Signal K battery ID to an NMEA 2000 battery instance ID
+- **Engine**: Map each Signal K engine ID to an NMEA 2000 engine instance ID
+- **Tank**: Map each Signal K tank path to an NMEA 2000 tank instance ID
+- **Solar**: Map each Signal K solar charger ID to an NMEA 2000 battery instance ID
+
+## Supported PGNs (57 PGNs across 45 modules)
+
+All PGNs are aligned with Garmin specifications (corrected priorities, SID fields, field names).
+
+### Navigation & Positioning
+
+| PGN | Description | Module |
+|--------|-------------|--------|
+| 127245 | Rudder Position | `rudder.ts` |
+| 127250 | Vessel Heading / True Heading | `heading.ts`, `trueheading.ts` |
+| 127251 | Rate of Turn | `rateOfTurn.ts` |
+| 127252 | Heave | `heave.ts` |
+| 127257 | Attitude (pitch, roll, yaw) | `attitude.ts` |
+| 127258 | Magnetic Variance | `magneticVariance.ts` |
+| 128000 | Leeway | `leeway.ts` |
+| 128259 | Speed (water/ground) | `speed.ts` |
+| 128267 | Water Depth | `depth.ts` |
+| 128275 | Distance Log | `speed.ts` |
+| 129025 | Position (lat/lon) | `gps.ts` |
+| 129026 | COG & SOG Rapid Update | `cogSOG.ts` |
+| 129029 | GNSS Position Data | `gps.ts` |
+| 129033 | System Time (Date & Time) | `systemTime.ts` |
+| 129283 | Cross Track Error | `navigationData.ts` |
+| 129284 | Navigation Data (waypoint) | `navigationData.ts` |
+| 129285 | Route/Waypoint Information | `routeWaypoint.ts` |
+| 129291 | Set & Drift | `setdrift.ts` |
+| 129301 | Time to/from Mark | `timeToMark.ts` |
+| 129302 | Bearing & Distance Between Marks | `bearingDistanceBetweenMarks.ts` |
+| 129539 | GNSS DOPs | `gnssData.ts` |
+| 129540 | GNSS Satellites in View | `gnssData.ts` |
+| 130074 | Route WP List | `routeWpList.ts` |
+| 130577 | Direction Data | `directionData.ts` |
+
+### AIS
+
+| PGN | Description | Module |
+|--------|-------------|--------|
+| 129038 | Class A Position Report | `ais.ts` |
+| 129039 | Class B Position Report | `aisExtended.ts` |
+| 129040 | Class B Extended Position Report | `aisExtended.ts` |
+| 129041 | AtoN (Aids to Navigation) | `ais.ts` |
+| 129794 | Static & Voyage Data | `ais.ts` |
+| 129798 | SAR Aircraft Position | `aisExtended.ts` |
+| 129802 | Safety Related Broadcast | `aisExtended.ts` |
 
 ### Engine & Propulsion
-- **PGN 127488**: Engine parameters rapid update
-- **PGN 127489**: Engine parameters dynamic
-- **PGN 127505**: Fluid level (fuel tanks)
 
-### Electrical Systems  
-- **PGN 127506**: DC detailed status (battery state)
-- **PGN 127508**: Battery status
+| PGN | Description | Module |
+|--------|-------------|--------|
+| 127488 | Engine Parameters Rapid Update | `engineParameters.ts` |
+| 127489 | Engine Parameters Dynamic | `engineParameters.ts` |
+| 127493 | Transmission Parameters | `transmissionParameters.ts` |
+| 127498 | Engine Configuration/Static | `engineStatic.ts` |
+| 130576 | Small Craft Status | `smallCraftStatus.ts` |
 
 ### Environmental
-- **PGN 130310**: Environmental parameters (outside temp/humidity)
-- **PGN 130311**: Environmental parameters (pressure)
-- **PGN 130312**: Temperature
 
-### Complete Coverage (45 Modules, 74 PGNs)
+| PGN | Description | Module |
+|--------|-------------|--------|
+| 130306 | Wind Data (apparent, true ground, true water) | `wind.ts`, `windTrueGround.ts`, `windTrueWater.ts` |
+| 130310 | Sea/Air Temperature | `seaTemp.ts` |
+| 130311 | Atmospheric Pressure | `pressure.ts` |
+| 130312 | Temperature (exhaust) | `engineParameters.ts` |
+| 130313 | Humidity (inside/outside) | `humidity.ts` |
+| 130314 | Actual Pressure | `pressure.ts` |
 
-**All essential marine electronics protocols supported including:**
-- AIS (Class A, B, SAR, AtoN) - Multiple PGNs
-- Navigation & routing - Comprehensive coverage
-- Engine & propulsion - Full support
-- Environmental monitoring - Complete suite
-- Safety & communications - Full DSC and radio support
-- Vendor-specific (Raymarine) - 4+ PGNs
-- **Aligned with Garmin specifications** - Removed ISO messages, added SID fields, corrected priorities
+### Electrical Systems
+
+| PGN | Description | Module |
+|--------|-------------|--------|
+| 127505 | Fluid/Tank Level | `tanks.ts` |
+| 127506 | DC Detailed Status (state of charge) | `battery.ts`, `solar.ts` |
+| 127508 | Battery Status (voltage/current) | `battery.ts`, `solar.ts` |
+
+### Safety & Communications
+
+| PGN | Description | Module |
+|--------|-------------|--------|
+| 126464 | PGN List (transmit/receive) | `pgnList.ts` |
+| 126983 | Alert Response | `notifications.ts` |
+| 126985 | Alert Text | `notifications.ts` |
+| 126992 | System Time | `systemTime.ts` |
+| 126996 | Product Information | `productInfo.ts` |
+| 129799 | Radio Frequency/Mode/Power | `radioFrequency.ts` |
+| 129808 | DSC Call Information | `dscCalls.ts` |
+
+### Vendor-Specific
+
+| PGN | Description | Module |
+|--------|-------------|--------|
+| 65288 | Raymarine (Seatalk) Alarms | `raymarineAlarms.ts` |
+| 126720 | Raymarine Display Brightness | `raymarineBrightness.ts` |
+
+### ISO (in PGN list announcement only)
+
+| PGN | Description |
+|--------|-------------|
+| 59392 | ISO Acknowledgement |
+| 59904 | ISO Request |
+| 60928 | ISO Address Claim |
 
 ## Development
 
@@ -172,33 +252,37 @@ src/
 
 ### Adding New Conversions
 
-1. Create a new file in `src/conversions/`
-2. Implement the `ConversionModule` interface
-3. Include comprehensive test cases
-4. Follow the CanboatJS message format requirements
+1. Create `src/conversions/yourConversion.ts` using the factory pattern below
+2. Import and register in `src/conversions/index.ts` (add to imports and `conversionFactories` array)
+3. Add a configuration entry in `src/schema.ts` with `enabled`, `resend`, and `resendTime` properties
+4. Include embedded test cases in the module's `tests` array
+5. Run `npm test` and `npm run typecheck`
 
 Example conversion module:
 
 ```typescript
-import type { ConversionModule, N2KMessage } from '../types/index.js'
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
+import type { ConversionCallback, ConversionModule, SignalKApp } from "../types/index.js";
 
-export default function createMyConversion(): ConversionModule {
+export default function createMyConversion(
+  app: SignalKApp
+): ConversionModule<[number | null]> {
   return {
-    title: "My Conversion (PGN)",
+    title: "My Conversion (12345)",
     optionKey: "MY_CONVERSION",
     keys: ["path.to.signalk.data"],
-    callback: (value: unknown): N2KMessage[] => {
-      if (typeof value !== 'number') return []
-      
+    callback: ((value: number | null) => {
+      if (value === null) return [];
+
       return [{
-        prio: 2,
+        prio: N2K_DEFAULT_PRIORITY,
         pgn: 12345,
-        dst: 255,
+        dst: N2K_BROADCAST_DST,
         fields: {
-          myField: value
-        }
-      }]
-    },
+          myField: value,
+        },
+      }];
+    }) as ConversionCallback<[number | null]>,
     tests: [
       {
         input: [42],
@@ -206,11 +290,11 @@ export default function createMyConversion(): ConversionModule {
           prio: 2,
           pgn: 12345,
           dst: 255,
-          fields: { myField: 42 }
-        }]
-      }
-    ]
-  }
+          fields: { myField: 42 },
+        }],
+      },
+    ],
+  };
 }
 ```
 
@@ -218,11 +302,7 @@ export default function createMyConversion(): ConversionModule {
 
 ### Architecture
 
-- **Modern TypeScript**: Leverages latest TypeScript features for type safety
-- **RxJS Reactive Streams**: Replaced BaconJS with RxJS for better TypeScript support
-- **ES Toolkit**: Modern utility library replacing Lodash for better performance
-- **ESM Modules**: Pure ES modules for better tree-shaking and modern compatibility
-- **esbuild**: Fast build system optimized for TypeScript
+The plugin subscribes to Signal K data paths via RxJS streams. When values change, conversion callbacks transform them into CanboatJS-format N2K messages (`{ prio, pgn, dst, fields }`) which are emitted to the NMEA 2000 bus. Each conversion module is self-contained with its own Signal K path mappings, conversion logic, and embedded test cases. The plugin manager handles subscription lifecycle, debouncing, data freshness timeouts, and periodic resend timers.
 
 ### NMEA 2000 Compliance
 
@@ -271,10 +351,10 @@ All conversion modules include embedded test cases that validate:
 
 ## Compatibility
 
-- **Signal K Server**: 2.16.0+
+- **Signal K Server**: 2.20.0+
 - **Node.js**: 20.0.0+
 - **CanboatJS**: 3.13.0+
-- **@signalk/server-api**: 2.10.0+
+- **@signalk/server-api**: 2.10.2+
 
 ## License
 

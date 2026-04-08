@@ -12,24 +12,6 @@ export function isValidNumber(value: unknown): value is number {
 }
 
 /**
- * Check if a value is a valid non-empty string
- * @param value - Value to check
- * @returns True if value is a non-empty string
- */
-export function isValidString(value: unknown): value is string {
-  return typeof value === "string" && value.length > 0;
-}
-
-/**
- * Check if a value is a valid boolean
- * @param value - Value to check
- * @returns True if value is a boolean
- */
-export function isValidBoolean(value: unknown): value is boolean {
-  return typeof value === "boolean";
-}
-
-/**
  * Coerce a value to a valid number or return null
  * @param value - Value to coerce
  * @returns The number if valid, null otherwise
@@ -42,13 +24,10 @@ export function toValidNumber(value: unknown): number | null {
 }
 
 /**
- * Coerce a value to a valid string or return null
- * @param value - Value to coerce
- * @returns The string if valid, null otherwise
+ * Normalize an angle to the 0–2π range
+ * @param angle - Angle in radians (may be negative)
+ * @returns Angle normalized to [0, 2π)
  */
-export function toValidString(value: unknown): string | null {
-  if (typeof value === "string" && value.length > 0) {
-    return value;
-  }
-  return null;
+export function normalizeAngle(angle: number): number {
+  return angle < 0 ? angle + Math.PI * 2 : angle;
 }

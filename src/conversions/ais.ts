@@ -73,7 +73,6 @@ const staticKeys = [
   "design.beam",
   "sensors.ais.fromCenter",
   "sensors.ais.fromBow",
-  "design.draft",
   "registrations.imo",
 ];
 
@@ -105,6 +104,10 @@ const navStatusMapping: Record<string, number> = {
   "hazardous material wing in ground": 10,
 };
 
+const navStatusReverse = Object.fromEntries(
+  Object.entries(navStatusMapping).map(([k, v]) => [v, k])
+);
+
 export default function createAisConversion(
   app: SignalKApp,
   _plugin: SignalKPlugin
@@ -121,16 +124,18 @@ export default function createAisConversion(
         return [];
       }
 
+      const index = buildDeltaIndex(deltaMsg);
+
       if (deltaMsg.context.startsWith("vessels.")) {
-        const hasStatic = hasAnyKeys(deltaMsg, staticKeys);
-        const hasPosition = hasAnyKeys(deltaMsg, positionKeys);
+        const hasStatic = indexHasAnyKeys(index, staticKeys);
+        const hasPosition = indexHasAnyKeys(index, positionKeys);
 
         if (!hasStatic && !hasPosition) {
           return [];
         }
 
         const vessel = app.getPath(deltaMsg.context) as Vessel;
-        const mmsiValue = findDeltaValue(vessel, deltaMsg, "mmsi");
+        const mmsiValue = indexedFindValue(index, vessel, "mmsi");
 
         if (!mmsiValue || typeof mmsiValue !== "string") {
           return [];
@@ -138,24 +143,24 @@ export default function createAisConversion(
 
         const res: N2KMessage[] = [];
         if (hasPosition) {
-          const posMsg = generatePosition(vessel, mmsiValue, deltaMsg);
+          const posMsg = generatePosition(vessel, mmsiValue, index);
           if (posMsg) res.push(posMsg);
         }
 
         if (hasStatic) {
-          const staticMsg = generateStatic(vessel, mmsiValue, deltaMsg);
+          const staticMsg = generateStatic(vessel, mmsiValue, index);
           if (staticMsg) res.push(staticMsg);
         }
         return res;
       } else if (deltaMsg.context.startsWith("atons.")) {
         const vessel = app.getPath(deltaMsg.context) as Vessel;
-        const mmsiValue = findDeltaValue(vessel, deltaMsg, "mmsi");
+        const mmsiValue = indexedFindValue(index, vessel, "mmsi");
 
         if (!mmsiValue || typeof mmsiValue !== "string") {
           return [];
         }
 
-        const atonMsg = generateAtoN(vessel, mmsiValue, deltaMsg);
+        const atonMsg = generateAtoN(vessel, mmsiValue, index);
         return atonMsg ? [atonMsg] : [];
       }
 
@@ -307,19 +312,23 @@ export default function createAisConversion(
   };
 }
 
-function generateStatic(vessel: Vessel, mmsi: string, delta: AisDelta): N2KMessage | null {
-  const name = findDeltaValue(vessel, delta, "name") as string;
-  const typeObj = findDeltaValue(vessel, delta, "design.aisShipType") as AisShipType;
+function generateStatic(
+  vessel: Vessel,
+  mmsi: string,
+  index: Map<string, unknown>
+): N2KMessage | null {
+  const name = indexedFindValue(index, vessel, "name") as string;
+  const typeObj = indexedFindValue(index, vessel, "design.aisShipType") as AisShipType;
   const type = typeObj?.id;
-  const callsign = findDeltaValue(vessel, delta, "communication.callsignVhf") as string;
-  const lengthObj = findDeltaValue(vessel, delta, "design.length") as { overall?: number };
+  const callsign = indexedFindValue(index, vessel, "communication.callsignVhf") as string;
+  const lengthObj = indexedFindValue(index, vessel, "design.length") as { overall?: number };
   const length = lengthObj?.overall;
-  const beam = findDeltaValue(vessel, delta, "design.beam") as number;
-  const fromCenter = findDeltaValue(vessel, delta, "sensors.ais.fromCenter") as number;
-  const fromBow = findDeltaValue(vessel, delta, "sensors.ais.fromBow") as number;
-  const draftObj = findDeltaValue(vessel, delta, "design.draft") as { maximum?: number };
+  const beam = indexedFindValue(index, vessel, "design.beam") as number;
+  const fromCenter = indexedFindValue(index, vessel, "sensors.ais.fromCenter") as number;
+  const fromBow = indexedFindValue(index, vessel, "sensors.ais.fromBow") as number;
+  const draftObj = indexedFindValue(index, vessel, "design.draft") as { maximum?: number };
   const draft = draftObj?.maximum;
-  const dest = findDeltaValue(vessel, delta, "navigation.destination.commonName") as string;
+  const dest = indexedFindValue(index, vessel, "navigation.destination.commonName") as string;
 
   let fromStarboard: number | undefined;
   if (beam != null && fromCenter != null) {
@@ -351,18 +360,22 @@ function generateStatic(vessel: Vessel, mmsi: string, delta: AisDelta): N2KMessa
   };
 }
 
-function generatePosition(vessel: Vessel, mmsi: string, delta: AisDelta): N2KMessage | null {
-  const position = findDeltaValue(vessel, delta, "navigation.position") as Position;
+function generatePosition(
+  vessel: Vessel,
+  mmsi: string,
+  index: Map<string, unknown>
+): N2KMessage | null {
+  const position = indexedFindValue(index, vessel, "navigation.position") as Position;
 
   if (!position?.latitude || !position.longitude) {
     return null;
   }
 
-  const cog = findDeltaValue(vessel, delta, "navigation.courseOverGroundTrue") as number;
-  const sog = findDeltaValue(vessel, delta, "navigation.speedOverGround") as number;
-  const heading = findDeltaValue(vessel, delta, "navigation.headingTrue") as number;
-  const rot = findDeltaValue(vessel, delta, "navigation.rateOfTurn") as number;
-  const state = findDeltaValue(vessel, delta, "navigation.state") as string;
+  const cog = indexedFindValue(index, vessel, "navigation.courseOverGroundTrue") as number;
+  const sog = indexedFindValue(index, vessel, "navigation.speedOverGround") as number;
+  const heading = indexedFindValue(index, vessel, "navigation.headingTrue") as number;
+  const rot = indexedFindValue(index, vessel, "navigation.rateOfTurn") as number;
+  const state = indexedFindValue(index, vessel, "navigation.state") as string;
 
   let status = 0;
   if (state && navStatusMapping[state] != null) {
@@ -391,26 +404,28 @@ function generatePosition(vessel: Vessel, mmsi: string, delta: AisDelta): N2KMes
       aisTransceiverInformation: "Channel A VDL reception",
       heading: validHeading,
       rateOfTurn: rot,
-      navStatus:
-        Object.keys(navStatusMapping).find((key) => navStatusMapping[key] === status) ||
-        "Under way using engine",
+      navStatus: navStatusReverse[status] ?? "Under way using engine",
     },
   };
 }
 
-function generateAtoN(vessel: Vessel, mmsi: string, delta: AisDelta): N2KMessage | null {
-  const position = findDeltaValue(vessel, delta, "navigation.position") as Position;
+function generateAtoN(
+  vessel: Vessel,
+  mmsi: string,
+  index: Map<string, unknown>
+): N2KMessage | null {
+  const position = indexedFindValue(index, vessel, "navigation.position") as Position;
 
   if (!position?.latitude || !position.longitude) {
     return null;
   }
 
-  const name = vessel?.name || (findDeltaValue(vessel, delta, "name") as string);
-  const lengthObj = findDeltaValue(vessel, delta, "design.length") as { overall?: number };
+  const name = vessel?.name || (indexedFindValue(index, vessel, "name") as string);
+  const lengthObj = indexedFindValue(index, vessel, "design.length") as { overall?: number };
   const length = lengthObj?.overall;
-  const beam = findDeltaValue(vessel, delta, "design.beam") as number;
-  const fromCenter = findDeltaValue(vessel, delta, "sensors.ais.fromCenter") as number;
-  const fromBow = findDeltaValue(vessel, delta, "sensors.ais.fromBow") as number;
+  const beam = indexedFindValue(index, vessel, "design.beam") as number;
+  const fromCenter = indexedFindValue(index, vessel, "sensors.ais.fromCenter") as number;
+  const fromBow = indexedFindValue(index, vessel, "sensors.ais.fromBow") as number;
 
   let fromStarboard: number | undefined;
   if (beam != null && fromCenter != null) {
@@ -447,8 +462,13 @@ function generateAtoN(vessel: Vessel, mmsi: string, delta: AisDelta): N2KMessage
   };
 }
 
-function hasAnyKeys(delta: AisDelta, keys: string[]): boolean {
-  if (!delta.updates) return false;
+/**
+ * Build a key→value index from delta updates for O(1) lookups.
+ * Handles both path-keyed values and root-object values (path === "").
+ */
+function buildDeltaIndex(delta: AisDelta): Map<string, unknown> {
+  const index = new Map<string, unknown>();
+  if (!delta.updates) return index;
 
   for (const update of delta.updates) {
     if (!Array.isArray(update.values)) continue;
@@ -458,36 +478,25 @@ function hasAnyKeys(delta: AisDelta, keys: string[]): boolean {
       const value = valueUpdate.value;
 
       if (valuePath === "" && typeof value === "object" && value != null) {
-        const valueKeys = Object.keys(value);
-        if (valueKeys.some((key) => keys.includes(key))) {
-          return true;
+        for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+          index.set(k, v);
         }
-      } else if (keys.includes(valuePath)) {
-        return true;
+      } else if (valuePath !== "") {
+        index.set(valuePath, value);
       }
     }
   }
-  return false;
+  return index;
 }
 
-function findDeltaValue(vessel: Vessel, delta: AisDelta, path: string): unknown {
-  if (!delta.updates) return undefined;
+function indexHasAnyKeys(index: Map<string, unknown>, keys: string[]): boolean {
+  return keys.some((key) => index.has(key));
+}
 
-  for (const update of delta.updates) {
-    for (const valueUpdate of update.values) {
-      const valuePath = valueUpdate.path;
-      const value = valueUpdate.value;
+function indexedFindValue(index: Map<string, unknown>, vessel: Vessel, path: string): unknown {
+  if (index.has(path)) return index.get(path);
 
-      if (valuePath === "" && path.indexOf(".") === -1) {
-        if (typeof value === "object" && value != null && path in value) {
-          return (value as Record<string, unknown>)[path];
-        }
-      } else if (path === valuePath) {
-        return value;
-      }
-    }
-  }
-
+  // Fallback: traverse the vessel object
   const pathParts = path.split(".");
   let val: unknown = vessel;
   for (const part of pathParts) {
@@ -504,6 +513,7 @@ function findDeltaValue(vessel: Vessel, delta: AisDelta, path: string): unknown 
     : val;
 }
 
+// TODO: implement N2K source detection to prevent echo loops
 function isN2K(_delta: AisDelta): boolean {
   return false;
 }

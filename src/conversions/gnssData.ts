@@ -1,4 +1,4 @@
-import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, N2K_SID_ZERO } from "../constants.js";
 import type { ConversionCallback, ConversionModule, SignalKApp } from "../types/index.js";
 
 interface SatelliteData {
@@ -45,7 +45,7 @@ export default function createGnssDataConversions(_app: SignalKApp): ConversionM
             pgn: 129539,
             dst: N2K_BROADCAST_DST,
             fields: {
-              sid: 0,
+              sid: N2K_SID_ZERO,
               desiredMode: modeString === "3D" ? "3D" : modeString === "2D" ? "2D" : "Auto",
               actualMode: modeString === "3D" ? "3D" : modeString === "2D" ? "2D" : "No GNSS",
               hdop: hdopValue,
@@ -64,7 +64,7 @@ export default function createGnssDataConversions(_app: SignalKApp): ConversionM
               pgn: 129539,
               dst: 255,
               fields: {
-                sid: 0,
+                sid: N2K_SID_ZERO,
                 desiredMode: "3D",
                 actualMode: "3D",
                 hdop: 1.2,
@@ -110,7 +110,7 @@ export default function createGnssDataConversions(_app: SignalKApp): ConversionM
             pgn: 129540,
             dst: N2K_BROADCAST_DST,
             fields: {
-              sid: 0,
+              sid: N2K_SID_ZERO,
               mode: "Auto",
               satsInView: Math.min(countValue, 12),
               list: satelliteData,
@@ -134,7 +134,7 @@ export default function createGnssDataConversions(_app: SignalKApp): ConversionM
               pgn: 129540,
               dst: 255,
               fields: {
-                sid: 0,
+                sid: N2K_SID_ZERO,
                 satsInView: 8,
                 list: [
                   {

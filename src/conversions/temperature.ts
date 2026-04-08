@@ -1,3 +1,4 @@
+import { N2K_BROADCAST_DST, N2K_DEFAULT_SID } from "../constants.js";
 import type { ConversionModule, JSONSchema, N2KMessage } from "../types/index.js";
 
 /**
@@ -33,9 +34,9 @@ function createTemperatureMessage(
   return {
     prio: 5,
     pgn,
-    dst: 255,
+    dst: N2K_BROADCAST_DST,
     fields: {
-      sid: 87,
+      sid: N2K_DEFAULT_SID,
       instance: inst,
       source: src,
       [fieldName]: temp,

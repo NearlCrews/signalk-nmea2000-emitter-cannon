@@ -88,6 +88,8 @@ export interface ConversionModule<T extends unknown[] = unknown[]> {
   testOptions?: unknown;
   /** Timer reference for cleanup */
   resendTimer?: NodeJS.Timeout;
+  /** Last computed output for resend timers to re-emit */
+  lastOutput?: N2KMessage[];
   /** Called with conversion options before first callback, for option-dependent setup */
   onOptionsLoaded?: (options: Record<string, unknown>) => void;
 }
@@ -149,29 +151,4 @@ export interface ProcessingOptions {
   resend?: number;
   /** How long to continue resending (seconds) */
   resendTime?: number;
-}
-
-/**
- * Error types for plugin operations
- */
-export class PluginError extends Error {
-  constructor(
-    message: string,
-    public readonly pluginId: string,
-    public readonly operation?: string
-  ) {
-    super(message);
-    this.name = "PluginError";
-  }
-}
-
-export class ConversionError extends Error {
-  constructor(
-    message: string,
-    public readonly conversionTitle: string,
-    public readonly originalError?: Error
-  ) {
-    super(message);
-    this.name = "ConversionError";
-  }
 }

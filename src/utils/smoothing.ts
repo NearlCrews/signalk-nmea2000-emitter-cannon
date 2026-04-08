@@ -60,12 +60,3 @@ export class ExponentialSmoother {
     this.values.delete(key);
   }
 }
-
-/**
- * Create a simple exponential smoothing function
- * @param alpha - Smoothing factor (0-1)
- * @returns Smoother instance
- */
-export function createSmoother(alpha: number = 0.3): ExponentialSmoother {
-  return new ExponentialSmoother(alpha);
-}

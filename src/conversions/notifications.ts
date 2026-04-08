@@ -107,9 +107,7 @@ export default function createNotificationsConversion(
           const method = value.method || [];
           let state: string;
 
-          if (value.state === "normal") {
-            state = "Normal";
-          } else if (method.length === 0) {
+          if (method.length === 0) {
             state = "Acknowledged";
           } else if (method.indexOf("sound") === -1) {
             state = "Silenced";
@@ -210,12 +208,7 @@ export default function createNotificationsConversion(
         }
       }
 
-      try {
-        return pgns;
-      } catch (err) {
-        app.error(err instanceof Error ? err.message : String(err));
-        return [];
-      }
+      return pgns;
     },
     tests: [
       {

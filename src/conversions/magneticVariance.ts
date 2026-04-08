@@ -1,5 +1,6 @@
-import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, N2K_SID_ZERO } from "../constants.js";
 import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
+import { isValidNumber } from "../utils/validation.js";
 
 /**
  * Magnetic Variance conversion module - converts Signal K magnetic variation to NMEA 2000 PGN 127258
@@ -11,8 +12,7 @@ export default function createMagneticVarianceConversion(app: SignalKApp): Conve
     keys: ["navigation.magneticVariation", "navigation.magneticVariationAgeOfService"],
     callback: (magneticVariation: unknown, ageOfService: unknown): N2KMessage[] => {
       try {
-        // Validate magnetic variation input - required field
-        if (typeof magneticVariation !== "number") {
+        if (!isValidNumber(magneticVariation)) {
           return [];
         }
 
@@ -25,7 +25,7 @@ export default function createMagneticVarianceConversion(app: SignalKApp): Conve
             pgn: 127258,
             dst: N2K_BROADCAST_DST,
             fields: {
-              sid: 0,
+              sid: N2K_SID_ZERO,
               variationSource: "Table",
               ageOfService: ageValue,
               variation: magneticVariation,

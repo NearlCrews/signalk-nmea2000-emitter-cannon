@@ -8,7 +8,7 @@ import type {
   SignalKPlugin,
   SubConversionModule,
 } from "../types/index.js";
-import { createSmoother } from "../utils/smoothing.js";
+import { ExponentialSmoother } from "../utils/smoothing.js";
 
 /**
  * Battery configuration interface
@@ -36,7 +36,7 @@ export default function createBatteryConversion(
   _plugin: SignalKPlugin
 ): ConversionModule {
   // Instance-scoped smoothing state (cleared when plugin restarts)
-  const timeRemainingSmoother = createSmoother(0.3);
+  const timeRemainingSmoother = new ExponentialSmoother(0.3);
 
   const batteryKeys = [
     "voltage",

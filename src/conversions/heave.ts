@@ -1,5 +1,6 @@
-import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, N2K_SID_ZERO } from "../constants.js";
 import type { ConversionCallback, ConversionModule, SignalKApp } from "../types/index.js";
+import { isValidNumber } from "../utils/validation.js";
 
 /**
  * Heave conversion module - converts Signal K heave motion to NMEA 2000 PGN 127252
@@ -12,8 +13,7 @@ export default function createHeaveConversion(app: SignalKApp): ConversionModule
     timeouts: [1000], // 1 second for responsive motion data
     callback: ((heave: number | null) => {
       try {
-        // Validate heave input - required field
-        if (typeof heave !== "number") {
+        if (!isValidNumber(heave)) {
           return [];
         }
 
@@ -23,7 +23,7 @@ export default function createHeaveConversion(app: SignalKApp): ConversionModule
             pgn: 127252,
             dst: N2K_BROADCAST_DST,
             fields: {
-              sid: 0,
+              sid: N2K_SID_ZERO,
               heave,
             },
           },

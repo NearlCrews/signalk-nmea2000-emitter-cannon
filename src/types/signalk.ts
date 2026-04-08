@@ -12,6 +12,8 @@ export interface SignalKApp extends ServerAPI {
   emit: (event: string, data: unknown) => void;
   /** Signal K event emitter for listening to server events */
   on: (event: string, callback: (data: unknown) => void) => void;
+  /** Remove an event listener */
+  removeListener: (event: string, callback: (data: unknown) => void) => void;
 }
 
 /**

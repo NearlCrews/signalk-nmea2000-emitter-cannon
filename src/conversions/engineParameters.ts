@@ -1,4 +1,4 @@
-import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
+import { DEFAULT_DATA_TIMEOUT_MS, N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import type {
   ConversionCallback,
   ConversionModule,
@@ -6,8 +6,6 @@ import type {
   SignalKApp,
   SubConversionModule,
 } from "../types/index.js";
-
-const DEFAULT_TIMEOUT = 10000; // ms
 
 /**
  * Engine configuration for exhaust temperature
@@ -193,7 +191,7 @@ export default function createEngineParametersConversions(
 
         const dyn = engineOptions.engines.map((engine) => ({
           keys: engParKeys.map((key) => `propulsion.${engine.signalkId}.${key}`),
-          timeouts: engParKeys.map(() => DEFAULT_TIMEOUT),
+          timeouts: engParKeys.map(() => DEFAULT_DATA_TIMEOUT_MS),
           callback: ((
             oilPres: number | null,
             oilTemp: number | null,
@@ -291,7 +289,7 @@ export default function createEngineParametersConversions(
 
         const rapid = engineOptions.engines.map((engine) => ({
           keys: engRapidKeys.map((key) => `propulsion.${engine.signalkId}.${key}`),
-          timeouts: engRapidKeys.map(() => DEFAULT_TIMEOUT),
+          timeouts: engRapidKeys.map(() => DEFAULT_DATA_TIMEOUT_MS),
           callback: ((
             revolutions: number | null,
             boostPressure: number | null,

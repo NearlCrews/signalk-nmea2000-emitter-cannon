@@ -1,5 +1,6 @@
-import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, N2K_SID_ZERO } from "../constants.js";
 import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
+import { isValidNumber } from "../utils/validation.js";
 
 /**
  * Rate of Turn conversion module - converts Signal K rate of turn to NMEA 2000 PGN 127251
@@ -11,8 +12,7 @@ export default function createRateOfTurnConversion(app: SignalKApp): ConversionM
     keys: ["navigation.rateOfTurn"],
     callback: (rateOfTurn: unknown): N2KMessage[] => {
       try {
-        // Validate rate of turn input - required field
-        if (typeof rateOfTurn !== "number") {
+        if (!isValidNumber(rateOfTurn)) {
           return [];
         }
 
@@ -22,8 +22,8 @@ export default function createRateOfTurnConversion(app: SignalKApp): ConversionM
             pgn: 127251,
             dst: N2K_BROADCAST_DST,
             fields: {
-              sid: 0,
-              rate: rateOfTurn, // Rate of turn in rad/s
+              sid: N2K_SID_ZERO,
+              rate: rateOfTurn,
             },
           },
         ];

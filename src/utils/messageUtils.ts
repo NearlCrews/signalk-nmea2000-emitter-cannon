@@ -86,34 +86,6 @@ export function isValidN2KFieldValue(value: unknown): value is N2KFieldValue {
 }
 
 /**
- * Create a standardized N2K message with validation
- *
- * @param pgn - Parameter Group Number
- * @param fields - Message fields
- * @param options - Optional message options
- * @returns Validated N2K message
- */
-export function createN2KMessage(
-  pgn: number,
-  fields: Record<string, N2KFieldValue>,
-  options: {
-    prio?: number;
-    dst?: number;
-    src?: number;
-  } = {}
-): N2KMessage {
-  const message = {
-    prio: options.prio ?? 2,
-    pgn,
-    dst: options.dst ?? 255,
-    src: options.src,
-    fields,
-  };
-
-  return validateN2KMessage(message);
-}
-
-/**
  * Convert a raw N2K message to a clean format
  * Removes extra properties that may have been added by processing
  *
@@ -133,54 +105,6 @@ export function cleanN2KMessage(message: Record<string, unknown>): N2KMessage {
 }
 
 /**
- * Check if two N2K messages are equivalent
- *
- * @param msg1 - First message
- * @param msg2 - Second message
- * @returns true if messages are equivalent
- */
-export function messagesEqual(msg1: N2KMessage, msg2: N2KMessage): boolean {
-  if (msg1.prio !== msg2.prio || msg1.pgn !== msg2.pgn || msg1.dst !== msg2.dst) {
-    return false;
-  }
-
-  const fields1 = msg1.fields;
-  const fields2 = msg2.fields;
-  const keys1 = Object.keys(fields1).sort();
-  const keys2 = Object.keys(fields2).sort();
-
-  if (keys1.length !== keys2.length) return false;
-
-  for (let i = 0; i < keys1.length; i++) {
-    const key1 = keys1[i];
-    const key2 = keys2[i];
-    if (!key1 || !key2 || key1 !== key2) return false;
-    if (!deepEqual(fields1[key1], fields2[key2])) return false;
-  }
-
-  return true;
-}
-
-/**
- * Deep equality check for N2K field values
- *
- * @param a - First value
- * @param b - Second value
- * @returns true if values are deeply equal
- */
-function deepEqual(a: N2KFieldValue, b: N2KFieldValue): boolean {
-  if (a === b) return true;
-  if (a === null || a === undefined || b === null || b === undefined) return a === b;
-
-  if (Array.isArray(a) && Array.isArray(b)) {
-    if (a.length !== b.length) return false;
-    return a.every((val, idx) => deepEqual(val, b[idx]));
-  }
-
-  return false;
-}
-
-/**
  * Format N2K message for logging
  *
  * @param message - Message to format
@@ -188,24 +112,4 @@ function deepEqual(a: N2KFieldValue, b: N2KFieldValue): boolean {
  */
 export function formatN2KMessage(message: N2KMessage): string {
   return `PGN ${message.pgn} (prio:${message.prio}, dst:${message.dst}): ${JSON.stringify(message.fields)}`;
-}
-
-/**
- * Extract PGN number from message
- *
- * @param message - N2K message
- * @returns PGN number
- */
-export function getPGN(message: N2KMessage): number {
-  return message.pgn;
-}
-
-/**
- * Check if message is a broadcast message
- *
- * @param message - N2K message
- * @returns true if message is broadcast (dst = 255)
- */
-export function isBroadcast(message: N2KMessage): boolean {
-  return message.dst === 255;
 }

@@ -8,7 +8,7 @@
  * @returns True if value is a finite number
  */
 export function isValidNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value);
+	return typeof value === "number" && Number.isFinite(value);
 }
 
 /**
@@ -17,10 +17,10 @@ export function isValidNumber(value: unknown): value is number {
  * @returns The number if valid, null otherwise
  */
 export function toValidNumber(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
-  return null;
+	if (typeof value === "number" && Number.isFinite(value)) {
+		return value;
+	}
+	return null;
 }
 
 /**
@@ -29,5 +29,5 @@ export function toValidNumber(value: unknown): number | null {
  * @returns Angle normalized to [0, 2π)
  */
 export function normalizeAngle(angle: number): number {
-  return angle < 0 ? angle + Math.PI * 2 : angle;
+	return angle < 0 ? angle + Math.PI * 2 : angle;
 }

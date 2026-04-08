@@ -10,7 +10,7 @@
  * @returns Property name like 'propulsionenginetemperature'
  */
 export function pathToPropName(path: string): string {
-  return path.replace(/\./g, "");
+	return path.replace(/\./g, "");
 }
 
 /**
@@ -20,5 +20,5 @@ export function pathToPropName(path: string): string {
  * @returns true if value is not undefined
  */
 export function isDefined<T>(value: T | undefined): value is T {
-  return typeof value !== "undefined";
+	return typeof value !== "undefined";
 }

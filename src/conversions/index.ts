@@ -1,8 +1,8 @@
 import type {
-  ConversionModule,
-  ConversionModuleFactory,
-  SignalKApp,
-  SignalKPlugin,
+	ConversionModule,
+	ConversionModuleFactory,
+	SignalKApp,
+	SignalKPlugin,
 } from "../types/index.js";
 import { isDefined } from "../utils/pathUtils.js";
 
@@ -61,67 +61,69 @@ import createWindTrueWaterConversion from "./windTrueWater.js";
  * @returns An array of conversion modules.
  */
 export function createConversionModules(
-  app: SignalKApp,
-  plugin: SignalKPlugin
+	app: SignalKApp,
+	plugin: SignalKPlugin,
 ): ConversionModule<any>[] {
-  const conversionFactories: ConversionModuleFactory[] = [
-    createAisConversion,
-    createAisExtendedConversion,
-    createAttitudeConversion,
-    createBatteryConversion,
-    createBearingDistanceBetweenMarksConversion,
-    createCogSogConversion,
-    createDepthConversion,
-    createDirectionDataConversion,
-    createDscCallsConversion,
-    createEngineParametersConversion,
-    createEngineStaticConversion,
-    createEnvironmentParametersConversion,
-    createGnssDataConversion,
-    createGpsConversion,
-    createHeadingConversion,
-    createHeaveConversion,
-    createHumidityConversion,
-    createLeewayConversion,
-    createMagneticVarianceConversion,
-    createNavigationDataConversion,
-    createNotificationsConversion,
-    createPgnListConversion,
-    createPressureConversion,
-    createProductInfoConversion,
-    createRadioFrequencyConversion,
-    createRateOfTurnConversion,
-    createRaymarineAlarmsConversion,
-    createRaymarineBrightnessConversion,
-    createRouteWaypointConversion,
-    createRouteWpListConversion,
-    createRudderConversion,
-    createSeaTempConversion,
-    createSetDriftConversion,
-    createSmallCraftStatusConversion,
-    createSolarConversion,
-    createSpeedConversion,
-    createSystemTimeConversion,
-    createTanksConversion,
-    createTemperatureConversion,
-    createTimeToMarkConversion,
-    createTransmissionParametersConversion,
-    createTrueHeadingConversion,
-    createWindConversion,
-    createWindTrueGroundConversion,
-    createWindTrueWaterConversion,
-  ];
+	const conversionFactories: ConversionModuleFactory[] = [
+		createAisConversion,
+		createAisExtendedConversion,
+		createAttitudeConversion,
+		createBatteryConversion,
+		createBearingDistanceBetweenMarksConversion,
+		createCogSogConversion,
+		createDepthConversion,
+		createDirectionDataConversion,
+		createDscCallsConversion,
+		createEngineParametersConversion,
+		createEngineStaticConversion,
+		createEnvironmentParametersConversion,
+		createGnssDataConversion,
+		createGpsConversion,
+		createHeadingConversion,
+		createHeaveConversion,
+		createHumidityConversion,
+		createLeewayConversion,
+		createMagneticVarianceConversion,
+		createNavigationDataConversion,
+		createNotificationsConversion,
+		createPgnListConversion,
+		createPressureConversion,
+		createProductInfoConversion,
+		createRadioFrequencyConversion,
+		createRateOfTurnConversion,
+		createRaymarineAlarmsConversion,
+		createRaymarineBrightnessConversion,
+		createRouteWaypointConversion,
+		createRouteWpListConversion,
+		createRudderConversion,
+		createSeaTempConversion,
+		createSetDriftConversion,
+		createSmallCraftStatusConversion,
+		createSolarConversion,
+		createSpeedConversion,
+		createSystemTimeConversion,
+		createTanksConversion,
+		createTemperatureConversion,
+		createTimeToMarkConversion,
+		createTransmissionParametersConversion,
+		createTrueHeadingConversion,
+		createWindConversion,
+		createWindTrueGroundConversion,
+		createWindTrueWaterConversion,
+	];
 
-  return conversionFactories
-    .flatMap((factory) => {
-      try {
-        const moduleOrModules = factory(app, plugin);
-        return Array.isArray(moduleOrModules) ? moduleOrModules : [moduleOrModules];
-      } catch (e) {
-        const error = e as Error;
-        app.error(`Error loading conversion module: ${error.message}`);
-        return [];
-      }
-    })
-    .filter(isDefined);
+	return conversionFactories
+		.flatMap((factory) => {
+			try {
+				const moduleOrModules = factory(app, plugin);
+				return Array.isArray(moduleOrModules)
+					? moduleOrModules
+					: [moduleOrModules];
+			} catch (e) {
+				const error = e as Error;
+				app.error(`Error loading conversion module: ${error.message}`);
+				return [];
+			}
+		})
+		.filter(isDefined);
 }

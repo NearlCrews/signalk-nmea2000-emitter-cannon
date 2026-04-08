@@ -31,8 +31,19 @@
 - Removed stale migration narration comments
 - Removed unused exports: `TimedN2KMessage`, `PluginError`, `ConversionError`
 
+**Tooling**:
+- Replaced custom 60-line `biome.json` with minimal defaults (2 overrides only)
+- Reformatted entire codebase to Biome defaults (tabs, 80-char line width)
+
 **Documentation**:
 - Corrected PGN count from 74 to 57 across README, CLAUDE.md, and CHANGELOG
+- Added complete PGN reference table (all 57 PGNs with descriptions and module names)
+- Fixed plugin display name in Configuration section
+- Fixed broken manual install command (replaced `cp` with `npm link`)
+- Added NMEA 2000 gateway hardware prerequisite
+- Expanded Configuration section with resend, source filtering, and instance mapping docs
+- Updated code example to match actual factory signature with constants and typed callback
+- Updated compatibility versions to match current package.json
 
 ---
 

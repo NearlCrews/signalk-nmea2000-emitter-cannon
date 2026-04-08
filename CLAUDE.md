@@ -69,7 +69,7 @@ Tests live in `src/test/index.test.ts`. Each conversion module embeds its own te
 ## Key Technical Details
 
 - **Runtime**: Node.js 20+, pure ESM modules
-- **Build**: esbuild bundles to single `dist/index.js` (200kb)
+- **Build**: esbuild bundles to single `dist/index.js` (~207kb)
 - **Externals**: rxjs, es-toolkit, path-scurry, @canboat/canboatjs
 - **Reactivity**: RxJS for Signal K data subscriptions (Signal K server uses BaconJS internally)
 - **N2K Message Format**: CanboatJS format - `{ prio, pgn, dst, fields: {...} }`

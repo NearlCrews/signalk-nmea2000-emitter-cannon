@@ -25,7 +25,6 @@ export interface SignalKPlugin extends Plugin {
 export interface ConversionOptions {
 	enabled: boolean;
 	resend?: number;
-	resendTime?: number;
 	[optionKey: string]: unknown;
 }
 
@@ -156,6 +155,4 @@ export type ConversionModuleFactory = (
 export interface ProcessingOptions {
 	/** Whether to resend messages periodically */
 	resend?: number;
-	/** How long to continue resending (seconds) */
-	resendTime?: number;
 }

@@ -6,6 +6,13 @@ export const schema: JSONSchema = {
 	description:
 		"If there is SignalK data for the conversion generate the following NMEA2000 pgns from Signal K data:",
 	properties: {
+		globalResendInterval: {
+			type: "number",
+			title: "Global Resend Interval (seconds)",
+			description:
+				"Default resend interval for all conversions. Individual conversions override this when their own resend value is non-zero.",
+			default: 5,
+		},
 		WIND: {
 			type: "object",
 			title: "Wind",
@@ -15,15 +22,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 				environmentwindangleApparent: {
 					title: "Source for environment.wind.angleApparent",
@@ -48,15 +49,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 				environmentdepthbelowTransducer: {
 					title: "Source for environment.depth.belowTransducer",
@@ -75,15 +70,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 				navigationcourseOverGroundTrue: {
 					title: "Source for navigation.courseOverGroundTrue",
@@ -108,15 +97,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 				navigationheadingMagnetic: {
 					title: "Source for navigation.headingMagnetic",
@@ -135,15 +118,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 				batteries: {
 					title: "Battery Mapping",
@@ -170,15 +147,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 				navigationspeedThroughWater: {
 					title: "Source for navigation.speedThroughWater",
@@ -197,15 +168,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 				steeringrudderpositioning: {
 					title: "Source for steering.rudder.position",
@@ -224,15 +189,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 				navigationposition: {
 					title: "Source for navigation.position",
@@ -275,15 +234,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 				environmentoutsidetemperature: {
 					title: "Source for environment.outside.temperature",
@@ -302,15 +255,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 				environmentinsidetemperature: {
 					title: "Source for environment.inside.temperature",
@@ -329,15 +276,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 				environmentoutsidepressure: {
 					title: "Source for environment.outside.pressure",
@@ -356,15 +297,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 				environmentoutsidehumidity: {
 					title: "Source for environment.outside.humidity",
@@ -383,15 +318,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 				environmentinsidehumidity: {
 					title: "Source for environment.inside.humidity",
@@ -410,15 +339,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 				engines: {
 					title: "Engine Mapping",
@@ -445,15 +368,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 				tanks: {
 					title: "Tank Mapping",
@@ -480,15 +397,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 			},
 		},
@@ -501,15 +412,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 				environmentwatertemperature: {
 					title: "Source for environment.water.temperature",
@@ -534,15 +439,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 				chargers: {
 					title: "Solar Panel Mapping",
@@ -569,15 +468,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 				environmentoutsidepressure: {
 					title: "Source for environment.outside.pressure",
@@ -596,15 +489,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 				navigationmagneticVariance: {
 					title: "Source for navigation.magneticVariance",
@@ -623,15 +510,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 				navigationrateOfTurn: {
 					title: "Source for navigation.rateOfTurn",
@@ -650,15 +531,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 				navigationheadingTrue: {
 					title: "Source for navigation.headingTrue",
@@ -677,15 +552,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 				performanceleeway: {
 					title: "Source for performance.leeway",
@@ -704,15 +573,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 				environmentcurrentsetTrue: {
 					title: "Source for environment.current.setTrue",
@@ -737,15 +600,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 				navigationattituderoll: {
 					title: "Source for navigation.attitude.roll",
@@ -776,15 +633,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 				navigationheave: {
 					title: "Source for navigation.heave",
@@ -803,15 +654,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 				navigationcourseOverGroundTrue: {
 					title: "Source for navigation.courseOverGroundTrue",
@@ -875,15 +720,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 				navigationgnsshorizontalDilution: {
 					title: "Source for navigation.gnss.horizontalDilution",
@@ -920,15 +759,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 				navigationgnsssatellitesInViewcount: {
 					title: "Source for navigation.gnss.satellitesInView.count",
@@ -953,15 +786,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 			},
 		},
@@ -974,15 +801,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 			},
 		},
@@ -995,15 +816,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 			},
 		},
@@ -1016,15 +831,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 				navigationcoursecalcValuescrossTrackError: {
 					title: "Source for navigation.course.calcValues.crossTrackError",
@@ -1043,15 +852,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 				navigationcoursecalcValuesdistance: {
 					title: "Source for navigation.course.calcValues.distance",
@@ -1088,15 +891,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 				navigationcoursenextPointbearingMagnetic: {
 					title: "Source for navigation.course.nextPoint.bearingMagnetic",
@@ -1121,15 +918,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 				navigationcoursenextPointposition: {
 					title: "Source for navigation.course.nextPoint.position",
@@ -1154,15 +945,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 				navigationcoursenextPointtimeToGo: {
 					title: "Source for navigation.course.nextPoint.timeToGo",
@@ -1181,15 +966,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 				environmentwinddirectionTrue: {
 					title: "Source for environment.wind.directionTrue",
@@ -1214,15 +993,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 				environmentwindangleTrueWater: {
 					title: "Source for environment.wind.angleTrueWater",
@@ -1247,15 +1020,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 				propulsionmainratedEngineSpeed: {
 					title: "Source for propulsion.main.ratedEngineSpeed",
@@ -1280,15 +1047,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 				propulsionmaintransmissiongearRatio: {
 					title: "Source for propulsion.main.transmission.gearRatio",
@@ -1319,15 +1080,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 				steeringtrimTabport: {
 					title: "Source for steering.trimTab.port",
@@ -1364,15 +1119,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 				excludePaths: {
 					type: "string",
@@ -1392,15 +1141,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 			},
 		},
@@ -1413,15 +1156,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 			},
 		},
@@ -1434,15 +1171,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 			},
 		},
@@ -1455,15 +1186,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 			},
 		},
@@ -1476,15 +1201,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 			},
 		},
@@ -1497,15 +1216,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 			},
 		},
@@ -1518,15 +1231,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 			},
 		},
@@ -1539,15 +1246,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 			},
 		},
@@ -1560,15 +1261,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 			},
 		},
@@ -1581,15 +1276,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 			},
 		},
@@ -1602,15 +1291,9 @@ export const schema: JSONSchema = {
 				resend: {
 					type: "number",
 					title: "Resend (seconds)",
-					description: "If non-zero, the msg will be periodically resent",
-					default: 5,
-				},
-				resendTime: {
-					type: "number",
-					title: "Resend Duration (seconds)",
 					description:
-						"The value will be resent for the given number of seconds",
-					default: 30,
+						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+					default: 0,
 				},
 			},
 		},

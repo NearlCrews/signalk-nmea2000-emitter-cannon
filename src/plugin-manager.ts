@@ -24,6 +24,7 @@ export class PluginManager {
 	private unsubscribes: Array<() => void> = [];
 	private timers: NodeJS.Timeout[] = [];
 	private nmea2000Ready = false;
+	private globalResendInterval = 5;
 
 	constructor(app: SignalKApp, plugin: SignalKPlugin) {
 		this.app = app;
@@ -44,6 +45,11 @@ export class PluginManager {
 	 */
 	start(options: PluginOptions): void {
 		try {
+			// Extract global resend interval (top-level schema property outside the index signature)
+			const rawOptions = options as Record<string, unknown>;
+			this.globalResendInterval =
+				(rawOptions.globalResendInterval as number) || 5;
+
 			this.app.setPluginStatus("Starting...");
 			this.app.debug(`=== SIGNALK-NMEA2000-EMITTER-CANNON STARTING ===`);
 			this.app.debug(
@@ -54,6 +60,8 @@ export class PluginManager {
 			// Count enabled conversions
 			let enabledCount = 0;
 			for (const key of Object.keys(options)) {
+				if (key === "globalResendInterval" || key === "globalResendTime")
+					continue;
 				if (options[key]?.enabled) {
 					enabledCount++;
 					this.app.debug(`${key} is ENABLED in options`);
@@ -196,9 +204,15 @@ export class PluginManager {
 			this.app.error(`Error processing output: ${err}`);
 		}
 
-		// Set up resend timer once, subsequent calls just update lastOutput above
-		if (options?.resend && options.resend > 0 && !conversion.resendTimer) {
-			const startedAt = Date.now();
+		// Resolve effective resend interval: per-conversion overrides global when non-zero
+		const effectiveResend =
+			options?.resend && options.resend > 0
+				? options.resend
+				: this.globalResendInterval;
+
+		// Set up resend timer once, subsequent calls just update lastOutput above.
+		// Timer runs indefinitely until the plugin is stopped or a new value arrives.
+		if (effectiveResend > 0 && !conversion.resendTimer) {
 			conversion.resendTimer = setInterval(async () => {
 				try {
 					if (conversion.lastOutput) {
@@ -210,28 +224,10 @@ export class PluginManager {
 				} catch (err) {
 					this.app.error(`Error in resend timer: ${err}`);
 				}
-
-				if (Date.now() - startedAt > (options.resendTime || 30) * 1000) {
-					if (conversion.resendTimer) {
-						this.clearResendInterval(conversion.resendTimer);
-						delete conversion.resendTimer;
-					}
-				}
-			}, options.resend * 1000);
+			}, effectiveResend * 1000);
 
 			this.timers.push(conversion.resendTimer);
 		}
-	}
-
-	/**
-	 * Clear a resend timer interval
-	 */
-	private clearResendInterval(timer: NodeJS.Timeout): void {
-		const idx = this.timers.indexOf(timer);
-		if (idx !== -1) {
-			this.timers.splice(idx, 1);
-		}
-		clearInterval(timer);
 	}
 
 	/**

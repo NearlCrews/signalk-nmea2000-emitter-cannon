@@ -36,7 +36,6 @@ interface TankOptions {
 	tanks: TankConfig[];
 	enabled?: boolean;
 	resend?: number;
-	resendTime?: number;
 }
 
 /**

@@ -34,7 +34,6 @@ interface ExhaustTempOptions {
 	engines: ExhaustTempEngineConfig[];
 	enabled?: boolean;
 	resend?: number;
-	resendTime?: number;
 }
 
 /**
@@ -44,7 +43,6 @@ interface EngineParamsOptions {
 	engines: EngineConfig[];
 	enabled?: boolean;
 	resend?: number;
-	resendTime?: number;
 }
 
 /**

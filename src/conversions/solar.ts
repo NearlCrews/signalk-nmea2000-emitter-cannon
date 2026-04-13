@@ -22,7 +22,6 @@ interface SolarOptions {
 	chargers: SolarChargerConfig[];
 	enabled?: boolean;
 	resend?: number;
-	resendTime?: number;
 }
 
 /**

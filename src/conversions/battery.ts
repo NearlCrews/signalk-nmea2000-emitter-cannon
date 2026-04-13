@@ -25,7 +25,6 @@ interface BatteryOptions {
 	batteries: BatteryConfig[];
 	enabled?: boolean;
 	resend?: number;
-	resendTime?: number;
 }
 
 /**

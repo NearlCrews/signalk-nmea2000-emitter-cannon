@@ -14,6 +14,7 @@ import type {
 } from "./types/index.js";
 import { formatN2KMessage, validateN2KMessage } from "./utils/messageUtils.js";
 import { isDefined, pathToPropName } from "./utils/pathUtils.js";
+import { clearAllSmoothers } from "./utils/smoothing.js";
 
 /**
  * PluginManager class - Manages the plugin lifecycle and conversions
@@ -25,6 +26,13 @@ export class PluginManager {
 	private timers: NodeJS.Timeout[] = [];
 	private nmea2000Ready = false;
 	private globalResendInterval = 5;
+	/**
+	 * Last input arguments observed for each conversion. Used by the resend
+	 * timer to re-invoke the conversion callback with the most recent input
+	 * (so time-derived callbacks like systemTime produce fresh output) instead
+	 * of re-emitting a stale cached N2KMessage[].
+	 */
+	private lastInputs: Map<ConversionModule, unknown[]> = new Map();
 
 	constructor(app: SignalKApp, plugin: SignalKPlugin) {
 		this.app = app;
@@ -38,6 +46,40 @@ export class PluginManager {
 			this.nmea2000Ready = true;
 			this.app.debug("NMEA2000 output is now available");
 		});
+	}
+
+	/**
+	 * Build a short module identifier for error log context (M3).
+	 */
+	private moduleLabel(conversion: ConversionModule): string {
+		const title = conversion.title || "<unnamed>";
+		const key = conversion.optionKey ? ` [${conversion.optionKey}]` : "";
+		return `${title}${key}`;
+	}
+
+	/**
+	 * Invoke a conversion callback safely. Catches synchronous errors and
+	 * returns the raw result (which may itself be a promise) so callers can
+	 * await it in their own promise chains. Asynchronous failures must be
+	 * handled by the caller (they pass through processOutput's try/catch).
+	 * Centralized so stream-, delta-, subscription-, and resend-driven
+	 * invocations all share identical error handling (M3).
+	 */
+	private invokeCallback(
+		conversion: ConversionModule,
+		args: unknown[],
+		source: string,
+	): N2KMessage[] | Promise<N2KMessage[]> | undefined {
+		if (!conversion.callback) return undefined;
+		try {
+			return conversion.callback(...args);
+		} catch (err) {
+			const message = err instanceof Error ? err.message : String(err);
+			this.app.error(
+				`Error in ${source} callback for ${this.moduleLabel(conversion)}: ${message}`,
+			);
+			return undefined;
+		}
 	}
 
 	/**
@@ -155,53 +197,87 @@ export class PluginManager {
 	}
 
 	/**
-	 * Stop the plugin and cleanup resources
+	 * Stop the plugin and cleanup resources.
+	 *
+	 * Each cleanup step is wrapped so a failure in one teardown call does not
+	 * prevent the rest from running (M9). Errors are collected and reported
+	 * once at the end via app.error(). stop() must never throw.
 	 */
 	stop(): void {
-		// Clear all subscriptions
-		for (const unsubscribe of this.unsubscribes) {
+		const errors: string[] = [];
+		const safe = (label: string, fn: () => void) => {
 			try {
-				unsubscribe();
+				fn();
 			} catch (err) {
-				this.app.error(`Error during unsubscribe: ${err}`);
+				const message = err instanceof Error ? err.message : String(err);
+				errors.push(`${label}: ${message}`);
 			}
-		}
-		this.unsubscribes = [];
+		};
 
-		// Clear all timers
-		for (const timer of this.timers) {
-			clearInterval(timer);
+		// Snapshot then reset so we never leak references even if a callback throws.
+		const unsubscribes = this.unsubscribes;
+		this.unsubscribes = [];
+		for (const unsubscribe of unsubscribes) {
+			safe("unsubscribe", unsubscribe);
 		}
+
+		const timers = this.timers;
 		this.timers = [];
+		for (const timer of timers) {
+			safe("clearInterval", () => clearInterval(timer));
+		}
 
 		// Clear conversion resend timers
 		for (const conversion of this.conversions) {
 			if (conversion.resendTimer) {
-				clearInterval(conversion.resendTimer);
+				const timer = conversion.resendTimer;
 				delete conversion.resendTimer;
+				safe(`resend timer (${this.moduleLabel(conversion)})`, () =>
+					clearInterval(timer),
+				);
 			}
+		}
+
+		// Drop cached inputs so a subsequent start() begins from a clean slate.
+		safe("clear lastInputs", () => this.lastInputs.clear());
+
+		// Wipe ExponentialSmoother state across plugin restarts (L3).
+		safe("clearAllSmoothers", () => clearAllSmoothers());
+
+		if (errors.length > 0) {
+			this.app.error(
+				`PluginManager.stop() encountered ${errors.length} cleanup error(s): ${errors.join("; ")}`,
+			);
 		}
 	}
 
 	/**
-	 * Process output messages and handle resending
+	 * Process the result of a conversion callback and (re)arm its resend timer.
+	 *
+	 * The resend timer re-invokes the conversion callback with the most recent
+	 * input rather than re-emitting cached output (H5). This keeps
+	 * time-derived callbacks (e.g. systemTime / PGN 126992) producing fresh
+	 * values on every tick.
 	 */
 	private async processOutput(
 		conversion: ConversionModule,
 		options: ProcessingOptions | null,
-		output: N2KMessage[] | Promise<N2KMessage[]>,
+		output: N2KMessage[] | Promise<N2KMessage[]> | undefined,
 	): Promise<void> {
 		// Process the output immediately
 		try {
-			const values = await Promise.resolve(output);
-			const processor = this.outputTypes["to-n2k"];
-			if (processor) {
-				await processor(values);
+			if (output !== undefined) {
+				const values = await Promise.resolve(output);
+				const processor = this.outputTypes["to-n2k"];
+				if (processor) {
+					await processor(values);
+				}
 			}
-			// Store for resend timer to re-emit
-			conversion.lastOutput = values;
 		} catch (err) {
-			this.app.error(`Error processing output: ${err}`);
+			const message = err instanceof Error ? err.message : String(err);
+			this.app.error(
+				`Error processing output for ${this.moduleLabel(conversion)}: ${message}`,
+			);
 		}
 
 		// Resolve effective resend interval: per-conversion overrides global when non-zero
@@ -210,19 +286,28 @@ export class PluginManager {
 				? options.resend
 				: this.globalResendInterval;
 
-		// Set up resend timer once, subsequent calls just update lastOutput above.
-		// Timer runs indefinitely until the plugin is stopped or a new value arrives.
+		// Set up resend timer once. The timer re-invokes the callback with the
+		// last cached input each tick (H5) so time-sensitive PGNs stay current.
 		if (effectiveResend > 0 && !conversion.resendTimer) {
 			conversion.resendTimer = setInterval(async () => {
 				try {
-					if (conversion.lastOutput) {
-						const processor = this.outputTypes["to-n2k"];
-						if (processor) {
-							await processor(conversion.lastOutput);
-						}
+					const lastInput = this.lastInputs.get(conversion);
+					// No input ever observed → skip; do NOT emit stale defaults.
+					if (lastInput === undefined) return;
+
+					const raw = this.invokeCallback(conversion, lastInput, "resend");
+					if (raw === undefined) return;
+
+					const values = await Promise.resolve(raw);
+					const processor = this.outputTypes["to-n2k"];
+					if (processor) {
+						await processor(values);
 					}
 				} catch (err) {
-					this.app.error(`Error in resend timer: ${err}`);
+					const message = err instanceof Error ? err.message : String(err);
+					this.app.error(
+						`Error in resend timer for ${this.moduleLabel(conversion)}: ${message}`,
+					);
 				}
 			}, effectiveResend * 1000);
 
@@ -241,14 +326,11 @@ export class PluginManager {
 		}
 
 		const handler = (delta: unknown) => {
-			try {
-				if (conversion.callback) {
-					const result = conversion.callback(delta);
-					this.processOutput(conversion, processingOptions, result);
-				}
-			} catch (err) {
-				this.app.error(`Error in delta handler: ${err}`);
-			}
+			const args: unknown[] = [delta];
+			this.lastInputs.set(conversion, args);
+			const result = this.invokeCallback(conversion, args, "delta");
+			if (result === undefined) return;
+			void this.processOutput(conversion, processingOptions, result);
 		};
 		this.app.on("delta", handler);
 		this.unsubscribes.push(() => this.app.removeListener("delta", handler));
@@ -338,24 +420,19 @@ export class PluginManager {
 		// Debounce and process like the original
 		const subscription = combinedBus.pipe(debounceTime(10)).subscribe({
 			next: (values) => {
-				try {
-					this.app.debug(`Callback triggered for ${conversion.title}`);
-					if (conversion.callback) {
-						const result = conversion.callback(...values);
-						this.app.debug(
-							`Callback result for ${conversion.title}: ${Array.isArray(result) ? result.length : 0} messages`,
-						);
-						this.processOutput(conversion, pluginOptions, result);
-					}
-				} catch (err) {
-					this.app.error(
-						`Error in callback for ${conversion.title}: ${err instanceof Error ? err.message : String(err)}`,
-					);
-				}
+				this.app.debug(`Callback triggered for ${conversion.title}`);
+				const args = values as unknown[];
+				this.lastInputs.set(conversion, args);
+				const result = this.invokeCallback(conversion, args, "stream");
+				if (result === undefined) return;
+				this.app.debug(
+					`Callback result for ${conversion.title}: ${Array.isArray(result) ? result.length : 0} messages`,
+				);
+				void this.processOutput(conversion, pluginOptions, result);
 			},
 			error: (err) => {
 				this.app.error(
-					`Stream error for ${conversion.title}: ${err instanceof Error ? err.message : String(err)}`,
+					`Stream error for ${this.moduleLabel(conversion)}: ${err instanceof Error ? err.message : String(err)}`,
 				);
 			},
 		});
@@ -388,14 +465,11 @@ export class PluginManager {
 			(err: unknown) =>
 				this.app.error(err instanceof Error ? err.message : String(err)),
 			(delta) => {
-				try {
-					if (conversion.callback) {
-						const result = conversion.callback(delta);
-						this.processOutput(conversion, pluginOptions, result);
-					}
-				} catch (err) {
-					this.app.error(err instanceof Error ? err.message : String(err));
-				}
+				const args: unknown[] = [delta];
+				this.lastInputs.set(conversion, args);
+				const result = this.invokeCallback(conversion, args, "subscription");
+				if (result === undefined) return;
+				void this.processOutput(conversion, pluginOptions, result);
 			},
 		);
 	}
@@ -416,14 +490,11 @@ export class PluginManager {
 		}
 
 		const timer = setInterval(() => {
-			try {
-				if (conversion.callback) {
-					const result = conversion.callback(this.app);
-					this.processOutput(conversion, processingOptions, result);
-				}
-			} catch (err) {
-				this.app.error(err instanceof Error ? err.message : String(err));
-			}
+			const args: unknown[] = [this.app];
+			this.lastInputs.set(conversion, args);
+			const result = this.invokeCallback(conversion, args, "timer");
+			if (result === undefined) return;
+			void this.processOutput(conversion, processingOptions, result);
 		}, conversion.interval);
 
 		this.timers.push(timer);

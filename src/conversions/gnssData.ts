@@ -20,7 +20,7 @@ interface SatelliteData {
 
 export default function createGnssDataConversions(
 	_app: SignalKApp,
-): ConversionModule<any>[] {
+): ConversionModule<unknown[]>[] {
 	return [
 		// GNSS DOPs (PGN 129539)
 		{
@@ -190,6 +190,7 @@ export default function createGnssDataConversions(
 									{
 										prn: 2,
 										elevation: 0.5236,
+										// biome-ignore lint/suspicious/noApproximativeNumericConstant: encoded wire value — input Math.PI is rounded by the N2K encoder to this literal; substituting Math.PI would falsely pass.
 										azimuth: 3.1416,
 										snr: 35,
 										rangeResiduals: 0,

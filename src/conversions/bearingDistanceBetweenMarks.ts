@@ -1,4 +1,8 @@
-import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
+import {
+	N2K_BROADCAST_DST,
+	N2K_DEFAULT_PRIORITY,
+	N2K_SID_ZERO,
+} from "../constants.js";
 import type {
 	ConversionCallback,
 	ConversionModule,
@@ -48,7 +52,7 @@ export default function createBearingDistanceBetweenMarksConversion(
 			}
 
 			const fields: Record<string, N2KFieldValue> = {
-				sid: 0,
+				sid: N2K_SID_ZERO,
 			};
 
 			// Add fields conditionally based on availability

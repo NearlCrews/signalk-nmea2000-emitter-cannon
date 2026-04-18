@@ -1,4 +1,8 @@
-import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
+import {
+	N2K_BROADCAST_DST,
+	N2K_DEFAULT_PRIORITY,
+	N2K_SID_ZERO,
+} from "../constants.js";
 import type {
 	ConversionModule,
 	N2KFieldValue,
@@ -25,7 +29,7 @@ export default function createTimeToMarkConversion(): ConversionModule {
 			}
 
 			const fields: Record<string, N2KFieldValue> = {
-				sid: 0,
+				sid: N2K_SID_ZERO,
 				markType: markType === "waypoint" ? "Waypoint" : "Mark",
 			};
 

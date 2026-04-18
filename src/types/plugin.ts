@@ -37,6 +37,13 @@ export interface PluginOptions {
 
 /**
  * Sub-conversion module (used within conversions array)
+ *
+ * Note: `callback` and `conversions` are declared with method-style
+ * signatures so TypeScript treats their parameters bivariantly. This lets
+ * the registry hold heterogeneous {@link SubConversionModule} values
+ * (each with its own narrow argument tuple) under a single
+ * `SubConversionModule<unknown[]>` umbrella, while individual modules
+ * can still declare a precise input type for their implementation.
  */
 export interface SubConversionModule<T extends unknown[] = unknown[]> {
 	/** Signal K paths that this conversion listens to */
@@ -50,13 +57,17 @@ export interface SubConversionModule<T extends unknown[] = unknown[]> {
 	/** Timer interval for timer-based conversions (ms) */
 	interval?: number;
 	/** Function that converts Signal K data to N2K messages */
-	callback?: ConversionCallback<T>;
+	callback?(...values: T): N2KMessage[] | Promise<N2KMessage[]>;
 	/** Test cases for this conversion */
 	tests?: ConversionTest[];
 }
 
 /**
  * Conversion module configuration
+ *
+ * Note: `callback` and `conversions` are declared with method-style
+ * signatures so TypeScript treats their parameters bivariantly (see
+ * {@link SubConversionModule} for rationale).
  */
 export interface ConversionModule<T extends unknown[] = unknown[]> {
 	/** Human-readable title for this conversion */
@@ -76,7 +87,7 @@ export interface ConversionModule<T extends unknown[] = unknown[]> {
 	/** Timer interval for timer-based conversions (ms) */
 	interval?: number;
 	/** Function that converts Signal K data to N2K messages */
-	callback?: ConversionCallback<T>;
+	callback?(...values: T): N2KMessage[] | Promise<N2KMessage[]>;
 	/** Sub-conversions for complex conversion modules */
 	conversions?:
 		| SubConversionModule<T>[]
@@ -147,7 +158,7 @@ export type PluginFactory = (app: unknown) => SignalKPlugin;
 export type ConversionModuleFactory = (
 	app: SignalKApp,
 	plugin: SignalKPlugin,
-) => ConversionModule<any> | ConversionModule<any>[];
+) => ConversionModule<unknown[]> | ConversionModule<unknown[]>[];
 
 /**
  * Options for message processing

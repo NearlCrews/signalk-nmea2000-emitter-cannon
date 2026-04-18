@@ -3,6 +3,14 @@
  */
 
 /**
+ * Registry of all live ExponentialSmoother instances so the plugin can wipe
+ * smoothing state on stop()/restart without each conversion module having to
+ * track its own smoother. Constructor self-registers; clearAllSmoothers()
+ * iterates and calls .clear() on every entry.
+ */
+const registeredSmoothers: Set<ExponentialSmoother> = new Set();
+
+/**
  * Exponential moving average smoother
  * Maintains state for multiple instances identified by key
  */
@@ -16,6 +24,7 @@ export class ExponentialSmoother {
 	 */
 	constructor(alpha: number = 0.3) {
 		this.alpha = Math.max(0, Math.min(1, alpha));
+		registeredSmoothers.add(this);
 	}
 
 	/**
@@ -58,5 +67,16 @@ export class ExponentialSmoother {
 	 */
 	clearKey(key: string): void {
 		this.values.delete(key);
+	}
+}
+
+/**
+ * Clear smoothing state on every ExponentialSmoother instance currently
+ * registered in this module. Intended for plugin lifecycle teardown so
+ * stale smoothed values don't bleed across plugin restarts.
+ */
+export function clearAllSmoothers(): void {
+	for (const smoother of registeredSmoothers) {
+		smoother.clear();
 	}
 }

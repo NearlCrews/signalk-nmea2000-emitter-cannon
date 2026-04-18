@@ -50,7 +50,7 @@ interface EngineParamsOptions {
  */
 export default function createEngineParametersConversions(
 	app: SignalKApp,
-): ConversionModule<any>[] {
+): ConversionModule<unknown[]>[] {
 	// discrete status fields are not yet implemented
 	const engParKeys = [
 		"oilPressure",
@@ -360,7 +360,7 @@ export default function createEngineParametersConversions(
 					],
 				}));
 
-				return [...dyn, ...rapid] as SubConversionModule<any>[];
+				return [...dyn, ...rapid] as SubConversionModule<unknown[]>[];
 			},
 		},
 	];

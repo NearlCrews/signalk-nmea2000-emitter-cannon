@@ -37,7 +37,7 @@ function createHumidityMessage(humidity: number, source: string): N2KMessage[] {
  */
 export default function createHumidityConversions(
 	app: SignalKApp,
-): ConversionModule<any>[] {
+): ConversionModule<unknown[]>[] {
 	return [
 		{
 			title: "Outside Humidity (130313)",

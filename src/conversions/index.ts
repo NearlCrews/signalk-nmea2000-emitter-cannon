@@ -63,7 +63,7 @@ import createWindTrueWaterConversion from "./windTrueWater.js";
 export function createConversionModules(
 	app: SignalKApp,
 	plugin: SignalKPlugin,
-): ConversionModule<any>[] {
+): ConversionModule<unknown[]>[] {
 	const conversionFactories: ConversionModuleFactory[] = [
 		createAisConversion,
 		createAisExtendedConversion,

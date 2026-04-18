@@ -19,7 +19,7 @@ interface AisShipType {
 export default function createAisExtendedConversions(
 	_app: SignalKApp,
 	_plugin: SignalKPlugin,
-): ConversionModule<any>[] {
+): ConversionModule<unknown[]>[] {
 	return [
 		// AIS Class B Position Report (PGN 129039)
 		{

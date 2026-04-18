@@ -1,5 +1,14 @@
 ## Change Log
 
+### v1.2.1 (2026/04/18) - Global Resend Interval
+
+**Configuration Simplification**:
+- Added top-level `globalResendInterval` setting (default 5s) that controls resend frequency for all conversions
+- Per-conversion `resend` value still overrides the global when non-zero
+- Removed `resendTime` entirely — timers now resend indefinitely until the plugin stops or new data arrives
+
+---
+
 ### v1.2.0 (2026/04/08) - Codebase Simplification & Bug Fixes
 
 **Critical Bug Fixes**:

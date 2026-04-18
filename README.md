@@ -340,6 +340,27 @@ All conversion modules include embedded test cases that validate:
 - Signal K data path mapping
 - Edge case handling
 
+## Troubleshooting
+
+### PGN not appearing on the NMEA 2000 bus
+
+- Check the Signal K server log for plugin errors.
+- Confirm the relevant conversion is enabled in the admin UI.
+- Confirm Signal K is publishing the source path you expect (verify with the Signal K data browser).
+
+### Configuration changes don't take effect
+
+Signal K reloads plugin configuration when you save it, but some changes (for example, schema additions or new conversion modules) require a full Signal K server restart before they appear.
+
+### Plugin won't start
+
+- Check the Signal K log for `Signal K NMEA2000 Emitter Cannon` errors.
+- A common cause is the NMEA 2000 output channel not being initialized — the plugin waits for the `nmea2000OutAvailable` event before emitting messages, so confirm your NMEA 2000 gateway is connected and Signal K has registered an output provider.
+
+### Time/GNSS PGNs broadcast stale values
+
+This is a known issue with cached resends — the resend timer re-emits the last computed value rather than recomputing time-derived fields. See the issue tracker for current status.
+
 ## Contributing
 
 1. Fork the repository

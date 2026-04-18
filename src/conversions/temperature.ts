@@ -1,4 +1,8 @@
-import { N2K_BROADCAST_DST, N2K_DEFAULT_SID } from "../constants.js";
+import {
+	N2K_BROADCAST_DST,
+	N2K_DEFAULT_PRIORITY,
+	N2K_DEFAULT_SID,
+} from "../constants.js";
 import type {
 	ConversionModule,
 	JSONSchema,
@@ -8,7 +12,7 @@ import type {
 /**
  * Temperature source configuration
  */
-interface TemperatureInfo {
+export interface TemperatureInfo {
 	n2kSource: string;
 	source: string;
 	instance: number;
@@ -36,7 +40,7 @@ function createTemperatureMessage(
 	const fieldName = pgn === 130316 ? "temperature" : "actualTemperature";
 
 	return {
-		prio: 5,
+		prio: N2K_DEFAULT_PRIORITY,
 		pgn,
 		dst: N2K_BROADCAST_DST,
 		fields: {
@@ -134,7 +138,7 @@ function makeTemperatureConversion(
 /**
  * Temperature source configurations
  */
-const temperatures: TemperatureInfo[] = [
+export const temperatures: TemperatureInfo[] = [
 	{
 		n2kSource: "Outside Temperature",
 		source: "environment.outside.temperature",

@@ -1,4 +1,63 @@
+import {
+	type TemperatureInfo,
+	temperatures,
+} from "./conversions/temperature.js";
 import type { JSONSchema } from "./types/index.js";
+import { pathToPropName } from "./utils/pathUtils.js";
+
+/**
+ * Build a per-source temperature schema entry for a given PGN.
+ * Mirrors the optionKey shape produced by createTemperatureConversions()
+ * in src/conversions/temperature.ts so every generated module has a
+ * matching admin-UI entry.
+ */
+function buildTemperatureEntry(
+	pgn: 130312 | 130316,
+	info: TemperatureInfo,
+): JSONSchema {
+	const sourcePropName = pathToPropName(info.source);
+	const title =
+		pgn === 130316 ? `${info.n2kSource} (PGN 130316)` : info.n2kSource;
+
+	return {
+		type: "object",
+		title,
+		description: `PGNs: ${pgn}`,
+		properties: {
+			enabled: { title: "Enabled", type: "boolean", default: false },
+			resend: {
+				type: "number",
+				title: "Resend (seconds)",
+				description:
+					"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+				default: 0,
+			},
+			[sourcePropName]: {
+				title: `Source for ${info.source}`,
+				description:
+					"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+				type: "string",
+			},
+		},
+	};
+}
+
+/**
+ * Generate one schema entry for every temperature optionKey emitted by
+ * createTemperatureConversions(): 11 sources × 2 PGNs = 22 entries.
+ * Prefix `TEMPERATURE` corresponds to PGN 130312, `TEMPERATURE2` to 130316.
+ */
+function buildTemperatureEntries(): Record<string, JSONSchema> {
+	const entries: Record<string, JSONSchema> = {};
+	for (const info of temperatures) {
+		entries[`TEMPERATURE_${info.option}`] = buildTemperatureEntry(130312, info);
+		entries[`TEMPERATURE2_${info.option}`] = buildTemperatureEntry(
+			130316,
+			info,
+		);
+	}
+	return entries;
+}
 
 export const schema: JSONSchema = {
 	type: "object",
@@ -29,13 +88,13 @@ export const schema: JSONSchema = {
 				environmentwindangleApparent: {
 					title: "Source for environment.wind.angleApparent",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 				environmentwindspeedApparent: {
 					title: "Source for environment.wind.speedApparent",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 			},
@@ -56,7 +115,7 @@ export const schema: JSONSchema = {
 				environmentdepthbelowTransducer: {
 					title: "Source for environment.depth.belowTransducer",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 			},
@@ -77,13 +136,13 @@ export const schema: JSONSchema = {
 				navigationcourseOverGroundTrue: {
 					title: "Source for navigation.courseOverGroundTrue",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 				navigationspeedOverGround: {
 					title: "Source for navigation.speedOverGround",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 			},
@@ -104,7 +163,7 @@ export const schema: JSONSchema = {
 				navigationheadingMagnetic: {
 					title: "Source for navigation.headingMagnetic",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 			},
@@ -154,7 +213,7 @@ export const schema: JSONSchema = {
 				navigationspeedThroughWater: {
 					title: "Source for navigation.speedThroughWater",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 			},
@@ -175,7 +234,7 @@ export const schema: JSONSchema = {
 				steeringrudderpositioning: {
 					title: "Source for steering.rudder.position",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 			},
@@ -196,77 +255,36 @@ export const schema: JSONSchema = {
 				navigationposition: {
 					title: "Source for navigation.position",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 				navigationgnssgeoidalSeparation: {
 					title: "Source for navigation.gnss.geoidalSeparation",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 				navigationgnssmethod: {
 					title: "Source for navigation.gnss.method",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 				navigationgnssnumberOfSatellites: {
 					title: "Source for navigation.gnss.numberOfSatellites",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 				navigationgnsshorizontalDilution: {
 					title: "Source for navigation.gnss.horizontalDilution",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 			},
 		},
-		TEMPERATURE_OUTSIDE: {
-			type: "object",
-			title: "Outside Temperature",
-			description: "PGNs: 130312",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-				environmentoutsidetemperature: {
-					title: "Source for environment.outside.temperature",
-					description:
-						"Use data only from this source (leave blank to ignore source)",
-					type: "string",
-				},
-			},
-		},
-		TEMPERATURE_INSIDE: {
-			type: "object",
-			title: "Inside Temperature",
-			description: "PGNs: 130312",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-				environmentinsidetemperature: {
-					title: "Source for environment.inside.temperature",
-					description:
-						"Use data only from this source (leave blank to ignore source)",
-					type: "string",
-				},
-			},
-		},
+		...buildTemperatureEntries(),
 		PRESSURE: {
 			type: "object",
 			title: "Atmospheric Pressure",
@@ -283,7 +301,7 @@ export const schema: JSONSchema = {
 				environmentoutsidepressure: {
 					title: "Source for environment.outside.pressure",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 			},
@@ -304,7 +322,7 @@ export const schema: JSONSchema = {
 				environmentoutsidehumidity: {
 					title: "Source for environment.outside.humidity",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 			},
@@ -325,7 +343,7 @@ export const schema: JSONSchema = {
 				environmentinsidehumidity: {
 					title: "Source for environment.inside.humidity",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 			},
@@ -419,13 +437,13 @@ export const schema: JSONSchema = {
 				environmentwatertemperature: {
 					title: "Source for environment.water.temperature",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 				environmentoutsidetemperature: {
 					title: "Source for environment.outside.temperature",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 			},
@@ -475,7 +493,7 @@ export const schema: JSONSchema = {
 				environmentoutsidepressure: {
 					title: "Source for environment.outside.pressure",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 			},
@@ -496,7 +514,7 @@ export const schema: JSONSchema = {
 				navigationmagneticVariance: {
 					title: "Source for navigation.magneticVariance",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 			},
@@ -517,7 +535,7 @@ export const schema: JSONSchema = {
 				navigationrateOfTurn: {
 					title: "Source for navigation.rateOfTurn",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 			},
@@ -538,7 +556,7 @@ export const schema: JSONSchema = {
 				navigationheadingTrue: {
 					title: "Source for navigation.headingTrue",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 			},
@@ -559,7 +577,7 @@ export const schema: JSONSchema = {
 				performanceleeway: {
 					title: "Source for performance.leeway",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 			},
@@ -580,13 +598,13 @@ export const schema: JSONSchema = {
 				environmentcurrentsetTrue: {
 					title: "Source for environment.current.setTrue",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 				environmentcurrentdrift: {
 					title: "Source for environment.current.drift",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 			},
@@ -607,19 +625,19 @@ export const schema: JSONSchema = {
 				navigationattituderoll: {
 					title: "Source for navigation.attitude.roll",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 				navigationattitudepitch: {
 					title: "Source for navigation.attitude.pitch",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 				navigationattitudeyaw: {
 					title: "Source for navigation.attitude.yaw",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 			},
@@ -640,7 +658,7 @@ export const schema: JSONSchema = {
 				navigationheave: {
 					title: "Source for navigation.heave",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 			},
@@ -661,52 +679,52 @@ export const schema: JSONSchema = {
 				navigationcourseOverGroundTrue: {
 					title: "Source for navigation.courseOverGroundTrue",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 				navigationcourseOverGroundMagnetic: {
 					title: "Source for navigation.courseOverGroundMagnetic",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 				navigationheadingTrue: {
 					title: "Source for navigation.headingTrue",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 				navigationheadingMagnetic: {
 					title: "Source for navigation.headingMagnetic",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 				navigationcourseRhumblinenextPointbearingTrue: {
 					title: "Source for navigation.courseRhumbline.nextPoint.bearingTrue",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 				navigationcourseRhumblinenextPointbearingMagnetic: {
 					title:
 						"Source for navigation.courseRhumbline.nextPoint.bearingMagnetic",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 				navigationcourseGreatCirclenextPointbearingTrue: {
 					title:
 						"Source for navigation.courseGreatCircle.nextPoint.bearingTrue",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 				navigationcourseGreatCirclenextPointbearingMagnetic: {
 					title:
 						"Source for navigation.courseGreatCircle.nextPoint.bearingMagnetic",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 			},
@@ -727,25 +745,25 @@ export const schema: JSONSchema = {
 				navigationgnsshorizontalDilution: {
 					title: "Source for navigation.gnss.horizontalDilution",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 				navigationgnssverticalDilution: {
 					title: "Source for navigation.gnss.verticalDilution",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 				navigationgnsstitimeDilution: {
 					title: "Source for navigation.gnss.timeDilution",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 				navigationgnssmode: {
 					title: "Source for navigation.gnss.mode",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 			},
@@ -766,13 +784,13 @@ export const schema: JSONSchema = {
 				navigationgnsssatellitesInViewcount: {
 					title: "Source for navigation.gnss.satellitesInView.count",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 				navigationgnsssatellitesInViewsatellites: {
 					title: "Source for navigation.gnss.satellitesInView.satellites",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 			},
@@ -838,7 +856,7 @@ export const schema: JSONSchema = {
 				navigationcoursecalcValuescrossTrackError: {
 					title: "Source for navigation.course.calcValues.crossTrackError",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 			},
@@ -859,25 +877,25 @@ export const schema: JSONSchema = {
 				navigationcoursecalcValuesdistance: {
 					title: "Source for navigation.course.calcValues.distance",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 				navigationcoursecalcValuesbearing: {
 					title: "Source for navigation.course.calcValues.bearing",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 				navigationcoursecalcValuesvelocityMadeGood: {
 					title: "Source for navigation.course.calcValues.velocityMadeGood",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 				navigationcoursecalcValueseta: {
 					title: "Source for navigation.course.calcValues.eta",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 			},
@@ -898,13 +916,13 @@ export const schema: JSONSchema = {
 				navigationcoursenextPointbearingMagnetic: {
 					title: "Source for navigation.course.nextPoint.bearingMagnetic",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 				navigationcoursenextPointdistance: {
 					title: "Source for navigation.course.nextPoint.distance",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 			},
@@ -925,13 +943,13 @@ export const schema: JSONSchema = {
 				navigationcoursenextPointposition: {
 					title: "Source for navigation.course.nextPoint.position",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 				navigationcoursenextPointdistance: {
 					title: "Source for navigation.course.nextPoint.distance",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 			},
@@ -952,7 +970,7 @@ export const schema: JSONSchema = {
 				navigationcoursenextPointtimeToGo: {
 					title: "Source for navigation.course.nextPoint.timeToGo",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 			},
@@ -973,13 +991,13 @@ export const schema: JSONSchema = {
 				environmentwinddirectionTrue: {
 					title: "Source for environment.wind.directionTrue",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 				environmentwindspeedOverGround: {
 					title: "Source for environment.wind.speedOverGround",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 			},
@@ -1000,13 +1018,13 @@ export const schema: JSONSchema = {
 				environmentwindangleTrueWater: {
 					title: "Source for environment.wind.angleTrueWater",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 				environmentwindspeedTrue: {
 					title: "Source for environment.wind.speedTrue",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 			},
@@ -1027,13 +1045,13 @@ export const schema: JSONSchema = {
 				propulsionmainratedEngineSpeed: {
 					title: "Source for propulsion.main.ratedEngineSpeed",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 				propulsionmainengineoperatingHours: {
 					title: "Source for propulsion.main.engine.operatingHours",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 			},
@@ -1054,19 +1072,19 @@ export const schema: JSONSchema = {
 				propulsionmaintransmissiongearRatio: {
 					title: "Source for propulsion.main.transmission.gearRatio",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 				propulsionmaintransmissionoilPressure: {
 					title: "Source for propulsion.main.transmission.oilPressure",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 				propulsionmaintransmissionoilTemperature: {
 					title: "Source for propulsion.main.transmission.oilTemperature",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 			},
@@ -1087,25 +1105,25 @@ export const schema: JSONSchema = {
 				steeringtrimTabport: {
 					title: "Source for steering.trimTab.port",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 				steeringtrimTabstarboard: {
 					title: "Source for steering.trimTab.starboard",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 				environmentdepthbelowTransducer: {
 					title: "Source for environment.depth.belowTransducer",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 				navigationspeedOverGround: {
 					title: "Source for navigation.speedOverGround",
 					description:
-						"Use data only from this source (leave blank to ignore source)",
+						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
 					type: "string",
 				},
 			},

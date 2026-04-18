@@ -12,7 +12,7 @@
 		"CHANGELOG.md"
 	],
 	"scripts": {
-		"build": "npm run clean && esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --outfile=dist/index.js --external:@canboat/canboatjs --external:rxjs --external:es-toolkit --external:path-scurry",
+		"build": "npm run clean && esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --sourcemap=linked --outfile=dist/index.js --external:@canboat/canboatjs --external:rxjs --external:es-toolkit --external:path-scurry",
 		"build:npm": "npm run build",
 		"build:watch": "npm run build -- --watch",
 		"dev": "tsx src/index.ts",
@@ -26,8 +26,8 @@
 		"clean": "rm -rf dist",
 		"prepare": "husky",
 		"prepack": "npm run build",
-		"create-release": "github-create-release --owner NearlCrews --repository signalk-nmea2000-emitter-cannon",
-		"release": "git tag -d v$npm_package_version ; git tag v$npm_package_version && git push --tags && git push && npm run create-release"
+		"create-release": "gh release create v$npm_package_version --generate-notes",
+		"release": "git rev-parse \"v$npm_package_version\" >/dev/null 2>&1 && { echo \"tag v$npm_package_version already exists\"; exit 1; } ; git tag v$npm_package_version && git push --tags && git push && npm run create-release"
 	},
 	"keywords": [
 		"signalk-node-server-plugin",
@@ -49,6 +49,12 @@
 		"email": "NearlCrews@users.noreply.github.com",
 		"url": "https://github.com/NearlCrews"
 	},
+	"contributors": [
+		{
+			"name": "Nearl Crews",
+			"email": "nearlcrewsx@proton.me"
+		}
+	],
 	"license": "Apache-2.0",
 	"dependencies": {
 		"@signalk/server-api": "^2.10.2",
@@ -66,12 +72,13 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.3.11",
-		"husky": "^9.1.7",
-		"lint-staged": "^15.5.1",
 		"@canboat/canboatjs": "^3.13.0",
 		"@types/node": "^25.0.9",
+		"@vitest/coverage-v8": "^4.1.4",
 		"@vitest/ui": "^4.0.17",
 		"esbuild": "^0.27.2",
+		"husky": "^9.1.7",
+		"lint-staged": "^15.5.1",
 		"sharp": "^0.34.5",
 		"signalk-server": "^2.20.0",
 		"tsx": "^4.21.0",

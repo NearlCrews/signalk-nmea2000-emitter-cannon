@@ -1,5 +1,40 @@
 ## Change Log
 
+### v1.2.2 (2026/04/18) - Schema Fix, Resend Correctness, Type Tightening
+
+**Critical Bug Fixes**:
+- Fixed temperature schema generation: 20 of 22 temperature optionKeys (engine room, cabin, refrigerator, freezer, dewpoint, wind chill, heat index, and the PGN-130316 variants of every source) were unreachable from the Signal K admin UI. Schema entries are now generated from the same temperatures table the conversions use.
+- Resend timer now re-invokes conversion callbacks instead of re-emitting cached output. Time-derived PGNs (system time / GNSS time, PGN 126992) now broadcast fresh values each interval instead of repeating a stale snapshot.
+
+**Plugin Lifecycle Hardening**:
+- `PluginManager.stop()` wraps every cleanup step (unsubscribe, clearInterval, smoother clear) in a safe wrapper, collects errors, and logs a single summary instead of aborting on the first failure.
+- `ExponentialSmoother` instances self-register; smoother state is cleared on plugin stop so smoothed values don't carry across restart.
+- Centralized callback error handling in `PluginManager.invokeCallback()`.
+
+**Type & Code Quality**:
+- Tightened `ConversionModule<any>` to `ConversionModule<unknown[]>` at the registry boundary; `ConversionCallback` is now a method-style declaration so narrow modules type-check under the unknown umbrella without `any` casts.
+- Replaced default-value priority/SID literals with named constants in temperature, timeToMark, and bearingDistanceBetweenMarks.
+- Re-enabled biome rules `noExplicitAny` and `noApproximativeNumericConstant`.
+
+**Tooling & Release**:
+- Added `@vitest/coverage-v8`; `npm run test:coverage` now works.
+- Replaced `github-create-release` with `gh release create` in the release script.
+- Guarded the release script against silently re-tagging existing versions.
+- Added Node 24 to the CI matrix.
+- Build now emits linked sourcemaps.
+- Modernized husky pre-commit (removed deprecated v9 shim).
+- `npm audit fix` applied (no breaking changes).
+
+**Tests**:
+- New plugin lifecycle suite covering start/stop/resend behavior with a typed mock SignalK app.
+- New `pathToPropName` collision regression test.
+
+**Docs**:
+- Added Troubleshooting section to README.
+- Clarified source-filter wording in the admin UI schema ("Leave blank to accept any source. Enter an exact source name…").
+
+---
+
 ### v1.2.1 (2026/04/18) - Global Resend Interval
 
 **Configuration Simplification**:

@@ -1,5 +1,15 @@
 ## Change Log
 
+### v1.2.4 (2026/04/19) - Humidity Path Compatibility
+
+- PGN 130313 outside humidity now subscribes to both
+  `environment.outside.relativeHumidity` and `environment.outside.humidity`.
+  Upstream Signal K humidity sources disagree on which path is canonical —
+  `signalk-virtual-weather-sensors`, for example, publishes to `.humidity`,
+  while the emitter-cannon previously only listened on `.relativeHumidity`,
+  so the Garmin showed no reading. `relativeHumidity` still wins when both
+  are present. Inside humidity is unchanged (no sibling `.humidity` path).
+
 ### v1.2.3 (2026/04/19) - Bus Correctness, Lifecycle Hardening, Type Safety
 
 **NMEA 2000 Bus Correctness (wrong data on the wire — fix first)**:

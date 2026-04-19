@@ -42,23 +42,35 @@ export default function createHumidityConversions(
 		{
 			title: "Outside Humidity (130313)",
 			optionKey: "HUMIDITY_OUTSIDE",
-			keys: ["environment.outside.relativeHumidity"],
-			callback: ((humidity: number | null) => {
+			// Accept either Signal K humidity path. Some upstream plugins (e.g.
+			// signalk-virtual-weather-sensors) publish `environment.outside.humidity`;
+			// others publish `environment.outside.relativeHumidity`. `relativeHumidity`
+			// is listed first so it wins when both are present.
+			keys: [
+				"environment.outside.relativeHumidity",
+				"environment.outside.humidity",
+			],
+			callback: ((rel: number | null, hum: number | null) => {
 				try {
-					if (!isValidNumber(humidity)) {
+					const value = isValidNumber(rel)
+						? rel
+						: isValidNumber(hum)
+							? hum
+							: null;
+					if (value === null) {
 						return [];
 					}
 
-					return createHumidityMessage(humidity, "Outside");
+					return createHumidityMessage(value, "Outside");
 				} catch (err) {
 					app.error(err instanceof Error ? err.message : String(err));
 					return [];
 				}
-			}) as ConversionCallback<[number | null]>,
+			}) as ConversionCallback<[number | null, number | null]>,
 
 			tests: [
 				{
-					input: [0.5],
+					input: [0.5, null],
 					expected: [
 						{
 							prio: 2,
@@ -74,7 +86,7 @@ export default function createHumidityConversions(
 				},
 				{
 					// Test with high humidity
-					input: [0.95],
+					input: [0.95, null],
 					expected: [
 						{
 							prio: 2,
@@ -84,6 +96,38 @@ export default function createHumidityConversions(
 								instance: 100,
 								source: "Outside",
 								actualHumidity: 95,
+							},
+						},
+					],
+				},
+				{
+					// Fallback: only environment.outside.humidity is published
+					input: [null, 0.6],
+					expected: [
+						{
+							prio: 2,
+							pgn: 130313,
+							dst: 255,
+							fields: {
+								instance: 100,
+								source: "Outside",
+								actualHumidity: 60,
+							},
+						},
+					],
+				},
+				{
+					// relativeHumidity wins when both are present
+					input: [0.5, 0.9],
+					expected: [
+						{
+							prio: 2,
+							pgn: 130313,
+							dst: 255,
+							fields: {
+								instance: 100,
+								source: "Outside",
+								actualHumidity: 50,
 							},
 						},
 					],

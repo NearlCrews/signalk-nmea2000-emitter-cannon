@@ -53,7 +53,7 @@ export default function createDirectionDataConversion(
 										? "Magnetic"
 										: "Unavailable",
 							sidForCog: 0,
-							cog: cogTrue || cogMagnetic,
+							cog: cogTrue ?? cogMagnetic,
 							sogReference: "Unavailable", // Would need SOG data source info
 							sidForSog: 0,
 							sog: null, // This PGN focuses on direction, not speed
@@ -64,7 +64,7 @@ export default function createDirectionDataConversion(
 										? "Magnetic"
 										: "Unavailable",
 							sidForHeading: 0,
-							heading: headingTrue || headingMagnetic,
+							heading: headingTrue ?? headingMagnetic,
 							speedThroughWaterReference: "Unavailable",
 							sidForStw: 0,
 							speedThroughWater: null,
@@ -110,6 +110,24 @@ export default function createDirectionDataConversion(
 							cogReference: "Magnetic",
 							dataMode: "Autonomous",
 							heading: 0.698,
+						},
+					},
+				],
+			},
+			{
+				// Due north: cogTrue=0, headingTrue=0. With || fallback, zero is falsy
+				// and cog/heading would wrongly fall through to magnetic values.
+				input: [0, 1.047, 0, 0.698, null, null, null, null],
+				expected: [
+					{
+						prio: 2,
+						pgn: 130577,
+						dst: 255,
+						fields: {
+							cog: 0,
+							cogReference: "True",
+							dataMode: "Autonomous",
+							heading: 0,
 						},
 					},
 				],

@@ -35,9 +35,9 @@ export default function createRudderConversion(
 				let directionOrder: string = "No Order";
 				if (target !== null) {
 					if (target > 0) {
-						directionOrder = "Turn Right";
+						directionOrder = "Move to starboard";
 					} else if (target < 0) {
-						directionOrder = "Turn Left";
+						directionOrder = "Move to port";
 					}
 				}
 
@@ -70,7 +70,7 @@ export default function createRudderConversion(
 						dst: 255,
 						fields: {
 							angleOrder: 0.1396,
-							directionOrder: "No Order",
+							directionOrder: "Move to starboard",
 							instance: 0,
 							position: 0.0873,
 						},
@@ -86,7 +86,7 @@ export default function createRudderConversion(
 						dst: 255,
 						fields: {
 							angleOrder: 0.0698,
-							directionOrder: "No Order",
+							directionOrder: "Move to port",
 							instance: 0,
 							position: -0.0349,
 						},

@@ -47,6 +47,8 @@ interface MockSignalKApp {
 	eventListenerCount: () => number;
 	/** Number of subscriptionmanager.subscribe calls observed. */
 	subscriptionCallCount: () => number;
+	/** Captured subscription args (first call) — or undefined if none. */
+	firstSubscription: () => unknown;
 	/** Captured nmea2000JsonOut emissions. */
 	emittedMessages: N2KMessage[];
 	/** Captured plugin status strings. */
@@ -181,6 +183,7 @@ function createMockSignalKApp(): MockSignalKApp {
 		eventListenerCount: () =>
 			Array.from(eventListeners.values()).reduce((n, s) => n + s.size, 0),
 		subscriptionCallCount: () => subscriptionCalls.length,
+		firstSubscription: () => subscriptionCalls[0]?.subscription,
 		emittedMessages,
 		statusUpdates,
 		errorUpdates,
@@ -328,6 +331,96 @@ describe("PluginManager lifecycle", () => {
 		await Promise.resolve();
 		await Promise.resolve();
 		expect(mock.emittedMessages.length).toBe(emittedBefore);
+	});
+
+	it("stop() removes the nmea2000OutAvailable listener registered by the constructor", () => {
+		// Constructor ran in beforeEach — one event listener is active.
+		expect(mock.eventListenerCount()).toBeGreaterThanOrEqual(1);
+
+		manager.stop();
+
+		// After stop(), no event listeners should remain. Otherwise each
+		// plugin restart leaks a listener and a zombie PluginManager.
+		expect(mock.eventListenerCount()).toBe(0);
+	});
+
+	it("repeated start/stop cycles do not accumulate nmea2000OutAvailable listeners", () => {
+		// Baseline — one listener registered by the beforeEach-created manager.
+		expect(mock.eventListenerCount()).toBeGreaterThanOrEqual(1);
+
+		manager.stop();
+		expect(mock.eventListenerCount()).toBe(0);
+
+		// Simulate a plugin restart: new PluginManager, then stop again.
+		const manager2 = new PluginManager(mock.app, mockPlugin);
+		mock.fireEvent("nmea2000OutAvailable");
+		expect(mock.eventListenerCount()).toBe(1);
+
+		manager2.stop();
+		expect(mock.eventListenerCount()).toBe(0);
+	});
+
+	it("notifications subscribe with policy:instant so bursts are not throttled", () => {
+		manager.start({
+			globalResendInterval: 0,
+			NOTIFICATIONS: { enabled: true, resend: 0 },
+		} as unknown as PluginOptions);
+
+		// A subscription should have been registered for notifications.
+		expect(mock.subscriptionCallCount()).toBeGreaterThan(0);
+		const sub = mock.firstSubscription() as {
+			subscribe: Array<{ policy?: string; period?: number }>;
+		};
+		expect(sub.subscribe.length).toBeGreaterThan(0);
+		// Default Signal K subscribe period is 1000ms — that throttles alarm
+		// bursts and can drop an alert. Events should subscribe with
+		// policy:"instant" or period:0.
+		const first = sub.subscribe[0];
+		const instant = first?.policy === "instant" || first?.period === 0;
+		expect(instant).toBe(true);
+	});
+
+	it("does not arm resend timers before any stream data has arrived", async () => {
+		// `BehaviorSubject<unknown[]>([])` emits its empty-array seed through
+		// debounceTime(10), causing processOutput to run and arm a resend timer
+		// before any real Signal K value has arrived. Using Subject instead of
+		// BehaviorSubject keeps the pipeline idle until a value is pushed.
+		manager.start({
+			globalResendInterval: 1,
+			WIND: { enabled: true, resend: 0 },
+		} as unknown as PluginOptions);
+
+		await flush();
+
+		// No stream data was pushed, so no resend timer should be armed.
+		expect(vi.getTimerCount()).toBe(0);
+		expect(mock.emittedMessages).toEqual([]);
+	});
+
+	it("timer-source conversions do not also arm a resend timer", async () => {
+		// systemTime is a `timer` sourceType with its own 1s interval. A resend
+		// timer on top of that would emit PGN 126992 twice per global-resend
+		// window — once from the main timer, once from the resend.
+		manager.start({
+			globalResendInterval: 5,
+			SYSTEM_TIME: { enabled: true, resend: 0 },
+		} as unknown as PluginOptions);
+
+		// Tick the main 1s timer once.
+		vi.advanceTimersByTime(1000);
+		await Promise.resolve();
+		await Promise.resolve();
+
+		// Only one active timer should exist: the timer-source's own setInterval.
+		// If a resend timer was also armed, the count would be 2.
+		expect(vi.getTimerCount()).toBe(1);
+
+		// Emissions across 6 seconds: exactly 6 (one per 1s main tick), not more.
+		const initial = mock.emittedMessages.length;
+		vi.advanceTimersByTime(5000);
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(mock.emittedMessages.length - initial).toBe(5);
 	});
 
 	it("stop() still completes cleanly when a conversion callback threw", async () => {

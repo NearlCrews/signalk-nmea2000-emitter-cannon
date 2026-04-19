@@ -32,10 +32,17 @@ function buildTemperatureEntry(
 					"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
 				default: 0,
 			},
+			instance: {
+				title: "N2K Temperature Instance",
+				description:
+					"NMEA 2000 instance ID this temperature is emitted on. Override to match a specific display's expected instance.",
+				type: "number",
+				default: info.instance,
+			},
 			[sourcePropName]: {
 				title: `Source for ${info.source}`,
 				description:
-					"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+					"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 				type: "string",
 			},
 		},
@@ -88,13 +95,13 @@ export const schema: JSONSchema = {
 				environmentwindangleApparent: {
 					title: "Source for environment.wind.angleApparent",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 				environmentwindspeedApparent: {
 					title: "Source for environment.wind.speedApparent",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 			},
@@ -115,7 +122,7 @@ export const schema: JSONSchema = {
 				environmentdepthbelowTransducer: {
 					title: "Source for environment.depth.belowTransducer",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 			},
@@ -136,13 +143,13 @@ export const schema: JSONSchema = {
 				navigationcourseOverGroundTrue: {
 					title: "Source for navigation.courseOverGroundTrue",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 				navigationspeedOverGround: {
 					title: "Source for navigation.speedOverGround",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 			},
@@ -163,7 +170,7 @@ export const schema: JSONSchema = {
 				navigationheadingMagnetic: {
 					title: "Source for navigation.headingMagnetic",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 			},
@@ -213,7 +220,7 @@ export const schema: JSONSchema = {
 				navigationspeedThroughWater: {
 					title: "Source for navigation.speedThroughWater",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 			},
@@ -234,7 +241,7 @@ export const schema: JSONSchema = {
 				steeringrudderpositioning: {
 					title: "Source for steering.rudder.position",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 			},
@@ -255,31 +262,31 @@ export const schema: JSONSchema = {
 				navigationposition: {
 					title: "Source for navigation.position",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 				navigationgnssgeoidalSeparation: {
 					title: "Source for navigation.gnss.geoidalSeparation",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 				navigationgnssmethod: {
 					title: "Source for navigation.gnss.method",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 				navigationgnssnumberOfSatellites: {
 					title: "Source for navigation.gnss.numberOfSatellites",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 				navigationgnsshorizontalDilution: {
 					title: "Source for navigation.gnss.horizontalDilution",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 			},
@@ -301,7 +308,7 @@ export const schema: JSONSchema = {
 				environmentoutsidepressure: {
 					title: "Source for environment.outside.pressure",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 			},
@@ -322,7 +329,7 @@ export const schema: JSONSchema = {
 				environmentoutsidehumidity: {
 					title: "Source for environment.outside.humidity",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 			},
@@ -343,7 +350,7 @@ export const schema: JSONSchema = {
 				environmentinsidehumidity: {
 					title: "Source for environment.inside.humidity",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 			},
@@ -437,13 +444,13 @@ export const schema: JSONSchema = {
 				environmentwatertemperature: {
 					title: "Source for environment.water.temperature",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 				environmentoutsidetemperature: {
 					title: "Source for environment.outside.temperature",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 			},
@@ -493,7 +500,7 @@ export const schema: JSONSchema = {
 				environmentoutsidepressure: {
 					title: "Source for environment.outside.pressure",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 			},
@@ -514,7 +521,7 @@ export const schema: JSONSchema = {
 				navigationmagneticVariance: {
 					title: "Source for navigation.magneticVariance",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 			},
@@ -535,7 +542,7 @@ export const schema: JSONSchema = {
 				navigationrateOfTurn: {
 					title: "Source for navigation.rateOfTurn",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 			},
@@ -556,7 +563,7 @@ export const schema: JSONSchema = {
 				navigationheadingTrue: {
 					title: "Source for navigation.headingTrue",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 			},
@@ -577,7 +584,7 @@ export const schema: JSONSchema = {
 				performanceleeway: {
 					title: "Source for performance.leeway",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 			},
@@ -598,13 +605,13 @@ export const schema: JSONSchema = {
 				environmentcurrentsetTrue: {
 					title: "Source for environment.current.setTrue",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 				environmentcurrentdrift: {
 					title: "Source for environment.current.drift",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 			},
@@ -625,19 +632,19 @@ export const schema: JSONSchema = {
 				navigationattituderoll: {
 					title: "Source for navigation.attitude.roll",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 				navigationattitudepitch: {
 					title: "Source for navigation.attitude.pitch",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 				navigationattitudeyaw: {
 					title: "Source for navigation.attitude.yaw",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 			},
@@ -658,7 +665,7 @@ export const schema: JSONSchema = {
 				navigationheave: {
 					title: "Source for navigation.heave",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 			},
@@ -679,52 +686,52 @@ export const schema: JSONSchema = {
 				navigationcourseOverGroundTrue: {
 					title: "Source for navigation.courseOverGroundTrue",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 				navigationcourseOverGroundMagnetic: {
 					title: "Source for navigation.courseOverGroundMagnetic",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 				navigationheadingTrue: {
 					title: "Source for navigation.headingTrue",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 				navigationheadingMagnetic: {
 					title: "Source for navigation.headingMagnetic",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 				navigationcourseRhumblinenextPointbearingTrue: {
 					title: "Source for navigation.courseRhumbline.nextPoint.bearingTrue",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 				navigationcourseRhumblinenextPointbearingMagnetic: {
 					title:
 						"Source for navigation.courseRhumbline.nextPoint.bearingMagnetic",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 				navigationcourseGreatCirclenextPointbearingTrue: {
 					title:
 						"Source for navigation.courseGreatCircle.nextPoint.bearingTrue",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 				navigationcourseGreatCirclenextPointbearingMagnetic: {
 					title:
 						"Source for navigation.courseGreatCircle.nextPoint.bearingMagnetic",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 			},
@@ -745,25 +752,25 @@ export const schema: JSONSchema = {
 				navigationgnsshorizontalDilution: {
 					title: "Source for navigation.gnss.horizontalDilution",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 				navigationgnssverticalDilution: {
 					title: "Source for navigation.gnss.verticalDilution",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 				navigationgnsstitimeDilution: {
 					title: "Source for navigation.gnss.timeDilution",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 				navigationgnssmode: {
 					title: "Source for navigation.gnss.mode",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 			},
@@ -784,13 +791,13 @@ export const schema: JSONSchema = {
 				navigationgnsssatellitesInViewcount: {
 					title: "Source for navigation.gnss.satellitesInView.count",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 				navigationgnsssatellitesInViewsatellites: {
 					title: "Source for navigation.gnss.satellitesInView.satellites",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 			},
@@ -856,7 +863,7 @@ export const schema: JSONSchema = {
 				navigationcoursecalcValuescrossTrackError: {
 					title: "Source for navigation.course.calcValues.crossTrackError",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 			},
@@ -877,25 +884,25 @@ export const schema: JSONSchema = {
 				navigationcoursecalcValuesdistance: {
 					title: "Source for navigation.course.calcValues.distance",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 				navigationcoursecalcValuesbearing: {
 					title: "Source for navigation.course.calcValues.bearing",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 				navigationcoursecalcValuesvelocityMadeGood: {
 					title: "Source for navigation.course.calcValues.velocityMadeGood",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 				navigationcoursecalcValueseta: {
 					title: "Source for navigation.course.calcValues.eta",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 			},
@@ -916,13 +923,13 @@ export const schema: JSONSchema = {
 				navigationcoursenextPointbearingMagnetic: {
 					title: "Source for navigation.course.nextPoint.bearingMagnetic",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 				navigationcoursenextPointdistance: {
 					title: "Source for navigation.course.nextPoint.distance",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 			},
@@ -943,13 +950,13 @@ export const schema: JSONSchema = {
 				navigationcoursenextPointposition: {
 					title: "Source for navigation.course.nextPoint.position",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 				navigationcoursenextPointdistance: {
 					title: "Source for navigation.course.nextPoint.distance",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 			},
@@ -970,7 +977,7 @@ export const schema: JSONSchema = {
 				navigationcoursenextPointtimeToGo: {
 					title: "Source for navigation.course.nextPoint.timeToGo",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 			},
@@ -991,13 +998,13 @@ export const schema: JSONSchema = {
 				environmentwinddirectionTrue: {
 					title: "Source for environment.wind.directionTrue",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 				environmentwindspeedOverGround: {
 					title: "Source for environment.wind.speedOverGround",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 			},
@@ -1018,13 +1025,13 @@ export const schema: JSONSchema = {
 				environmentwindangleTrueWater: {
 					title: "Source for environment.wind.angleTrueWater",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 				environmentwindspeedTrue: {
 					title: "Source for environment.wind.speedTrue",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 			},
@@ -1045,13 +1052,13 @@ export const schema: JSONSchema = {
 				propulsionmainratedEngineSpeed: {
 					title: "Source for propulsion.main.ratedEngineSpeed",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 				propulsionmainengineoperatingHours: {
 					title: "Source for propulsion.main.engine.operatingHours",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 			},
@@ -1072,19 +1079,19 @@ export const schema: JSONSchema = {
 				propulsionmaintransmissiongearRatio: {
 					title: "Source for propulsion.main.transmission.gearRatio",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 				propulsionmaintransmissionoilPressure: {
 					title: "Source for propulsion.main.transmission.oilPressure",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 				propulsionmaintransmissionoilTemperature: {
 					title: "Source for propulsion.main.transmission.oilTemperature",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 			},
@@ -1105,25 +1112,25 @@ export const schema: JSONSchema = {
 				steeringtrimTabport: {
 					title: "Source for steering.trimTab.port",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 				steeringtrimTabstarboard: {
 					title: "Source for steering.trimTab.starboard",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 				environmentdepthbelowTransducer: {
 					title: "Source for environment.depth.belowTransducer",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 				navigationspeedOverGround: {
 					title: "Source for navigation.speedOverGround",
 					description:
-						"Leave blank to accept data from any source. Enter an exact source name (e.g. 'gps1') to use only that source.",
+						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
 			},

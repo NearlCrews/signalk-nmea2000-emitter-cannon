@@ -66,6 +66,19 @@ export default function createGpsConversion(
 
 					const { date, time } = toN2KDateTime();
 
+					const gnssType = app.getSelfPath("navigation.gnss.type.value");
+					const method = app.getSelfPath("navigation.gnss.methodQuality.value");
+					const integrity = app.getSelfPath("navigation.gnss.integrity.value");
+					const numberOfSvs = app.getSelfPath(
+						"navigation.gnss.satellites.value",
+					);
+					const hdop = app.getSelfPath(
+						"navigation.gnss.horizontalDilution.value",
+					);
+					const geoidalSeparation = app.getSelfPath(
+						"navigation.gnss.geoidalSeparation.value",
+					);
+
 					res.push({
 						prio: N2K_DEFAULT_PRIORITY,
 						pgn: 129029,
@@ -76,19 +89,17 @@ export default function createGpsConversion(
 							time,
 							latitude: pos.latitude,
 							longitude: pos.longitude,
-							gnssType: "GPS+SBAS/WAAS",
-							method: "DGNSS fix",
-							integrity: "No integrity checking",
-							numberOfSvs: 16,
-							hdop: 0.64,
-							geoidalSeparation: -0.01,
-							referenceStations: 1,
-							list: [
-								{
-									referenceStationType: "GPS+SBAS/WAAS",
-									referenceStationId: 7,
-								},
-							],
+							...(typeof pos.altitude === "number"
+								? { altitude: pos.altitude }
+								: {}),
+							...(typeof gnssType === "string" ? { gnssType } : {}),
+							...(typeof method === "string" ? { method } : {}),
+							...(typeof integrity === "string" ? { integrity } : {}),
+							...(typeof numberOfSvs === "number" ? { numberOfSvs } : {}),
+							...(typeof hdop === "number" ? { hdop } : {}),
+							...(typeof geoidalSeparation === "number"
+								? { geoidalSeparation }
+								: {}),
 						},
 					});
 				}
@@ -102,7 +113,17 @@ export default function createGpsConversion(
 
 		tests: [
 			{
-				input: [{ longitude: -75.487264, latitude: 32.0631296 }],
+				input: [
+					{ longitude: -75.487264, latitude: 32.0631296, altitude: 12.5 },
+				],
+				skSelfData: {
+					"navigation.gnss.methodQuality.value": "GNSS fix",
+					"navigation.gnss.integrity.value": "No integrity checking",
+					"navigation.gnss.type.value": "GPS",
+					"navigation.gnss.satellites.value": 9,
+					"navigation.gnss.horizontalDilution.value": 1.2,
+					"navigation.gnss.geoidalSeparation.value": -34.5,
+				},
 				expected: [
 					{
 						prio: 2,
@@ -121,33 +142,28 @@ export default function createGpsConversion(
 							sid: 87,
 							latitude: 32.0631296,
 							longitude: -75.487264,
-							gnssType: "GPS+SBAS/WAAS",
-							method: "DGNSS fix",
+							altitude: 12.5,
+							gnssType: "GPS",
+							method: "GNSS fix",
 							integrity: "No integrity checking",
-							numberOfSvs: 16,
-							hdop: 0.64,
-							geoidalSeparation: -0.01,
-							referenceStations: 1,
-							list: [
-								{
-									referenceStationType: "GPS+SBAS/WAAS",
-									referenceStationId: 7,
-								},
-							],
+							numberOfSvs: 9,
+							hdop: 1.2,
+							geoidalSeparation: -34.5,
 						},
 						__preprocess__: (testResult: N2KMessage) => {
-							// Remove dynamic date/time fields for testing
+							// Remove dynamic date/time fields and canboat-decoder
+							// artifacts (empty reference-station list) for testing.
 							delete testResult.fields.date;
 							delete testResult.fields.time;
+							delete testResult.fields.list;
 						},
 					},
 				],
 			},
 			{
-				// Test with altitude data
-				input: [
-					{ longitude: -122.419416, latitude: 37.774929, altitude: 10.5 },
-				],
+				// Position without altitude or GNSS metadata — second call is
+				// rate-limited so only PGN 129025 is emitted.
+				input: [{ longitude: -122.419416, latitude: 37.774929 }],
 				expected: [
 					{
 						prio: 2,

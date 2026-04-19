@@ -120,8 +120,8 @@ export function createConversionModules(
 					? moduleOrModules
 					: [moduleOrModules];
 			} catch (e) {
-				const error = e as Error;
-				app.error(`Error loading conversion module: ${error.message}`);
+				const message = e instanceof Error ? e.message : String(e);
+				app.error(`Error loading conversion module: ${message}`);
 				return [];
 			}
 		})

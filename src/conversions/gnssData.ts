@@ -67,7 +67,7 @@ export default function createGnssDataConversions(
 									? "3D"
 									: modeString === "2D"
 										? "2D"
-										: "No GNSS",
+										: "Auto",
 							hdop: hdopValue,
 							vdop: vdopValue,
 							tdop: tdopValue,
@@ -92,6 +92,27 @@ export default function createGnssDataConversions(
 								hdop: 1.2,
 								vdop: 1.8,
 								tdop: 0.9,
+							},
+						},
+					],
+				},
+				{
+					// When Signal K reports mode "Auto", actualMode must NOT
+					// falsely report "No GNSS" — that would tell MFDs that the
+					// receiver has no fix. Fall through to "Auto".
+					input: [1.5, 2.0, 1.0, "Auto"],
+					expected: [
+						{
+							prio: 2,
+							pgn: 129539,
+							dst: 255,
+							fields: {
+								sid: N2K_SID_ZERO,
+								desiredMode: "Auto",
+								actualMode: "Auto",
+								hdop: 1.5,
+								vdop: 2.0,
+								tdop: 1.0,
 							},
 						},
 					],

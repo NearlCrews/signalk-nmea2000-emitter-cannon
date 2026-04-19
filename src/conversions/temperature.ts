@@ -160,19 +160,19 @@ export const temperatures: TemperatureInfo[] = [
 	{
 		n2kSource: "Main Cabin Temperature",
 		source: "environment.inside.mainCabin.temperature",
-		instance: 107,
+		instance: 104,
 		option: "MAINCABIN",
 	},
 	{
 		n2kSource: "Refrigeration Temperature",
 		source: "environment.inside.refrigerator.temperature",
-		instance: 107,
+		instance: 105,
 		option: "REFRIGERATOR",
 	},
 	{
 		n2kSource: "Heating System Temperature",
 		source: "environment.inside.heating.temperature",
-		instance: 107,
+		instance: 106,
 		option: "HEATINGSYSTEM",
 	},
 	{
@@ -184,25 +184,25 @@ export const temperatures: TemperatureInfo[] = [
 	{
 		n2kSource: "Apparent Wind Chill Temperature",
 		source: "environment.outside.apparentWindChillTemperature",
-		instance: 107,
+		instance: 108,
 		option: "APPARENTWINDCHILL",
 	},
 	{
 		n2kSource: "Theoretical Wind Chill Temperature",
 		source: "environment.outside.theoreticalWindChillTemperature",
-		instance: 107,
+		instance: 109,
 		option: "THEORETICALWINDCHILL",
 	},
 	{
 		n2kSource: "Heat Index Temperature",
 		source: "environment.outside.heatIndexTemperature",
-		instance: 107,
+		instance: 110,
 		option: "HEATINDEX",
 	},
 	{
 		n2kSource: "Freezer Temperature",
 		source: "environment.inside.freezer.temperature",
-		instance: 107,
+		instance: 111,
 		option: "FREEZER",
 	},
 ];

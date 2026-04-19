@@ -1,4 +1,8 @@
-import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
+import {
+	N2K_BROADCAST_DST,
+	N2K_DEFAULT_PRIORITY,
+	N2K_DEFAULT_SID,
+} from "../constants.js";
 import type {
 	ConversionModule,
 	N2KMessage,
@@ -31,6 +35,7 @@ export function createWindTrueConversion(
 						pgn: 130306,
 						dst: N2K_BROADCAST_DST,
 						fields: {
+							sid: N2K_DEFAULT_SID,
 							windSpeed: speed,
 							windAngle: normalizeAngle(angle),
 							reference: config.reference,
@@ -51,6 +56,7 @@ export function createWindTrueConversion(
 						dst: 255,
 						prio: 2,
 						fields: {
+							sid: 87,
 							windSpeed: 1.2,
 							windAngle: 2.0944,
 							reference: config.reference,
@@ -66,6 +72,7 @@ export function createWindTrueConversion(
 						dst: 255,
 						prio: 2,
 						fields: {
+							sid: 87,
 							windSpeed: 1.5,
 							windAngle: 4.1888,
 							reference: config.reference,

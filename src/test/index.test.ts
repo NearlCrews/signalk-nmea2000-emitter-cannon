@@ -20,6 +20,7 @@ let skData: Record<string, unknown> = {};
  * Mock Signal K application
  */
 const mockApp: SignalKApp = {
+	selfId: "urn:mrn:imo:mmsi:111222333",
 	getSelfPath: (path: string) => skSelfData[path],
 	getPath: (path: string) => skData[path],
 	debug: () => {}, // Silent during tests
@@ -48,7 +49,7 @@ const mockApp: SignalKApp = {
 	signalk: {
 		on: () => {},
 	},
-};
+} as unknown as SignalKApp;
 
 /**
  * Mock plugin instance
@@ -73,8 +74,11 @@ describe("Conversion modules", () => {
 	});
 
 	it("should load all conversion modules", () => {
-		expect(conversions.length).toBeGreaterThan(0);
-		console.log(`Loaded ${conversions.length} conversion modules`);
+		// Pin to the known count so that a factory throwing at load time
+		// (silently caught in createConversionModules and returning []) is
+		// a test failure rather than a silent drop. Update this constant
+		// intentionally when adding or removing modules.
+		expect(conversions.length).toBe(74);
 	});
 
 	it("should have tests for every conversion", () => {
@@ -137,9 +141,6 @@ describe("Conversion modules", () => {
 									const result = subConv.callback?.(...test.input);
 
 									if (!result) {
-										console.log(
-											`Callback returned null for ${conv.title}, skipping test`,
-										);
 										continue;
 									}
 

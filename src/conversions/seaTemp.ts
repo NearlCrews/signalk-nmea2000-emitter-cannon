@@ -1,4 +1,8 @@
-import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
+import {
+	N2K_BROADCAST_DST,
+	N2K_DEFAULT_PRIORITY,
+	N2K_SID_ZERO,
+} from "../constants.js";
 import type {
 	ConversionModule,
 	N2KMessage,
@@ -37,7 +41,7 @@ export default function createSeaTempConversion(
 						pgn: 130310,
 						dst: N2K_BROADCAST_DST,
 						fields: {
-							sid: 0xff,
+							sid: N2K_SID_ZERO,
 							waterTemperature,
 							outsideAmbientAirTemperature: outsideTemperature,
 							atmosphericPressure,
@@ -59,6 +63,7 @@ export default function createSeaTempConversion(
 						pgn: 130310,
 						dst: 255,
 						fields: {
+							sid: 0,
 							waterTemperature: 281.2,
 							outsideAmbientAirTemperature: 291,
 							atmosphericPressure: 20100,

@@ -29,10 +29,25 @@ export interface ConversionOptions {
 }
 
 /**
- * Plugin configuration options, mapping conversion keys to their settings.
+ * Plugin configuration options. Most keys map to a {@link ConversionOptions}
+ * entry keyed by each conversion's `optionKey`, with a small set of reserved
+ * top-level numeric options (e.g. `globalResendInterval`).
  */
 export interface PluginOptions {
-	[key: string]: ConversionOptions;
+	/** Resend interval in seconds applied to all conversions unless per-conversion overridden. */
+	globalResendInterval?: number;
+	[key: string]: ConversionOptions | number | undefined;
+}
+
+/**
+ * Type guard narrowing a {@link PluginOptions} value to a {@link ConversionOptions}
+ * entry — used at the index-signature access sites so global numeric options
+ * (e.g. globalResendInterval) don't get treated as conversion configs.
+ */
+export function isConversionOptions(
+	v: ConversionOptions | number | undefined,
+): v is ConversionOptions {
+	return typeof v === "object" && v !== null;
 }
 
 /**
@@ -46,8 +61,10 @@ export interface PluginOptions {
  * can still declare a precise input type for their implementation.
  */
 export interface SubConversionModule<T extends unknown[] = unknown[]> {
+	/** Optional human-readable title (used in debug logs) */
+	title?: string;
 	/** Signal K paths that this conversion listens to */
-	keys?: string[];
+	keys?: string[] | ((options: unknown) => string[]);
 	/** Source type for data input */
 	sourceType?: "onDelta" | "onValueChange" | "subscription" | "timer";
 	/** Output type for data output */
@@ -74,8 +91,9 @@ export interface ConversionModule<T extends unknown[] = unknown[]> {
 	title: string;
 	/** Option key used in plugin configuration */
 	optionKey: string;
-	/** Signal K paths that this conversion listens to */
-	keys?: string[];
+	/** Signal K paths that this conversion listens to.
+	 * May be a static array or a factory that computes keys from options. */
+	keys?: string[] | ((options: unknown) => string[]);
 	/** Context for subscriptions (e.g., 'vessels.self') */
 	context?: string;
 	/** Source type for data input */
@@ -100,8 +118,6 @@ export interface ConversionModule<T extends unknown[] = unknown[]> {
 	testOptions?: unknown;
 	/** Timer reference for cleanup */
 	resendTimer?: NodeJS.Timeout;
-	/** Last computed output for resend timers to re-emit */
-	lastOutput?: N2KMessage[];
 	/** Called with conversion options before first callback, for option-dependent setup */
 	onOptionsLoaded?: (options: Record<string, unknown>) => void;
 }
@@ -150,7 +166,7 @@ export type OutputTypeProcessor = (
 /**
  * Plugin factory function type
  */
-export type PluginFactory = (app: unknown) => SignalKPlugin;
+export type PluginFactory = (app: SignalKApp) => SignalKPlugin;
 
 /**
  * Conversion module factory function type

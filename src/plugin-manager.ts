@@ -1,9 +1,9 @@
 import type { Context, Path } from "@signalk/server-api";
-import { isFunction } from "es-toolkit";
-import { BehaviorSubject, debounceTime } from "rxjs";
+import { debounceTime, Subject } from "rxjs";
 import { createConversionModules } from "./conversions/index.js";
 import type {
 	ConversionModule,
+	ConversionOptions,
 	N2KMessage,
 	OutputTypeProcessor,
 	PluginOptions,
@@ -12,9 +12,23 @@ import type {
 	SignalKPlugin,
 	SourceTypeMapper,
 } from "./types/index.js";
+import { isConversionOptions } from "./types/index.js";
 import { formatN2KMessage, validateN2KMessage } from "./utils/messageUtils.js";
 import { isDefined, pathToPropName } from "./utils/pathUtils.js";
 import { clearAllSmoothers } from "./utils/smoothing.js";
+
+/**
+ * Resolve a conversion's `keys` property which may be a static array or a
+ * factory function of `(options) => string[]`.
+ */
+function resolveKeys(
+	keys: string[] | ((options: unknown) => string[]) | undefined,
+	options: unknown,
+): string[] {
+	if (keys === undefined) return [];
+	if (typeof keys === "function") return keys(options);
+	return keys;
+}
 
 /**
  * PluginManager class - Manages the plugin lifecycle and conversions
@@ -26,6 +40,12 @@ export class PluginManager {
 	private timers: NodeJS.Timeout[] = [];
 	private nmea2000Ready = false;
 	private globalResendInterval = 5;
+	/**
+	 * Stored so stop() can removeListener the exact same reference. Without
+	 * this, every plugin restart leaks a listener (and the PluginManager it
+	 * closes over), eventually tripping MaxListenersExceeded.
+	 */
+	private readonly onNmea2000Ready: (data: unknown) => void;
 	/**
 	 * Last input arguments observed for each conversion. Used by the resend
 	 * timer to re-invoke the conversion callback with the most recent input
@@ -42,10 +62,11 @@ export class PluginManager {
 		this.app.debug(`Loaded ${this.conversions.length} conversion modules`);
 
 		// Wait for NMEA2000 output to be available before emitting
-		this.app.on("nmea2000OutAvailable", () => {
+		this.onNmea2000Ready = () => {
 			this.nmea2000Ready = true;
 			this.app.debug("NMEA2000 output is now available");
-		});
+		};
+		this.app.on("nmea2000OutAvailable", this.onNmea2000Ready);
 	}
 
 	/**
@@ -87,10 +108,8 @@ export class PluginManager {
 	 */
 	start(options: PluginOptions): void {
 		try {
-			// Extract global resend interval (top-level schema property outside the index signature)
-			const rawOptions = options as Record<string, unknown>;
-			this.globalResendInterval =
-				(rawOptions.globalResendInterval as number) || 5;
+			// Extract global resend interval (top-level numeric option)
+			this.globalResendInterval = options.globalResendInterval || 5;
 
 			this.app.setPluginStatus("Starting...");
 			this.app.debug(`=== SIGNALK-NMEA2000-EMITTER-CANNON STARTING ===`);
@@ -102,9 +121,8 @@ export class PluginManager {
 			// Count enabled conversions
 			let enabledCount = 0;
 			for (const key of Object.keys(options)) {
-				if (key === "globalResendInterval" || key === "globalResendTime")
-					continue;
-				if (options[key]?.enabled) {
+				const convOpts = options[key];
+				if (isConversionOptions(convOpts) && convOpts.enabled) {
 					enabledCount++;
 					this.app.debug(`${key} is ENABLED in options`);
 				}
@@ -119,11 +137,13 @@ export class PluginManager {
 
 				for (const conv of conversionArray) {
 					const convOptions = options[conv.optionKey];
+					const isEnabled =
+						isConversionOptions(convOptions) && convOptions.enabled;
 					this.app.debug(
-						`Checking conversion ${conv.title} (${conv.optionKey}) - enabled: ${convOptions?.enabled}`,
+						`Checking conversion ${conv.title} (${conv.optionKey}) - enabled: ${isEnabled}`,
 					);
 
-					if (!convOptions?.enabled) {
+					if (!isConversionOptions(convOptions) || !convOptions.enabled) {
 						continue;
 					}
 
@@ -138,7 +158,7 @@ export class PluginManager {
 					let subConversions = conv.conversions;
 					if (subConversions === undefined) {
 						subConversions = [conv];
-					} else if (isFunction(subConversions)) {
+					} else if (typeof subConversions === "function") {
 						subConversions = subConversions(convOptions);
 					}
 
@@ -221,28 +241,35 @@ export class PluginManager {
 			safe("unsubscribe", unsubscribe);
 		}
 
+		// Resend timers are already tracked in `this.timers` — clearing the
+		// list is sole authoritative teardown. The `conversion.resendTimer`
+		// field is used only as an "armed" flag, so we just drop it here.
 		const timers = this.timers;
 		this.timers = [];
 		for (const timer of timers) {
 			safe("clearInterval", () => clearInterval(timer));
 		}
-
-		// Clear conversion resend timers
 		for (const conversion of this.conversions) {
 			if (conversion.resendTimer) {
-				const timer = conversion.resendTimer;
 				delete conversion.resendTimer;
-				safe(`resend timer (${this.moduleLabel(conversion)})`, () =>
-					clearInterval(timer),
-				);
 			}
 		}
+
+		// Remove the nmea2000OutAvailable listener the constructor registered.
+		// Without this, every restart leaks a listener plus the closure over
+		// this PluginManager instance.
+		safe("removeListener(nmea2000OutAvailable)", () =>
+			this.app.removeListener("nmea2000OutAvailable", this.onNmea2000Ready),
+		);
 
 		// Drop cached inputs so a subsequent start() begins from a clean slate.
 		safe("clear lastInputs", () => this.lastInputs.clear());
 
 		// Wipe ExponentialSmoother state across plugin restarts (L3).
 		safe("clearAllSmoothers", () => clearAllSmoothers());
+
+		// Surface the stopped state in the Signal K admin UI.
+		safe("setPluginStatus(Stopped)", () => this.app.setPluginStatus("Stopped"));
 
 		if (errors.length > 0) {
 			this.app.error(
@@ -278,6 +305,13 @@ export class PluginManager {
 			this.app.error(
 				`Error processing output for ${this.moduleLabel(conversion)}: ${message}`,
 			);
+		}
+
+		// Timer-source conversions (e.g. systemTime) provide their own
+		// schedule — arming a resend timer on top causes double emissions
+		// every global-resend window.
+		if (conversion.sourceType === "timer") {
+			return;
 		}
 
 		// Resolve effective resend interval: per-conversion overrides global when non-zero
@@ -340,8 +374,8 @@ export class PluginManager {
 	 * Map Signal K stream-based value change conversions using RxJS pattern
 	 */
 	private mapRxJS(conversion: ConversionModule, options: unknown): void {
-		const pluginOptions = options as PluginOptions[string];
-		const keys = conversion.keys || [];
+		const pluginOptions = options as ConversionOptions;
+		const keys = resolveKeys(conversion.keys, options);
 		const timeouts = conversion.timeouts || [];
 
 		this.app.debug(
@@ -359,8 +393,12 @@ export class PluginManager {
 			};
 		});
 
-		// Create a subject to combine all streams (like Bacon.Bus)
-		const combinedBus = new BehaviorSubject<unknown[]>([]);
+		// Create a subject to combine all streams (like Bacon.Bus). Use plain
+		// Subject (not BehaviorSubject) so the pipeline stays idle until an
+		// actual value arrives — a BehaviorSubject([]) seed would fire through
+		// debounceTime and trigger processOutput (including arming a resend
+		// timer) before any real Signal K data had been observed.
+		const combinedBus = new Subject<unknown[]>();
 
 		// Set up individual stream subscriptions
 		keys.forEach((skKey) => {
@@ -372,9 +410,15 @@ export class PluginManager {
 			let bus = this.app.streambundle.getSelfBus(skKey as Path);
 
 			if (sourceRef) {
+				// Signal K `$source` values are composites like `gps1.0` or
+				// `canbus0.127`, not bare labels. Accept either an exact match
+				// or a label prefix (`gps1` matches `gps1.0`, `gps1.1`, …) so
+				// the UI description "enter a source label (e.g. 'gps1')"
+				// actually matches real stream values.
 				bus = bus.filter((x: unknown) => {
-					const obj = x as { $source?: string };
-					return obj.$source === sourceRef;
+					const src = (x as { $source?: string }).$source;
+					if (!src) return false;
+					return src === sourceRef || src.startsWith(`${sourceRef}.`);
 				});
 			}
 
@@ -447,14 +491,18 @@ export class PluginManager {
 		conversion: ConversionModule,
 		options: unknown,
 	): void {
-		const pluginOptions = options as PluginOptions[string];
-		const keys = isFunction(conversion.keys)
-			? (conversion.keys as (options: unknown) => string[])(options)
-			: conversion.keys || [];
+		const pluginOptions = options as ConversionOptions;
+		const keys = resolveKeys(conversion.keys, options);
 
+		// Event-like sources (notifications, alarms) must subscribe with
+		// policy:"instant" — otherwise Signal K's default "fixed" policy with
+		// period 1000ms can drop rapid-fire alerts.
 		const subscription = {
 			context: (conversion.context || "vessels.self") as Context,
-			subscribe: keys.map((key) => ({ path: key as Path })),
+			subscribe: keys.map((key) => ({
+				path: key as Path,
+				policy: "instant" as const,
+			})),
 		};
 
 		this.app.debug(`subscription: ${JSON.stringify(subscription)}`);
@@ -533,7 +581,14 @@ export class PluginManager {
 				try {
 					// Validate message format
 					const validatedPgn = validateN2KMessage(pgn);
-					if (process.env.DEBUG) {
+					// `app.debug` is a debug-library instance that self-gates. We
+					// check `.enabled` to avoid running formatN2KMessage (which
+					// allocates a string) when debug output is disabled for this
+					// namespace, regardless of global DEBUG env.
+					const appDebug = this.app.debug as unknown as {
+						enabled?: boolean;
+					};
+					if (appDebug?.enabled) {
 						this.app.debug(
 							`emit nmea2000JsonOut ${formatN2KMessage(validatedPgn)}`,
 						);

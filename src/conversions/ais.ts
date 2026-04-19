@@ -118,7 +118,13 @@ export default function createAisConversion(
 		optionKey: "AIS",
 		callback: ((delta: AisDelta) => {
 			const deltaMsg = delta;
-			const selfContext = `vessels.${app.selfId || "self"}`;
+			// Require app.selfId to be set. A bare "vessels.self" fallback
+			// never matches real urn-form contexts, so own-vessel AIS data
+			// silently leaks out as if it were a remote target.
+			if (!app.selfId) {
+				return [];
+			}
+			const selfContext = `vessels.${app.selfId}`;
 
 			if (deltaMsg.context === selfContext || isN2K(deltaMsg)) {
 				return [];
@@ -307,6 +313,34 @@ export default function createAisConversion(
 						},
 					},
 				],
+			},
+			{
+				// Echo loop: delta originated from the vessel's own N2K bus
+				// (source.type === "NMEA2000"). Re-emitting would duplicate
+				// every AIS frame on the wire. mmsi is included so that the
+				// rest of the pipeline *would* succeed if the echo guard
+				// weren't enforced — making this a genuine regression test.
+				input: [
+					{
+						context: "vessels.urn:mrn:imo:mmsi:367301250",
+						updates: [
+							{
+								source: { label: "canbus0", type: "NMEA2000" },
+								values: [
+									{ path: "mmsi", value: "367301250" },
+									{
+										path: "navigation.position",
+										value: {
+											longitude: -76.3947165,
+											latitude: 39.1296167,
+										},
+									},
+								],
+							},
+						],
+					},
+				],
+				expected: [],
 			},
 		],
 	};
@@ -577,7 +611,16 @@ function indexedFindValue(
 		: val;
 }
 
-// TODO: implement N2K source detection to prevent echo loops
-function isN2K(_delta: AisDelta): boolean {
-	return false;
+/**
+ * Detect deltas that originated from the vessel's own NMEA 2000 bus so we
+ * don't rebroadcast them — that would duplicate every AIS frame on the wire.
+ * Signal K server's N2K inbound decoder labels sources with
+ * `updates[].source.type === "NMEA2000"`.
+ */
+function isN2K(delta: AisDelta): boolean {
+	if (!Array.isArray(delta.updates)) return false;
+	return delta.updates.some((u) => {
+		const src = (u as { source?: { type?: string } }).source;
+		return typeof src?.type === "string" && src.type === "NMEA2000";
+	});
 }

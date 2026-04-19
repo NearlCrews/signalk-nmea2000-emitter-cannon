@@ -19,7 +19,12 @@ export default function createRaymarineBrightnessConversion(
 	const conversions = (
 		options: PluginOptions["RAYMARINE_BRIGHTNESS"],
 	): SubConversionModule<[number | null]>[] => {
-		const groups = options?.groups as BrightnessGroup[] | undefined;
+		const groups =
+			options && typeof options === "object"
+				? ((options as Record<string, unknown>).groups as
+						| BrightnessGroup[]
+						| undefined)
+				: undefined;
 
 		if (!groups || !Array.isArray(groups) || groups.length === 0) {
 			return [];

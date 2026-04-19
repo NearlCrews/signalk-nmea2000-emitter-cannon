@@ -24,10 +24,14 @@ export function toValidNumber(value: unknown): number | null {
 }
 
 /**
- * Normalize an angle to the 0–2π range
- * @param angle - Angle in radians (may be negative)
+ * Normalize an angle to the 0–2π range. Handles inputs outside
+ * [-2π, 2π] via a full modulo wrap — the prior implementation added one
+ * turn only, which silently corrupted angles below -2π.
+ *
+ * @param angle - Angle in radians (any real value)
  * @returns Angle normalized to [0, 2π)
  */
 export function normalizeAngle(angle: number): number {
-	return angle < 0 ? angle + Math.PI * 2 : angle;
+	const twoPi = Math.PI * 2;
+	return ((angle % twoPi) + twoPi) % twoPi;
 }

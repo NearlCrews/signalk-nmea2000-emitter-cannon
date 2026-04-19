@@ -1,3 +1,20 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.4.10/schema.json"
+	"$schema": "https://biomejs.dev/schemas/2.3.11/schema.json",
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"recommended": true,
+			"suspicious": {
+				"noExplicitAny": "warn",
+				"noConsole": {
+					"level": "warn",
+					"options": { "allow": ["error", "warn"] }
+				}
+			},
+			"style": {
+				"useConst": "error",
+				"useImportType": "error"
+			}
+		}
+	}
 }

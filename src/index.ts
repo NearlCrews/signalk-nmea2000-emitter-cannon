@@ -20,7 +20,7 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 		id: "signalk-nmea2000-emitter-cannon",
 		name: "Signal K NMEA2000 Emitter Cannon",
 		description:
-			"Plugin to convert Signal K to NMEA2000 with enhanced Garmin compatibility (92% PGN coverage)",
+			"Plugin to convert Signal K to NMEA2000 with enhanced Garmin compatibility",
 		schema: () => schema,
 		start: startPlugin,
 		stop: stopPlugin,

@@ -4,6 +4,8 @@
 
 export type * from "./nmea2000.js";
 export type * from "./plugin.js";
+// Value-level re-exports (type guards, runtime helpers)
+export { isConversionOptions } from "./plugin.js";
 // Re-export all types from individual modules
 export type * from "./signalk.js";
 

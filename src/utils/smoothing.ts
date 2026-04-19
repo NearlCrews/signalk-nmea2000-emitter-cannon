@@ -72,11 +72,22 @@ export class ExponentialSmoother {
 
 /**
  * Clear smoothing state on every ExponentialSmoother instance currently
- * registered in this module. Intended for plugin lifecycle teardown so
- * stale smoothed values don't bleed across plugin restarts.
+ * registered in this module AND release the registry references so old
+ * instances can be garbage-collected. Intended for plugin lifecycle teardown
+ * so stale smoothed values don't bleed across plugin restarts and the
+ * registry doesn't grow unbounded with one zombie entry per restart.
  */
 export function clearAllSmoothers(): void {
 	for (const smoother of registeredSmoothers) {
 		smoother.clear();
 	}
+	registeredSmoothers.clear();
+}
+
+/**
+ * Number of ExponentialSmoother instances currently tracked by the registry.
+ * Primarily for tests and diagnostic/status reporting.
+ */
+export function getRegisteredSmootherCount(): number {
+	return registeredSmoothers.size;
 }

@@ -8,6 +8,7 @@ import type {
 	ConversionModule,
 	SignalKApp,
 } from "../types/index.js";
+import { isValidNumber } from "../utils/validation.js";
 
 /**
  * Attitude data interface
@@ -42,9 +43,11 @@ export default function createAttitudeConversion(
 						dst: N2K_BROADCAST_DST,
 						fields: {
 							sid: N2K_DEFAULT_SID,
-							pitch: attitude.pitch,
-							yaw: attitude.yaw,
-							roll: attitude.roll,
+							...(isValidNumber(attitude.pitch)
+								? { pitch: attitude.pitch }
+								: {}),
+							...(isValidNumber(attitude.yaw) ? { yaw: attitude.yaw } : {}),
+							...(isValidNumber(attitude.roll) ? { roll: attitude.roll } : {}),
 						},
 					},
 				];
@@ -71,6 +74,28 @@ export default function createAttitudeConversion(
 							roll: 0.042,
 							sid: 87,
 							yaw: 1.8843,
+						},
+						pgn: 127257,
+						prio: 2,
+					},
+				],
+			},
+			{
+				// Faulty IMU: pitch is NaN, yaw is Infinity. Both must be
+				// dropped from the PGN — never emitted as corrupt bits.
+				input: [
+					{
+						yaw: Number.POSITIVE_INFINITY,
+						pitch: Number.NaN,
+						roll: 0.1,
+					},
+				],
+				expected: [
+					{
+						dst: 255,
+						fields: {
+							roll: 0.1,
+							sid: 87,
 						},
 						pgn: 127257,
 						prio: 2,

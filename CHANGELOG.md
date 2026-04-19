@@ -1,5 +1,110 @@
 ## Change Log
 
+### v1.2.3 (2026/04/19) - Bus Correctness, Lifecycle Hardening, Type Safety
+
+**NMEA 2000 Bus Correctness (wrong data on the wire — fix first)**:
+- PGN 127245 rudder `directionOrder` now emits the canboat enum values
+  (`Move to starboard`, `Move to port`) instead of `Turn Right`/`Turn Left`,
+  which canboatjs silently dropped to `No Order` — rudder direction commands
+  were never actually transmitted.
+- PGN 130577 direction data: `cog`/`heading` fallback uses `??` instead of
+  `||`, so a true-north (0 rad) reading no longer silently substitutes the
+  magnetic value.
+- PGN 129029 GNSS Position Data no longer emits fabricated metadata. Previously
+  hardcoded `method: "DGNSS fix"`, `numberOfSvs: 16`, `hdop: 0.64`,
+  `geoidalSeparation: -0.01`, and a fake reference-station list were broadcast
+  regardless of reality. These fields are now sourced live from Signal K
+  (`navigation.gnss.methodQuality`, `.satellites`, `.horizontalDilution`,
+  `.geoidalSeparation`, etc.) and omitted when not available. Altitude from
+  `navigation.position.altitude` is now included.
+- PGN 130310 sea/air temperature uses `sid: 0` instead of `sid: 0xff` (the
+  "not available" sentinel, which made the message's SID undefined).
+- PGN 129539 GNSS DOPs: `actualMode` falls through to `"Auto"` instead of
+  `"No GNSS"` when Signal K reports mode `"Auto"` — chart plotters no longer
+  show "No GNSS fix" while the receiver is in auto-2D/3D mode.
+- PGN 128267 depth: `surfaceToTransducer` is now negated when used as the
+  N2K offset (freeboard offset is signed negative per the PGN spec).
+- PGN 127257 attitude: `pitch`/`yaw`/`roll` are validated with `isValidNumber`
+  and dropped when NaN/Infinity — faulty IMU readings no longer leak corrupt
+  bits onto the bus.
+- PGN 130306 true wind (water/ground) now includes a `sid` field matching
+  the apparent-wind variant, so correlated wind messages share a sequence ID.
+- Temperature instance collisions resolved: eight sources that previously
+  defaulted to instance `107` (Main Cabin, Refrigerator, Heating System,
+  Dew Point, Apparent Wind Chill, Theoretical Wind Chill, Heat Index, Freezer)
+  now have unique defaults (104–111).
+- AIS: `isN2K()` now actually detects NMEA2000-originated deltas via
+  `updates[].source.type === "NMEA2000"` — closes an echo loop that doubled
+  AIS frames on vessels with a hardware receiver + this plugin.
+- AIS: own-vessel filter no longer falls back to the literal `"vessels.self"`
+  (which never matched real urn-form contexts, letting own-vessel data leak
+  out as if it were a remote target). Missing `app.selfId` skips the callback.
+
+**Plugin Host Lifecycle**:
+- `nmea2000OutAvailable` listener is now removed in `stop()`. Previously
+  every restart leaked a listener plus the PluginManager it closed over,
+  eventually tripping `MaxListenersExceeded`.
+- Timer-source conversions (e.g. `systemTime`) no longer get a redundant
+  global resend timer — `systemTime` was emitting PGN 126992 both on its
+  1s main interval and every 5s from the resend timer.
+- Replaced `BehaviorSubject<unknown[]>([])` seed with a plain `Subject` —
+  the pipeline no longer fires callbacks with empty args at startup before
+  any real Signal K value has arrived.
+- `clearAllSmoothers()` now releases registry entries so
+  `ExponentialSmoother` instances can be garbage-collected across restarts.
+- Notifications subscribe with `policy: "instant"` instead of the default
+  `fixed` 1s period, so bursts of alerts are no longer throttled.
+- Source-filter predicate now matches label prefixes (`gps1` matches
+  `gps1.0`, `gps1.1`, …) instead of requiring an exact match against the
+  composite `$source` — the admin UI description now reflects real behavior.
+- `stop()` calls `setPluginStatus("Stopped")`.
+- Resend-timer cleanup is no longer performed twice (removed redundant
+  second loop).
+- Debug-gated `formatN2KMessage` call now uses the debug-library
+  `.enabled` flag instead of `process.env.DEBUG`, avoiding the allocation
+  when debug is disabled for this namespace regardless of env state.
+- `normalizeAngle()` now wraps fully via modulo, handling angles below -2π
+  correctly (was only adding one turn).
+
+**Type Safety**:
+- `SubConversionModule.title` field added (was read at runtime but not typed).
+- `ConversionModule.keys` widened to `string[] | ((options) => string[])` so
+  the runtime function path is visible to the type system.
+- `PluginOptions.globalResendInterval` declared explicitly with a runtime
+  `isConversionOptions` type guard, eliminating the double `as` cast at
+  start-time.
+- `PluginFactory` now types `app: SignalKApp` instead of `app: unknown`.
+- Replaced `as Error` cast in the conversion registry with `instanceof Error`
+  narrowing per project convention.
+- Removed dead `lastOutput?: N2KMessage[]` field (superseded by `lastInputs`).
+- Replaced `isFunction` (from es-toolkit, erases to `any`) with
+  `typeof x === "function"` — TypeScript narrows properly.
+
+**Test & Build Hardening**:
+- Coverage thresholds wired into `vitest.config.ts`
+  (statements 70, branches 55, functions 80, lines 70) so PRs can't
+  silently tank coverage.
+- Module-count assertion pinned to `74` (was `toBeGreaterThan(0)`, which
+  masked silent factory-load failures).
+- Production build no longer emits linked sourcemaps — 387kb of broken map
+  references are out of the npm package. Sourcemaps remain in
+  `build:watch` for development.
+- `biome.json` now enables the recommended rule set plus
+  `noExplicitAny`, `noConsole`, `useConst`, `useImportType`.
+- Plugin description string no longer hardcodes the outdated "92% PGN
+  coverage" claim.
+- Removed dead `dev` and `build:npm` scripts.
+
+**New lifecycle tests**:
+- Listener leak regression (repeated start/stop cycles).
+- Timer-source double-emission regression.
+- BehaviorSubject empty-seed callback regression.
+- Notifications subscription policy regression.
+- `ExponentialSmoother` registry-release regression.
+- Temperature default-instance uniqueness regression.
+
+---
+
 ### v1.2.2 (2026/04/18) - Schema Fix, Resend Correctness, Type Tightening
 
 **Critical Bug Fixes**:

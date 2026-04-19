@@ -4,7 +4,7 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat&logo=typescript&logoColor=white)
 ![Signal K](https://img.shields.io/badge/Signal%20K-00D4AA?style=flat&logo=sailboat&logoColor=white)
 
-A modern TypeScript Signal K server plugin that converts Signal K data to NMEA 2000 format with enhanced Garmin compatibility. Features complete TypeScript conversion with 100% PGN coverage for comprehensive marine electronics integration.
+A modern TypeScript Signal K server plugin that converts Signal K data to NMEA 2000 format with enhanced Garmin compatibility.
 
 > **Built on the foundation of [signalk-to-nmea2000](https://github.com/SignalK/signalk-to-nmea2000)**
 >
@@ -13,7 +13,7 @@ A modern TypeScript Signal K server plugin that converts Signal K data to NMEA 2
 ## Features
 
 - **Modern TypeScript**: Fully converted to TypeScript 5.9+ with strict type safety
-- **Complete PGN Coverage**: 45 conversion modules supporting 57 NMEA 2000 Parameter Group Numbers
+- **Broad PGN Coverage**: 45 conversion modules supporting 58 NMEA 2000 Parameter Group Numbers
 - **Signal K Native**: Seamless integration with Signal K server ecosystem using official `@signalk/server-api`
 - **Garmin Compatibility**: Aligned with Garmin PGN specifications and canboatjs framework
 - **Reactive Processing**: Built on RxJS 7.8 for efficient real-time data processing
@@ -68,9 +68,9 @@ npm link /path/to/signalk-nmea2000-emitter-cannon
 Each conversion can be individually enabled and configured:
 
 - **Enabled**: Toggle individual PGN conversions on/off
-- **Resend interval** (seconds): How often to re-emit the message even when the source value hasn't changed. Many NMEA 2000 displays expect periodic updates — set to 0 to only send on value change.
-- **Resend duration** (seconds): How long to keep resending after the last source update. Prevents stale data from being emitted indefinitely.
-- **Source filter**: When multiple Signal K sources provide the same data path (e.g., two GPS receivers), enter a source name here to use only that source. Leave blank to accept any source.
+- **Global Resend Interval** (seconds, top-level): How often every enabled conversion re-emits its last value when the source hasn't changed. Many NMEA 2000 displays expect periodic updates.
+- **Resend** (seconds, per-conversion): Overrides the global interval for this conversion when non-zero. Set to 0 to use the global default.
+- **Source filter**: When multiple Signal K sources provide the same data path (e.g., two GPS receivers), enter a source label (e.g. `gps1`) to match any `$source` that starts with that label. Leave blank to accept any source.
 
 Some conversions require instance mapping to match your NMEA 2000 network:
 
@@ -79,7 +79,7 @@ Some conversions require instance mapping to match your NMEA 2000 network:
 - **Tank**: Map each Signal K tank path to an NMEA 2000 tank instance ID
 - **Solar**: Map each Signal K solar charger ID to an NMEA 2000 battery instance ID
 
-## Supported PGNs (57 PGNs across 45 modules)
+## Supported PGNs (58 PGNs across 45 modules)
 
 All PGNs are aligned with Garmin specifications (corrected priorities, SID fields, field names).
 
@@ -141,9 +141,10 @@ All PGNs are aligned with Garmin specifications (corrected priorities, SID field
 | 130306 | Wind Data (apparent, true ground, true water) | `wind.ts`, `windTrueGround.ts`, `windTrueWater.ts` |
 | 130310 | Sea/Air Temperature | `seaTemp.ts` |
 | 130311 | Atmospheric Pressure | `pressure.ts` |
-| 130312 | Temperature (exhaust) | `engineParameters.ts` |
+| 130312 | Temperature (exhaust + general-purpose sources) | `engineParameters.ts`, `temperature.ts` |
 | 130313 | Humidity (inside/outside) | `humidity.ts` |
 | 130314 | Actual Pressure | `pressure.ts` |
+| 130316 | Temperature, Extended Range | `temperature.ts` |
 
 ### Electrical Systems
 
@@ -254,7 +255,7 @@ src/
 
 1. Create `src/conversions/yourConversion.ts` using the factory pattern below
 2. Import and register in `src/conversions/index.ts` (add to imports and `conversionFactories` array)
-3. Add a configuration entry in `src/schema.ts` with `enabled`, `resend`, and `resendTime` properties
+3. Add a configuration entry in `src/schema.ts` with `enabled` and `resend` properties
 4. Include embedded test cases in the module's `tests` array
 5. Run `npm test` and `npm run typecheck`
 
@@ -357,9 +358,13 @@ Signal K reloads plugin configuration when you save it, but some changes (for ex
 - Check the Signal K log for `Signal K NMEA2000 Emitter Cannon` errors.
 - A common cause is the NMEA 2000 output channel not being initialized — the plugin waits for the `nmea2000OutAvailable` event before emitting messages, so confirm your NMEA 2000 gateway is connected and Signal K has registered an output provider.
 
-### Time/GNSS PGNs broadcast stale values
+### AIS appears to not filter own vessel
 
-This is a known issue with cached resends — the resend timer re-emits the last computed value rather than recomputing time-derived fields. See the issue tracker for current status.
+The plugin uses `app.selfId` (the Signal K server's self identifier) to filter own-vessel AIS deltas. If `selfId` isn't set on your Signal K server, AIS conversions are skipped entirely. Verify the server has a self identifier configured (usually the vessel's MMSI in urn form).
+
+### No yellow delta-rate bar next to this plugin in the Signal K dashboard
+
+Expected. The yellow bar in the Signal K admin dashboard's **Plugins activity** section visualizes a plugin's `deltaRate` — the rate of Signal K deltas it *produces* into the server via `app.handleMessage(pluginId, delta)`. This plugin is an outbound emitter: it *consumes* Signal K data and writes NMEA 2000 messages out to the bus. Its activity is correctly reported through a different API (`app.reportOutputMessages`) and appears as the plain **"X msg/s"** number to the right of the plugin name. That's the right metric for a plugin of this type; the bar will always be absent unless the NOTIFICATIONS conversion is enabled and actively injecting alerts back into Signal K.
 
 ## Contributing
 

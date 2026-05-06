@@ -33,7 +33,6 @@ export default function createTimeToMarkConversion(): ConversionModule {
 				markType: markType === "waypoint" ? "Waypoint" : "Mark",
 			};
 
-			// Add conditional fields based on availability
 			if (typeof timeToGo === "number") {
 				fields.timeToMark = timeToGo;
 			}

@@ -4,11 +4,9 @@ import type {
 	ConversionModule,
 	SignalKApp,
 } from "../types/index.js";
+import { errMessage } from "../utils/errorUtils.js";
 import { isValidNumber } from "../utils/validation.js";
 
-/**
- * Depth conversion module - converts Signal K depth data to NMEA 2000 PGN 128267
- */
 export default function createDepthConversion(
 	app: SignalKApp,
 ): ConversionModule<[number | null]> {
@@ -51,7 +49,7 @@ export default function createDepthConversion(
 					},
 				];
 			} catch (err) {
-				app.error(err instanceof Error ? err.message : String(err));
+				app.error(errMessage(err));
 				return [];
 			}
 		}) as ConversionCallback<[number | null]>,
@@ -98,7 +96,6 @@ export default function createDepthConversion(
 				],
 			},
 			{
-				// Test with no offset data available
 				input: [5.0],
 				skSelfData: {},
 				expected: [

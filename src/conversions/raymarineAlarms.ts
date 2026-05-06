@@ -1,9 +1,5 @@
 import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
-import type {
-	ConversionModule,
-	N2KMessage,
-	SignalKApp,
-} from "../types/index.js";
+import type { ConversionModule, N2KMessage } from "../types/index.js";
 
 interface AlarmValue {
 	state: string;
@@ -24,9 +20,7 @@ interface AlarmPGN extends N2KMessage {
 	path: string;
 }
 
-export default function createRaymarineAlarmsConversion(
-	app: SignalKApp,
-): ConversionModule {
+export default function createRaymarineAlarmsConversion(): ConversionModule {
 	// Instance-scoped state (cleared when plugin restarts)
 	let pgns: AlarmPGN[] = [];
 	return {
@@ -66,32 +60,29 @@ export default function createRaymarineAlarmsConversion(
 			const path = update.path;
 			const value = update.value;
 
-			// Don't create a loop by sending out notifications we received from NMEA
 			if (path.includes("notifications.nmea")) {
 				return pgns;
 			}
 
-			// Remove the pgns and reprocess them for changes
 			pgns = pgns.filter((obj) => obj.path !== path);
 
 			let state: string | undefined;
 			const method = value.method || [];
+			const hasSound = method.includes("sound");
 
 			if (value.state === "normal") {
-				if (method.indexOf("sound") !== -1) {
+				if (hasSound) {
 					state = "Alarm condition not met";
 				}
 			} else {
-				if (method.indexOf("sound") === -1) {
-					state = "Alarm condition met and silenced";
-				} else {
-					state = "Alarm condition met and not silenced";
-				}
+				state = hasSound
+					? "Alarm condition met and not silenced"
+					: "Alarm condition met and silenced";
 			}
 
 			let alarmId: string | undefined;
 			if (path.startsWith("notifications.navigation.anchor")) {
-				// There should be a better one but not supported by canboatjs yet
+				// canboatjs lookup table doesn't yet expose a more specific anchor alarm.
 				alarmId = "Deep Anchor";
 			} else if (path.startsWith("notifications.mob")) {
 				alarmId = "MOB";
@@ -115,12 +106,7 @@ export default function createRaymarineAlarmsConversion(
 				});
 			}
 
-			try {
-				return pgns;
-			} catch (err) {
-				app.error(err instanceof Error ? err.message : String(err));
-				return [];
-			}
+			return pgns;
 		},
 		tests: [
 			{

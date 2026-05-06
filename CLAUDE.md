@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Signal K NMEA2000 Emitter Cannon is a TypeScript Signal K server plugin that converts Signal K marine navigation data to NMEA 2000 format. It supports 45 conversion modules covering 57 PGNs with Garmin compatibility.
+Signal K NMEA2000 Emitter Cannon is a TypeScript Signal K server plugin that converts Signal K marine navigation data to NMEA 2000 format. It supports 45 conversion modules emitting 53 data PGNs (plus 3 ISO PGNs announced in the transmit list) with Garmin compatibility.
 
 ## Common Commands
 
@@ -52,9 +52,11 @@ The registry `src/conversions/index.ts` imports all factories and exports `creat
 - `src/utils/messageUtils.ts` - N2K message validation (`validateN2KMessage`), formatting (`formatN2KMessage`), cleaning (`cleanN2KMessage`)
 - `src/utils/pathUtils.ts` - `pathToPropName()` for config keys, `isDefined()` type guard
 - `src/utils/dateUtils.ts` - NMEA 2000 date/time conversions (`toN2KDate`, `toN2KTime`, `toN2KDateTime`)
+- `src/utils/errorUtils.ts` - `errMessage(err)` coercion helper for `unknown`-typed thrown values
 - `src/utils/validation.ts` - Input validation (`isValidNumber`, `toValidNumber` - rejects NaN/Infinity), `normalizeAngle()`
 - `src/utils/smoothing.ts` - `ExponentialSmoother` class for sensor data smoothing
-- `src/constants.ts` - Standard N2K values (`N2K_DEFAULT_PRIORITY`, `N2K_BROADCAST_DST`, `N2K_DEFAULT_SID`)
+- `src/constants.ts` - Standard N2K values (`N2K_DEFAULT_PRIORITY`, `N2K_BROADCAST_DST`, `N2K_DEFAULT_SID`, `N2K_SID_ZERO`, `N2K_DEFAULT_INSTANCE`, `DEFAULT_DATA_TIMEOUT_MS`)
+- `src/conversions/routeTypes.ts` - Shared `Position`/`Waypoint` interfaces and `DEFAULT_ROUTE_NAME` for the route conversion modules
 
 ### Configuration Schema
 `src/schema.ts` generates JSON Schema for Signal K admin UI. Each conversion gets enabled/resend/source filter options.
@@ -68,8 +70,8 @@ Tests live in `src/test/index.test.ts`. Each conversion module embeds its own te
 
 ## Key Technical Details
 
-- **Runtime**: Node.js 20+, pure ESM modules
-- **Build**: esbuild bundles to single `dist/index.js` (~207kb)
+- **Runtime**: Node.js 20.18+, pure ESM modules
+- **Build**: esbuild bundles to single `dist/index.js` (~209 KB)
 - **Externals**: rxjs, es-toolkit, path-scurry, @canboat/canboatjs
 - **Reactivity**: RxJS for Signal K data subscriptions (Signal K server uses BaconJS internally)
 - **N2K Message Format**: CanboatJS format - `{ prio, pgn, dst, fields: {...} }`
@@ -89,10 +91,12 @@ const subscription = { context: "vessels.self" as Context, ... };
 ```
 
 ### Error Handling
-`app.error()` takes a **string**, not an Error object:
+`app.error()` takes a **string**, not an Error object. Use the shared `errMessage` helper to coerce `unknown`-typed thrown values:
 ```typescript
+import { errMessage } from "../utils/errorUtils.js";
+
 // Correct
-app.error(err instanceof Error ? err.message : String(err));
+app.error(errMessage(err));
 
 // Wrong - will cause TypeScript error
 app.error(err as Error);

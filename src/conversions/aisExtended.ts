@@ -5,6 +5,7 @@ import type {
 	SignalKApp,
 	SignalKPlugin,
 } from "../types/index.js";
+import { isValidNumber } from "../utils/validation.js";
 
 interface Position {
 	latitude?: number;
@@ -52,13 +53,11 @@ export default function createAisExtendedConversions(
 					aisClass !== "B" ||
 					typeof position !== "object" ||
 					position == null ||
-					!position.latitude ||
-					!position.longitude
+					!isValidNumber(position.latitude) ||
+					!isValidNumber(position.longitude)
 				) {
 					return [];
 				}
-
-				const pos = position as Position;
 
 				return [
 					{
@@ -69,15 +68,15 @@ export default function createAisExtendedConversions(
 							messageId: "Standard Class B position report",
 							repeatIndicator: "Initial",
 							userId: 123456789, // Should be derived from MMSI
-							longitude: pos.longitude,
-							latitude: pos.latitude,
+							longitude: position.longitude,
+							latitude: position.latitude,
 							positionAccuracy: "Low",
 							raim: "not in use",
 							timeStamp: "0",
-							cog: typeof cog === "number" ? cog : undefined,
-							sog: typeof sog === "number" ? sog : undefined,
+							cog: isValidNumber(cog) ? cog : undefined,
+							sog: isValidNumber(sog) ? sog : undefined,
 							aisTransceiverInformation: "Channel A VDL reception",
-							heading: typeof heading === "number" ? heading : undefined,
+							heading: isValidNumber(heading) ? heading : undefined,
 							regionalApplication: 0,
 							unitType: "SOTDMA",
 							integratedDisplay: "No",
@@ -183,21 +182,18 @@ export default function createAisExtendedConversions(
 					aisClass !== "B" ||
 					typeof position !== "object" ||
 					position == null ||
-					!position.latitude ||
-					!position.longitude
+					!isValidNumber(position.latitude) ||
+					!isValidNumber(position.longitude)
 				) {
 					return [];
 				}
 
-				const pos = position as Position;
-
-				// Calculate position reference points
 				let fromStarboard: number | null = null;
-				if (typeof beam === "number" && typeof fromCenter === "number") {
+				if (isValidNumber(beam) && isValidNumber(fromCenter)) {
 					fromStarboard = beam / 2 + fromCenter;
 				}
 
-				const shipTypeName = shipType?.name || "Sailing";
+				const shipTypeName = shipType?.name ?? "Sailing";
 
 				return [
 					{
@@ -208,21 +204,22 @@ export default function createAisExtendedConversions(
 							messageId: "Extended Class B position report",
 							repeatIndicator: "Initial",
 							userId: 123456789, // Should be derived from MMSI
-							longitude: pos.longitude,
-							latitude: pos.latitude,
+							longitude: position.longitude,
+							latitude: position.latitude,
 							positionAccuracy: "Low",
 							raim: "not in use",
 							timeStamp: "0",
-							cog: typeof cog === "number" ? cog : undefined,
-							sog: typeof sog === "number" ? sog : undefined,
+							cog: isValidNumber(cog) ? cog : undefined,
+							sog: isValidNumber(sog) ? sog : undefined,
 							aisTransceiverInformation: "Channel A VDL reception",
-							heading: typeof heading === "number" ? heading : undefined,
+							heading: isValidNumber(heading) ? heading : undefined,
 							typeOfShip: shipTypeName,
-							length: typeof length === "number" ? length : undefined,
-							beam: typeof beam === "number" ? beam : undefined,
+							length: isValidNumber(length) ? length : undefined,
+							beam: isValidNumber(beam) ? beam : undefined,
 							positionReferenceFromStarboard: fromStarboard,
-							positionReferenceFromBow:
-								typeof fromBow === "number" ? fromBow : undefined,
+							positionReferenceFromBow: isValidNumber(fromBow)
+								? fromBow
+								: undefined,
 							name: "UNKNOWN", // Should be derived from vessel data
 							dte: "Available",
 							aisMode: "Assigned",
@@ -312,13 +309,11 @@ export default function createAisExtendedConversions(
 					aisClass !== "SAR" ||
 					typeof position !== "object" ||
 					position == null ||
-					!position.latitude ||
-					!position.longitude
+					!isValidNumber(position.latitude) ||
+					!isValidNumber(position.longitude)
 				) {
 					return [];
 				}
-
-				const pos = position as Position;
 
 				return [
 					{
@@ -329,15 +324,15 @@ export default function createAisExtendedConversions(
 							messageId: "Standard SAR aircraft position report",
 							repeatIndicator: "Initial",
 							userId: 111000001, // SAR aircraft MMSI format
-							longitude: pos.longitude,
-							latitude: pos.latitude,
+							longitude: position.longitude,
+							latitude: position.latitude,
 							positionAccuracy: "High",
 							raim: "in use",
 							timeStamp: "0",
-							cog: typeof cog === "number" ? cog : undefined,
-							sog: typeof sog === "number" ? sog : undefined,
+							cog: isValidNumber(cog) ? cog : undefined,
+							sog: isValidNumber(sog) ? sog : undefined,
 							aisTransceiverInformation: "Channel A VDL reception",
-							altitude: typeof altitude === "number" ? altitude : 0,
+							altitude: isValidNumber(altitude) ? altitude : 0,
 							dte: "Available",
 						},
 					},
@@ -400,7 +395,7 @@ export default function createAisExtendedConversions(
 					return [];
 				}
 
-				const sequenceId = typeof seqId === "number" ? seqId : 0;
+				const sequenceId = isValidNumber(seqId) ? seqId : 0;
 
 				return [
 					{

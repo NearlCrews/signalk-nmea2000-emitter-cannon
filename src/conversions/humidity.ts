@@ -9,11 +9,9 @@ import type {
 	N2KMessage,
 	SignalKApp,
 } from "../types/index.js";
+import { errMessage } from "../utils/errorUtils.js";
 import { isValidNumber } from "../utils/validation.js";
 
-/**
- * Create a humidity message for NMEA 2000
- */
 function createHumidityMessage(humidity: number, source: string): N2KMessage[] {
 	// Signal K spec: relativeHumidity is a ratio (0-1)
 	// NMEA 2000 PGN 130313 actualHumidity expects percentage (0-100)
@@ -32,9 +30,6 @@ function createHumidityMessage(humidity: number, source: string): N2KMessage[] {
 	];
 }
 
-/**
- * Humidity conversion modules - converts Signal K humidity data to NMEA 2000 PGN 130313
- */
 export default function createHumidityConversions(
 	app: SignalKApp,
 ): ConversionModule<unknown[]>[] {
@@ -63,7 +58,7 @@ export default function createHumidityConversions(
 
 					return createHumidityMessage(value, "Outside");
 				} catch (err) {
-					app.error(err instanceof Error ? err.message : String(err));
+					app.error(errMessage(err));
 					return [];
 				}
 			}) as ConversionCallback<[number | null, number | null]>,
@@ -85,7 +80,6 @@ export default function createHumidityConversions(
 					],
 				},
 				{
-					// Test with high humidity
 					input: [0.95, null],
 					expected: [
 						{
@@ -132,6 +126,22 @@ export default function createHumidityConversions(
 						},
 					],
 				},
+				{
+					// relativeHumidity = 0 is valid (0% RH); must not fall through to humidity
+					input: [0, 0.5],
+					expected: [
+						{
+							prio: 2,
+							pgn: 130313,
+							dst: 255,
+							fields: {
+								instance: 100,
+								source: "Outside",
+								actualHumidity: 0,
+							},
+						},
+					],
+				},
 			],
 		},
 		{
@@ -146,7 +156,7 @@ export default function createHumidityConversions(
 
 					return createHumidityMessage(humidity, "Inside");
 				} catch (err) {
-					app.error(err instanceof Error ? err.message : String(err));
+					app.error(errMessage(err));
 					return [];
 				}
 			}) as ConversionCallback<[number | null]>,
@@ -168,7 +178,6 @@ export default function createHumidityConversions(
 					],
 				},
 				{
-					// Test with low humidity
 					input: [0.35],
 					expected: [
 						{

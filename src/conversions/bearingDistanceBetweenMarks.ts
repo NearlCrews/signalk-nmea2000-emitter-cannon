@@ -55,7 +55,6 @@ export default function createBearingDistanceBetweenMarksConversion(
 				sid: N2K_SID_ZERO,
 			};
 
-			// Add fields conditionally based on availability
 			if (typeof nextBearing === "number") {
 				fields.bearingOriginToDestination = nextBearing;
 			}

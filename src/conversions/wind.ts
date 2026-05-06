@@ -8,6 +8,7 @@ import type {
 	ConversionModule,
 	SignalKApp,
 } from "../types/index.js";
+import { errMessage } from "../utils/errorUtils.js";
 import { normalizeAngle, toValidNumber } from "../utils/validation.js";
 
 /**
@@ -22,7 +23,6 @@ export default function createWindConversion(
 		keys: ["environment.wind.angleApparent", "environment.wind.speedApparent"],
 		callback: ((angle: number | null, speed: number | null) => {
 			try {
-				// Validate inputs (reject NaN/Infinity)
 				const validAngle = toValidNumber(angle);
 				const validSpeed = toValidNumber(speed);
 
@@ -47,7 +47,7 @@ export default function createWindConversion(
 					},
 				];
 			} catch (err) {
-				app.error(err instanceof Error ? err.message : String(err));
+				app.error(errMessage(err));
 				return [];
 			}
 		}) as ConversionCallback<[number | null, number | null]>,
@@ -86,7 +86,6 @@ export default function createWindConversion(
 				],
 			},
 			{
-				// Test with null values
 				input: [null, 0],
 				expected: [
 					{

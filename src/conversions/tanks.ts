@@ -5,10 +5,11 @@ import type {
 	N2KMessage,
 	SignalKApp,
 } from "../types/index.js";
+import { errMessage } from "../utils/errorUtils.js";
+import { toValidNumber } from "../utils/validation.js";
 
-/**
- * Tank type mapping from Signal K to NMEA 2000
- */
+const TANK_TIMEOUT_MS = 60000;
+
 const typeMapping: Record<string, string> = {
 	fuel: "Fuel",
 	blackWater: "Black water",
@@ -21,26 +22,17 @@ const typeMapping: Record<string, string> = {
 	gas: "Fuel",
 };
 
-/**
- * Tank configuration interface
- */
 interface TankConfig {
 	signalkPath: string;
 	instanceId: number;
 }
 
-/**
- * Tank options interface
- */
 interface TankOptions {
 	tanks: TankConfig[];
 	enabled?: boolean;
 	resend?: number;
 }
 
-/**
- * Tank levels conversion module - converts Signal K tank data to NMEA 2000 PGN 127505
- */
 export default function createTanksConversion(
 	app: SignalKApp,
 ): ConversionModule {
@@ -122,16 +114,14 @@ export default function createTanksConversion(
 							`${tank.signalkPath}.currentLevel`,
 							`${tank.signalkPath}.capacity`,
 						],
-						timeouts: [60000, 60000],
+						timeouts: [TANK_TIMEOUT_MS, TANK_TIMEOUT_MS],
 						callback: (
 							currentLevel: unknown,
 							capacity: unknown,
 						): N2KMessage[] => {
 							try {
-								// Validate inputs
-								const level =
-									typeof currentLevel === "number" ? currentLevel : null;
-								const cap = typeof capacity === "number" ? capacity : null;
+								const level = toValidNumber(currentLevel);
+								const cap = toValidNumber(capacity);
 
 								if (level === null && cap === null) {
 									return [];
@@ -151,7 +141,7 @@ export default function createTanksConversion(
 									},
 								];
 							} catch (err) {
-								app.error(err instanceof Error ? err.message : String(err));
+								app.error(errMessage(err));
 								return [];
 							}
 						},

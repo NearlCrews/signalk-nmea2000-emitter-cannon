@@ -8,10 +8,9 @@ import type {
 	N2KMessage,
 	SignalKApp,
 } from "../types/index.js";
+import { errMessage } from "../utils/errorUtils.js";
+import { isValidNumber } from "../utils/validation.js";
 
-/**
- * True Heading conversion module - converts Signal K true heading to NMEA 2000 PGN 127250
- */
 export default function createTrueHeadingConversion(
 	app: SignalKApp,
 ): ConversionModule {
@@ -21,8 +20,7 @@ export default function createTrueHeadingConversion(
 		keys: ["navigation.headingTrue"],
 		callback: (heading: unknown): N2KMessage[] => {
 			try {
-				// Validate heading input - required field
-				if (typeof heading !== "number") {
+				if (!isValidNumber(heading)) {
 					return [];
 				}
 
@@ -40,7 +38,7 @@ export default function createTrueHeadingConversion(
 					},
 				];
 			} catch (err) {
-				app.error(err instanceof Error ? err.message : String(err));
+				app.error(errMessage(err));
 				return [];
 			}
 		},

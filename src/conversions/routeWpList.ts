@@ -1,19 +1,7 @@
 import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import type { ConversionModule, N2KMessage } from "../types/index.js";
-
-interface Position {
-	latitude?: number;
-	longitude?: number;
-}
-
-interface RouteWaypoint {
-	id?: number;
-	name?: string;
-	position?: Position;
-	bearingFromOrigin?: number;
-	distanceFromOrigin?: number;
-	description?: string;
-}
+import type { Waypoint } from "./routeTypes.js";
+import { DEFAULT_ROUTE_NAME } from "./routeTypes.js";
 
 export default function createRouteWpListConversion(): ConversionModule {
 	return {
@@ -33,23 +21,20 @@ export default function createRouteWpListConversion(): ConversionModule {
 				return [];
 			}
 
-			// Prepare waypoint list data (limit to reasonable number for single message)
 			const wpList = waypoints
 				.slice(0, 16)
-				.map((wp: RouteWaypoint, index: number) => {
-					return {
-						wpId: wp.id || index + 1,
-						wpName: wp.name || `WP${index + 1}`,
-						wpLatitude: wp.position?.latitude || 0,
-						wpLongitude: wp.position?.longitude || 0,
-						wpBearingFromOrigin: wp.bearingFromOrigin || 0,
-						wpDistanceFromOrigin: wp.distanceFromOrigin || 0,
-						wpDescription: wp.description || "",
-					};
-				});
+				.map((wp: Waypoint, index: number) => ({
+					wpId: wp.id ?? index + 1,
+					wpName: wp.name || `WP${index + 1}`,
+					wpLatitude: wp.position?.latitude ?? 0,
+					wpLongitude: wp.position?.longitude ?? 0,
+					wpBearingFromOrigin: wp.bearingFromOrigin ?? 0,
+					wpDistanceFromOrigin: wp.distanceFromOrigin ?? 0,
+					wpDescription: wp.description || "",
+				}));
 
 			const routeNameString =
-				typeof routeName === "string" ? routeName : "ACTIVE_ROUTE";
+				typeof routeName === "string" ? routeName : DEFAULT_ROUTE_NAME;
 			const isReverse = typeof reverse === "boolean" ? reverse : false;
 
 			return [
@@ -58,8 +43,8 @@ export default function createRouteWpListConversion(): ConversionModule {
 					pgn: 130074,
 					dst: N2K_BROADCAST_DST,
 					fields: {
-						startWp: 0, // Starting waypoint index
-						nitems: Math.min(waypoints.length, 16),
+						startWp: 0,
+						nitems: wpList.length,
 						databaseId: 1,
 						routeId: 1,
 						navigationDirectionInRoute: isReverse ? "Reverse" : "Forward",

@@ -41,7 +41,7 @@ Enhancement suggestions are tracked as GitHub issues. When creating an enhanceme
 
 ### Prerequisites
 
-- Node.js 20 or higher
+- Node.js 20.18 or higher
 - npm or compatible package manager
 - Git
 
@@ -89,8 +89,10 @@ src/
 - **TypeScript**: Use strict TypeScript with no `any` types
 - **Formatting**: Code is automatically formatted with Biome
 - **Naming**: Use descriptive variable and function names
-- **Comments**: Add comments for complex logic
+- **Comments**: Default to no comments. Only add a comment when the WHY is non-obvious (a hidden constraint, a subtle invariant, a workaround). Don't explain WHAT the code does, narrate changes, or reference the task that introduced the line.
 - **Constants**: Use values from `src/constants.ts` instead of magic numbers
+- **Validation**: Use `isValidNumber` / `toValidNumber` from `src/utils/validation.ts` for any numeric input that could be `NaN` or `Infinity`. Do not use `typeof x === "number"` (lets `NaN` through).
+- **Errors**: Use `errMessage(err)` from `src/utils/errorUtils.ts` to coerce `unknown`-typed thrown values for `app.error()`.
 
 Pre-commit hooks automatically run linting on staged files. To manually format:
 ```bash
@@ -114,7 +116,9 @@ This project uses husky + lint-staged for automated code quality. After running 
 Example conversion module structure:
 
 ```typescript
-import type { ConversionModule, N2KMessage } from '../types/index.js'
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
+import type { ConversionModule, N2KMessage } from "../types/index.js";
+import { isValidNumber } from "../utils/validation.js";
 
 export default function createMyConversion(): ConversionModule {
   return {
@@ -122,27 +126,25 @@ export default function createMyConversion(): ConversionModule {
     optionKey: "MY_CONVERSION",
     keys: ["path.to.signalk.data"],
     callback: (value: unknown): N2KMessage[] => {
-      if (typeof value !== 'number') return []
-      
+      if (!isValidNumber(value)) return [];
+
       return [{
-        prio: 2,
+        prio: N2K_DEFAULT_PRIORITY,
         pgn: 12345,
-        dst: 255,
-        fields: {
-          myField: value
-        }
-      }]
+        dst: N2K_BROADCAST_DST,
+        fields: { myField: value },
+      }];
     },
     tests: [{
       input: [42],
       expected: [{
-        prio: 2,
+        prio: N2K_DEFAULT_PRIORITY,
         pgn: 12345,
-        dst: 255,
-        fields: { myField: 42 }
-      }]
-    }]
-  }
+        dst: N2K_BROADCAST_DST,
+        fields: { myField: 42 },
+      }],
+    }],
+  };
 }
 ```
 

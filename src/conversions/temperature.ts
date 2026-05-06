@@ -8,10 +8,8 @@ import type {
 	JSONSchema,
 	N2KMessage,
 } from "../types/index.js";
+import { isValidNumber } from "../utils/validation.js";
 
-/**
- * Temperature source configuration
- */
 export interface TemperatureInfo {
 	n2kSource: string;
 	source: string;
@@ -19,26 +17,19 @@ export interface TemperatureInfo {
 	option: string;
 }
 
-/**
- * Temperature options interface
- */
 interface TemperatureOptions {
 	[key: string]: {
 		instance?: number;
 	};
 }
 
-/**
- * Create a temperature message for NMEA 2000
- */
 function createTemperatureMessage(
 	pgn: number,
+	tempFieldName: "temperature" | "actualTemperature",
 	temp: number,
 	inst: number,
 	src: string,
 ): N2KMessage {
-	const fieldName = pgn === 130316 ? "temperature" : "actualTemperature";
-
 	return {
 		prio: N2K_DEFAULT_PRIORITY,
 		pgn,
@@ -47,20 +38,18 @@ function createTemperatureMessage(
 			sid: N2K_DEFAULT_SID,
 			instance: inst,
 			source: src,
-			[fieldName]: temp,
+			[tempFieldName]: temp,
 		},
 	};
 }
 
-/**
- * Create a temperature conversion module
- */
 function makeTemperatureConversion(
 	pgn: number,
 	prefix: string,
 	info: TemperatureInfo,
 ): ConversionModule {
 	const optionKey = `${prefix}_${info.option}`;
+	const tempFieldName = pgn === 130316 ? "temperature" : "actualTemperature";
 
 	return {
 		title: `${info.n2kSource} (${pgn})`,
@@ -87,20 +76,20 @@ function makeTemperatureConversion(
 
 		conversions: (options: unknown) => {
 			const tempOptions = options as TemperatureOptions;
-			let instance = tempOptions[optionKey]?.instance;
-			if (instance === undefined) instance = info.instance;
+			const instance = tempOptions[optionKey]?.instance ?? info.instance;
 
 			return [
 				{
 					keys: [info.source],
 					callback: (temperature: unknown): N2KMessage[] => {
-						if (typeof temperature !== "number") {
+						if (!isValidNumber(temperature)) {
 							return [];
 						}
 
 						return [
 							createTemperatureMessage(
 								pgn,
+								tempFieldName,
 								temperature,
 								instance,
 								info.n2kSource,
@@ -112,15 +101,15 @@ function makeTemperatureConversion(
 							input: [281.2],
 							expected: [
 								(testOptions: Record<string, unknown>) => {
-									const testOption = testOptions[optionKey] as
-										| { instance?: number }
-										| undefined;
 									const expectedInstance =
-										testOption?.instance !== undefined
-											? testOption.instance
-											: info.instance;
+										(
+											testOptions[optionKey] as
+												| { instance?: number }
+												| undefined
+										)?.instance ?? info.instance;
 									return createTemperatureMessage(
 										pgn,
+										tempFieldName,
 										281.2,
 										expectedInstance,
 										info.n2kSource,
@@ -135,9 +124,6 @@ function makeTemperatureConversion(
 	};
 }
 
-/**
- * Temperature source configurations
- */
 export const temperatures: TemperatureInfo[] = [
 	{
 		n2kSource: "Outside Temperature",
@@ -207,9 +193,6 @@ export const temperatures: TemperatureInfo[] = [
 	},
 ];
 
-/**
- * Temperature conversion factory - creates multiple temperature conversion modules
- */
 export default function createTemperatureConversions(): ConversionModule[] {
 	return temperatures.flatMap((info) => [
 		makeTemperatureConversion(130312, "TEMPERATURE", info),

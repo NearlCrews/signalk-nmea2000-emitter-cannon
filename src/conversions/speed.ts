@@ -8,11 +8,9 @@ import type {
 	N2KMessage,
 	SignalKApp,
 } from "../types/index.js";
+import { errMessage } from "../utils/errorUtils.js";
 import { isValidNumber } from "../utils/validation.js";
 
-/**
- * Speed conversion module - converts Signal K speed through water to NMEA 2000 PGN 128259
- */
 export default function createSpeedConversion(
 	app: SignalKApp,
 ): ConversionModule {
@@ -22,7 +20,6 @@ export default function createSpeedConversion(
 		keys: ["navigation.speedThroughWater"],
 		callback: (speed: unknown): N2KMessage[] => {
 			try {
-				// Validate input (reject non-numbers, NaN, and Infinity)
 				if (!isValidNumber(speed)) {
 					return [];
 				}
@@ -39,7 +36,7 @@ export default function createSpeedConversion(
 					},
 				];
 			} catch (err) {
-				app.error(err instanceof Error ? err.message : String(err));
+				app.error(errMessage(err));
 				return [];
 			}
 		},
@@ -60,7 +57,6 @@ export default function createSpeedConversion(
 				],
 			},
 			{
-				// Test with decimal speed
 				input: [2.5],
 				expected: [
 					{
@@ -75,7 +71,6 @@ export default function createSpeedConversion(
 				],
 			},
 			{
-				// Test with zero speed
 				input: [0],
 				expected: [
 					{

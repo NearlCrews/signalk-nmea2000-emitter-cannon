@@ -6,6 +6,7 @@ import type {
 	SignalKPlugin,
 	SubConversionModule,
 } from "../types/index.js";
+import { isValidNumber } from "../utils/validation.js";
 
 interface BrightnessGroup {
 	signalkId: string;
@@ -35,7 +36,7 @@ export default function createRaymarineBrightnessConversion(
 			optionKey: "RAYMARINE_BRIGHTNESS",
 			keys: [`electrical.displays.raymarine.${group.signalkId}.brightness`],
 			callback: (brightness: number | null) => {
-				if (typeof brightness !== "number") {
+				if (!isValidNumber(brightness)) {
 					return [];
 				}
 
@@ -51,7 +52,7 @@ export default function createRaymarineBrightnessConversion(
 							group: group.instanceId || "Helm 2",
 							unknown1: 1,
 							command: "Brightness",
-							brightness: (brightness || 0) * 100,
+							brightness: brightness * 100,
 							unknown2: 0,
 						},
 					},

@@ -1,16 +1,9 @@
 import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import type { ConversionModule, N2KMessage } from "../types/index.js";
+import type { Waypoint } from "./routeTypes.js";
+import { DEFAULT_ROUTE_NAME } from "./routeTypes.js";
 
-interface Position {
-	latitude?: number;
-	longitude?: number;
-}
-
-interface Waypoint {
-	id?: number;
-	name?: string;
-	position?: Position;
-}
+const ROUTE_TIMEOUT_MS = 60000;
 
 export default function createRouteWaypointConversion(): ConversionModule {
 	return {
@@ -21,36 +14,27 @@ export default function createRouteWaypointConversion(): ConversionModule {
 			"navigation.course.activeRoute.name",
 			"navigation.course.activeRoute.waypoints",
 		],
-		timeouts: [60000, 60000, 60000], // 1 minute
+		timeouts: [ROUTE_TIMEOUT_MS, ROUTE_TIMEOUT_MS, ROUTE_TIMEOUT_MS],
 		callback: (
 			nextPosition: unknown,
 			routeName: unknown,
 			waypoints: unknown,
 		): N2KMessage[] => {
-			// Send route info if we have active navigation data
 			if (!nextPosition && !routeName && !waypoints) {
 				return [];
 			}
 
-			let wpData: Array<{
-				"WP ID": number;
-				"WP Name": string;
-				"WP Latitude": number;
-				"WP Longitude": number;
-			}> = [];
-
-			if (waypoints && Array.isArray(waypoints)) {
-				// Take first few waypoints (NMEA2000 has limited message size)
-				wpData = waypoints.slice(0, 8).map((wp: Waypoint, index: number) => ({
-					"WP ID": wp.id || index,
-					"WP Name": wp.name || `WP${index}`,
-					"WP Latitude": wp.position?.latitude || 0,
-					"WP Longitude": wp.position?.longitude || 0,
-				}));
-			}
+			const list = Array.isArray(waypoints)
+				? waypoints.slice(0, 8).map((wp: Waypoint, index: number) => ({
+						wpId: wp.id ?? index,
+						wpName: wp.name || `WP${index}`,
+						wpLatitude: wp.position?.latitude ?? 0,
+						wpLongitude: wp.position?.longitude ?? 0,
+					}))
+				: [];
 
 			const routeNameString =
-				typeof routeName === "string" ? routeName : "ACTIVE_ROUTE";
+				typeof routeName === "string" ? routeName : DEFAULT_ROUTE_NAME;
 
 			return [
 				{
@@ -59,18 +43,13 @@ export default function createRouteWaypointConversion(): ConversionModule {
 					dst: N2K_BROADCAST_DST,
 					fields: {
 						startRps: 0,
-						nitems: wpData.length,
+						nitems: list.length,
 						databaseId: 1,
 						routeId: 1,
 						navigationDirectionInRoute: "Forward",
-						supplementaryRouteWpDataAvailable: wpData.length > 0 ? "Yes" : "No",
+						supplementaryRouteWpDataAvailable: list.length > 0 ? "Yes" : "No",
 						routeName: routeNameString,
-						list: wpData.map((wp) => ({
-							wpId: wp["WP ID"],
-							wpName: wp["WP Name"],
-							wpLatitude: wp["WP Latitude"],
-							wpLongitude: wp["WP Longitude"],
-						})),
+						list,
 					},
 				},
 			];

@@ -8,10 +8,9 @@ import type {
 	N2KMessage,
 	SignalKApp,
 } from "../types/index.js";
+import { errMessage } from "../utils/errorUtils.js";
+import { isValidNumber } from "../utils/validation.js";
 
-/**
- * Create a pressure message for NMEA 2000
- */
 function createPressureMessage(pressure: number, source: string): N2KMessage[] {
 	return [
 		{
@@ -27,9 +26,6 @@ function createPressureMessage(pressure: number, source: string): N2KMessage[] {
 	];
 }
 
-/**
- * Pressure conversion modules - converts Signal K pressure data to NMEA 2000 PGN 130314
- */
 export default function createPressureConversions(
 	app: SignalKApp,
 ): ConversionModule[] {
@@ -40,13 +36,13 @@ export default function createPressureConversions(
 			keys: ["environment.outside.pressure"],
 			callback: (pressure: unknown): N2KMessage[] => {
 				try {
-					if (typeof pressure !== "number") {
+					if (!isValidNumber(pressure)) {
 						return [];
 					}
 
 					return createPressureMessage(pressure, "Atmospheric");
 				} catch (err) {
-					app.error(err instanceof Error ? err.message : String(err));
+					app.error(errMessage(err));
 					return [];
 				}
 			},
@@ -68,7 +64,6 @@ export default function createPressureConversions(
 					],
 				},
 				{
-					// Test with standard sea level pressure
 					input: [101325],
 					expected: [
 						{
@@ -84,7 +79,6 @@ export default function createPressureConversions(
 					],
 				},
 				{
-					// Test with low pressure
 					input: [98000],
 					expected: [
 						{

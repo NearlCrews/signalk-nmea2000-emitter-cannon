@@ -8,6 +8,7 @@ import type {
 	N2KMessage,
 	SignalKApp,
 } from "../types/index.js";
+import { errMessage } from "../utils/errorUtils.js";
 import { isValidNumber, normalizeAngle } from "../utils/validation.js";
 
 export function createWindTrueConversion(
@@ -43,7 +44,7 @@ export function createWindTrueConversion(
 					},
 				];
 			} catch (err) {
-				app.error(err instanceof Error ? err.message : String(err));
+				app.error(errMessage(err));
 				return [];
 			}
 		},

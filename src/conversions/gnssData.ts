@@ -8,6 +8,7 @@ import type {
 	ConversionModule,
 	SignalKApp,
 } from "../types/index.js";
+import { isValidNumber } from "../utils/validation.js";
 
 interface SatelliteData {
 	id?: number;
@@ -44,10 +45,12 @@ export default function createGnssDataConversions(
 					return [];
 				}
 
-				const hdopValue = typeof hdop === "number" ? hdop : undefined;
-				const vdopValue = typeof vdop === "number" ? vdop : undefined;
-				const tdopValue = typeof tdop === "number" ? tdop : undefined;
+				const hdopValue = isValidNumber(hdop) ? hdop : undefined;
+				const vdopValue = isValidNumber(vdop) ? vdop : undefined;
+				const tdopValue = isValidNumber(tdop) ? tdop : undefined;
 				const modeString = typeof mode === "string" ? mode : "Auto";
+				const modeValue =
+					modeString === "3D" ? "3D" : modeString === "2D" ? "2D" : "Auto";
 
 				return [
 					{
@@ -56,18 +59,8 @@ export default function createGnssDataConversions(
 						dst: N2K_BROADCAST_DST,
 						fields: {
 							sid: N2K_SID_ZERO,
-							desiredMode:
-								modeString === "3D"
-									? "3D"
-									: modeString === "2D"
-										? "2D"
-										: "Auto",
-							actualMode:
-								modeString === "3D"
-									? "3D"
-									: modeString === "2D"
-										? "2D"
-										: "Auto",
+							desiredMode: modeValue,
+							actualMode: modeValue,
 							hdop: hdopValue,
 							vdop: vdopValue,
 							tdop: tdopValue,
@@ -134,20 +127,21 @@ export default function createGnssDataConversions(
 					return [];
 				}
 
-				const countValue = typeof count === "number" ? count : 0;
+				const countValue = isValidNumber(count) ? count : 0;
 
-				const satelliteData = satellites
-					.slice(0, 12)
-					.map((sat: SatelliteData, index: number) => {
-						return {
-							prn: sat.id || index + 1,
-							elevation: sat.elevation || 0,
-							azimuth: sat.azimuth || 0,
-							snr: sat.SNR || sat.signalToNoiseRatio || 0,
-							rangeResiduals: 0, // Not typically available in Signal K
-							status: sat.used ? "Used" : "Not tracked",
-						};
-					});
+				const maxSatellites = Math.min(satellites.length, 12);
+				const satelliteData = new Array(maxSatellites);
+				for (let i = 0; i < maxSatellites; i++) {
+					const sat = satellites[i] as SatelliteData;
+					satelliteData[i] = {
+						prn: sat.id ?? i + 1,
+						elevation: sat.elevation ?? 0,
+						azimuth: sat.azimuth ?? 0,
+						snr: sat.SNR ?? sat.signalToNoiseRatio ?? 0,
+						rangeResiduals: 0,
+						status: sat.used ? "Used" : "Not tracked",
+					};
+				}
 
 				return [
 					{

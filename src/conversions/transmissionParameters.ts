@@ -1,5 +1,18 @@
-import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
+import {
+	DEFAULT_DATA_TIMEOUT_MS,
+	N2K_BROADCAST_DST,
+	N2K_DEFAULT_PRIORITY,
+} from "../constants.js";
 import type { ConversionModule, N2KMessage } from "../types/index.js";
+import { isValidNumber } from "../utils/validation.js";
+
+const TRANSMISSION_TIMEOUTS = [
+	DEFAULT_DATA_TIMEOUT_MS,
+	DEFAULT_DATA_TIMEOUT_MS,
+	DEFAULT_DATA_TIMEOUT_MS,
+	DEFAULT_DATA_TIMEOUT_MS,
+	DEFAULT_DATA_TIMEOUT_MS,
+];
 
 export default function createTransmissionParametersConversion(): ConversionModule {
 	return {
@@ -12,7 +25,7 @@ export default function createTransmissionParametersConversion(): ConversionModu
 			"propulsion.main.transmission.discreteStatus1",
 			"propulsion.main.transmission.discreteStatus2",
 		],
-		timeouts: [10000, 10000, 10000, 10000, 10000], // 10 seconds
+		timeouts: TRANSMISSION_TIMEOUTS,
 		callback: (
 			gearRatio: unknown,
 			oilPressure: unknown,
@@ -20,19 +33,20 @@ export default function createTransmissionParametersConversion(): ConversionModu
 			discreteStatus1: unknown,
 			discreteStatus2: unknown,
 		): N2KMessage[] => {
-			if (gearRatio == null && oilPressure == null && oilTemperature == null) {
+			if (
+				!isValidNumber(gearRatio) &&
+				!isValidNumber(oilPressure) &&
+				!isValidNumber(oilTemperature)
+			) {
 				return [];
 			}
 
-			// Determine transmission gear based on gear ratio
 			let transmissionGear = "Neutral";
-			if (typeof gearRatio === "number") {
+			if (isValidNumber(gearRatio)) {
 				if (gearRatio > 1) {
 					transmissionGear = "Forward";
 				} else if (gearRatio < 0) {
 					transmissionGear = "Reverse";
-				} else {
-					transmissionGear = "Neutral";
 				}
 			}
 
@@ -44,26 +58,28 @@ export default function createTransmissionParametersConversion(): ConversionModu
 					fields: {
 						engineInstance: 0,
 						transmissionGear,
-						oilPressure:
-							typeof oilPressure === "number" ? oilPressure : undefined,
-						oilTemperature:
-							typeof oilTemperature === "number" ? oilTemperature : undefined,
-						discreteStatus1:
-							typeof discreteStatus1 === "number" ? discreteStatus1 : 0,
-						discreteStatus2:
-							typeof discreteStatus2 === "number" ? discreteStatus2 : 0,
+						oilPressure: isValidNumber(oilPressure) ? oilPressure : undefined,
+						oilTemperature: isValidNumber(oilTemperature)
+							? oilTemperature
+							: undefined,
+						discreteStatus1: isValidNumber(discreteStatus1)
+							? discreteStatus1
+							: 0,
+						discreteStatus2: isValidNumber(discreteStatus2)
+							? discreteStatus2
+							: 0,
 					},
 				},
 			];
 		},
 		tests: [
 			{
-				input: [2.5, 345000, 353.15, 0, 0], // Forward gear, oil pressure in Pa, temp in K
+				input: [2.5, 345000, 353.15, 0, 0],
 				expected: [
 					{
-						prio: 2,
+						prio: N2K_DEFAULT_PRIORITY,
 						pgn: 127493,
-						dst: 255,
+						dst: N2K_BROADCAST_DST,
 						fields: {
 							transmissionGear: "Forward",
 							oilPressure: 345000,
@@ -74,12 +90,12 @@ export default function createTransmissionParametersConversion(): ConversionModu
 				],
 			},
 			{
-				input: [-1.5, 320000, 343.15, 1, 0], // Reverse gear
+				input: [-1.5, 320000, 343.15, 1, 0],
 				expected: [
 					{
-						prio: 2,
+						prio: N2K_DEFAULT_PRIORITY,
 						pgn: 127493,
-						dst: 255,
+						dst: N2K_BROADCAST_DST,
 						fields: {
 							transmissionGear: "Reverse",
 							oilPressure: 320000,

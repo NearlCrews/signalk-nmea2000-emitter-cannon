@@ -21,7 +21,6 @@ export default function createProductInfoConversion(): ConversionModule {
 			serialNumber: unknown,
 			certificationLevel: unknown,
 		): N2KMessage[] => {
-			// Send product info if we have at least manufacturer or model
 			if (manufacturerName === null && modelNumber === null) {
 				return [];
 			}

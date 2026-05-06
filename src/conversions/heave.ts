@@ -8,11 +8,9 @@ import type {
 	ConversionModule,
 	SignalKApp,
 } from "../types/index.js";
+import { errMessage } from "../utils/errorUtils.js";
 import { isValidNumber } from "../utils/validation.js";
 
-/**
- * Heave conversion module - converts Signal K heave motion to NMEA 2000 PGN 127252
- */
 export default function createHeaveConversion(
 	app: SignalKApp,
 ): ConversionModule<[number | null]> {
@@ -39,7 +37,7 @@ export default function createHeaveConversion(
 					},
 				];
 			} catch (err) {
-				app.error(err instanceof Error ? err.message : String(err));
+				app.error(errMessage(err));
 				return [];
 			}
 		}) as ConversionCallback<[number | null]>,

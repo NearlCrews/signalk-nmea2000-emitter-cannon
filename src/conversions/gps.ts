@@ -10,23 +10,21 @@ import type {
 	SignalKApp,
 } from "../types/index.js";
 import { toN2KDateTime } from "../utils/dateUtils.js";
+import { errMessage } from "../utils/errorUtils.js";
+import { isValidNumber } from "../utils/validation.js";
 
-/**
- * GPS position interface for Signal K position data
- */
 interface Position {
 	latitude: number;
 	longitude: number;
 	altitude?: number;
 }
 
-/**
- * GPS conversion module - converts Signal K position data to NMEA 2000 PGNs 129025 & 129029
- */
+const GNSS_RATE_LIMIT_MS = 1000;
+
 export default function createGpsConversion(
 	app: SignalKApp,
 ): ConversionModule<[Position | null]> {
-	let lastUpdate: Date | null = null;
+	let lastUpdate: number | null = null;
 
 	return {
 		title: "Location (129025,129029)",
@@ -34,35 +32,32 @@ export default function createGpsConversion(
 		keys: ["navigation.position"],
 		callback: ((position: Position | null) => {
 			try {
-				// Validate position input
 				if (!position || typeof position !== "object") {
 					return [];
 				}
 
-				const pos = position as Position;
 				if (
-					typeof pos.latitude !== "number" ||
-					typeof pos.longitude !== "number"
+					!isValidNumber(position.latitude) ||
+					!isValidNumber(position.longitude)
 				) {
 					return [];
 				}
 
-				// Always generate basic position message (PGN 129025)
 				const res: N2KMessage[] = [
 					{
 						prio: N2K_DEFAULT_PRIORITY,
 						pgn: 129025,
 						dst: N2K_BROADCAST_DST,
 						fields: {
-							latitude: pos.latitude,
-							longitude: pos.longitude,
+							latitude: position.latitude,
+							longitude: position.longitude,
 						},
 					},
 				];
 
-				// Generate detailed GNSS data (PGN 129029) with rate limiting
-				if (lastUpdate === null || Date.now() - lastUpdate.getTime() > 1000) {
-					lastUpdate = new Date();
+				const now = Date.now();
+				if (lastUpdate === null || now - lastUpdate > GNSS_RATE_LIMIT_MS) {
+					lastUpdate = now;
 
 					const { date, time } = toN2KDateTime();
 
@@ -79,34 +74,34 @@ export default function createGpsConversion(
 						"navigation.gnss.geoidalSeparation.value",
 					);
 
+					const fields: N2KMessage["fields"] = {
+						sid: N2K_DEFAULT_SID,
+						date,
+						time,
+						latitude: position.latitude,
+						longitude: position.longitude,
+					};
+					if (isValidNumber(position.altitude))
+						fields.altitude = position.altitude;
+					if (typeof gnssType === "string") fields.gnssType = gnssType;
+					if (typeof method === "string") fields.method = method;
+					if (typeof integrity === "string") fields.integrity = integrity;
+					if (isValidNumber(numberOfSvs)) fields.numberOfSvs = numberOfSvs;
+					if (isValidNumber(hdop)) fields.hdop = hdop;
+					if (isValidNumber(geoidalSeparation))
+						fields.geoidalSeparation = geoidalSeparation;
+
 					res.push({
 						prio: N2K_DEFAULT_PRIORITY,
 						pgn: 129029,
 						dst: N2K_BROADCAST_DST,
-						fields: {
-							sid: N2K_DEFAULT_SID,
-							date,
-							time,
-							latitude: pos.latitude,
-							longitude: pos.longitude,
-							...(typeof pos.altitude === "number"
-								? { altitude: pos.altitude }
-								: {}),
-							...(typeof gnssType === "string" ? { gnssType } : {}),
-							...(typeof method === "string" ? { method } : {}),
-							...(typeof integrity === "string" ? { integrity } : {}),
-							...(typeof numberOfSvs === "number" ? { numberOfSvs } : {}),
-							...(typeof hdop === "number" ? { hdop } : {}),
-							...(typeof geoidalSeparation === "number"
-								? { geoidalSeparation }
-								: {}),
-						},
+						fields,
 					});
 				}
 
 				return res;
 			} catch (err) {
-				app.error(err instanceof Error ? err.message : String(err));
+				app.error(errMessage(err));
 				return [];
 			}
 		}) as ConversionCallback<[Position | null]>,

@@ -13,9 +13,12 @@ import type {
 	SourceTypeMapper,
 } from "./types/index.js";
 import { isConversionOptions } from "./types/index.js";
+import { errMessage } from "./utils/errorUtils.js";
 import { formatN2KMessage, validateN2KMessage } from "./utils/messageUtils.js";
 import { isDefined, pathToPropName } from "./utils/pathUtils.js";
 import { clearAllSmoothers } from "./utils/smoothing.js";
+
+const VESSELS_SELF_CONTEXT = "vessels.self";
 
 /**
  * Resolve a conversion's `keys` property which may be a static array or a
@@ -30,9 +33,6 @@ function resolveKeys(
 	return keys;
 }
 
-/**
- * PluginManager class - Manages the plugin lifecycle and conversions
- */
 export class PluginManager {
 	private app: SignalKApp;
 	private conversions: ConversionModule[] = [];
@@ -69,9 +69,6 @@ export class PluginManager {
 		this.app.on("nmea2000OutAvailable", this.onNmea2000Ready);
 	}
 
-	/**
-	 * Build a short module identifier for error log context (M3).
-	 */
 	private moduleLabel(conversion: ConversionModule): string {
 		const title = conversion.title || "<unnamed>";
 		const key = conversion.optionKey ? ` [${conversion.optionKey}]` : "";
@@ -83,8 +80,6 @@ export class PluginManager {
 	 * returns the raw result (which may itself be a promise) so callers can
 	 * await it in their own promise chains. Asynchronous failures must be
 	 * handled by the caller (they pass through processOutput's try/catch).
-	 * Centralized so stream-, delta-, subscription-, and resend-driven
-	 * invocations all share identical error handling (M3).
 	 */
 	private invokeCallback(
 		conversion: ConversionModule,
@@ -95,7 +90,7 @@ export class PluginManager {
 		try {
 			return conversion.callback(...args);
 		} catch (err) {
-			const message = err instanceof Error ? err.message : String(err);
+			const message = errMessage(err);
 			this.app.error(
 				`Error in ${source} callback for ${this.moduleLabel(conversion)}: ${message}`,
 			);
@@ -103,12 +98,8 @@ export class PluginManager {
 		}
 	}
 
-	/**
-	 * Start the plugin with given options
-	 */
 	start(options: PluginOptions): void {
 		try {
-			// Extract global resend interval (top-level numeric option)
 			this.globalResendInterval = options.globalResendInterval || 5;
 
 			this.app.setPluginStatus("Starting...");
@@ -118,18 +109,7 @@ export class PluginManager {
 			);
 			this.app.debug(`Using ${this.conversions.length} conversion modules`);
 
-			// Count enabled conversions
 			let enabledCount = 0;
-			for (const key of Object.keys(options)) {
-				const convOpts = options[key];
-				if (isConversionOptions(convOpts) && convOpts.enabled) {
-					enabledCount++;
-					this.app.debug(`${key} is ENABLED in options`);
-				}
-			}
-			this.app.debug(`Total enabled conversions in options: ${enabledCount}`);
-
-			// Start enabled conversions
 			for (const conversion of this.conversions) {
 				const conversionArray = Array.isArray(conversion)
 					? conversion
@@ -146,6 +126,7 @@ export class PluginManager {
 					if (!isConversionOptions(convOptions) || !convOptions.enabled) {
 						continue;
 					}
+					enabledCount++;
 
 					this.app.debug(
 						`*** SETTING UP ENABLED CONVERSION: ${conv.title} ***`,
@@ -187,7 +168,6 @@ export class PluginManager {
 							continue;
 						}
 
-						// Set default output type
 						if (subConversion.outputType === undefined) {
 							subConversion.outputType = "to-n2k";
 						}
@@ -210,18 +190,16 @@ export class PluginManager {
 				`Running with ${enabledCount} conversions enabled`,
 			);
 		} catch (error) {
-			const errorMsg = error instanceof Error ? error.message : String(error);
+			const errorMsg = errMessage(error);
 			this.app.error(`Failed to start plugin: ${errorMsg}`);
 			this.app.setPluginError(`Startup failed: ${errorMsg}`);
 		}
 	}
 
 	/**
-	 * Stop the plugin and cleanup resources.
-	 *
-	 * Each cleanup step is wrapped so a failure in one teardown call does not
-	 * prevent the rest from running (M9). Errors are collected and reported
-	 * once at the end via app.error(). stop() must never throw.
+	 * Each cleanup step is wrapped so one failure doesn't prevent the rest
+	 * from running. Errors are collected and reported once. stop() must not
+	 * throw — Signal K calls it on plugin disable/uninstall.
 	 */
 	stop(): void {
 		const errors: string[] = [];
@@ -229,7 +207,7 @@ export class PluginManager {
 			try {
 				fn();
 			} catch (err) {
-				const message = err instanceof Error ? err.message : String(err);
+				const message = errMessage(err);
 				errors.push(`${label}: ${message}`);
 			}
 		};
@@ -261,11 +239,14 @@ export class PluginManager {
 		safe("removeListener(nmea2000OutAvailable)", () =>
 			this.app.removeListener("nmea2000OutAvailable", this.onNmea2000Ready),
 		);
+		// Reset readiness so a subsequent start() waits for the event again
+		// instead of inheriting the previous run's state.
+		this.nmea2000Ready = false;
 
 		// Drop cached inputs so a subsequent start() begins from a clean slate.
 		safe("clear lastInputs", () => this.lastInputs.clear());
 
-		// Wipe ExponentialSmoother state across plugin restarts (L3).
+		// Wipe ExponentialSmoother state across plugin restarts.
 		safe("clearAllSmoothers", () => clearAllSmoothers());
 
 		// Surface the stopped state in the Signal K admin UI.
@@ -279,19 +260,15 @@ export class PluginManager {
 	}
 
 	/**
-	 * Process the result of a conversion callback and (re)arm its resend timer.
-	 *
-	 * The resend timer re-invokes the conversion callback with the most recent
-	 * input rather than re-emitting cached output (H5). This keeps
-	 * time-derived callbacks (e.g. systemTime / PGN 126992) producing fresh
-	 * values on every tick.
+	 * The resend timer re-invokes the conversion callback with the most
+	 * recent input rather than re-emitting cached output, so time-derived
+	 * callbacks (e.g. systemTime) produce fresh values on every tick.
 	 */
 	private async processOutput(
 		conversion: ConversionModule,
 		options: ProcessingOptions | null,
 		output: N2KMessage[] | Promise<N2KMessage[]> | undefined,
 	): Promise<void> {
-		// Process the output immediately
 		try {
 			if (output !== undefined) {
 				const values = await Promise.resolve(output);
@@ -301,7 +278,7 @@ export class PluginManager {
 				}
 			}
 		} catch (err) {
-			const message = err instanceof Error ? err.message : String(err);
+			const message = errMessage(err);
 			this.app.error(
 				`Error processing output for ${this.moduleLabel(conversion)}: ${message}`,
 			);
@@ -320,8 +297,6 @@ export class PluginManager {
 				? options.resend
 				: this.globalResendInterval;
 
-		// Set up resend timer once. The timer re-invokes the callback with the
-		// last cached input each tick (H5) so time-sensitive PGNs stay current.
 		if (effectiveResend > 0 && !conversion.resendTimer) {
 			conversion.resendTimer = setInterval(async () => {
 				try {
@@ -338,7 +313,7 @@ export class PluginManager {
 						await processor(values);
 					}
 				} catch (err) {
-					const message = err instanceof Error ? err.message : String(err);
+					const message = errMessage(err);
 					this.app.error(
 						`Error in resend timer for ${this.moduleLabel(conversion)}: ${message}`,
 					);
@@ -349,9 +324,6 @@ export class PluginManager {
 		}
 	}
 
-	/**
-	 * Map delta-based conversions
-	 */
 	private mapOnDelta(conversion: ConversionModule, options: unknown): void {
 		const processingOptions = options as ProcessingOptions;
 		if (!conversion.callback) {
@@ -370,9 +342,6 @@ export class PluginManager {
 		this.unsubscribes.push(() => this.app.removeListener("delta", handler));
 	}
 
-	/**
-	 * Map Signal K stream-based value change conversions using RxJS pattern
-	 */
 	private mapRxJS(conversion: ConversionModule, options: unknown): void {
 		const pluginOptions = options as ConversionOptions;
 		const keys = resolveKeys(conversion.keys, options);
@@ -385,7 +354,6 @@ export class PluginManager {
 		const lastValues: Record<string, { timestamp: number; value: unknown }> =
 			{};
 
-		// Initialize lastValues for all keys
 		keys.forEach((key) => {
 			lastValues[key] = {
 				timestamp: Date.now(),
@@ -400,7 +368,6 @@ export class PluginManager {
 		// timer) before any real Signal K data had been observed.
 		const combinedBus = new Subject<unknown[]>();
 
-		// Set up individual stream subscriptions
 		keys.forEach((skKey) => {
 			const sourceRef = pluginOptions[pathToPropName(skKey)] as
 				| string
@@ -412,13 +379,14 @@ export class PluginManager {
 			if (sourceRef) {
 				// Signal K `$source` values are composites like `gps1.0` or
 				// `canbus0.127`, not bare labels. Accept either an exact match
-				// or a label prefix (`gps1` matches `gps1.0`, `gps1.1`, …) so
+				// or a label prefix (`gps1` matches `gps1.0`, `gps1.1`, ...) so
 				// the UI description "enter a source label (e.g. 'gps1')"
 				// actually matches real stream values.
+				const sourceRefWithDot = `${sourceRef}.`;
 				bus = bus.filter((x: unknown) => {
 					const src = (x as { $source?: string }).$source;
 					if (!src) return false;
-					return src === sourceRef || src.startsWith(`${sourceRef}.`);
+					return src === sourceRef || src.startsWith(sourceRefWithDot);
 				});
 			}
 
@@ -436,14 +404,13 @@ export class PluginManager {
 
 				this.app.debug(`${skKey}: received value update`);
 
-				// Update the last value for this key
-				lastValues[skKey] = {
-					timestamp: Date.now(),
-					value,
-				};
-
-				// Push current values array (like original Bacon.Bus.push)
 				const now = Date.now();
+				const entry = lastValues[skKey];
+				if (entry) {
+					entry.timestamp = now;
+					entry.value = value;
+				}
+
 				const currentValues = keys.map((key, i) => {
 					const timeout = timeouts[i];
 					return !isDefined(timeout) ||
@@ -463,9 +430,8 @@ export class PluginManager {
 
 		// Debounce and process like the original
 		const subscription = combinedBus.pipe(debounceTime(10)).subscribe({
-			next: (values) => {
+			next: (args) => {
 				this.app.debug(`Callback triggered for ${conversion.title}`);
-				const args = values as unknown[];
 				this.lastInputs.set(conversion, args);
 				const result = this.invokeCallback(conversion, args, "stream");
 				if (result === undefined) return;
@@ -476,7 +442,7 @@ export class PluginManager {
 			},
 			error: (err) => {
 				this.app.error(
-					`Stream error for ${this.moduleLabel(conversion)}: ${err instanceof Error ? err.message : String(err)}`,
+					`Stream error for ${this.moduleLabel(conversion)}: ${errMessage(err)}`,
 				);
 			},
 		});
@@ -484,9 +450,6 @@ export class PluginManager {
 		this.unsubscribes.push(() => subscription.unsubscribe());
 	}
 
-	/**
-	 * Map subscription-based conversions
-	 */
 	private mapSubscription(
 		conversion: ConversionModule,
 		options: unknown,
@@ -498,7 +461,7 @@ export class PluginManager {
 		// policy:"instant" — otherwise Signal K's default "fixed" policy with
 		// period 1000ms can drop rapid-fire alerts.
 		const subscription = {
-			context: (conversion.context || "vessels.self") as Context,
+			context: (conversion.context || VESSELS_SELF_CONTEXT) as Context,
 			subscribe: keys.map((key) => ({
 				path: key as Path,
 				policy: "instant" as const,
@@ -510,8 +473,7 @@ export class PluginManager {
 		this.app.subscriptionmanager.subscribe(
 			subscription,
 			this.unsubscribes,
-			(err: unknown) =>
-				this.app.error(err instanceof Error ? err.message : String(err)),
+			(err: unknown) => this.app.error(errMessage(err)),
 			(delta) => {
 				const args: unknown[] = [delta];
 				this.lastInputs.set(conversion, args);
@@ -522,9 +484,6 @@ export class PluginManager {
 		);
 	}
 
-	/**
-	 * Map timer-based conversions
-	 */
 	private mapTimer(conversion: ConversionModule, options: unknown): void {
 		const processingOptions = options as ProcessingOptions;
 		if (!conversion.interval) {
@@ -548,9 +507,6 @@ export class PluginManager {
 		this.timers.push(timer);
 	}
 
-	/**
-	 * Source type mappers
-	 */
 	private sourceTypes: Record<
 		NonNullable<ConversionModule["sourceType"]>,
 		SourceTypeMapper
@@ -561,41 +517,36 @@ export class PluginManager {
 		timer: (...args) => this.mapTimer(...args),
 	};
 
-	/**
-	 * Process NMEA 2000 output
-	 */
 	private async processToN2K(values: N2KMessage[] | null): Promise<void> {
 		if (!values) return;
 
-		// Check if NMEA2000 output is available
 		if (!this.nmea2000Ready) {
 			this.app.debug("NMEA2000 output not yet available, queuing message");
 			return;
 		}
 
 		try {
-			const pgns = values;
-			const validPgns = pgns.filter(isDefined);
+			const validPgns = values.filter(isDefined);
+			// `app.debug` is a debug-library instance that self-gates. Reading
+			// `.enabled` once before the loop avoids running formatN2KMessage
+			// (which allocates a string) when debug output is disabled for this
+			// namespace.
+			const appDebug = this.app.debug as unknown as { enabled?: boolean };
+			const debugEnabled = appDebug?.enabled === true;
 
 			for (const pgn of validPgns) {
 				try {
-					// Validate message format
 					const validatedPgn = validateN2KMessage(pgn);
-					// `app.debug` is a debug-library instance that self-gates. We
-					// check `.enabled` to avoid running formatN2KMessage (which
-					// allocates a string) when debug output is disabled for this
-					// namespace, regardless of global DEBUG env.
-					const appDebug = this.app.debug as unknown as {
-						enabled?: boolean;
-					};
-					if (appDebug?.enabled) {
+					if (debugEnabled) {
 						this.app.debug(
 							`emit nmea2000JsonOut ${formatN2KMessage(validatedPgn)}`,
 						);
 					}
 					this.app.emit("nmea2000JsonOut", validatedPgn);
 				} catch (err) {
-					this.app.error(`Error writing PGN ${JSON.stringify(pgn)}: ${err}`);
+					this.app.error(
+						`Error writing PGN ${JSON.stringify(pgn)}: ${errMessage(err)}`,
+					);
 				}
 			}
 
@@ -603,13 +554,10 @@ export class PluginManager {
 				this.app.reportOutputMessages(validPgns.length);
 			}
 		} catch (err) {
-			this.app.error(`Error processing N2K values: ${err}`);
+			this.app.error(`Error processing N2K values: ${errMessage(err)}`);
 		}
 	}
 
-	/**
-	 * Output type processors
-	 */
 	private outputTypes: Record<string, OutputTypeProcessor> = {
 		"to-n2k": (...args) => this.processToN2K(...args),
 	};

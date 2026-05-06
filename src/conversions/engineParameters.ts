@@ -10,44 +10,31 @@ import type {
 	SignalKApp,
 	SubConversionModule,
 } from "../types/index.js";
+import { errMessage } from "../utils/errorUtils.js";
+import { isValidNumber } from "../utils/validation.js";
 
-/**
- * Engine configuration for exhaust temperature
- */
 interface ExhaustTempEngineConfig {
 	signalkId: string | number;
 	tempInstanceId: number;
 }
 
-/**
- * Engine configuration for parameters
- */
 interface EngineConfig {
 	signalkId: string | number;
 	instanceId: number;
 }
 
-/**
- * Engine parameters options for exhaust temperature
- */
 interface ExhaustTempOptions {
 	engines: ExhaustTempEngineConfig[];
 	enabled?: boolean;
 	resend?: number;
 }
 
-/**
- * Engine parameters options for engine parameters
- */
 interface EngineParamsOptions {
 	engines: EngineConfig[];
 	enabled?: boolean;
 	resend?: number;
 }
 
-/**
- * Engine parameters conversion modules - converts Signal K propulsion data to NMEA 2000 PGNs
- */
 export default function createEngineParametersConversions(
 	app: SignalKApp,
 ): ConversionModule<unknown[]>[] {
@@ -111,7 +98,7 @@ export default function createEngineParametersConversions(
 					keys: [`propulsion.${engine.signalkId}.exhaustTemperature`],
 					callback: ((temperature: number | null) => {
 						try {
-							if (typeof temperature !== "number") {
+							if (!isValidNumber(temperature)) {
 								return [];
 							}
 
@@ -128,7 +115,7 @@ export default function createEngineParametersConversions(
 								},
 							];
 						} catch (err) {
-							app.error(err instanceof Error ? err.message : String(err));
+							app.error(errMessage(err));
 							return [];
 						}
 					}) as ConversionCallback<[number | null]>,
@@ -191,11 +178,16 @@ export default function createEngineParametersConversions(
 					return null;
 				}
 
+				const engParTimeouts = engParKeys.map(() => DEFAULT_DATA_TIMEOUT_MS);
+				const engRapidTimeouts = engRapidKeys.map(
+					() => DEFAULT_DATA_TIMEOUT_MS,
+				);
+
 				const dyn = engineOptions.engines.map((engine) => ({
 					keys: engParKeys.map(
 						(key) => `propulsion.${engine.signalkId}.${key}`,
 					),
-					timeouts: engParKeys.map(() => DEFAULT_DATA_TIMEOUT_MS),
+					timeouts: engParTimeouts,
 					callback: ((
 						oilPres: number | null,
 						oilTemp: number | null,
@@ -209,26 +201,26 @@ export default function createEngineParametersConversions(
 						engTorque: number | null,
 					) => {
 						try {
-							// Convert and validate inputs
-							const oilPressure =
-								typeof oilPres === "number" ? oilPres / 100 : null;
-							const oilTemperature =
-								typeof oilTemp === "number" ? oilTemp : null;
-							const temperature = typeof temp === "number" ? temp : null;
-							const alternatorPotential =
-								typeof altVolt === "number" ? altVolt : null;
-							const fuelRateConverted =
-								typeof fuelRate === "number" ? fuelRate * 3600 * 1000 : null;
-							const totalEngineHours =
-								typeof runTime === "number" ? runTime : null;
-							const coolantPressure =
-								typeof coolPres === "number" ? coolPres / 100 : null;
-							const fuelPressure =
-								typeof fuelPres === "number" ? fuelPres / 100 : null;
-							const engineLoad =
-								typeof engLoad === "number" ? engLoad * 100 : null;
-							const engineTorque =
-								typeof engTorque === "number" ? engTorque * 100 : null;
+							const oilPressure = isValidNumber(oilPres) ? oilPres / 100 : null;
+							const oilTemperature = isValidNumber(oilTemp) ? oilTemp : null;
+							const temperature = isValidNumber(temp) ? temp : null;
+							const alternatorPotential = isValidNumber(altVolt)
+								? altVolt
+								: null;
+							const fuelRateConverted = isValidNumber(fuelRate)
+								? fuelRate * 3600 * 1000
+								: null;
+							const totalEngineHours = isValidNumber(runTime) ? runTime : null;
+							const coolantPressure = isValidNumber(coolPres)
+								? coolPres / 100
+								: null;
+							const fuelPressure = isValidNumber(fuelPres)
+								? fuelPres / 100
+								: null;
+							const engineLoad = isValidNumber(engLoad) ? engLoad * 100 : null;
+							const engineTorque = isValidNumber(engTorque)
+								? engTorque * 100
+								: null;
 
 							return [
 								{
@@ -253,7 +245,7 @@ export default function createEngineParametersConversions(
 								},
 							];
 						} catch (err) {
-							app.error(err instanceof Error ? err.message : String(err));
+							app.error(errMessage(err));
 							return [];
 						}
 					}) as ConversionCallback<
@@ -305,20 +297,22 @@ export default function createEngineParametersConversions(
 					keys: engRapidKeys.map(
 						(key) => `propulsion.${engine.signalkId}.${key}`,
 					),
-					timeouts: engRapidKeys.map(() => DEFAULT_DATA_TIMEOUT_MS),
+					timeouts: engRapidTimeouts,
 					callback: ((
 						revolutions: number | null,
 						boostPressure: number | null,
 						trimState: number | null,
 					) => {
 						try {
-							// Convert and validate inputs
-							const speed =
-								typeof revolutions === "number" ? revolutions * 60 : null;
-							const boostPres =
-								typeof boostPressure === "number" ? boostPressure / 100 : null;
-							const tiltTrim =
-								typeof trimState === "number" ? trimState * 100 : null;
+							const speed = isValidNumber(revolutions)
+								? revolutions * 60
+								: null;
+							const boostPres = isValidNumber(boostPressure)
+								? boostPressure / 100
+								: null;
+							const tiltTrim = isValidNumber(trimState)
+								? trimState * 100
+								: null;
 
 							return [
 								{
@@ -334,7 +328,7 @@ export default function createEngineParametersConversions(
 								},
 							];
 						} catch (err) {
-							app.error(err instanceof Error ? err.message : String(err));
+							app.error(errMessage(err));
 							return [];
 						}
 					}) as ConversionCallback<

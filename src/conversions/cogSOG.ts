@@ -8,11 +8,9 @@ import type {
 	ConversionModule,
 	SignalKApp,
 } from "../types/index.js";
+import { errMessage } from "../utils/errorUtils.js";
 import { toValidNumber } from "../utils/validation.js";
 
-/**
- * COG & SOG conversion module - converts Signal K course and speed data to NMEA 2000 PGN 129026
- */
 export default function createCogSogConversion(
 	app: SignalKApp,
 ): ConversionModule<[number | null, number | null]> {
@@ -22,11 +20,9 @@ export default function createCogSogConversion(
 		keys: ["navigation.courseOverGroundTrue", "navigation.speedOverGround"],
 		callback: ((course: number | null, speed: number | null) => {
 			try {
-				// Validate inputs (reject NaN/Infinity)
 				const validCourse = toValidNumber(course);
 				const validSpeed = toValidNumber(speed);
 
-				// Return empty array if both values are null/invalid
 				if (validCourse === null && validSpeed === null) {
 					return [];
 				}
@@ -45,7 +41,7 @@ export default function createCogSogConversion(
 					},
 				];
 			} catch (err) {
-				app.error(err instanceof Error ? err.message : String(err));
+				app.error(errMessage(err));
 				return [];
 			}
 		}) as ConversionCallback<[number | null, number | null]>,
@@ -68,7 +64,6 @@ export default function createCogSogConversion(
 				],
 			},
 			{
-				// Test with null course
 				input: [null, 5.5],
 				expected: [
 					{
@@ -84,7 +79,6 @@ export default function createCogSogConversion(
 				],
 			},
 			{
-				// Test with null speed
 				input: [1.57, null],
 				expected: [
 					{

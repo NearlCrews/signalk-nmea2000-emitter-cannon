@@ -6,6 +6,7 @@ import type {
 	SignalKApp,
 	SignalKPlugin,
 } from "./types/index.js";
+import { errMessage } from "./utils/errorUtils.js";
 
 /**
  * Signal K to NMEA 2000 conversion plugin factory
@@ -37,9 +38,7 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 			// Start the plugin manager with the provided options
 			pluginManager.start(options);
 		} catch (error) {
-			app.error(
-				`Failed to start plugin: ${error instanceof Error ? error.message : String(error)}`,
-			);
+			app.error(`Failed to start plugin: ${errMessage(error)}`);
 			console.error("Full startup error:", error);
 		}
 	}

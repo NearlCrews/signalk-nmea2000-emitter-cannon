@@ -8,11 +8,9 @@ import type {
 	N2KMessage,
 	SignalKApp,
 } from "../types/index.js";
+import { errMessage } from "../utils/errorUtils.js";
 import { isValidNumber } from "../utils/validation.js";
 
-/**
- * Rate of Turn conversion module - converts Signal K rate of turn to NMEA 2000 PGN 127251
- */
 export default function createRateOfTurnConversion(
 	app: SignalKApp,
 ): ConversionModule {
@@ -38,7 +36,7 @@ export default function createRateOfTurnConversion(
 					},
 				];
 			} catch (err) {
-				app.error(err instanceof Error ? err.message : String(err));
+				app.error(errMessage(err));
 				return [];
 			}
 		},

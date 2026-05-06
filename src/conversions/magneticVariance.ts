@@ -8,11 +8,9 @@ import type {
 	N2KMessage,
 	SignalKApp,
 } from "../types/index.js";
+import { errMessage } from "../utils/errorUtils.js";
 import { isValidNumber } from "../utils/validation.js";
 
-/**
- * Magnetic Variance conversion module - converts Signal K magnetic variation to NMEA 2000 PGN 127258
- */
 export default function createMagneticVarianceConversion(
 	app: SignalKApp,
 ): ConversionModule {
@@ -32,8 +30,7 @@ export default function createMagneticVarianceConversion(
 					return [];
 				}
 
-				// Validate age of service - optional field with default
-				const ageValue = typeof ageOfService === "number" ? ageOfService : 0;
+				const ageValue = isValidNumber(ageOfService) ? ageOfService : 0;
 
 				return [
 					{
@@ -49,7 +46,7 @@ export default function createMagneticVarianceConversion(
 					},
 				];
 			} catch (err) {
-				app.error(err instanceof Error ? err.message : String(err));
+				app.error(errMessage(err));
 				return [];
 			}
 		},

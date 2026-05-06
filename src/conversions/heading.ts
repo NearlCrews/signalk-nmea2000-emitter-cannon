@@ -8,11 +8,9 @@ import type {
 	ConversionModule,
 	SignalKApp,
 } from "../types/index.js";
+import { errMessage } from "../utils/errorUtils.js";
 import { toValidNumber } from "../utils/validation.js";
 
-/**
- * Heading conversion module - converts Signal K heading and magnetic variation to NMEA 2000 PGN 127250
- */
 export default function createHeadingConversion(
 	app: SignalKApp,
 ): ConversionModule<[number | null, number | null, number | null]> {
@@ -30,12 +28,10 @@ export default function createHeadingConversion(
 			deviation: number | null,
 		) => {
 			try {
-				// Validate inputs (reject NaN/Infinity)
 				const validHeading = toValidNumber(heading);
 				const validVariation = toValidNumber(variation);
 				const validDeviation = toValidNumber(deviation);
 
-				// Return empty array if no heading data available
 				if (validHeading === null) {
 					return [];
 				}
@@ -55,7 +51,7 @@ export default function createHeadingConversion(
 					},
 				];
 			} catch (err) {
-				app.error(err instanceof Error ? err.message : String(err));
+				app.error(errMessage(err));
 				return [];
 			}
 		}) as ConversionCallback<[number | null, number | null, number | null]>,
@@ -79,7 +75,6 @@ export default function createHeadingConversion(
 				],
 			},
 			{
-				// Test with null variation and deviation
 				input: [2.5, null, null],
 				expected: [
 					{
@@ -95,7 +90,6 @@ export default function createHeadingConversion(
 				],
 			},
 			{
-				// Test with zero heading
 				input: [0, 0.1, 0],
 				expected: [
 					{

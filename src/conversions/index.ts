@@ -4,6 +4,7 @@ import type {
 	SignalKApp,
 	SignalKPlugin,
 } from "../types/index.js";
+import { errMessage } from "../utils/errorUtils.js";
 import { isDefined } from "../utils/pathUtils.js";
 
 // Import all conversion modules dynamically
@@ -53,13 +54,6 @@ import createWindConversion from "./wind.js";
 import createWindTrueGroundConversion from "./windTrueGround.js";
 import createWindTrueWaterConversion from "./windTrueWater.js";
 
-/**
- * Dynamically creates an array of all conversion modules.
- *
- * @param app - The Signal K application instance.
- * @param plugin - The plugin instance.
- * @returns An array of conversion modules.
- */
 export function createConversionModules(
 	app: SignalKApp,
 	plugin: SignalKPlugin,
@@ -120,8 +114,7 @@ export function createConversionModules(
 					? moduleOrModules
 					: [moduleOrModules];
 			} catch (e) {
-				const message = e instanceof Error ? e.message : String(e);
-				app.error(`Error loading conversion module: ${message}`);
+				app.error(`Error loading conversion module: ${errMessage(e)}`);
 				return [];
 			}
 		})

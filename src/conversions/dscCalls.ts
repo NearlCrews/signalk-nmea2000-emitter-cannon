@@ -44,7 +44,6 @@ export default function createDscCallsConversion(
 			_vesselInDistress: number | null,
 			_callTime: string | null,
 		) => {
-			// Send DSC call data if we have essential information
 			if (!callType && !mmsi && !nature) {
 				return [];
 			}

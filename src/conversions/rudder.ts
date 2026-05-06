@@ -4,10 +4,9 @@ import type {
 	N2KMessage,
 	SignalKApp,
 } from "../types/index.js";
+import { errMessage } from "../utils/errorUtils.js";
+import { toValidNumber } from "../utils/validation.js";
 
-/**
- * Rudder position conversion module - converts Signal K rudder data to NMEA 2000 PGN 127245
- */
 export default function createRudderConversion(
 	app: SignalKApp,
 ): ConversionModule {
@@ -21,17 +20,14 @@ export default function createRudderConversion(
 			rudderAngleTarget: unknown,
 		): N2KMessage[] => {
 			try {
-				// Validate inputs
-				const angle = typeof rudderAngle === "number" ? rudderAngle : null;
-				const target =
-					typeof rudderAngleTarget === "number" ? rudderAngleTarget : null;
+				const angle = toValidNumber(rudderAngle);
+				const target = toValidNumber(rudderAngleTarget);
 
 				// Return empty array if no rudder data available
 				if (angle === null && target === null) {
 					return [];
 				}
 
-				// Determine direction order based on target angle
 				let directionOrder: string = "No Order";
 				if (target !== null) {
 					if (target > 0) {
@@ -55,7 +51,7 @@ export default function createRudderConversion(
 					},
 				];
 			} catch (err) {
-				app.error(err instanceof Error ? err.message : String(err));
+				app.error(errMessage(err));
 				return [];
 			}
 		},
@@ -94,7 +90,6 @@ export default function createRudderConversion(
 				],
 			},
 			{
-				// Test with only actual position, no target
 				input: [0.0524, null],
 				expected: [
 					{
@@ -111,7 +106,6 @@ export default function createRudderConversion(
 				],
 			},
 			{
-				// Test with zero target (centered)
 				input: [0.0175, 0],
 				expected: [
 					{

@@ -5,35 +5,31 @@ import type {
 	N2KMessage,
 	SignalKApp,
 } from "../types/index.js";
+import { errMessage } from "../utils/errorUtils.js";
+import { toValidNumber } from "../utils/validation.js";
 
-/**
- * Solar charger configuration interface
- */
 interface SolarChargerConfig {
 	signalkId: string;
 	instanceId: number;
 	panelInstanceId: number;
 }
 
-/**
- * Solar options interface
- */
 interface SolarOptions {
 	chargers: SolarChargerConfig[];
 	enabled?: boolean;
 	resend?: number;
 }
 
-/**
- * Solar conversion module - converts Signal K solar data to NMEA 2000 battery PGNs 127506 & 127508
- */
+const SOLAR_TIMEOUT_MS = 60000;
+
 export default function createSolarConversion(
 	app: SignalKApp,
 ): ConversionModule {
 	const solarKeys = ["voltage", "current", "panelCurrent", "panelVoltage"];
+	const sharedTimeouts = solarKeys.map(() => SOLAR_TIMEOUT_MS);
 
 	return {
-		title: "Solar as Battery (127506 & 127508)",
+		title: "Solar as Battery (127508)",
 		optionKey: "SOLAR",
 		context: "vessels.self",
 		properties: (): JSONSchema["properties"] => ({
@@ -83,7 +79,7 @@ export default function createSolarConversion(
 				keys: solarKeys.map(
 					(key) => `electrical.solar.${charger.signalkId}.${key}`,
 				),
-				timeouts: solarKeys.map(() => 60000),
+				timeouts: sharedTimeouts,
 				callback: (
 					voltage: unknown,
 					current: unknown,
@@ -93,13 +89,10 @@ export default function createSolarConversion(
 					try {
 						const res: N2KMessage[] = [];
 
-						// Convert and validate inputs
-						const voltageValue = typeof voltage === "number" ? voltage : null;
-						const currentValue = typeof current === "number" ? current : null;
-						const panelCurrentValue =
-							typeof panelCurrent === "number" ? panelCurrent : null;
-						const panelVoltageValue =
-							typeof panelVoltage === "number" ? panelVoltage : null;
+						const voltageValue = toValidNumber(voltage);
+						const currentValue = toValidNumber(current);
+						const panelCurrentValue = toValidNumber(panelCurrent);
+						const panelVoltageValue = toValidNumber(panelVoltage);
 
 						// Solar charger output (battery instance)
 						if (voltageValue !== null || currentValue !== null) {
@@ -131,7 +124,7 @@ export default function createSolarConversion(
 
 						return res;
 					} catch (err) {
-						app.error(err instanceof Error ? err.message : String(err));
+						app.error(errMessage(err));
 						return [];
 					}
 				},

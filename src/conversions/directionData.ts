@@ -1,13 +1,16 @@
-import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
+import {
+	N2K_BROADCAST_DST,
+	N2K_DEFAULT_PRIORITY,
+	N2K_SID_ZERO,
+} from "../constants.js";
 import type {
 	ConversionCallback,
 	ConversionModule,
 	SignalKApp,
 } from "../types/index.js";
+import { errMessage } from "../utils/errorUtils.js";
+import { isValidNumber } from "../utils/validation.js";
 
-/**
- * Direction Data conversion module - converts Signal K navigation directions to NMEA 2000 PGN 130577
- */
 export default function createDirectionDataConversion(
 	app: SignalKApp,
 ): ConversionModule<
@@ -29,12 +32,16 @@ export default function createDirectionDataConversion(
 			headingMagnetic: number | null,
 		) => {
 			try {
-				// Send direction data if we have at least one direction value
+				const cogTrueValid = isValidNumber(cogTrue);
+				const cogMagneticValid = isValidNumber(cogMagnetic);
+				const headingTrueValid = isValidNumber(headingTrue);
+				const headingMagneticValid = isValidNumber(headingMagnetic);
+
 				if (
-					cogTrue === null &&
-					cogMagnetic === null &&
-					headingTrue === null &&
-					headingMagnetic === null
+					!cogTrueValid &&
+					!cogMagneticValid &&
+					!headingTrueValid &&
+					!headingMagneticValid
 				) {
 					return [];
 				}
@@ -45,36 +52,42 @@ export default function createDirectionDataConversion(
 						pgn: 130577,
 						dst: N2K_BROADCAST_DST,
 						fields: {
-							dataMode: "Autonomous", // Could be made configurable
-							cogReference:
-								cogTrue !== null
-									? "True"
-									: cogMagnetic !== null
-										? "Magnetic"
-										: "Unavailable",
-							sidForCog: 0,
-							cog: cogTrue ?? cogMagnetic,
-							sogReference: "Unavailable", // Would need SOG data source info
-							sidForSog: 0,
-							sog: null, // This PGN focuses on direction, not speed
-							headingReference:
-								headingTrue !== null
-									? "True"
-									: headingMagnetic !== null
-										? "Magnetic"
-										: "Unavailable",
-							sidForHeading: 0,
-							heading: headingTrue ?? headingMagnetic,
+							dataMode: "Autonomous",
+							cogReference: cogTrueValid
+								? "True"
+								: cogMagneticValid
+									? "Magnetic"
+									: "Unavailable",
+							sidForCog: N2K_SID_ZERO,
+							cog: cogTrueValid
+								? cogTrue
+								: cogMagneticValid
+									? cogMagnetic
+									: null,
+							sogReference: "Unavailable",
+							sidForSog: N2K_SID_ZERO,
+							sog: null,
+							headingReference: headingTrueValid
+								? "True"
+								: headingMagneticValid
+									? "Magnetic"
+									: "Unavailable",
+							sidForHeading: N2K_SID_ZERO,
+							heading: headingTrueValid
+								? headingTrue
+								: headingMagneticValid
+									? headingMagnetic
+									: null,
 							speedThroughWaterReference: "Unavailable",
-							sidForStw: 0,
+							sidForStw: N2K_SID_ZERO,
 							speedThroughWater: null,
-							set: null, // Current set - not typically available
-							drift: null, // Current drift - not typically available
+							set: null,
+							drift: null,
 						},
 					},
 				];
 			} catch (err) {
-				app.error(err instanceof Error ? err.message : String(err));
+				app.error(errMessage(err));
 				return [];
 			}
 		}) as ConversionCallback<
@@ -83,12 +96,12 @@ export default function createDirectionDataConversion(
 
 		tests: [
 			{
-				input: [1.571, null, 1.396, null, 0.785, null, null, null], // 90° COG true, 80° heading true, 45° rhumb bearing
+				input: [1.571, null, 1.396, null],
 				expected: [
 					{
-						prio: 2,
+						prio: N2K_DEFAULT_PRIORITY,
 						pgn: 130577,
-						dst: 255,
+						dst: N2K_BROADCAST_DST,
 						fields: {
 							cog: 1.571,
 							cogReference: "True",
@@ -99,12 +112,12 @@ export default function createDirectionDataConversion(
 				],
 			},
 			{
-				input: [null, 1.047, null, 0.698, null, null, null, null], // 60° COG magnetic, 40° heading magnetic
+				input: [null, 1.047, null, 0.698],
 				expected: [
 					{
-						prio: 2,
+						prio: N2K_DEFAULT_PRIORITY,
 						pgn: 130577,
-						dst: 255,
+						dst: N2K_BROADCAST_DST,
 						fields: {
 							cog: 1.047,
 							cogReference: "Magnetic",
@@ -117,12 +130,12 @@ export default function createDirectionDataConversion(
 			{
 				// Due north: cogTrue=0, headingTrue=0. With || fallback, zero is falsy
 				// and cog/heading would wrongly fall through to magnetic values.
-				input: [0, 1.047, 0, 0.698, null, null, null, null],
+				input: [0, 1.047, 0, 0.698],
 				expected: [
 					{
-						prio: 2,
+						prio: N2K_DEFAULT_PRIORITY,
 						pgn: 130577,
-						dst: 255,
+						dst: N2K_BROADCAST_DST,
 						fields: {
 							cog: 0,
 							cogReference: "True",

@@ -4,10 +4,9 @@ import type {
 	ConversionModule,
 	SignalKApp,
 } from "../types/index.js";
+import { errMessage } from "../utils/errorUtils.js";
+import { isValidNumber } from "../utils/validation.js";
 
-/**
- * Leeway conversion module - converts Signal K leeway angle to NMEA 2000 PGN 128000
- */
 export default function createLeewayConversion(
 	app: SignalKApp,
 ): ConversionModule<[number | null]> {
@@ -17,8 +16,7 @@ export default function createLeewayConversion(
 		keys: ["performance.leeway"],
 		callback: ((leeway: number | null) => {
 			try {
-				// Validate leeway input - required field
-				if (typeof leeway !== "number") {
+				if (!isValidNumber(leeway)) {
 					return [];
 				}
 
@@ -33,7 +31,7 @@ export default function createLeewayConversion(
 					},
 				];
 			} catch (err) {
-				app.error(err instanceof Error ? err.message : String(err));
+				app.error(errMessage(err));
 				return [];
 			}
 		}) as ConversionCallback<[number | null]>,

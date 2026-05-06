@@ -1,5 +1,10 @@
 import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import type { ConversionModule, N2KMessage } from "../types/index.js";
+import { toN2KDateTime } from "../utils/dateUtils.js";
+import { isValidNumber } from "../utils/validation.js";
+
+// PGN 129284 uses a fixed sequence identifier per common implementations.
+const NAV_DATA_SID = 0x88;
 
 interface DestinationPoint {
 	position?: {
@@ -41,22 +46,19 @@ function createNavDataConversion(
 			pp: unknown,
 			rte: unknown,
 		): N2KMessage[] => {
-			if (typeof distToDest !== "number") {
+			if (!isValidNumber(distToDest)) {
 				return [];
 			}
 
-			const dateObj = new Date();
-			const wcvValue = typeof WCV === "number" ? WCV : 0;
-			const secondsToGo = wcvValue > 0 ? Math.trunc(distToDest / wcvValue) : 0;
-			const etaDate = Math.trunc(
-				(dateObj.getTime() / 1000 + secondsToGo) / 86400,
-			);
-			const etaTime =
-				(dateObj.getUTCHours() * (60 * 60) +
-					dateObj.getUTCMinutes() * 60 +
-					dateObj.getUTCSeconds() +
-					secondsToGo) %
-				86400;
+			const wcvValid = isValidNumber(WCV);
+			let etaDate: number | undefined;
+			let etaTime: number | undefined;
+			if (wcvValid && WCV > 0) {
+				const secondsToGo = Math.trunc(distToDest / WCV);
+				const eta = toN2KDateTime(new Date(Date.now() + secondsToGo * 1000));
+				etaDate = eta.date;
+				etaTime = eta.time;
+			}
 
 			const route = rte as ActiveRoute;
 			const wpid =
@@ -71,25 +73,27 @@ function createNavDataConversion(
 					pgn: 129284,
 					dst: N2K_BROADCAST_DST,
 					fields: {
-						sid: 0x88,
+						sid: NAV_DATA_SID,
 						distanceToWaypoint: distToDest,
 						courseBearingReference: "True",
 						perpendicularCrossed: pp != null ? "Yes" : "No",
 						arrivalCircleEntered: ace != null ? "Yes" : "No",
 						calculationType,
-						etaTime: wcvValue > 0 ? etaTime : undefined,
-						etaDate: wcvValue > 0 ? etaDate : undefined,
-						bearingOriginToDestinationWaypoint:
-							typeof bearingOriginToDest === "number"
-								? bearingOriginToDest
-								: undefined,
-						bearingPositionToDestinationWaypoint:
-							typeof bearingToDest === "number" ? bearingToDest : undefined,
+						etaTime,
+						etaDate,
+						bearingOriginToDestinationWaypoint: isValidNumber(
+							bearingOriginToDest,
+						)
+							? bearingOriginToDest
+							: undefined,
+						bearingPositionToDestinationWaypoint: isValidNumber(bearingToDest)
+							? bearingToDest
+							: undefined,
 						originWaypointNumber: undefined,
-						destinationWaypointNumber: Number.parseInt(String(wpid), 10),
+						destinationWaypointNumber: wpid,
 						destinationLatitude: destination?.position?.latitude,
 						destinationLongitude: destination?.position?.longitude,
-						waypointClosingVelocity: typeof WCV === "number" ? WCV : undefined,
+						waypointClosingVelocity: wcvValid ? WCV : undefined,
 					},
 				},
 			];
@@ -146,7 +150,7 @@ export default function createNavigationDataConversions(): ConversionModule[] {
 			optionKey: "CROSS_TRACK_ERROR",
 			keys: ["navigation.course.calcValues.crossTrackError"],
 			callback: (XTE: unknown): N2KMessage[] => {
-				if (typeof XTE !== "number") {
+				if (!isValidNumber(XTE)) {
 					return [];
 				}
 

@@ -28,7 +28,6 @@ export default function createSmallCraftStatusConversion(): ConversionModule {
 			polarSpeed: unknown,
 			polarRatio: unknown,
 		): N2KMessage[] => {
-			// Send small craft status if we have any relevant data
 			if (
 				trimTabPort == null &&
 				trimTabStbd == null &&
@@ -59,7 +58,6 @@ export default function createSmallCraftStatusConversion(): ConversionModule {
 				colorCode: "Red", // Default color code
 			};
 
-			// Add fields conditionally based on availability
 			if (portTabPercent !== null) {
 				fields.portTrimTab = portTabPercent;
 			}

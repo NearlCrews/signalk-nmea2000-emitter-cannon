@@ -12,13 +12,13 @@ A modern TypeScript Signal K server plugin that converts Signal K data to NMEA 2
 
 ## Features
 
-- **Modern TypeScript**: Fully converted to TypeScript 5.9+ with strict type safety
-- **Broad PGN Coverage**: 45 conversion modules supporting 58 NMEA 2000 Parameter Group Numbers
+- **Modern TypeScript**: Fully typed under TypeScript 6 strict mode
+- **Broad PGN Coverage**: 45 conversion modules emitting 53 NMEA 2000 Parameter Group Numbers (plus 3 ISO PGNs announced in the transmit list)
 - **Signal K Native**: Seamless integration with Signal K server ecosystem using official `@signalk/server-api`
 - **Garmin Compatibility**: Aligned with Garmin PGN specifications and canboatjs framework
 - **Reactive Processing**: Built on RxJS 7.8 for efficient real-time data processing
-- **High Performance**: Modern build system with esbuild for fast compilation (~207kb bundle)
-- **Fully Tested**: Comprehensive test suite with Vitest and CanboatJS validation
+- **High Performance**: esbuild bundles to a single ~209 KB ESM file
+- **Fully Tested**: Vitest suite with CanboatJS round-trip encoding/decoding validation
 - **Modern Dependencies**: es-toolkit, RxJS 7.8, pure ESM modules
 - **Latest Tooling**: Biome for linting/formatting, zero errors and warnings
 - **CI/CD Ready**: GitHub Actions workflow with multi-version Node.js testing
@@ -28,7 +28,7 @@ A modern TypeScript Signal K server plugin that converts Signal K data to NMEA 2
 
 ### Prerequisites
 
-- Node.js 20 or higher
+- Node.js 20.18 or higher
 - Signal K server
 - A supported NMEA 2000 gateway (e.g., Actisense NGT-1, Yacht Devices YDNR-02) connected to Signal K for messages to reach the NMEA 2000 bus
 - npm or compatible package manager
@@ -79,7 +79,7 @@ Some conversions require instance mapping to match your NMEA 2000 network:
 - **Tank**: Map each Signal K tank path to an NMEA 2000 tank instance ID
 - **Solar**: Map each Signal K solar charger ID to an NMEA 2000 battery instance ID
 
-## Supported PGNs (58 PGNs across 45 modules)
+## Supported PGNs (53 data PGNs across 45 modules)
 
 All PGNs are aligned with Garmin specifications (corrected priorities, SID fields, field names).
 
@@ -94,13 +94,11 @@ All PGNs are aligned with Garmin specifications (corrected priorities, SID field
 | 127257 | Attitude (pitch, roll, yaw) | `attitude.ts` |
 | 127258 | Magnetic Variance | `magneticVariance.ts` |
 | 128000 | Leeway | `leeway.ts` |
-| 128259 | Speed (water/ground) | `speed.ts` |
+| 128259 | Speed Through Water | `speed.ts` |
 | 128267 | Water Depth | `depth.ts` |
-| 128275 | Distance Log | `speed.ts` |
 | 129025 | Position (lat/lon) | `gps.ts` |
 | 129026 | COG & SOG Rapid Update | `cogSOG.ts` |
 | 129029 | GNSS Position Data | `gps.ts` |
-| 129033 | System Time (Date & Time) | `systemTime.ts` |
 | 129283 | Cross Track Error | `navigationData.ts` |
 | 129284 | Navigation Data (waypoint) | `navigationData.ts` |
 | 129285 | Route/Waypoint Information | `routeWaypoint.ts` |
@@ -139,11 +137,11 @@ All PGNs are aligned with Garmin specifications (corrected priorities, SID field
 | PGN | Description | Module |
 |--------|-------------|--------|
 | 130306 | Wind Data (apparent, true ground, true water) | `wind.ts`, `windTrueGround.ts`, `windTrueWater.ts` |
-| 130310 | Sea/Air Temperature | `seaTemp.ts` |
-| 130311 | Atmospheric Pressure | `pressure.ts` |
+| 130310 | Environmental Parameters (sea temp, air temp, atmospheric pressure) | `seaTemp.ts` |
+| 130311 | Environmental Parameters (atmospheric pressure) | `environmentParameters.ts` |
 | 130312 | Temperature (exhaust + general-purpose sources) | `engineParameters.ts`, `temperature.ts` |
 | 130313 | Humidity (inside/outside) | `humidity.ts` |
-| 130314 | Actual Pressure | `pressure.ts` |
+| 130314 | Actual Pressure (atmospheric) | `pressure.ts` |
 | 130316 | Temperature, Extended Range | `temperature.ts` |
 
 ### Electrical Systems
@@ -173,7 +171,9 @@ All PGNs are aligned with Garmin specifications (corrected priorities, SID field
 | 65288 | Raymarine (Seatalk) Alarms | `raymarineAlarms.ts` |
 | 126720 | Raymarine Display Brightness | `raymarineBrightness.ts` |
 
-### ISO (in PGN list announcement only)
+### ISO (announced in the transmit PGN list, not emitted by this plugin)
+
+These appear in PGN 126464's transmit list to advertise ISO support, but the plugin itself does not generate them — Signal K's NMEA 2000 stack handles ISO traffic at the bus layer.
 
 | PGN | Description |
 |--------|-------------|
@@ -185,8 +185,8 @@ All PGNs are aligned with Garmin specifications (corrected priorities, SID field
 
 ### Prerequisites
 
-- Node.js 20+
-- TypeScript 5.9+
+- Node.js 20.18+
+- TypeScript 6+
 - Modern package manager (npm recommended)
 
 ### Setup
@@ -236,16 +236,22 @@ src/
 │   ├── pathUtils.ts      # Signal K path manipulation
 │   ├── messageUtils.ts   # NMEA 2000 message utilities
 │   ├── dateUtils.ts      # Date/time conversions for N2K
+│   ├── errorUtils.ts     # errMessage() coercion helper
 │   ├── validation.ts     # Input validation (NaN/Infinity checks)
 │   └── smoothing.ts      # Exponential smoothing for sensor data
 ├── conversions/          # PGN conversion modules (45 modules)
 │   ├── index.ts          # Module loader
+│   ├── routeTypes.ts     # Shared Position/Waypoint types
 │   ├── wind.ts           # Wind data conversion
 │   ├── depth.ts          # Depth conversion
 │   ├── battery.ts        # Battery status conversion
 │   └── ...               # Additional conversions
 └── test/                 # Test suites
-    └── index.test.ts     # Main test file
+    ├── index.test.ts        # All conversion-module test cases (round-trip via canboatjs)
+    ├── lifecycle.test.ts    # Plugin start/stop/resend lifecycle
+    ├── pathUtils.test.ts    # pathToPropName collision regressions
+    ├── smoothing.test.ts    # ExponentialSmoother registry behavior
+    └── temperature.test.ts  # Temperature default-instance uniqueness
 .github/
 └── workflows/
     └── ci.yml            # GitHub Actions CI pipeline
@@ -378,9 +384,10 @@ Expected. The yellow bar in the Signal K admin dashboard's **Plugins activity** 
 ## Compatibility
 
 - **Signal K Server**: 2.20.0+
-- **Node.js**: 20.0.0+
+- **Node.js**: 20.18.0+
 - **CanboatJS**: 3.13.0+
 - **@signalk/server-api**: 2.10.2+
+- **TypeScript**: 6.0+ (development only)
 
 ## License
 

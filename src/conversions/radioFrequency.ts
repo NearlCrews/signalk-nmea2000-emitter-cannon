@@ -19,7 +19,6 @@ export default function createRadioFrequencyConversion(): ConversionModule {
 			power: unknown,
 			squelch: unknown,
 		): N2KMessage[] => {
-			// Send radio data if we have at least frequency info
 			if (rxFreq == null && txFreq == null) {
 				return [];
 			}

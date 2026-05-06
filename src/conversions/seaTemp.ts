@@ -8,10 +8,9 @@ import type {
 	N2KMessage,
 	SignalKApp,
 } from "../types/index.js";
+import { errMessage } from "../utils/errorUtils.js";
+import { toValidNumber } from "../utils/validation.js";
 
-/**
- * Sea/Air Temperature conversion module - converts Signal K environmental data to NMEA 2000 PGN 130310
- */
 export default function createSeaTempConversion(
 	app: SignalKApp,
 ): ConversionModule {
@@ -29,11 +28,17 @@ export default function createSeaTempConversion(
 			pressure: unknown,
 		): N2KMessage[] => {
 			try {
-				// Validate inputs
-				const waterTemperature = typeof water === "number" ? water : null;
-				const outsideTemperature = typeof air === "number" ? air : null;
-				const atmosphericPressure =
-					typeof pressure === "number" ? pressure : null;
+				const waterTemperature = toValidNumber(water);
+				const outsideTemperature = toValidNumber(air);
+				const atmosphericPressure = toValidNumber(pressure);
+
+				if (
+					waterTemperature === null &&
+					outsideTemperature === null &&
+					atmosphericPressure === null
+				) {
+					return [];
+				}
 
 				return [
 					{
@@ -49,7 +54,7 @@ export default function createSeaTempConversion(
 					},
 				];
 			} catch (err) {
-				app.error(err instanceof Error ? err.message : String(err));
+				app.error(errMessage(err));
 				return [];
 			}
 		},

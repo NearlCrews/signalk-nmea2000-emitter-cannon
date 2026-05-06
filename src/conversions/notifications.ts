@@ -55,6 +55,12 @@ export default function createNotificationsConversion(
 				.split(",")
 				.map((s) => s.trim())
 				.filter((s) => s.length > 0);
+			// Reset alert state when configuration changes so newly excluded
+			// paths don't leak through stale cached PGNs and the alertId
+			// counter doesn't grow forever across config reloads.
+			pgns = [];
+			idCounter = 0;
+			for (const key of Object.keys(ids)) delete ids[key];
 			if (excludePrefixes.length > 0) {
 				app.debug(
 					`Notifications excluding paths: ${excludePrefixes.join(", ")}`,
@@ -90,14 +96,11 @@ export default function createNotificationsConversion(
 			}
 
 			const value = update.value;
-			const type = alertTypes[value.state];
 
-			// Don't create a loop by sending out notifications we received from NMEA
 			if (update.path.includes("notifications.nmea")) {
 				return pgns;
 			}
 
-			// Skip excluded notification paths
 			if (
 				excludePrefixes.length > 0 &&
 				excludePrefixes.some((prefix) => update.path.startsWith(prefix))
@@ -111,22 +114,18 @@ export default function createNotificationsConversion(
 				alertId = value.alertId;
 				app.debug(`Using existing alertId ${alertId} for ${update.path}`);
 
-				// Remove the pgns and reprocess them for changes
 				pgns = pgns.filter((obj) => obj.fields.alertId !== alertId);
 
 				if (value.state !== "normal") {
+					const type = alertTypes[value.state];
 					const method = value.method || [];
-					let state: string;
-
-					if (method.length === 0) {
-						state = "Acknowledged";
-					} else if (method.indexOf("sound") === -1) {
-						state = "Silenced";
-					} else {
-						state = "Active";
-					}
-
-					const idName = alertId.toString().padStart(16, "0");
+					const isAcknowledged = method.length === 0;
+					const hasSound = method.includes("sound");
+					const state = isAcknowledged
+						? "Acknowledged"
+						: hasSound
+							? "Active"
+							: "Silenced";
 
 					pgns.push({
 						prio: N2K_DEFAULT_PRIORITY,
@@ -138,7 +137,7 @@ export default function createNotificationsConversion(
 							alertCategory: alertCategory,
 							alertSystem: alertSystem,
 							alertSubSystem: 0,
-							dataSourceNetworkIdName: Number.parseInt(idName, 10),
+							dataSourceNetworkIdName: alertId,
 							dataSourceInstance: 0,
 							dataSourceIndexSource: 0,
 							alertOccurrenceNumber: 0,
@@ -157,16 +156,13 @@ export default function createNotificationsConversion(
 							alertCategory: alertCategory,
 							alertSystem: alertSystem,
 							alertSubSystem: 0,
-							dataSourceNetworkIdName: Number.parseInt(idName, 10),
+							dataSourceNetworkIdName: alertId,
 							dataSourceInstance: 0,
 							dataSourceIndexSource: 0,
 							alertOccurrenceNumber: 0,
 							temporarySilenceStatus:
-								value.method && value.method.indexOf("sound") === -1
-									? "Yes"
-									: "No",
-							acknowledgeStatus:
-								!value.method || value.method.length === 0 ? "Yes" : "No",
+								!isAcknowledged && !hasSound ? "Yes" : "No",
+							acknowledgeStatus: isAcknowledged ? "Yes" : "No",
 							escalationStatus: "No",
 							temporarySilenceSupport: "Yes",
 							acknowledgeSupport: "Yes",
@@ -177,9 +173,11 @@ export default function createNotificationsConversion(
 							alertState: state,
 						},
 					});
+				} else {
+					delete ids[update.path];
 				}
 			} else {
-				// Add NMEA2000 alert info so that the alarm can be silenced from a NMEA source
+				const type = alertTypes[value.state];
 				const existingRecord = ids[update.path];
 				if (existingRecord?.alertId) {
 					alertId = existingRecord.alertId;
@@ -190,12 +188,12 @@ export default function createNotificationsConversion(
 					app.debug(`Assigning new alertId ${alertId} to ${update.path}`);
 				}
 
-				// Send delta with alert details (if handleMessage is available)
 				if (app.handleMessage) {
 					const modifiedDelta = {
 						context: deltaMsg.context,
 						updates: [
 							{
+								source: { label: plugin.id, type: "plugin" },
 								timestamp: new Date().toISOString(),
 								values: [
 									{
@@ -213,8 +211,12 @@ export default function createNotificationsConversion(
 						],
 					};
 
-					app.debug(`New delta with alertId: ${JSON.stringify(modifiedDelta)}`);
-					// Cast to compatible type for Signal K delta handling
+					const appDebug = app.debug as unknown as { enabled?: boolean };
+					if (appDebug?.enabled) {
+						app.debug(
+							`New delta with alertId: ${JSON.stringify(modifiedDelta)}`,
+						);
+					}
 					app.handleMessage(
 						plugin.id,
 						modifiedDelta as Parameters<

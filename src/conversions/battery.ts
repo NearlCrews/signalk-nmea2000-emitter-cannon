@@ -9,27 +9,21 @@ import type {
 	SubConversionModule,
 } from "../types/index.js";
 import { ExponentialSmoother } from "../utils/smoothing.js";
+import { isValidNumber } from "../utils/validation.js";
 
-/**
- * Battery configuration interface
- */
+const BATTERY_TIMEOUT_MS = 60000;
+
 interface BatteryConfig {
 	signalkId: string | number;
 	instanceId: number;
 }
 
-/**
- * Battery conversion options
- */
 interface BatteryOptions {
 	batteries: BatteryConfig[];
 	enabled?: boolean;
 	resend?: number;
 }
 
-/**
- * Battery conversion module - converts Signal K battery data to NMEA 2000 PGNs 127506 & 127508
- */
 export default function createBatteryConversion(
 	_app: SignalKApp,
 	_plugin: SignalKPlugin,
@@ -89,12 +83,15 @@ export default function createBatteryConversion(
 				return null;
 			}
 
-			return batteryOptions.batteries.map(
-				(battery): SubConversionModule => ({
+			const sharedTimeouts = batteryKeys.map(() => BATTERY_TIMEOUT_MS);
+
+			return batteryOptions.batteries.map((battery): SubConversionModule => {
+				const smoothingKey = `${battery.signalkId}_${battery.instanceId}`;
+				return {
 					keys: batteryKeys.map(
 						(key) => `electrical.batteries.${battery.signalkId}.${key}`,
 					),
-					timeouts: batteryKeys.map(() => 60000),
+					timeouts: sharedTimeouts,
 					callback: ((
 						voltage: number | null,
 						current: number | null,
@@ -109,7 +106,7 @@ export default function createBatteryConversion(
 					) => {
 						const res: N2KMessage[] = [];
 
-						// Prefer 'temperature' if available; otherwise fall back to 'Temperature1' (both are Kelvin)
+						// Both 'temperature' and 'Temperature1' are Kelvin; 'temperature' wins.
 						const tempOut = temperature !== null ? temperature : temperature1;
 
 						// PGN 127508: Battery Status
@@ -142,37 +139,30 @@ export default function createBatteryConversion(
 							// - positive current = discharging
 							// - negative current = discharging
 							let dischargeCurrentA: number | null = null;
-							if (current !== null && Number.isFinite(current)) {
-								const threshold = 0.5; // Increased from 0.1 to 0.5A to avoid noise
+							if (isValidNumber(current)) {
+								const threshold = 0.5;
 								if (current > threshold) {
-									dischargeCurrentA = current; // positive discharging
+									dischargeCurrentA = current;
 								} else if (current < -threshold) {
-									dischargeCurrentA = -current; // negative discharging
+									dischargeCurrentA = -current;
 								}
 							}
 
-							if (remainingC !== null && Number.isFinite(remainingC)) {
-								if (
-									dischargeCurrentA !== null &&
-									Number.isFinite(dischargeCurrentA) &&
-									dischargeCurrentA > 0
-								) {
-									// Calculate time remaining from discharge rate
-									let seconds = Math.round(remainingC / dischargeCurrentA); // C / A = s
-									const max = 30 * 24 * 3600; // cap at 30 days
+							if (isValidNumber(remainingC)) {
+								if (dischargeCurrentA !== null && dischargeCurrentA > 0) {
+									let seconds = Math.round(remainingC / dischargeCurrentA);
+									const max = 30 * 24 * 3600;
 									if (seconds < 0) seconds = 0;
 									if (seconds > max) seconds = max;
 
-									// Apply exponential smoothing to reduce jitter
-									const smoothingKey = `${battery.signalkId}_${battery.instanceId}`;
 									seconds = Math.round(
 										timeRemainingSmoother.smooth(smoothingKey, seconds),
 									);
 
 									computedTR = seconds;
 								} else {
-									// Current is too low or battery is not discharging: output null (no meaningful value)
-									// This prevents displaying arbitrary maximum when battery is idle/charging
+									// Current is too low or battery is not discharging: leave
+									// null so we don't display a false maximum when idle/charging.
 									computedTR = null;
 								}
 							}
@@ -370,8 +360,8 @@ export default function createBatteryConversion(
 							],
 						},
 					],
-				}),
-			);
+				};
+			});
 		},
 	};
 }

@@ -5,10 +5,8 @@ import type {
 	SignalKApp,
 } from "../types/index.js";
 import { toN2KDateTime } from "../utils/dateUtils.js";
+import { errMessage } from "../utils/errorUtils.js";
 
-/**
- * System Time conversion module - converts current time to NMEA 2000 PGN 126992
- */
 export default function createSystemTimeConversion(
 	app: SignalKApp,
 ): ConversionModule {
@@ -17,10 +15,11 @@ export default function createSystemTimeConversion(
 		sourceType: "timer",
 		interval: 1000,
 		optionKey: "SYSTEM_TIME",
-		callback: (...values: unknown[]): N2KMessage[] => {
+		callback: (_app: unknown, inputDate?: unknown): N2KMessage[] => {
 			try {
-				const inputDate = values[1] as Date | undefined;
-				const { date, time } = toN2KDateTime(inputDate || new Date());
+				const { date, time } = toN2KDateTime(
+					inputDate instanceof Date ? inputDate : new Date(),
+				);
 
 				return [
 					{
@@ -34,7 +33,7 @@ export default function createSystemTimeConversion(
 					},
 				];
 			} catch (err) {
-				app.error(err instanceof Error ? err.message : String(err));
+				app.error(errMessage(err));
 				return [];
 			}
 		},

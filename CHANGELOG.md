@@ -1,5 +1,119 @@
 ## Change Log
 
+### v1.3.0 (2026/05/05) - Bus Correctness, Hot-Path Cleanup, Toolchain Modernization
+
+**NMEA 2000 Bus Correctness (real bugs on the wire)**:
+- AIS PGNs 129039, 129040, 129798: position guard used `!position.latitude || !position.longitude`, which rejects vessels exactly on the equator (latitude 0) or the prime meridian (longitude 0). Switched to `isValidNumber` so a legitimate `0` passes through. Same class of bug fixed in `routeWaypoint`/`routeWpList` in v1.2.5.
+- PGN 129540 satellite list: `||` fallbacks for `prn`, `elevation`, `azimuth`, and `snr` discarded valid `0` readings (satellite at horizon, due-north azimuth, no-signal SNR, satellite ID 0). Switched to `??`.
+- PGN 130310 sea/air temperature: callback emitted a no-op message every delta when all three inputs were null. Added an all-null guard.
+- PGN 127493 transmission parameters: early-return guard used `== null`, which lets `NaN` and `Infinity` through. Switched to `isValidNumber` for consistency with the rest of the callback.
+- PGN 130577 direction data: NaN/Infinity could leak into `cog`/`heading` fields because the guard only checked `=== null`. Each value now gates on `isValidNumber`.
+
+**Hot-path efficiency (`plugin-manager.ts`)**:
+- Stream callback now reads `Date.now()` once per delta (was twice).
+- `lastValues[skKey]` entries are mutated in place instead of allocating a new `{ timestamp, value }` object on every Signal K value update.
+- Per-PGN debug-enabled cast hoisted out of the `processToN2K` PGN loop.
+- Source-filter `${sourceRef}.` prefix string precomputed once per closure instead of rebuilt on every stream value.
+- Redundant first-pass `Object.keys(options)` enabled-counter loop in `start()` removed; the count is folded into the existing setup loop.
+- Magic string `"vessels.self"` extracted to `VESSELS_SELF_CONTEXT` constant.
+- Inner `processToN2K` `catch` blocks use `errMessage(err)` instead of raw `${err}` template, which previously printed `[object Error]` for thrown `Error` instances.
+
+**Code reuse**:
+- New shared helper `errMessage(err)` in `src/utils/errorUtils.ts`. The 27 inline `err instanceof Error ? err.message : String(err)` copies across conversion modules now import from the shared helper, plus `index.ts`, `plugin-manager.ts`, and `conversions/index.ts`.
+- New `src/conversions/routeTypes.ts` with shared `Position`/`Waypoint` interfaces and `DEFAULT_ROUTE_NAME = "ACTIVE_ROUTE"`. `routeWaypoint.ts` collapsed double `.map()` over the waypoint slice into a single pass; `routeWpList.ts` reads `wpList.length` instead of recomputing `Math.min(waypoints.length, 16)`.
+- `transmissionParameters.ts` and `engineParameters.ts` use `DEFAULT_DATA_TIMEOUT_MS` from `constants.ts` and hoist the per-call `.map(() => DEFAULT_DATA_TIMEOUT_MS)` arrays out of the per-engine loop.
+- `tanks.ts`, `solar.ts`, `battery.ts` use named `*_TIMEOUT_MS` constants instead of bare `60000` literals.
+- `battery.ts` swapped 3 inline `Number.isFinite` checks for `isValidNumber`. The smoothing key string is built once per battery in the factory closure instead of every callback.
+
+**Hot-path allocations (callback construction)**:
+- `attitude.ts` and `gps.ts` PGN 129029 build the N2K `fields` object imperatively (typed as `N2KMessage["fields"]`) instead of stacking conditional spread expressions, eliminating per-callback intermediate object allocations.
+- `gnssData.ts` PGN 129539: deduplicated identical `desiredMode`/`actualMode` ternary chains into a single `modeValue` computation. PGN 129540 satellite list builds via a fixed-length `for` loop instead of `.slice().map()`.
+
+**Quality**:
+- `notifications.ts`: removed dead `padStart(16, '0')` + `Number.parseInt(idName, 10)` round-trip on `dataSourceNetworkIdName` (output was identical to passing `alertId` directly). `.indexOf("sound")` switched to `.includes`. Per-event `state` derivation deduplicated via `hasSound`/`isAcknowledged` locals (was reading `value.method` four times). When an alert resolves to `state === "normal"`, its entry is now removed from the `ids` map (memory leak fix: previously, every distinct path that ever fired an alert held a slot forever).
+- `raymarineAlarms.ts`: `.indexOf("sound")` switched to `.includes`; `hasSound` hoisted; nested if/else replaced with a ternary.
+- `navigationData.ts`: ETA arithmetic now uses `toN2KDateTime` from `dateUtils.ts` instead of inline `getTime()`/`getUTCHours()` math. Magic SID literal `0x88` named `NAV_DATA_SID`. `isValidNumber(WCV)` deduplicated.
+- `temperature.ts`: `fieldName` (the `"temperature"` vs `"actualTemperature"` switch) hoisted out of `createTemperatureMessage` since it only depends on `pgn`, which is fixed at factory time. Instance lookup simplified to `?? info.instance`.
+- `solar.ts`: title corrected from `"Solar as Battery (127506 & 127508)"` to `"Solar as Battery (127508)"`. The 127506 emit path was removed earlier; the title misled the admin UI. Shared timeouts array hoisted.
+- `systemTime.ts`: variadic `(...values)` simplified to `(_app, inputDate)` named parameters; magic `values[1]` index removed.
+- `directionData.ts`: test inputs trimmed from 8 elements to 4 to match the 4-arg callback signature; raw `0` SID literals replaced with `N2K_SID_ZERO`.
+- ~14 WHAT-style narration comments removed across `plugin-manager.ts` and conversion modules.
+- `aisExtended.ts`: `shipType?.name || "Sailing"` switched to `??` (an empty-string ship type name no longer silently becomes "Sailing").
+- `aisExtended.ts`: removed redundant `const pos = position as Position` aliases at the three position-PGN call sites.
+
+**Toolchain & dependencies**:
+- TypeScript bumped 5.9 to 6.0. `tsconfig.json`: removed unused `baseUrl` and `paths` (no `@/...` imports in the codebase); added `"types": ["node"]` because TypeScript 6 changed the default to `[]`, which dropped `@types/node` from auto-include and broke `NodeJS.Timeout` references.
+- esbuild bumped 0.27 to 0.28. Bundle output is byte-identical.
+- lint-staged bumped 15 to 16. No config changes required.
+- `engines.node` tightened from `>=20` to `>=20.18` to match lint-staged 16's floor.
+- Biome dependency bumped within range; `biome.json` `$schema` URL updated to match the installed biome version.
+- All in-range packages updated via `npm update` (biome, canboatjs 3.13 → 3.17, vitest 4.1.4 → 4.1.5, @types/node, @vitest/*, signalk-server, es-toolkit).
+
+**Cleanup**:
+- Stale `coverage/` directory (gitignored, last modified weeks ago) removed.
+
+---
+
+### v1.2.5 (2026/05/03) - Codebase Simplification and Documentation Accuracy
+
+**NMEA 2000 Bus Correctness**:
+- PGN 126983/126985 notifications: restored the `source: { label: plugin.id, type: "plugin" }`
+  field on the delta sent to `app.handleMessage`. The field was added in v1.1.x for
+  Signal K schema compliance and silently dropped during a later refactor;
+  schema-strict consumers could reject the malformed delta.
+- PGN 126464 transmit-PGN list no longer advertises 128275 (Distance Log) or
+  129033 (Time & Date). The plugin has no module that emits them, so any
+  receiver requesting these PGNs got nothing.
+
+**Validation hardening (NaN/Infinity rejection)**:
+- 18 conversion modules previously used `typeof x === "number"`, which lets
+  `NaN` and `Infinity` through and could leak corrupt values into PGN fields.
+  These now use `isValidNumber` / `toValidNumber` from `utils/validation.ts`:
+  ais, aisExtended, cogSOG (already correct), engineParameters, environmentParameters,
+  gnssData, gps, heading (already correct), leeway, magneticVariance, navigationData,
+  pressure, raymarineBrightness, rudder, seaTemp, setdrift, solar, tanks,
+  temperature, transmissionParameters, trueheading.
+- `routeWaypoint.ts` and `routeWpList.ts` now use `?? 0` instead of `|| 0`
+  for waypoint coordinate defaults — a valid `0` latitude (equator) or `0`
+  longitude (prime meridian) is no longer treated as missing.
+- humidity outside conversion: added explicit test for `relativeHumidity = 0`
+  to confirm a valid 0 % reading does not silently fall through to the
+  `humidity` path.
+
+**Notification state hygiene**:
+- Notifications conversion now resets `pgns`, `ids`, and `idCounter` in
+  `onOptionsLoaded`. Previously, changing config (e.g. excluded paths) left
+  stale alerts in the closure that would re-emit on the next event.
+- The `JSON.stringify(modifiedDelta)` debug line is now guarded by
+  `appDebug.enabled` so it doesn't allocate per alert when debug is off.
+
+**Plugin lifecycle**:
+- `nmea2000Ready` is reset to `false` in `stop()`. Without the reset, a
+  subsequent `start()` would inherit the previous run's readiness flag and
+  emit before the new run's `nmea2000OutAvailable` event fired.
+- Removed dead `try/catch` in `raymarineAlarms.ts` (wrapped a bare `return`)
+  and dropped the now-unused `app` parameter.
+- Extracted `errMessage(err)` helper in `plugin-manager.ts` (was repeated
+  seven times); removed an unnecessary `as unknown[]` cast on a value
+  already typed `unknown[]`.
+
+**Code quality sweep**:
+- Removed redundant WHAT-style JSDoc blocks (e.g. `/** Battery configuration interface */`)
+  and narration comments (`// Validate inputs`, `// Convert and validate inputs`)
+  across 35 files — net 162 lines removed.
+- Stripped task-tracking comment markers (`(M3)`, `(M9)`, `(H5)`, `(L3)`)
+  that referenced a planning doc no longer in the repo.
+
+**Documentation accuracy**:
+- README PGN tables corrected: removed phantom 128275 and 129033 rows,
+  fixed PGN 130311 attribution from `pressure.ts` to `environmentParameters.ts`,
+  rewrote 130310 / 130311 / 130314 descriptions to match each canboat PGN's
+  actual semantics.
+- README PGN count: 58 → 53 data PGNs (with 3 ISO PGNs called out separately
+  as transmit-list announcements only).
+- Bundle size reference updated from ~207 KB to ~211 KB.
+- CLAUDE.md PGN count corrected (57 → 53).
+
 ### v1.2.4 (2026/04/19) - Humidity Path Compatibility
 
 - PGN 130313 outside humidity now subscribes to both

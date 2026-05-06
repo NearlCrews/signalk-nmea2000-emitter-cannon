@@ -6,22 +6,18 @@ import {
 import type {
 	ConversionCallback,
 	ConversionModule,
+	N2KMessage,
 	SignalKApp,
 } from "../types/index.js";
+import { errMessage } from "../utils/errorUtils.js";
 import { isValidNumber } from "../utils/validation.js";
 
-/**
- * Attitude data interface
- */
 interface AttitudeData {
 	pitch?: number;
 	yaw?: number;
 	roll?: number;
 }
 
-/**
- * Attitude conversion module - converts Signal K attitude data to NMEA 2000 PGN 127257
- */
 export default function createAttitudeConversion(
 	app: SignalKApp,
 ): ConversionModule<[AttitudeData]> {
@@ -31,28 +27,25 @@ export default function createAttitudeConversion(
 		keys: ["navigation.attitude"],
 		callback: ((attitude: AttitudeData) => {
 			try {
-				// Validate attitude input
 				if (!attitude || typeof attitude !== "object") {
 					return [];
 				}
+
+				const fields: N2KMessage["fields"] = { sid: N2K_DEFAULT_SID };
+				if (isValidNumber(attitude.pitch)) fields.pitch = attitude.pitch;
+				if (isValidNumber(attitude.yaw)) fields.yaw = attitude.yaw;
+				if (isValidNumber(attitude.roll)) fields.roll = attitude.roll;
 
 				return [
 					{
 						prio: N2K_DEFAULT_PRIORITY,
 						pgn: 127257,
 						dst: N2K_BROADCAST_DST,
-						fields: {
-							sid: N2K_DEFAULT_SID,
-							...(isValidNumber(attitude.pitch)
-								? { pitch: attitude.pitch }
-								: {}),
-							...(isValidNumber(attitude.yaw) ? { yaw: attitude.yaw } : {}),
-							...(isValidNumber(attitude.roll) ? { roll: attitude.roll } : {}),
-						},
+						fields,
 					},
 				];
 			} catch (err) {
-				app.error(err instanceof Error ? err.message : String(err));
+				app.error(errMessage(err));
 				return [];
 			}
 		}) as ConversionCallback<[AttitudeData]>,

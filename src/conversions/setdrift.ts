@@ -4,10 +4,9 @@ import type {
 	N2KMessage,
 	SignalKApp,
 } from "../types/index.js";
+import { errMessage } from "../utils/errorUtils.js";
+import { toValidNumber } from "../utils/validation.js";
 
-/**
- * Set/Drift conversion module - converts Signal K current data to NMEA 2000 PGN 129291
- */
 export default function createSetDriftConversion(
 	app: SignalKApp,
 ): ConversionModule {
@@ -17,11 +16,9 @@ export default function createSetDriftConversion(
 		keys: ["environment.current.setTrue", "environment.current.drift"],
 		callback: (set: unknown, drift: unknown): N2KMessage[] => {
 			try {
-				// Validate inputs - both set and drift should be numbers
-				const setValue = typeof set === "number" ? set : null;
-				const driftValue = typeof drift === "number" ? drift : null;
+				const setValue = toValidNumber(set);
+				const driftValue = toValidNumber(drift);
 
-				// Return empty array if no current data available
 				if (setValue === null && driftValue === null) {
 					return [];
 				}
@@ -39,7 +36,7 @@ export default function createSetDriftConversion(
 					},
 				];
 			} catch (err) {
-				app.error(err instanceof Error ? err.message : String(err));
+				app.error(errMessage(err));
 				return [];
 			}
 		},

@@ -403,10 +403,14 @@ export const schema: JSONSchema = {
 					items: {
 						type: "object",
 						properties: {
-							signalkId: { title: "Signal K tank id", type: "string" },
-							instanceId: {
-								title: "NMEA2000 Tank Instance Id",
-								type: "number",
+      						signalkPath: { 
+       							 title: "Signal K Tank Path", 
+        						description: "Full Signal K path, e.g. tanks.fuel.0 or tanks.freshWater.1",
+        						type: "string" 
+     						 },
+     					 	instanceId: {
+       							title: "NMEA2000 Tank Instance Id",
+       						 	type: "number",
 							},
 						},
 					},

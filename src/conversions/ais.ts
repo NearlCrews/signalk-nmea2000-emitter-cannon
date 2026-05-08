@@ -124,15 +124,25 @@ export default function createAisConversion(
 			if (!app.selfId) {
 				return [];
 			}
-			const selfContext = `vessels.${app.selfId}`;
 
-			if (deltaMsg.context === selfContext || isN2K(deltaMsg)) {
+			// Skip non-AIS contexts before allocating the delta index. With
+			// registerDeltaInputHandler this callback fires on every delta
+			// server-wide, so the prefix check needs to come first.
+			const ctx = deltaMsg.context;
+			const isVessel = ctx.startsWith("vessels.");
+			const isAton = ctx.startsWith("atons.");
+			if (!isVessel && !isAton) {
+				return [];
+			}
+
+			const selfContext = `vessels.${app.selfId}`;
+			if (ctx === selfContext || isN2K(deltaMsg)) {
 				return [];
 			}
 
 			const index = buildDeltaIndex(deltaMsg);
 
-			if (deltaMsg.context.startsWith("vessels.")) {
+			if (isVessel) {
 				const hasStatic = indexHasAnyKeys(index, staticKeys);
 				const hasPosition = indexHasAnyKeys(index, positionKeys);
 
@@ -158,19 +168,17 @@ export default function createAisConversion(
 					if (staticMsg) res.push(staticMsg);
 				}
 				return res;
-			} else if (deltaMsg.context.startsWith("atons.")) {
-				const vessel = app.getPath(deltaMsg.context) as Vessel;
-				const mmsiValue = indexedFindValue(index, vessel, "mmsi");
-
-				if (!mmsiValue || typeof mmsiValue !== "string") {
-					return [];
-				}
-
-				const atonMsg = generateAtoN(vessel, mmsiValue, index);
-				return atonMsg ? [atonMsg] : [];
 			}
 
-			return [];
+			const vessel = app.getPath(ctx) as Vessel;
+			const mmsiValue = indexedFindValue(index, vessel, "mmsi");
+
+			if (!mmsiValue || typeof mmsiValue !== "string") {
+				return [];
+			}
+
+			const atonMsg = generateAtoN(vessel, mmsiValue, index);
+			return atonMsg ? [atonMsg] : [];
 		}) as ConversionCallback<[AisDelta]>,
 		tests: [
 			{

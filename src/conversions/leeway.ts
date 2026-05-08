@@ -13,7 +13,7 @@ export default function createLeewayConversion(
 	return {
 		title: "Leeway (128000)",
 		optionKey: "LEEWAY",
-		keys: ["performance.leeway"],
+		keys: ["navigation.leewayAngle"],
 		callback: ((leeway: number | null) => {
 			try {
 				if (!isValidNumber(leeway)) {

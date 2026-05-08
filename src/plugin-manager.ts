@@ -45,7 +45,7 @@ export class PluginManager {
 	 * this, every plugin restart leaks a listener (and the PluginManager it
 	 * closes over), eventually tripping MaxListenersExceeded.
 	 */
-	private readonly onNmea2000Ready: (data: unknown) => void;
+	private readonly onNmea2000Ready: () => void;
 	/**
 	 * Last input arguments observed for each conversion. Used by the resend
 	 * timer to re-invoke the conversion callback with the most recent input
@@ -331,15 +331,15 @@ export class PluginManager {
 			return;
 		}
 
-		const handler = (delta: unknown) => {
+		// next(delta) first so app.getPath() reflects the just-applied state.
+		this.app.registerDeltaInputHandler((delta, next) => {
+			next(delta);
 			const args: unknown[] = [delta];
 			this.lastInputs.set(conversion, args);
 			const result = this.invokeCallback(conversion, args, "delta");
 			if (result === undefined) return;
 			void this.processOutput(conversion, processingOptions, result);
-		};
-		this.app.on("delta", handler);
-		this.unsubscribes.push(() => this.app.removeListener("delta", handler));
+		});
 	}
 
 	private mapRxJS(conversion: ConversionModule, options: unknown): void {
@@ -447,7 +447,10 @@ export class PluginManager {
 			},
 		});
 
-		this.unsubscribes.push(() => subscription.unsubscribe());
+		this.unsubscribes.push(() => {
+			subscription.unsubscribe();
+			combinedBus.complete();
+		});
 	}
 
 	private mapSubscription(
@@ -550,9 +553,7 @@ export class PluginManager {
 				}
 			}
 
-			if (this.app.reportOutputMessages) {
-				this.app.reportOutputMessages(validPgns.length);
-			}
+			this.app.reportOutputMessages(validPgns.length);
 		} catch (err) {
 			this.app.error(`Error processing N2K values: ${errMessage(err)}`);
 		}

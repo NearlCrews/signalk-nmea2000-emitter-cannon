@@ -581,8 +581,8 @@ export const schema: JSONSchema = {
 						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
 					default: 0,
 				},
-				performanceleeway: {
-					title: "Source for performance.leeway",
+				navigationleewayAngle: {
+					title: "Source for navigation.leewayAngle",
 					description:
 						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",

@@ -11,7 +11,7 @@ import type {
 	SubConversionModule,
 } from "../types/index.js";
 import { errMessage } from "../utils/errorUtils.js";
-import { isValidNumber } from "../utils/validation.js";
+import { isValidNumber, toValidNumber } from "../utils/validation.js";
 
 interface ExhaustTempEngineConfig {
 	signalkId: string | number;
@@ -201,22 +201,16 @@ export default function createEngineParametersConversions(
 						engTorque: number | null,
 					) => {
 						try {
-							const oilPressure = isValidNumber(oilPres) ? oilPres / 100 : null;
-							const oilTemperature = isValidNumber(oilTemp) ? oilTemp : null;
-							const temperature = isValidNumber(temp) ? temp : null;
-							const alternatorPotential = isValidNumber(altVolt)
-								? altVolt
-								: null;
+							const oilPressure = toValidNumber(oilPres);
+							const oilTemperature = toValidNumber(oilTemp);
+							const temperature = toValidNumber(temp);
+							const alternatorPotential = toValidNumber(altVolt);
 							const fuelRateConverted = isValidNumber(fuelRate)
 								? fuelRate * 3600 * 1000
 								: null;
-							const totalEngineHours = isValidNumber(runTime) ? runTime : null;
-							const coolantPressure = isValidNumber(coolPres)
-								? coolPres / 100
-								: null;
-							const fuelPressure = isValidNumber(fuelPres)
-								? fuelPres / 100
-								: null;
+							const totalEngineHours = toValidNumber(runTime);
+							const coolantPressure = toValidNumber(coolPres);
+							const fuelPressure = toValidNumber(fuelPres);
 							const engineLoad = isValidNumber(engLoad) ? engLoad * 100 : null;
 							const engineTorque = isValidNumber(engTorque)
 								? engTorque * 100
@@ -274,14 +268,14 @@ export default function createEngineParametersConversions(
 									dst: 255,
 									fields: {
 										instance: "Dual Engine Starboard",
-										oilPressure: 1000,
+										oilPressure: 102700,
 										oilTemperature: 210,
 										temperature: 220,
 										alternatorPotential: 13.1,
 										fuelRate: -2355.2,
 										totalEngineHours: "55:52:03",
-										coolantPressure: 2000,
-										fuelPressure: 111000,
+										coolantPressure: 202100,
+										fuelPressure: 11111000,
 										discreteStatus1: [],
 										discreteStatus2: [],
 										engineLoad: 50,
@@ -307,9 +301,7 @@ export default function createEngineParametersConversions(
 							const speed = isValidNumber(revolutions)
 								? revolutions * 60
 								: null;
-							const boostPres = isValidNumber(boostPressure)
-								? boostPressure / 100
-								: null;
+							const boostPres = toValidNumber(boostPressure);
 							const tiltTrim = isValidNumber(trimState)
 								? trimState * 100
 								: null;
@@ -345,7 +337,7 @@ export default function createEngineParametersConversions(
 									fields: {
 										instance: "Dual Engine Starboard",
 										speed: 10908,
-										boostPressure: 200,
+										boostPressure: 20300,
 										tiltTrim: 50,
 									},
 								},

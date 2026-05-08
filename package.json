@@ -29,8 +29,8 @@
 	},
 	"keywords": [
 		"signalk-node-server-plugin",
-		"signalk-category-nmea2000",
-		"signalk-category-navigation",
+		"signalk-category-nmea-2000",
+		"signalk-category-ais",
 		"nmea2000",
 		"garmin",
 		"marine-electronics",

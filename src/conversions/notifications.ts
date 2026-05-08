@@ -188,42 +188,36 @@ export default function createNotificationsConversion(
 					app.debug(`Assigning new alertId ${alertId} to ${update.path}`);
 				}
 
-				if (app.handleMessage) {
-					const modifiedDelta = {
-						context: deltaMsg.context,
-						updates: [
-							{
-								source: { label: plugin.id, type: "plugin" },
-								timestamp: new Date().toISOString(),
-								values: [
-									{
-										path: update.path,
-										value: {
-											...value,
-											alertType: type,
-											alertCategory: alertCategory,
-											alertSystem: alertSystem,
-											alertId: alertId,
-										},
+				const modifiedDelta = {
+					context: deltaMsg.context,
+					updates: [
+						{
+							source: { label: plugin.id, type: "plugin" },
+							timestamp: new Date().toISOString(),
+							values: [
+								{
+									path: update.path,
+									value: {
+										...value,
+										alertType: type,
+										alertCategory: alertCategory,
+										alertSystem: alertSystem,
+										alertId: alertId,
 									},
-								],
-							},
-						],
-					};
+								},
+							],
+						},
+					],
+				};
 
-					const appDebug = app.debug as unknown as { enabled?: boolean };
-					if (appDebug?.enabled) {
-						app.debug(
-							`New delta with alertId: ${JSON.stringify(modifiedDelta)}`,
-						);
-					}
-					app.handleMessage(
-						plugin.id,
-						modifiedDelta as Parameters<
-							NonNullable<typeof app.handleMessage>
-						>[1],
-					);
+				const appDebug = app.debug as unknown as { enabled?: boolean };
+				if (appDebug?.enabled) {
+					app.debug(`New delta with alertId: ${JSON.stringify(modifiedDelta)}`);
 				}
+				app.handleMessage(
+					plugin.id,
+					modifiedDelta as Parameters<typeof app.handleMessage>[1],
+				);
 			}
 
 			return pgns;

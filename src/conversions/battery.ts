@@ -35,13 +35,12 @@ export default function createBatteryConversion(
 		"voltage",
 		"current",
 		"temperature",
-		"Temperature1",
 		"capacity.stateOfCharge",
 		"capacity.timeRemaining",
 		"capacity.remaining",
 		"capacity.actual",
 		"capacity.stateOfHealth",
-		"ripple",
+		"voltage.ripple",
 	];
 
 	return {
@@ -96,7 +95,6 @@ export default function createBatteryConversion(
 						voltage: number | null,
 						current: number | null,
 						temperature: number | null,
-						temperature1: number | null,
 						stateOfCharge: number | null,
 						timeRemaining: number | null,
 						capacityRemaining: number | null,
@@ -106,11 +104,8 @@ export default function createBatteryConversion(
 					) => {
 						const res: N2KMessage[] = [];
 
-						// Both 'temperature' and 'Temperature1' are Kelvin; 'temperature' wins.
-						const tempOut = temperature !== null ? temperature : temperature1;
-
 						// PGN 127508: Battery Status
-						if (voltage !== null || current !== null || tempOut !== null) {
+						if (voltage !== null || current !== null || temperature !== null) {
 							res.push({
 								prio: N2K_DEFAULT_PRIORITY,
 								pgn: 127508,
@@ -119,7 +114,7 @@ export default function createBatteryConversion(
 									instance: battery.instanceId,
 									voltage: voltage,
 									current: current,
-									temperature: tempOut,
+									temperature: temperature,
 								},
 							});
 						}
@@ -201,20 +196,9 @@ export default function createBatteryConversion(
 					}) as ConversionCallback,
 
 					tests: [
-						// Explicit timeRemaining provided; Temperature from 'temperature'
+						// Explicit timeRemaining provided
 						{
-							input: [
-								12.5,
-								23.1,
-								290.15,
-								null,
-								0.93,
-								12340,
-								378000,
-								null,
-								0.6,
-								12.0,
-							],
+							input: [12.5, 23.1, 290.15, 0.93, 12340, 378000, null, 0.6, 12.0],
 							expected: [
 								{
 									prio: 2,
@@ -242,20 +226,9 @@ export default function createBatteryConversion(
 								},
 							],
 						},
-						// Derived timeRemaining from remaining C and positive discharge current; Temperature from 'Temperature1'
+						// Derived timeRemaining from remaining C and positive discharge current
 						{
-							input: [
-								13.63,
-								20,
-								null,
-								293.5,
-								1.0,
-								null,
-								378000,
-								null,
-								null,
-								null,
-							],
+							input: [13.63, 20, 293.5, 1.0, null, 378000, null, null, null],
 							expected: [
 								{
 									prio: 2,
@@ -283,18 +256,7 @@ export default function createBatteryConversion(
 						},
 						// Derived timeRemaining with negative-discharge convention (current = -20 A)
 						{
-							input: [
-								13.63,
-								-20,
-								null,
-								293.5,
-								1.0,
-								null,
-								378000,
-								null,
-								null,
-								null,
-							],
+							input: [13.63, -20, 293.5, 1.0, null, 378000, null, null, null],
 							expected: [
 								{
 									prio: 2,
@@ -322,18 +284,7 @@ export default function createBatteryConversion(
 						},
 						// Low current (below threshold): omit timeRemaining field (no meaningful value)
 						{
-							input: [
-								13.26,
-								0,
-								null,
-								292.9,
-								0.99,
-								null,
-								376056,
-								378000,
-								null,
-								null,
-							],
+							input: [13.26, 0, 292.9, 0.99, null, 376056, 378000, null, null],
 							expected: [
 								{
 									prio: 2,

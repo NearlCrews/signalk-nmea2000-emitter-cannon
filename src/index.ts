@@ -27,25 +27,20 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 		stop: stopPlugin,
 	};
 
-	/**
-	 * Start the plugin
-	 */
-	function startPlugin(options: PluginOptions): void {
+	function startPlugin(
+		options: PluginOptions,
+		_restartPlugin?: (cfg: object) => void,
+	): void {
 		try {
-			// Create and initialize the plugin manager
 			pluginManager = new PluginManager(app, plugin);
-
-			// Start the plugin manager with the provided options
 			pluginManager.start(options);
 		} catch (error) {
-			app.error(`Failed to start plugin: ${errMessage(error)}`);
-			console.error("Full startup error:", error);
+			const msg = errMessage(error);
+			app.error(`Failed to start plugin: ${msg}`);
+			app.debug(`Full startup error: ${msg}`);
 		}
 	}
 
-	/**
-	 * Stop the plugin
-	 */
 	function stopPlugin(): void {
 		if (pluginManager) {
 			pluginManager.stop();

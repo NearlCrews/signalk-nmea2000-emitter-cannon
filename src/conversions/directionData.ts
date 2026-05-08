@@ -9,7 +9,7 @@ import type {
 	SignalKApp,
 } from "../types/index.js";
 import { errMessage } from "../utils/errorUtils.js";
-import { isValidNumber } from "../utils/validation.js";
+import { toValidNumber } from "../utils/validation.js";
 
 export default function createDirectionDataConversion(
 	app: SignalKApp,
@@ -32,19 +32,24 @@ export default function createDirectionDataConversion(
 			headingMagnetic: number | null,
 		) => {
 			try {
-				const cogTrueValid = isValidNumber(cogTrue);
-				const cogMagneticValid = isValidNumber(cogMagnetic);
-				const headingTrueValid = isValidNumber(headingTrue);
-				const headingMagneticValid = isValidNumber(headingMagnetic);
+				const cogT = toValidNumber(cogTrue);
+				const cogM = toValidNumber(cogMagnetic);
+				const hdgT = toValidNumber(headingTrue);
+				const hdgM = toValidNumber(headingMagnetic);
 
-				if (
-					!cogTrueValid &&
-					!cogMagneticValid &&
-					!headingTrueValid &&
-					!headingMagneticValid
-				) {
+				if (cogT === null && cogM === null && hdgT === null && hdgM === null) {
 					return [];
 				}
+
+				// PGN 130577 has only one reference field (cogReference) which
+				// implicitly applies to heading too. Pick True when any True
+				// value is available so the emitted cog and heading agree.
+				// Heading-only-magnetic cases are covered by the separate PGN
+				// 127250 conversion in heading.ts.
+				const useTrue = cogT !== null || hdgT !== null;
+				const cogReference = useTrue ? "True" : "Magnetic";
+				const cog = useTrue ? cogT : cogM;
+				const heading = useTrue ? hdgT : hdgM;
 
 				return [
 					{
@@ -52,37 +57,11 @@ export default function createDirectionDataConversion(
 						pgn: 130577,
 						dst: N2K_BROADCAST_DST,
 						fields: {
+							sid: N2K_SID_ZERO,
 							dataMode: "Autonomous",
-							cogReference: cogTrueValid
-								? "True"
-								: cogMagneticValid
-									? "Magnetic"
-									: "Unavailable",
-							sidForCog: N2K_SID_ZERO,
-							cog: cogTrueValid
-								? cogTrue
-								: cogMagneticValid
-									? cogMagnetic
-									: null,
-							sogReference: "Unavailable",
-							sidForSog: N2K_SID_ZERO,
-							sog: null,
-							headingReference: headingTrueValid
-								? "True"
-								: headingMagneticValid
-									? "Magnetic"
-									: "Unavailable",
-							sidForHeading: N2K_SID_ZERO,
-							heading: headingTrueValid
-								? headingTrue
-								: headingMagneticValid
-									? headingMagnetic
-									: null,
-							speedThroughWaterReference: "Unavailable",
-							sidForStw: N2K_SID_ZERO,
-							speedThroughWater: null,
-							set: null,
-							drift: null,
+							cogReference,
+							cog,
+							heading,
 						},
 					},
 				];
@@ -103,6 +82,7 @@ export default function createDirectionDataConversion(
 						pgn: 130577,
 						dst: N2K_BROADCAST_DST,
 						fields: {
+							sid: 0,
 							cog: 1.571,
 							cogReference: "True",
 							dataMode: "Autonomous",
@@ -119,6 +99,7 @@ export default function createDirectionDataConversion(
 						pgn: 130577,
 						dst: N2K_BROADCAST_DST,
 						fields: {
+							sid: 0,
 							cog: 1.047,
 							cogReference: "Magnetic",
 							dataMode: "Autonomous",
@@ -128,8 +109,6 @@ export default function createDirectionDataConversion(
 				],
 			},
 			{
-				// Due north: cogTrue=0, headingTrue=0. With || fallback, zero is falsy
-				// and cog/heading would wrongly fall through to magnetic values.
 				input: [0, 1.047, 0, 0.698],
 				expected: [
 					{
@@ -137,6 +116,7 @@ export default function createDirectionDataConversion(
 						pgn: 130577,
 						dst: N2K_BROADCAST_DST,
 						fields: {
+							sid: 0,
 							cog: 0,
 							cogReference: "True",
 							dataMode: "Autonomous",

@@ -21,7 +21,7 @@ A modern TypeScript Signal K server plugin that converts Signal K data to NMEA 2
 - **Fully Tested**: Vitest suite with CanboatJS round-trip encoding/decoding validation
 - **Modern Dependencies**: es-toolkit, RxJS 7.8, pure ESM modules
 - **Latest Tooling**: Biome for linting/formatting, zero errors and warnings
-- **CI/CD Ready**: GitHub Actions workflow with multi-version Node.js testing
+- **CI/CD Ready**: GitHub Actions for multi-version Node.js testing and auto-publish to npm on tagged releases (with sigstore provenance)
 - **Developer Experience**: Pre-commit hooks with husky + lint-staged
 
 ## Installation
@@ -254,8 +254,15 @@ src/
     └── temperature.test.ts  # Temperature default-instance uniqueness
 .github/
 └── workflows/
-    └── ci.yml            # GitHub Actions CI pipeline
+    ├── ci.yml            # GitHub Actions CI pipeline (lint, typecheck, test, build)
+    └── publish.yml       # Auto-publish to npm on GitHub release (with provenance)
 ```
+
+### Releasing
+
+`npm run release` (run locally) tags the current `package.json` version, pushes the tag and master, and creates a GitHub release with auto-generated notes. The `Publish to npm` workflow then fires on the `release: published` event, runs typecheck and tests, verifies the tag matches `package.json`, and publishes to npm with sigstore provenance.
+
+The workflow also supports manual `workflow_dispatch` with a `tag` input from the Actions tab, useful for backfilling a release that was created before the workflow existed. Requires an `NPM_TOKEN` repo secret (npm Automation token, or Granular token with publish + read on this package).
 
 ### Adding New Conversions
 

@@ -29,6 +29,9 @@
 **Test mock**:
 - `src/test/lifecycle.test.ts`: added `reportOutputMessages` and `registerDeltaInputHandler` stubs to the mock `app` to faithfully model `ServerAPI` 2.x.
 
+**CI / release automation**:
+- New `.github/workflows/publish.yml`. On `release: published` it runs typecheck and tests, verifies that the release tag matches `package.json` version, then `npm publish --provenance --access public`. Requires an `NPM_TOKEN` repo secret. Also exposes a `workflow_dispatch` trigger with a `tag` input so a release tagged before the workflow existed can be published manually from the Actions tab.
+
 **Bundle**: 207.3 KB (was 209 KB) due to dead-code removal.
 
 ---

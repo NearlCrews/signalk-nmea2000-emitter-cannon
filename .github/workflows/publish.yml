@@ -3,6 +3,11 @@ name: Publish to npm
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag to publish (e.g. v1.3.1)
+        required: true
 
 permissions:
   contents: read
@@ -14,6 +19,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -32,11 +39,13 @@ jobs:
         run: npm test
 
       - name: Verify tag matches package.json version
+        env:
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
         run: |
           PKG_VERSION=$(node -p "require('./package.json').version")
-          TAG_VERSION=${GITHUB_REF_NAME#v}
+          TAG_VERSION=${TAG#v}
           if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
-            echo "::error::package.json version $PKG_VERSION does not match release tag $GITHUB_REF_NAME"
+            echo "::error::package.json version $PKG_VERSION does not match release tag $TAG"
             exit 1
           fi
 

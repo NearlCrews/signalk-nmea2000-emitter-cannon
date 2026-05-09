@@ -4,6 +4,9 @@ import type {
 	N2KFieldValue,
 	N2KMessage,
 } from "../types/index.js";
+import { isValidNumber, toValidNumber } from "../utils/validation.js";
+
+const TRIM_TAB_FULL_DEFLECTION_RAD = 0.52;
 
 export default function createSmallCraftStatusConversion(): ConversionModule {
 	return {
@@ -38,16 +41,14 @@ export default function createSmallCraftStatusConversion(): ConversionModule {
 				return [];
 			}
 
-			// Convert trim tab positions to percentage if they're in radians
+			// Heuristic: small absolute values are interpreted as radians and
+			// scaled to percent against full-deflection; larger values are
+			// already in percent.
 			const normalizeTabPosition = (position: unknown): number | null => {
-				if (position == null || typeof position !== "number") return null;
-
-				// If position seems to be in radians (typically small values), convert to percentage
+				if (!isValidNumber(position)) return null;
 				if (Math.abs(position) < Math.PI) {
-					// Assume full deflection is about ±30 degrees (0.52 radians)
-					return Math.round((position / 0.52) * 100);
+					return Math.round((position / TRIM_TAB_FULL_DEFLECTION_RAD) * 100);
 				}
-				// Otherwise assume it's already in percentage
 				return Math.round(position);
 			};
 
@@ -55,30 +56,26 @@ export default function createSmallCraftStatusConversion(): ConversionModule {
 			const stbdTabPercent = normalizeTabPosition(trimTabStbd);
 
 			const fields: Record<string, N2KFieldValue> = {
-				colorCode: "Red", // Default color code
+				colorCode: "Red",
 			};
 
-			if (portTabPercent !== null) {
-				fields.portTrimTab = portTabPercent;
-			}
-			if (stbdTabPercent !== null) {
-				fields.starboardTrimTab = stbdTabPercent;
-			}
-			if (typeof trimAngle === "number") {
-				fields.trim = trimAngle;
-			}
-			if (typeof displacement === "number") {
-				fields.displacement = displacement;
-			}
-			if (typeof vmg === "number") {
-				fields.velocityMadeGoodToWaypoint = vmg;
-			}
-			if (typeof polarSpeed === "number") {
-				fields.polarSpeed = polarSpeed;
-			}
-			if (typeof polarRatio === "number") {
-				fields.polarSpeedRatio = polarRatio;
-			}
+			if (portTabPercent !== null) fields.portTrimTab = portTabPercent;
+			if (stbdTabPercent !== null) fields.starboardTrimTab = stbdTabPercent;
+
+			const validTrimAngle = toValidNumber(trimAngle);
+			if (validTrimAngle !== null) fields.trim = validTrimAngle;
+
+			const validDisplacement = toValidNumber(displacement);
+			if (validDisplacement !== null) fields.displacement = validDisplacement;
+
+			const validVmg = toValidNumber(vmg);
+			if (validVmg !== null) fields.velocityMadeGoodToWaypoint = validVmg;
+
+			const validPolarSpeed = toValidNumber(polarSpeed);
+			if (validPolarSpeed !== null) fields.polarSpeed = validPolarSpeed;
+
+			const validPolarRatio = toValidNumber(polarRatio);
+			if (validPolarRatio !== null) fields.polarSpeedRatio = validPolarRatio;
 
 			return [
 				{

@@ -1,8 +1,14 @@
-/**
- * Coerce any thrown value to a string. JavaScript allows non-Error throws,
- * so the `instanceof Error` check before reading `.message` is required;
- * `String(err)` covers strings, numbers, plain objects, etc.
- */
+// JS lets any value be thrown, so guard `.message` access. Plain objects
+// stringify to "[object Object]"; JSON.stringify gives a useful payload when
+// possible (cyclic objects throw, fall back to String).
 export function errMessage(err: unknown): string {
-	return err instanceof Error ? err.message : String(err);
+	if (err instanceof Error) return err.message;
+	if (err !== null && typeof err === "object") {
+		try {
+			return JSON.stringify(err);
+		} catch {
+			return String(err);
+		}
+	}
+	return String(err);
 }

@@ -6,6 +6,7 @@ import type {
 	SignalKApp,
 	SignalKPlugin,
 } from "../types/index.js";
+import { isValidNumber } from "../utils/validation.js";
 
 interface Position {
 	latitude?: number;
@@ -437,7 +438,11 @@ function generatePosition(
 		"navigation.position",
 	) as Position;
 
-	if (!position?.latitude || !position.longitude) {
+	if (
+		!position ||
+		!isValidNumber(position.latitude) ||
+		!isValidNumber(position.longitude)
+	) {
 		return null;
 	}
 
@@ -468,9 +473,12 @@ function generatePosition(
 		status = navStatusMapping[state];
 	}
 
-	const validCog = cog != null && cog <= Math.PI * 2 ? cog : undefined;
+	const validCog =
+		isValidNumber(cog) && cog >= 0 && cog <= Math.PI * 2 ? cog : undefined;
 	const validHeading =
-		heading != null && heading <= Math.PI * 2 ? heading : undefined;
+		isValidNumber(heading) && heading >= 0 && heading <= Math.PI * 2
+			? heading
+			: undefined;
 
 	const mmsiNumber = Number.parseInt(mmsi, 10);
 
@@ -507,7 +515,11 @@ function generateAtoN(
 		"navigation.position",
 	) as Position;
 
-	if (!position?.latitude || !position.longitude) {
+	if (
+		!position ||
+		!isValidNumber(position.latitude) ||
+		!isValidNumber(position.longitude)
+	) {
 		return null;
 	}
 
@@ -530,11 +542,11 @@ function generateAtoN(
 	) as number;
 
 	let fromStarboard: number | undefined;
-	if (beam != null && fromCenter != null) {
+	if (isValidNumber(beam) && isValidNumber(fromCenter)) {
 		fromStarboard = beam / 2 + fromCenter;
 	}
 
-	const fromBowScaled = fromBow ? fromBow * 10 : undefined;
+	const fromBowScaled = isValidNumber(fromBow) ? fromBow * 10 : undefined;
 	const mmsiNumber = Number.parseInt(mmsi, 10);
 
 	return {

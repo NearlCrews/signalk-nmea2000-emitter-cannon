@@ -4,7 +4,7 @@ import {
 	N2K_DEFAULT_PRIORITY,
 } from "../constants.js";
 import type { ConversionModule, N2KMessage } from "../types/index.js";
-import { isValidNumber } from "../utils/validation.js";
+import { isValidNumber, toValidNumber } from "../utils/validation.js";
 
 const TRANSMISSION_TIMEOUTS = [
 	DEFAULT_DATA_TIMEOUT_MS,
@@ -58,16 +58,10 @@ export default function createTransmissionParametersConversion(): ConversionModu
 					fields: {
 						engineInstance: 0,
 						transmissionGear,
-						oilPressure: isValidNumber(oilPressure) ? oilPressure : undefined,
-						oilTemperature: isValidNumber(oilTemperature)
-							? oilTemperature
-							: undefined,
-						discreteStatus1: isValidNumber(discreteStatus1)
-							? discreteStatus1
-							: 0,
-						discreteStatus2: isValidNumber(discreteStatus2)
-							? discreteStatus2
-							: 0,
+						oilPressure: toValidNumber(oilPressure) ?? undefined,
+						oilTemperature: toValidNumber(oilTemperature) ?? undefined,
+						discreteStatus1: toValidNumber(discreteStatus1) ?? 0,
+						discreteStatus2: toValidNumber(discreteStatus2) ?? 0,
 					},
 				},
 			];

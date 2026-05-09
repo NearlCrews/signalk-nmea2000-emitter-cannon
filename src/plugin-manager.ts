@@ -1,5 +1,6 @@
 import type { Context, Path } from "@signalk/server-api";
 import { debounceTime, Subject } from "rxjs";
+import { STREAM_DEBOUNCE_MS, VESSELS_SELF_CONTEXT } from "./constants.js";
 import { createConversionModules } from "./conversions/index.js";
 import type {
 	ConversionModule,
@@ -11,14 +12,13 @@ import type {
 	SignalKApp,
 	SignalKPlugin,
 	SourceTypeMapper,
+	SubConversionModule,
 } from "./types/index.js";
 import { isConversionOptions } from "./types/index.js";
 import { errMessage } from "./utils/errorUtils.js";
 import { formatN2KMessage, validateN2KMessage } from "./utils/messageUtils.js";
 import { isDefined, pathToPropName } from "./utils/pathUtils.js";
 import { clearAllSmoothers } from "./utils/smoothing.js";
-
-const VESSELS_SELF_CONTEXT = "vessels.self";
 
 /**
  * Resolve a conversion's `keys` property which may be a static array or a
@@ -110,76 +110,59 @@ export class PluginManager {
 			this.app.debug(`Using ${this.conversions.length} conversion modules`);
 
 			let enabledCount = 0;
-			for (const conversion of this.conversions) {
-				const conversionArray = Array.isArray(conversion)
-					? conversion
-					: [conversion];
+			for (const conv of this.conversions) {
+				const convOptions = options[conv.optionKey];
+				const isEnabled =
+					isConversionOptions(convOptions) && convOptions.enabled === true;
+				this.app.debug(
+					`Checking conversion ${conv.title} (${conv.optionKey}) - enabled: ${isEnabled}`,
+				);
 
-				for (const conv of conversionArray) {
-					const convOptions = options[conv.optionKey];
-					const isEnabled =
-						isConversionOptions(convOptions) && convOptions.enabled;
-					this.app.debug(
-						`Checking conversion ${conv.title} (${conv.optionKey}) - enabled: ${isEnabled}`,
-					);
+				if (!isEnabled) continue;
+				enabledCount++;
 
-					if (!isConversionOptions(convOptions) || !convOptions.enabled) {
+				this.app.debug(`*** SETTING UP ENABLED CONVERSION: ${conv.title} ***`);
+
+				if (conv.onOptionsLoaded) {
+					conv.onOptionsLoaded(convOptions as Record<string, unknown>);
+				}
+
+				const rawConversions = conv.conversions;
+				let subConversions: SubConversionModule[] | null;
+				if (rawConversions === undefined) {
+					subConversions = [conv];
+				} else if (typeof rawConversions === "function") {
+					subConversions = rawConversions(convOptions);
+				} else {
+					subConversions = rawConversions;
+				}
+
+				if (!subConversions) {
+					this.app.debug(`No subconversions for ${conv.title}`);
+					continue;
+				}
+
+				this.app.debug(
+					`Setting up ${subConversions.length} subconversions for ${conv.title}`,
+				);
+
+				for (const subConversion of subConversions) {
+					if (subConversion === undefined) continue;
+
+					const sourceType: NonNullable<ConversionModule["sourceType"]> =
+						subConversion.sourceType || "onValueChange";
+					const mapper = this.sourceTypes[sourceType];
+
+					if (!mapper) {
+						this.app.error(`Unknown conversion type: ${sourceType}`);
 						continue;
 					}
-					enabledCount++;
 
-					this.app.debug(
-						`*** SETTING UP ENABLED CONVERSION: ${conv.title} ***`,
-					);
-
-					if (conv.onOptionsLoaded) {
-						conv.onOptionsLoaded(convOptions as Record<string, unknown>);
+					if (subConversion.outputType === undefined) {
+						subConversion.outputType = "to-n2k";
 					}
 
-					let subConversions = conv.conversions;
-					if (subConversions === undefined) {
-						subConversions = [conv];
-					} else if (typeof subConversions === "function") {
-						subConversions = subConversions(convOptions);
-					}
-
-					if (!subConversions) {
-						this.app.debug(`No subconversions for ${conv.title}`);
-						continue;
-					}
-
-					this.app.debug(
-						`Setting up ${subConversions.length} subconversions for ${conv.title}`,
-					);
-
-					for (const subConversion of subConversions) {
-						if (subConversion === undefined) continue;
-
-						const sourceType: NonNullable<ConversionModule["sourceType"]> =
-							subConversion.sourceType || "onValueChange";
-						const mapper = this.sourceTypes[sourceType];
-
-						this.app.debug(
-							`Setting up subconversion with sourceType: ${sourceType}`,
-						);
-
-						if (!mapper) {
-							this.app.error(`Unknown conversion type: ${sourceType}`);
-							continue;
-						}
-
-						if (subConversion.outputType === undefined) {
-							subConversion.outputType = "to-n2k";
-						}
-
-						this.app.debug(
-							`Calling mapper for ${subConversion.title || "unnamed subconversion"}`,
-						);
-						mapper(subConversion, convOptions);
-						this.app.debug(
-							`Mapper completed for ${subConversion.title || "unnamed subconversion"}`,
-						);
-					}
+					mapper(subConversion as ConversionModule, convOptions);
 				}
 			}
 
@@ -429,23 +412,25 @@ export class PluginManager {
 		});
 
 		// Debounce and process like the original
-		const subscription = combinedBus.pipe(debounceTime(10)).subscribe({
-			next: (args) => {
-				this.app.debug(`Callback triggered for ${conversion.title}`);
-				this.lastInputs.set(conversion, args);
-				const result = this.invokeCallback(conversion, args, "stream");
-				if (result === undefined) return;
-				this.app.debug(
-					`Callback result for ${conversion.title}: ${Array.isArray(result) ? result.length : 0} messages`,
-				);
-				void this.processOutput(conversion, pluginOptions, result);
-			},
-			error: (err) => {
-				this.app.error(
-					`Stream error for ${this.moduleLabel(conversion)}: ${errMessage(err)}`,
-				);
-			},
-		});
+		const subscription = combinedBus
+			.pipe(debounceTime(STREAM_DEBOUNCE_MS))
+			.subscribe({
+				next: (args) => {
+					this.app.debug(`Callback triggered for ${conversion.title}`);
+					this.lastInputs.set(conversion, args);
+					const result = this.invokeCallback(conversion, args, "stream");
+					if (result === undefined) return;
+					this.app.debug(
+						`Callback result for ${conversion.title}: ${Array.isArray(result) ? result.length : 0} messages`,
+					);
+					void this.processOutput(conversion, pluginOptions, result);
+				},
+				error: (err) => {
+					this.app.error(
+						`Stream error for ${this.moduleLabel(conversion)}: ${errMessage(err)}`,
+					);
+				},
+			});
 
 		this.unsubscribes.push(() => {
 			subscription.unsubscribe();

@@ -46,7 +46,7 @@ The registry `src/conversions/index.ts` imports all factories and exports `creat
 ### Type System
 - `src/types/plugin.ts` - `ConversionModule<T>`, `SignalKPlugin`, plugin interfaces
 - `src/types/nmea2000.ts` - `N2KMessage`, field validation types
-- `src/types/signalk.ts` - `SignalKApp`, subscriptions, delta messages
+- `src/types/signalk.ts` - `SignalKApp` (extends `ServerAPI` with the `nmea2000JsonOut` / `nmea2000OutAvailable` event signatures) and `JSONSchema`
 
 ### Utilities
 - `src/utils/messageUtils.ts` - N2K message validation (`validateN2KMessage`), formatting (`formatN2KMessage`), cleaning (`cleanN2KMessage`)
@@ -55,8 +55,8 @@ The registry `src/conversions/index.ts` imports all factories and exports `creat
 - `src/utils/errorUtils.ts` - `errMessage(err)` coercion helper for `unknown`-typed thrown values
 - `src/utils/validation.ts` - Input validation (`isValidNumber`, `toValidNumber` - rejects NaN/Infinity), `normalizeAngle()`
 - `src/utils/smoothing.ts` - `ExponentialSmoother` class for sensor data smoothing
-- `src/constants.ts` - Standard N2K values (`N2K_DEFAULT_PRIORITY`, `N2K_BROADCAST_DST`, `N2K_DEFAULT_SID`, `N2K_SID_ZERO`, `N2K_DEFAULT_INSTANCE`, `DEFAULT_DATA_TIMEOUT_MS`)
-- `src/conversions/routeTypes.ts` - Shared `Position`/`Waypoint` interfaces and `DEFAULT_ROUTE_NAME` for the route conversion modules
+- `src/constants.ts` - Standard N2K values (`N2K_DEFAULT_PRIORITY`, `N2K_BROADCAST_DST`, `N2K_DEFAULT_SID`, `N2K_SID_ZERO`, `N2K_DEFAULT_INSTANCE`, `DEFAULT_DATA_TIMEOUT_MS`, `VESSELS_SELF_CONTEXT`, `STREAM_DEBOUNCE_MS`)
+- `src/conversions/routeTypes.ts` - Shared `Position`/`Waypoint` interfaces, `DEFAULT_ROUTE_NAME`, and per-PGN waypoint capacity constants (`MAX_RPS_WAYPOINTS`, `MAX_WP_LIST_WAYPOINTS`)
 
 ### Configuration Schema
 `src/schema.ts` generates JSON Schema for Signal K admin UI. Each conversion gets enabled/resend/source filter options.

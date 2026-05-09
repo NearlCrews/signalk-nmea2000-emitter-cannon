@@ -23,18 +23,14 @@ export default function createRudderConversion(
 				const angle = toValidNumber(rudderAngle);
 				const target = toValidNumber(rudderAngleTarget);
 
-				// Return empty array if no rudder data available
 				if (angle === null && target === null) {
 					return [];
 				}
 
-				let directionOrder: string = "No Order";
+				let directionOrder = "No Order";
 				if (target !== null) {
-					if (target > 0) {
-						directionOrder = "Move to starboard";
-					} else if (target < 0) {
-						directionOrder = "Move to port";
-					}
+					if (target > 0) directionOrder = "Move to starboard";
+					else if (target < 0) directionOrder = "Move to port";
 				}
 
 				return [
@@ -45,7 +41,7 @@ export default function createRudderConversion(
 						fields: {
 							instance: 0,
 							directionOrder,
-							angleOrder: Math.abs(target || 0),
+							angleOrder: Math.abs(target ?? 0),
 							position: angle,
 						},
 					},

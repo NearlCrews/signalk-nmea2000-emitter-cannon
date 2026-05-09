@@ -9,9 +9,15 @@ import type {
 	SubConversionModule,
 } from "../types/index.js";
 import { ExponentialSmoother } from "../utils/smoothing.js";
-import { isValidNumber } from "../utils/validation.js";
+import { isValidNumber, toValidNumber } from "../utils/validation.js";
 
 const BATTERY_TIMEOUT_MS = 60000;
+const BATTERY_TIME_REMAINING_ALPHA = 0.3;
+const DISCHARGE_THRESHOLD_A = 0.5;
+// PGN 127506 timeRemaining clamp: 30 days. Anything beyond saturates the
+// field so we cap rather than wrap.
+const MAX_TIME_REMAINING_S = 30 * 24 * 3600;
+const PERCENT_SCALE = 100;
 
 interface BatteryConfig {
 	signalkId: string | number;
@@ -28,8 +34,9 @@ export default function createBatteryConversion(
 	_app: SignalKApp,
 	_plugin: SignalKPlugin,
 ): ConversionModule {
-	// Instance-scoped smoothing state (cleared when plugin restarts)
-	const timeRemainingSmoother = new ExponentialSmoother(0.3);
+	const timeRemainingSmoother = new ExponentialSmoother(
+		BATTERY_TIME_REMAINING_ALPHA,
+	);
 
 	const batteryKeys = [
 		"voltage",
@@ -102,27 +109,37 @@ export default function createBatteryConversion(
 						stateOfHealth: number | null,
 						ripple: number | null,
 					) => {
+						const validVoltage = toValidNumber(voltage);
+						const validCurrent = toValidNumber(current);
+						const validTemperature = toValidNumber(temperature);
+						const validRipple = toValidNumber(ripple);
+
 						const res: N2KMessage[] = [];
 
-						// PGN 127508: Battery Status
-						if (voltage !== null || current !== null || temperature !== null) {
+						if (
+							validVoltage !== null ||
+							validCurrent !== null ||
+							validTemperature !== null
+						) {
 							res.push({
 								prio: N2K_DEFAULT_PRIORITY,
 								pgn: 127508,
 								dst: N2K_BROADCAST_DST,
 								fields: {
 									instance: battery.instanceId,
-									voltage: voltage,
-									current: current,
-									temperature: temperature,
+									voltage: validVoltage,
+									current: validCurrent,
+									temperature: validTemperature,
 								},
 							});
 						}
 
-						// Calculate timeRemaining if not provided: remaining [C] / discharge current [A] → seconds
+						// timeRemaining = remaining[C] / |discharge current[A]|.
+						// SK spec calls capacity.remaining Joule, but real-world
+						// producers (Victron, BMS bridges) publish Coulombs; honoring
+						// observed convention. See CHANGELOG v1.3.1.
 						let computedTR: number | null = null;
 						if (timeRemaining === null) {
-							// Prefer remainingC; if not available, derive from actual * SoC
 							const remainingC =
 								capacityRemaining !== null
 									? capacityRemaining
@@ -130,52 +147,38 @@ export default function createBatteryConversion(
 										? capacityActual * stateOfCharge
 										: null;
 
-							// Determine discharge current magnitude supporting either convention:
-							// - positive current = discharging
-							// - negative current = discharging
 							let dischargeCurrentA: number | null = null;
-							if (isValidNumber(current)) {
-								const threshold = 0.5;
-								if (current > threshold) {
-									dischargeCurrentA = current;
-								} else if (current < -threshold) {
-									dischargeCurrentA = -current;
+							if (isValidNumber(validCurrent)) {
+								if (validCurrent > DISCHARGE_THRESHOLD_A) {
+									dischargeCurrentA = validCurrent;
+								} else if (validCurrent < -DISCHARGE_THRESHOLD_A) {
+									dischargeCurrentA = -validCurrent;
 								}
 							}
 
-							if (isValidNumber(remainingC)) {
-								if (dischargeCurrentA !== null && dischargeCurrentA > 0) {
-									let seconds = Math.round(remainingC / dischargeCurrentA);
-									const max = 30 * 24 * 3600;
-									if (seconds < 0) seconds = 0;
-									if (seconds > max) seconds = max;
-
-									seconds = Math.round(
-										timeRemainingSmoother.smooth(smoothingKey, seconds),
-									);
-
-									computedTR = seconds;
-								} else {
-									// Current is too low or battery is not discharging: leave
-									// null so we don't display a false maximum when idle/charging.
-									computedTR = null;
+							if (
+								isValidNumber(remainingC) &&
+								dischargeCurrentA !== null &&
+								dischargeCurrentA > 0
+							) {
+								let seconds = Math.round(remainingC / dischargeCurrentA);
+								if (seconds < 0) seconds = 0;
+								if (seconds > MAX_TIME_REMAINING_S) {
+									seconds = MAX_TIME_REMAINING_S;
 								}
+								computedTR = Math.round(
+									timeRemainingSmoother.smooth(smoothingKey, seconds),
+								);
 							}
 						}
 
-						// PGN 127506: DC Detailed Status
 						if (
 							stateOfCharge !== null ||
 							timeRemaining !== null ||
 							computedTR !== null ||
 							stateOfHealth !== null ||
-							ripple !== null
+							validRipple !== null
 						) {
-							const adjustedStateOfCharge =
-								stateOfCharge !== null ? stateOfCharge * 100 : null;
-							const adjustedStateOfHealth =
-								stateOfHealth !== null ? stateOfHealth * 100 : null;
-
 							res.push({
 								prio: N2K_DEFAULT_PRIORITY,
 								pgn: 127506,
@@ -183,11 +186,16 @@ export default function createBatteryConversion(
 								fields: {
 									instance: battery.instanceId,
 									dcType: "Battery",
-									stateOfCharge: adjustedStateOfCharge,
-									stateOfHealth: adjustedStateOfHealth,
-									timeRemaining:
-										timeRemaining !== null ? timeRemaining : computedTR,
-									rippleVoltage: ripple,
+									stateOfCharge:
+										stateOfCharge !== null
+											? stateOfCharge * PERCENT_SCALE
+											: null,
+									stateOfHealth:
+										stateOfHealth !== null
+											? stateOfHealth * PERCENT_SCALE
+											: null,
+									timeRemaining: timeRemaining ?? computedTR,
+									rippleVoltage: validRipple,
 								},
 							});
 						}

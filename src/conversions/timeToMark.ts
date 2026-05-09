@@ -8,6 +8,7 @@ import type {
 	N2KFieldValue,
 	N2KMessage,
 } from "../types/index.js";
+import { toValidNumber } from "../utils/validation.js";
 
 export default function createTimeToMarkConversion(): ConversionModule {
 	return {
@@ -33,12 +34,11 @@ export default function createTimeToMarkConversion(): ConversionModule {
 				markType: markType === "waypoint" ? "Waypoint" : "Mark",
 			};
 
-			if (typeof timeToGo === "number") {
-				fields.timeToMark = timeToGo;
-			}
-			if (typeof timeSince === "number") {
-				fields.timeSinceMark = timeSince;
-			}
+			const validTimeToGo = toValidNumber(timeToGo);
+			if (validTimeToGo !== null) fields.timeToMark = validTimeToGo;
+
+			const validTimeSince = toValidNumber(timeSince);
+			if (validTimeSince !== null) fields.timeSinceMark = validTimeSince;
 
 			return [
 				{

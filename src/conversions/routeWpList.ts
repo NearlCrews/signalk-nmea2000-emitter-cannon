@@ -1,7 +1,8 @@
 import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import type { ConversionModule, N2KMessage } from "../types/index.js";
+import { isValidNumber } from "../utils/validation.js";
 import type { Waypoint } from "./routeTypes.js";
-import { DEFAULT_ROUTE_NAME } from "./routeTypes.js";
+import { DEFAULT_ROUTE_NAME, MAX_WP_LIST_WAYPOINTS } from "./routeTypes.js";
 
 export default function createRouteWpListConversion(): ConversionModule {
 	return {
@@ -22,16 +23,23 @@ export default function createRouteWpListConversion(): ConversionModule {
 			}
 
 			const wpList = waypoints
-				.slice(0, 16)
-				.map((wp: Waypoint, index: number) => ({
-					wpId: wp.id ?? index + 1,
-					wpName: wp.name || `WP${index + 1}`,
-					wpLatitude: wp.position?.latitude ?? 0,
-					wpLongitude: wp.position?.longitude ?? 0,
-					wpBearingFromOrigin: wp.bearingFromOrigin ?? 0,
-					wpDistanceFromOrigin: wp.distanceFromOrigin ?? 0,
-					wpDescription: wp.description || "",
-				}));
+				.slice(0, MAX_WP_LIST_WAYPOINTS)
+				.flatMap((wp: Waypoint, index: number) => {
+					const lat = wp.position?.latitude;
+					const lon = wp.position?.longitude;
+					if (!isValidNumber(lat) || !isValidNumber(lon)) return [];
+					return [
+						{
+							wpId: wp.id ?? index + 1,
+							wpName: wp.name || `WP${index + 1}`,
+							wpLatitude: lat,
+							wpLongitude: lon,
+							wpBearingFromOrigin: wp.bearingFromOrigin ?? 0,
+							wpDistanceFromOrigin: wp.distanceFromOrigin ?? 0,
+							wpDescription: wp.description || "",
+						},
+					];
+				});
 
 			const routeNameString =
 				typeof routeName === "string" ? routeName : DEFAULT_ROUTE_NAME;

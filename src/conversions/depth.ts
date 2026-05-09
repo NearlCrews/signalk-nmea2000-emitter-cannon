@@ -5,7 +5,9 @@ import type {
 	SignalKApp,
 } from "../types/index.js";
 import { errMessage } from "../utils/errorUtils.js";
-import { isValidNumber } from "../utils/validation.js";
+import { isValidNumber, toValidNumber } from "../utils/validation.js";
+
+const N2K_DEPTH_PRIORITY = 3;
 
 export default function createDepthConversion(
 	app: SignalKApp,
@@ -20,25 +22,25 @@ export default function createDepthConversion(
 					return [];
 				}
 
-				const surfaceToTransducer = app.getSelfPath(
-					"environment.depth.surfaceToTransducer.value",
-				) as number | undefined;
-				const transducerToKeel = app.getSelfPath(
-					"environment.depth.transducerToKeel.value",
-				) as number | undefined;
+				const surfaceToTransducer = toValidNumber(
+					app.getSelfPath("environment.depth.surfaceToTransducer.value"),
+				);
+				const transducerToKeel = toValidNumber(
+					app.getSelfPath("environment.depth.transducerToKeel.value"),
+				);
 
 				// Signal K `surfaceToTransducer` is the positive distance from
 				// waterline down to the transducer. PGN 128267 `offset` is signed:
 				// negative = freeboard offset, positive = keel offset. Negate the
 				// surface measurement to produce the correct N2K sign.
 				const offset =
-					surfaceToTransducer !== undefined
+					surfaceToTransducer !== null
 						? -surfaceToTransducer
 						: (transducerToKeel ?? 0);
 
 				return [
 					{
-						prio: 3,
+						prio: N2K_DEPTH_PRIORITY,
 						pgn: 128267,
 						dst: N2K_BROADCAST_DST,
 						fields: {

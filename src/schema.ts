@@ -403,7 +403,10 @@ export const schema: JSONSchema = {
 					items: {
 						type: "object",
 						properties: {
-							signalkId: { title: "Signal K tank id", type: "string" },
+							signalkPath: {
+								title: "Signal K tank path (e.g. tanks.fuel.0)",
+								type: "string",
+							},
 							instanceId: {
 								title: "NMEA2000 Tank Instance Id",
 								type: "number",
@@ -475,6 +478,10 @@ export const schema: JSONSchema = {
 						type: "object",
 						properties: {
 							signalkId: { title: "Signal K charger id", type: "string" },
+							instanceId: {
+								title: "NMEA2000 Battery Instance Id (PGN 127508)",
+								type: "number",
+							},
 							panelInstanceId: {
 								title: "NMEA2000 Panel Instance Id",
 								type: "number",
@@ -761,7 +768,7 @@ export const schema: JSONSchema = {
 						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
 					type: "string",
 				},
-				navigationgnsstitimeDilution: {
+				navigationgnsstimeDilution: {
 					title: "Source for navigation.gnss.timeDilution",
 					description:
 						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",

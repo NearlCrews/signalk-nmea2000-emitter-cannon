@@ -9,6 +9,10 @@ import type {
 	N2KFieldValue,
 	SignalKApp,
 } from "../types/index.js";
+import { toValidNumber } from "../utils/validation.js";
+
+const markTypeFor = (t: string | null) =>
+	t === "waypoint" ? "Waypoint" : "Mark";
 
 export default function createBearingDistanceBetweenMarksConversion(
 	_app: SignalKApp,
@@ -55,25 +59,23 @@ export default function createBearingDistanceBetweenMarksConversion(
 				sid: N2K_SID_ZERO,
 			};
 
-			if (typeof nextBearing === "number") {
-				fields.bearingOriginToDestination = nextBearing;
-			}
-			if (typeof nextDistance === "number") {
-				fields.distanceToMark = nextDistance;
-			}
-			if (typeof prevBearing === "number") {
-				fields.bearingPositionToMark = prevBearing;
-			}
-			if (typeof prevDistance === "number") {
-				fields.distancePositionToMark = prevDistance;
-			}
-			if (prevType != null) {
-				fields.originMarkType = prevType === "waypoint" ? "Waypoint" : "Mark";
-			}
-			if (nextType != null) {
-				fields.destinationMarkType =
-					nextType === "waypoint" ? "Waypoint" : "Mark";
-			}
+			const validNextBearing = toValidNumber(nextBearing);
+			if (validNextBearing !== null)
+				fields.bearingOriginToDestination = validNextBearing;
+
+			const validNextDistance = toValidNumber(nextDistance);
+			if (validNextDistance !== null) fields.distanceToMark = validNextDistance;
+
+			const validPrevBearing = toValidNumber(prevBearing);
+			if (validPrevBearing !== null)
+				fields.bearingPositionToMark = validPrevBearing;
+
+			const validPrevDistance = toValidNumber(prevDistance);
+			if (validPrevDistance !== null)
+				fields.distancePositionToMark = validPrevDistance;
+
+			if (prevType != null) fields.originMarkType = markTypeFor(prevType);
+			if (nextType != null) fields.destinationMarkType = markTypeFor(nextType);
 
 			return [
 				{

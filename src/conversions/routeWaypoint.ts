@@ -1,7 +1,8 @@
 import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import type { ConversionModule, N2KMessage } from "../types/index.js";
+import { isValidNumber } from "../utils/validation.js";
 import type { Waypoint } from "./routeTypes.js";
-import { DEFAULT_ROUTE_NAME } from "./routeTypes.js";
+import { DEFAULT_ROUTE_NAME, MAX_RPS_WAYPOINTS } from "./routeTypes.js";
 
 const ROUTE_TIMEOUT_MS = 60000;
 
@@ -25,12 +26,21 @@ export default function createRouteWaypointConversion(): ConversionModule {
 			}
 
 			const list = Array.isArray(waypoints)
-				? waypoints.slice(0, 8).map((wp: Waypoint, index: number) => ({
-						wpId: wp.id ?? index,
-						wpName: wp.name || `WP${index}`,
-						wpLatitude: wp.position?.latitude ?? 0,
-						wpLongitude: wp.position?.longitude ?? 0,
-					}))
+				? waypoints
+						.slice(0, MAX_RPS_WAYPOINTS)
+						.flatMap((wp: Waypoint, index: number) => {
+							const lat = wp.position?.latitude;
+							const lon = wp.position?.longitude;
+							if (!isValidNumber(lat) || !isValidNumber(lon)) return [];
+							return [
+								{
+									wpId: wp.id ?? index,
+									wpName: wp.name || `WP${index}`,
+									wpLatitude: lat,
+									wpLongitude: lon,
+								},
+							];
+						})
 				: [];
 
 			const routeNameString =

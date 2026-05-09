@@ -1,5 +1,58 @@
 ## Change Log
 
+### v1.3.2 (2026/05/09) - Full-Codebase Simplify Pass and CI Publish
+
+**Schema correctness (admin UI / config persistence)**:
+- `src/schema.ts:764`: typo `navigationgnsstitimeDilution` corrected to `navigationgnsstimeDilution`. Source-filter for `navigation.gnss.timeDilution` was silently inert because the schema key never matched the runtime `pathToPropName` output.
+- `src/schema.ts` TANKS block: field renamed `signalkId` -> `signalkPath` to match what `tanks.ts` reads at runtime. Admin-UI tanks were configurable but never matched at runtime; `Invalid tank path` errored on every dispatch.
+- `src/schema.ts` SOLAR block: added `instanceId` field (battery-side instance for PGN 127508). `solar.ts` reads `charger.instanceId`; the schema only exposed `panelInstanceId`, so PGN 127508 emitted `instance: undefined`.
+
+**PGN 126464 transmit-list completion**:
+- `pgnList.ts` advertised list expanded from 34 to 56 PGNs to match every PGN this plugin actually emits. The omitted 21 PGNs (130577, 130313, 130314, 130311, 130310, 130074, 129284, 129291, 129301, 129302, 128000, 127505, 127252, 127257, 127251, 127250, 126992, 126983, 126985, 126720, 65288) were emitted but never declared, so receivers polling 126464 wouldn't surface them in their device source lists.
+
+**AIS hot-path correctness (`ais.ts`)**:
+- Position guard `!position?.latitude || !position.longitude` rejected vessels at the equator or prime meridian. Switched to `isValidNumber`, accepting `0`.
+- `cog`/`heading` validity gates now use `isValidNumber(x) && x >= 0 && x <= 2*PI` instead of `x != null && x <= 2*PI`, rejecting NaN/negatives.
+- `beam`/`fromCenter`/`fromBow` checks switched to `isValidNumber` (previously `!= null` accepted NaN). `fromBowScaled` now preserves a valid `0`.
+
+**Validation utilities (`src/utils/`)**:
+- `validation.ts`: `toValidNumber` now expressed via `isValidNumber` (was duplicate predicate). Hoisted `TWO_PI = Math.PI * 2` at module scope; `normalizeAngle` no longer recomputes per call.
+- `errorUtils.ts`: `errMessage` now `JSON.stringify`s plain-object throws (with String fallback for cyclic refs) instead of producing the lossy `[object Object]`.
+
+**Constants (`src/constants.ts`)**:
+- Added `VESSELS_SELF_CONTEXT = "vessels.self"` (was a private const in `plugin-manager.ts`) and `STREAM_DEBOUNCE_MS = 10` (was a magic number in the RxJS pipe).
+
+**Plugin manager (`plugin-manager.ts`)**:
+- Removed dead `Array.isArray(conversion)` outer wrapper (`this.conversions: ConversionModule[]` is never nested).
+- Imports `VESSELS_SELF_CONTEXT` and `STREAM_DEBOUNCE_MS` from `constants.ts` (single source of truth).
+- `subConversions` derivation is now an explicit if/else cascade with a typed local instead of a let-and-narrow chain.
+- Conversion factory error path now also calls `setPluginError` so admin UI surfaces a startup failure (was log-only).
+
+**Validation hardening across conversions** (`typeof === "number"` and `isValidNumber(...)?x:undef` chains -> `toValidNumber`):
+- `engineStatic.ts`, `transmissionParameters.ts`, `smallCraftStatus.ts`, `timeToMark.ts`, `bearingDistanceBetweenMarks.ts`, `depth.ts`, `radioFrequency.ts`, `battery.ts`. Completes the v1.3.1 migration that was started in `engineParameters.ts` and `directionData.ts`. Tests still pass; behavior on valid input unchanged, NaN/Infinity now consistently rejected.
+
+**Magic-number naming**:
+- `engineStatic.ts`: `STATIC_DATA_TIMEOUT_MS = 60 * 60 * 1000`.
+- `smallCraftStatus.ts`: `TRIM_TAB_FULL_DEFLECTION_RAD = 0.52`.
+- `depth.ts`: `N2K_DEPTH_PRIORITY = 3` (was raw literal in `prio:` field).
+- `radioFrequency.ts`: `DEFAULT_TX_POWER_W`, `DEFAULT_ANTENNA_HEIGHT_M`, `DEFAULT_SQUELCH_LEVEL`, `MHZ_TO_HZ`.
+- `battery.ts`: `BATTERY_TIME_REMAINING_ALPHA`, `DISCHARGE_THRESHOLD_A`, `MAX_TIME_REMAINING_S`, `PERCENT_SCALE`.
+- `routeTypes.ts`: `MAX_RPS_WAYPOINTS = 8` (PGN 129285), `MAX_WP_LIST_WAYPOINTS = 16` (PGN 130074).
+
+**Route waypoints (Null Island fix)**:
+- `routeWaypoint.ts` and `routeWpList.ts`: waypoints with missing or invalid `position.latitude` / `position.longitude` are now dropped rather than emitted at `(0, 0)`. The previous `?? 0` zero-fill silently planted false marks at the null island.
+
+**DSC and radio cleanup**:
+- `dscCalls.ts`: dropped 4 subscription paths (`communication.dsc.{position,workingFrequency,vesselInDistress,callTime}`) the callback never used. Replaced 4-deep `dscCategory` nested ternary with a `dscCategoryMapping` lookup. Hoisted `callTypeMapping` and `distressMapping` to module scope (were rebuilt per delta).
+- `radioFrequency.ts`: dropped unused `mode` subscription. `normalizeFreq` extracted to a module-scope helper.
+
+**CI / release automation**:
+- `.github/workflows/publish.yml`: auto-publish to npm on `release: published` plus a `workflow_dispatch` fallback for tags created before the workflow existed. Runs typecheck + tests + version-match before `npm publish --provenance --access public`. Requires `NPM_TOKEN` repo secret (npm Automation token, or Granular token with publish + read on this package).
+
+**Bundle**: 208.7 KB (was 207.3 KB after v1.3.1; the added validation guards and named constants are net additive).
+
+---
+
 ### v1.3.1 (2026/05/08) - Spec 1.8.2 Compliance and Wire-Output Corrections
 
 **NMEA 2000 wire-output corrections (real bugs on the wire)**:

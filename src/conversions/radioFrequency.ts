@@ -1,5 +1,13 @@
 import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import type { ConversionModule, N2KMessage } from "../types/index.js";
+import { isValidNumber, toValidNumber } from "../utils/validation.js";
+
+const DEFAULT_TX_POWER_W = 25;
+const DEFAULT_ANTENNA_HEIGHT_M = 10;
+const DEFAULT_SQUELCH_LEVEL = 0;
+// Marine VHF and most radio inputs land between 100 kHz and 10 GHz when given
+// in Hz; values below 1000 are treated as MHz and scaled.
+const MHZ_TO_HZ = 1_000_000;
 
 export default function createRadioFrequencyConversion(): ConversionModule {
 	return {
@@ -8,30 +16,18 @@ export default function createRadioFrequencyConversion(): ConversionModule {
 		keys: [
 			"communication.vhf.rxFrequency",
 			"communication.vhf.txFrequency",
-			"communication.vhf.mode",
 			"communication.vhf.power",
 			"communication.vhf.squelch",
 		],
 		callback: (
 			rxFreq: unknown,
 			txFreq: unknown,
-			_mode: unknown,
 			power: unknown,
 			squelch: unknown,
 		): N2KMessage[] => {
-			if (rxFreq == null && txFreq == null) {
-				return [];
-			}
-
-			// Convert frequency to Hz if needed (assume input might be in MHz)
-			const normalizeFreq = (freq: unknown): number | null => {
-				if (freq == null || typeof freq !== "number") return null;
-				// If frequency is less than 1000, assume it's in MHz and convert to Hz
-				return freq < 1000 ? freq * 1000000 : freq;
-			};
-
 			const rxFreqHz = normalizeFreq(rxFreq);
 			const txFreqHz = normalizeFreq(txFreq);
+			if (rxFreqHz === null && txFreqHz === null) return [];
 
 			return [
 				{
@@ -42,18 +38,18 @@ export default function createRadioFrequencyConversion(): ConversionModule {
 						rxFrequency: rxFreqHz,
 						txFrequency: txFreqHz,
 						radioSystem: "VHF",
-						txPower: typeof power === "number" ? power : 25, // Default 25W
-						antennaHeight: 10, // Default 10m
+						txPower: toValidNumber(power) ?? DEFAULT_TX_POWER_W,
+						antennaHeight: DEFAULT_ANTENNA_HEIGHT_M,
 						_2gSpectrum: "No",
 						positioningSystem: "GPS",
-						squelchLevel: typeof squelch === "number" ? squelch : 0,
+						squelchLevel: toValidNumber(squelch) ?? DEFAULT_SQUELCH_LEVEL,
 					},
 				},
 			];
 		},
 		tests: [
 			{
-				input: [156.8, 156.8, "simplex", 25, 3], // Channel 16 VHF
+				input: [156.8, 156.8, 25, 3],
 				expected: [
 					{
 						prio: 2,
@@ -68,7 +64,7 @@ export default function createRadioFrequencyConversion(): ConversionModule {
 				],
 			},
 			{
-				input: [156650000, 161250000, "duplex", 5, 0], // Already in Hz, duplex channel
+				input: [156650000, 161250000, 5, 0],
 				expected: [
 					{
 						prio: 2,
@@ -84,4 +80,9 @@ export default function createRadioFrequencyConversion(): ConversionModule {
 			},
 		],
 	};
+}
+
+function normalizeFreq(freq: unknown): number | null {
+	if (!isValidNumber(freq)) return null;
+	return freq < 1000 ? freq * MHZ_TO_HZ : freq;
 }

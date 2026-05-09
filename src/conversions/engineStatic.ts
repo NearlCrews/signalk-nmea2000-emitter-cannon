@@ -4,6 +4,9 @@ import type {
 	ConversionModule,
 	SignalKApp,
 } from "../types/index.js";
+import { toValidNumber } from "../utils/validation.js";
+
+const STATIC_DATA_TIMEOUT_MS = 60 * 60 * 1000;
 
 export default function createEngineStaticConversion(
 	_app: SignalKApp,
@@ -16,13 +19,16 @@ export default function createEngineStaticConversion(
 			"propulsion.main.VIN",
 			"propulsion.main.softwareVersion",
 		],
-		timeouts: [3600000, 3600000, 3600000], // 1 hour - static data
+		timeouts: [
+			STATIC_DATA_TIMEOUT_MS,
+			STATIC_DATA_TIMEOUT_MS,
+			STATIC_DATA_TIMEOUT_MS,
+		],
 		callback: ((
 			ratedEngineSpeed: number | null,
 			VIN: string | null,
 			softwareVersion: string | null,
 		) => {
-			// Send static data even if only one field is available
 			if (ratedEngineSpeed == null && VIN == null && softwareVersion == null) {
 				return [];
 			}
@@ -37,10 +43,7 @@ export default function createEngineStaticConversion(
 						typeOfEngine: "Gasoline",
 						locationOfEngine: "Main",
 						engineGeometry: "In-line",
-						ratedEngineSpeed:
-							typeof ratedEngineSpeed === "number"
-								? ratedEngineSpeed
-								: undefined,
+						ratedEngineSpeed: toValidNumber(ratedEngineSpeed) ?? undefined,
 						vin: typeof VIN === "string" ? VIN : "",
 						softwareId:
 							typeof softwareVersion === "string" ? softwareVersion : "",

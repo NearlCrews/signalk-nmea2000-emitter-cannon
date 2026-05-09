@@ -1,5 +1,38 @@
 ## Change Log
 
+### v1.3.1 (2026/05/08) - Spec 1.8.2 Compliance and Wire-Output Corrections
+
+**NMEA 2000 wire-output corrections (real bugs on the wire)**:
+- PGN 127489 / 127488 engine pressures: `oilPressure`, `coolantPressure`, `fuelPressure`, and `boostPressure` were divided by 100 before being passed to canboatjs. Pa is the spec unit and the encoder applies `Resolution` internally, so a real Garmin saw a 102733 Pa Signal K input as 1000 Pa on the wire. The companion conversions `pressure.ts`, `environmentParameters.ts`, and `seaTemp.ts` already passed Pa unmodified. Embedded test expected values updated to the correct round-trip (`oilPressure: 102700`, `coolantPressure: 202100`, `fuelPressure: 11111000`, `boostPressure: 20300`).
+- PGN 130577 direction data: replaced seven invented field names (`sidForCog`, `sogReference`, `sidForSog`, `headingReference`, `sidForHeading`, `speedThroughWaterReference`, `sidForStw`) with the canonical `@canboat/ts-pgns` schema (`sid`, `dataMode`, `cogReference`, `cog`, `heading`). The PGN defines a single `sid` and a single `cogReference`; the extras were silently dropped by the encoder, and the actual `sid` field was never set. Heading now ties to the same reference as cog so consumers don't misinterpret it; heading-only-magnetic cases stay covered by PGN 127250 in `heading.ts`. Tests updated to expect `sid: 0` in the round-trip.
+
+**Subscription path corrections (Signal K spec 1.8.2)**:
+- `leeway.ts`: `performance.leeway` -> canonical `navigation.leewayAngle`. Schema source-filter key `performanceleeway` renamed to `navigationleewayAngle` to match.
+- `battery.ts`: dropped the non-canonical `Temperature1` fallback path and its callback slot. Renamed `ripple` -> canonical `voltage.ripple`. Test inputs reshaped from 10 to 9 args.
+
+**API conformance against `@signalk/server-api` 2.24**:
+- AIS migrated from the undocumented `app.on("delta")` event to `app.registerDeltaInputHandler(handler)`. The handler calls `next(delta)` first so `app.getPath()` reflects the just-applied state, matching the post-processing semantics of the legacy hook. Lifecycle is owned by signalk-server: registered handlers are torn down on plugin stop via `onStopHandlers`.
+- `ais.ts`: short-circuits non-vessel/non-aton contexts before allocating the delta index, since `registerDeltaInputHandler` fires on every server-wide delta.
+- `combinedBus.complete()` added to per-conversion stream teardown so the RxJS Subject is released across plugin restarts.
+- Dead guards dropped on `app.handleMessage` (`notifications.ts`) and `app.reportOutputMessages` (`plugin-manager.ts`); both methods are non-optional in `ServerAPI` 2.x.
+- `index.ts`: `console.error` replaced with `app.debug` per the plugin developer guide; declared the optional `restartPlugin` second argument from the official `Plugin.start` type.
+
+**Type and code cleanup**:
+- `src/types/signalk.ts`: deleted unused local `StreamBus`, `Subscription`, `Delta`, `DeltaUpdate`, `DeltaValue`, and the dead `OfficialDelta` re-export. None were imported anywhere outside `signalk.ts`. Tightened `SignalKApp` event signatures to literal types for `nmea2000JsonOut` and `nmea2000OutAvailable`.
+- `directionData.ts`, `engineParameters.ts`: pure-passthrough `isValidNumber(x) ? x : null` chains swapped for `toValidNumber`, matching the convention in `cogSOG.ts` and `heading.ts`.
+- `index.ts`: hoisted the duplicate `errMessage(error)` call into a single `const msg`.
+
+**AppStore keywords (verified against `signalk-server/src/categories.ts`)**:
+- `signalk-category-nmea2000` corrected to canonical `signalk-category-nmea-2000`. The unhyphenated form is not in the AppStore category list.
+- Removed unrecognized `signalk-category-navigation`. Added `signalk-category-ais` since the plugin emits seven AIS PGNs (129038, 129039, 129040, 129041, 129794, 129798, 129802).
+
+**Test mock**:
+- `src/test/lifecycle.test.ts`: added `reportOutputMessages` and `registerDeltaInputHandler` stubs to the mock `app` to faithfully model `ServerAPI` 2.x.
+
+**Bundle**: 207.3 KB (was 209 KB) due to dead-code removal.
+
+---
+
 ### v1.3.0 (2026/05/05) - Bus Correctness, Hot-Path Cleanup, Toolchain Modernization
 
 **NMEA 2000 Bus Correctness (real bugs on the wire)**:

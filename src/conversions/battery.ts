@@ -12,7 +12,7 @@ import type {
 	SubConversionModule,
 } from "../types/index.js";
 import { ExponentialSmoother } from "../utils/smoothing.js";
-import { isValidNumber, toValidNumber } from "../utils/validation.js";
+import { toValidNumber } from "../utils/validation.js";
 
 const BATTERY_TIMEOUT_MS = 60000;
 const BATTERY_TIME_REMAINING_ALPHA = 0.3;
@@ -97,6 +97,11 @@ export default function createBatteryConversion(
 						const validCurrent = toValidNumber(current);
 						const validTemperature = toValidNumber(temperature);
 						const validRipple = toValidNumber(ripple);
+						const validStateOfCharge = toValidNumber(stateOfCharge);
+						const validTimeRemaining = toValidNumber(timeRemaining);
+						const validStateOfHealth = toValidNumber(stateOfHealth);
+						const validCapacityRemaining = toValidNumber(capacityRemaining);
+						const validCapacityActual = toValidNumber(capacityActual);
 
 						const res: N2KMessage[] = [];
 
@@ -111,9 +116,9 @@ export default function createBatteryConversion(
 								dst: N2K_BROADCAST_DST,
 								fields: {
 									instance: battery.instanceId,
-									voltage: validVoltage,
-									current: validCurrent,
-									temperature: validTemperature,
+									voltage: validVoltage ?? undefined,
+									current: validCurrent ?? undefined,
+									temperature: validTemperature ?? undefined,
 								},
 							});
 						}
@@ -123,16 +128,16 @@ export default function createBatteryConversion(
 						// producers (Victron, BMS bridges) publish Coulombs; honoring
 						// observed convention. See CHANGELOG v1.3.1.
 						let computedTR: number | null = null;
-						if (timeRemaining === null) {
+						if (validTimeRemaining === null) {
 							const remainingC =
-								capacityRemaining !== null
-									? capacityRemaining
-									: capacityActual !== null && stateOfCharge !== null
-										? capacityActual * stateOfCharge
+								validCapacityRemaining !== null
+									? validCapacityRemaining
+									: validCapacityActual !== null && validStateOfCharge !== null
+										? validCapacityActual * validStateOfCharge
 										: null;
 
 							let dischargeCurrentA: number | null = null;
-							if (isValidNumber(validCurrent)) {
+							if (validCurrent !== null) {
 								if (validCurrent > DISCHARGE_THRESHOLD_A) {
 									dischargeCurrentA = validCurrent;
 								} else if (validCurrent < -DISCHARGE_THRESHOLD_A) {
@@ -141,7 +146,7 @@ export default function createBatteryConversion(
 							}
 
 							if (
-								isValidNumber(remainingC) &&
+								remainingC !== null &&
 								dischargeCurrentA !== null &&
 								dischargeCurrentA > 0
 							) {
@@ -156,11 +161,12 @@ export default function createBatteryConversion(
 							}
 						}
 
+						const resolvedTimeRemaining = validTimeRemaining ?? computedTR;
+
 						if (
-							stateOfCharge !== null ||
-							timeRemaining !== null ||
-							computedTR !== null ||
-							stateOfHealth !== null ||
+							validStateOfCharge !== null ||
+							resolvedTimeRemaining !== null ||
+							validStateOfHealth !== null ||
 							validRipple !== null
 						) {
 							res.push({
@@ -171,15 +177,15 @@ export default function createBatteryConversion(
 									instance: battery.instanceId,
 									dcType: "Battery",
 									stateOfCharge:
-										stateOfCharge !== null
-											? stateOfCharge * PERCENT_SCALE
-											: null,
+										validStateOfCharge !== null
+											? validStateOfCharge * PERCENT_SCALE
+											: undefined,
 									stateOfHealth:
-										stateOfHealth !== null
-											? stateOfHealth * PERCENT_SCALE
-											: null,
-									timeRemaining: timeRemaining ?? computedTR,
-									rippleVoltage: validRipple,
+										validStateOfHealth !== null
+											? validStateOfHealth * PERCENT_SCALE
+											: undefined,
+									timeRemaining: resolvedTimeRemaining ?? undefined,
+									rippleVoltage: validRipple ?? undefined,
 								},
 							});
 						}

@@ -8,11 +8,10 @@ import type {
 	ConversionModule,
 	SignalKApp,
 } from "../types/index.js";
-import { errMessage } from "../utils/errorUtils.js";
 import { toValidNumber } from "../utils/validation.js";
 
 export default function createDirectionDataConversion(
-	app: SignalKApp,
+	_app: SignalKApp,
 ): ConversionModule<
 	[number | null, number | null, number | null, number | null]
 > {
@@ -31,44 +30,38 @@ export default function createDirectionDataConversion(
 			headingTrue: number | null,
 			headingMagnetic: number | null,
 		) => {
-			try {
-				const cogT = toValidNumber(cogTrue);
-				const cogM = toValidNumber(cogMagnetic);
-				const hdgT = toValidNumber(headingTrue);
-				const hdgM = toValidNumber(headingMagnetic);
+			const cogT = toValidNumber(cogTrue);
+			const cogM = toValidNumber(cogMagnetic);
+			const hdgT = toValidNumber(headingTrue);
+			const hdgM = toValidNumber(headingMagnetic);
 
-				if (cogT === null && cogM === null && hdgT === null && hdgM === null) {
-					return [];
-				}
-
-				// PGN 130577 has only one reference field (cogReference) which
-				// implicitly applies to heading too. Pick True when any True
-				// value is available so the emitted cog and heading agree.
-				// Heading-only-magnetic cases are covered by the separate PGN
-				// 127250 conversion in heading.ts.
-				const useTrue = cogT !== null || hdgT !== null;
-				const cogReference = useTrue ? "True" : "Magnetic";
-				const cog = useTrue ? cogT : cogM;
-				const heading = useTrue ? hdgT : hdgM;
-
-				return [
-					{
-						prio: N2K_DEFAULT_PRIORITY,
-						pgn: 130577,
-						dst: N2K_BROADCAST_DST,
-						fields: {
-							sid: N2K_SID_ZERO,
-							dataMode: "Autonomous",
-							cogReference,
-							cog,
-							heading,
-						},
-					},
-				];
-			} catch (err) {
-				app.error(errMessage(err));
+			if (cogT === null && cogM === null && hdgT === null && hdgM === null) {
 				return [];
 			}
+
+			// PGN 130577 has only one reference field (cogReference) that
+			// implicitly applies to heading. Pick True when any True value
+			// is available so cog and heading agree. Heading-only-magnetic
+			// is covered by PGN 127250 in heading.ts.
+			const useTrue = cogT !== null || hdgT !== null;
+			const cogReference = useTrue ? "True" : "Magnetic";
+			const cog = useTrue ? cogT : cogM;
+			const heading = useTrue ? hdgT : hdgM;
+
+			return [
+				{
+					prio: N2K_DEFAULT_PRIORITY,
+					pgn: 130577,
+					dst: N2K_BROADCAST_DST,
+					fields: {
+						sid: N2K_SID_ZERO,
+						dataMode: "Autonomous",
+						cogReference,
+						cog,
+						heading,
+					},
+				},
+			];
 		}) as ConversionCallback<
 			[number | null, number | null, number | null, number | null]
 		>,

@@ -1,8 +1,11 @@
-import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
+import {
+	N2K_BROADCAST_DST,
+	N2K_DEFAULT_PRIORITY,
+	VESSELS_SELF_CONTEXT,
+} from "../constants.js";
 import type {
 	ConversionCallback,
 	ConversionModule,
-	JSONSchema,
 	N2KMessage,
 	SignalKApp,
 	SignalKPlugin,
@@ -53,26 +56,7 @@ export default function createBatteryConversion(
 	return {
 		title: "Battery (127506 & 127508)",
 		optionKey: "BATTERY",
-		context: "vessels.self",
-		properties: (): JSONSchema["properties"] => ({
-			batteries: {
-				title: "Battery Mapping",
-				type: "array",
-				items: {
-					type: "object",
-					properties: {
-						signalkId: {
-							title: "Signal K battery id",
-							type: "string",
-						},
-						instanceId: {
-							title: "NMEA2000 Battery Instance Id",
-							type: "number",
-						},
-					},
-				},
-			},
-		}),
+		context: VESSELS_SELF_CONTEXT,
 
 		testOptions: {
 			batteries: [

@@ -2,7 +2,7 @@ import { PluginManager } from "./plugin-manager.js";
 
 import { schema } from "./schema.js";
 import type {
-	PluginOptions,
+	RawPluginOptions,
 	SignalKApp,
 	SignalKPlugin,
 } from "./types/index.js";
@@ -28,9 +28,17 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 	};
 
 	function startPlugin(
-		options: PluginOptions,
+		options: RawPluginOptions,
 		_restartPlugin?: (cfg: object) => void,
 	): void {
+		if (pluginManager) {
+			try {
+				pluginManager.stop();
+			} catch (e) {
+				app.error(errMessage(e));
+			}
+			pluginManager = null;
+		}
 		try {
 			pluginManager = new PluginManager(app, plugin);
 			pluginManager.start(options);

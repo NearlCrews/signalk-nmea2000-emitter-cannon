@@ -31,7 +31,7 @@ export default function createTransmissionParametersConversion(): ConversionModu
 			oilPressure: unknown,
 			oilTemperature: unknown,
 			discreteStatus1: unknown,
-			discreteStatus2: unknown,
+			_discreteStatus2: unknown,
 		): N2KMessage[] => {
 			if (
 				!isValidNumber(gearRatio) &&
@@ -41,13 +41,11 @@ export default function createTransmissionParametersConversion(): ConversionModu
 				return [];
 			}
 
-			let transmissionGear = "Neutral";
+			let transmissionGear: string | undefined;
 			if (isValidNumber(gearRatio)) {
-				if (gearRatio > 1) {
-					transmissionGear = "Forward";
-				} else if (gearRatio < 0) {
-					transmissionGear = "Reverse";
-				}
+				if (gearRatio > 0) transmissionGear = "Forward";
+				else if (gearRatio < 0) transmissionGear = "Reverse";
+				else transmissionGear = "Neutral";
 			}
 
 			return [
@@ -56,12 +54,11 @@ export default function createTransmissionParametersConversion(): ConversionModu
 					pgn: 127493,
 					dst: N2K_BROADCAST_DST,
 					fields: {
-						engineInstance: 0,
+						instance: 0,
 						transmissionGear,
 						oilPressure: toValidNumber(oilPressure) ?? undefined,
 						oilTemperature: toValidNumber(oilTemperature) ?? undefined,
 						discreteStatus1: toValidNumber(discreteStatus1) ?? 0,
-						discreteStatus2: toValidNumber(discreteStatus2) ?? 0,
 					},
 				},
 			];
@@ -75,6 +72,7 @@ export default function createTransmissionParametersConversion(): ConversionModu
 						pgn: 127493,
 						dst: N2K_BROADCAST_DST,
 						fields: {
+							instance: "Single Engine or Dual Engine Port",
 							transmissionGear: "Forward",
 							oilPressure: 345000,
 							oilTemperature: 353.1,
@@ -91,10 +89,28 @@ export default function createTransmissionParametersConversion(): ConversionModu
 						pgn: 127493,
 						dst: N2K_BROADCAST_DST,
 						fields: {
+							instance: "Single Engine or Dual Engine Port",
 							transmissionGear: "Reverse",
 							oilPressure: 320000,
 							oilTemperature: 343.1,
 							discreteStatus1: 1,
+						},
+					},
+				],
+			},
+			{
+				input: [0, 310000, 333.15, 0, 0],
+				expected: [
+					{
+						prio: N2K_DEFAULT_PRIORITY,
+						pgn: 127493,
+						dst: N2K_BROADCAST_DST,
+						fields: {
+							instance: "Single Engine or Dual Engine Port",
+							transmissionGear: "Neutral",
+							oilPressure: 310000,
+							oilTemperature: 333.1,
+							discreteStatus1: 0,
 						},
 					},
 				],

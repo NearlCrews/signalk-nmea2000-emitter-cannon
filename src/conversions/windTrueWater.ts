@@ -8,11 +8,10 @@ import type {
 	N2KMessage,
 	SignalKApp,
 } from "../types/index.js";
-import { errMessage } from "../utils/errorUtils.js";
 import { isValidNumber, normalizeAngle } from "../utils/validation.js";
 
 export function createWindTrueConversion(
-	app: SignalKApp,
+	_app: SignalKApp,
 	config: {
 		title: string;
 		optionKey: string;
@@ -25,28 +24,23 @@ export function createWindTrueConversion(
 		optionKey: config.optionKey,
 		keys: config.keys,
 		callback: (angle: unknown, speed: unknown): N2KMessage[] => {
-			if (!isValidNumber(angle) || !isValidNumber(speed)) {
+			if (!isValidNumber(angle) && !isValidNumber(speed)) {
 				return [];
 			}
 
-			try {
-				return [
-					{
-						prio: N2K_DEFAULT_PRIORITY,
-						pgn: 130306,
-						dst: N2K_BROADCAST_DST,
-						fields: {
-							sid: N2K_DEFAULT_SID,
-							windSpeed: speed,
-							windAngle: normalizeAngle(angle),
-							reference: config.reference,
-						},
+			return [
+				{
+					prio: N2K_DEFAULT_PRIORITY,
+					pgn: 130306,
+					dst: N2K_BROADCAST_DST,
+					fields: {
+						sid: N2K_DEFAULT_SID,
+						windSpeed: isValidNumber(speed) ? speed : undefined,
+						windAngle: isValidNumber(angle) ? normalizeAngle(angle) : undefined,
+						reference: config.reference,
 					},
-				];
-			} catch (err) {
-				app.error(errMessage(err));
-				return [];
-			}
+				},
+			];
 		},
 		tests: [
 			{
@@ -76,6 +70,36 @@ export function createWindTrueConversion(
 							sid: 87,
 							windSpeed: 1.5,
 							windAngle: 4.1888,
+							reference: config.reference,
+						},
+					},
+				],
+			},
+			{
+				input: [2.0944, null],
+				expected: [
+					{
+						pgn: 130306,
+						dst: 255,
+						prio: 2,
+						fields: {
+							sid: 87,
+							windAngle: 2.0944,
+							reference: config.reference,
+						},
+					},
+				],
+			},
+			{
+				input: [null, 1.2],
+				expected: [
+					{
+						pgn: 130306,
+						dst: 255,
+						prio: 2,
+						fields: {
+							sid: 87,
+							windSpeed: 1.2,
 							reference: config.reference,
 						},
 					},

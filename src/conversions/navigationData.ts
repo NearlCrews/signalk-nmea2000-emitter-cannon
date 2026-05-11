@@ -1,10 +1,19 @@
-import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
+import {
+	DEFAULT_DATA_TIMEOUT_MS,
+	N2K_BROADCAST_DST,
+	N2K_DEFAULT_PRIORITY,
+} from "../constants.js";
 import type { ConversionModule, N2KMessage } from "../types/index.js";
 import { toN2KDateTime } from "../utils/dateUtils.js";
 import { isValidNumber } from "../utils/validation.js";
 
 // PGN 129284 uses a fixed sequence identifier per common implementations.
 const NAV_DATA_SID = 0x88;
+
+// Notification freshness for arrival-circle / perpendicular-passed (60s) is
+// intentionally longer than data-path freshness so a brief notification flicker
+// remains visible across the full PGN window.
+const NAV_NOTIFICATION_TIMEOUT_MS = 60000;
 
 interface DestinationPoint {
 	position?: {
@@ -35,7 +44,16 @@ function createNavDataConversion(
 			"notifications.navigation.perpendicularPassed",
 			"navigation.course.activeRoute",
 		],
-		timeouts: [10000, 10000, 10000, 10000, 10000, 60000, 60000, 10000],
+		timeouts: [
+			DEFAULT_DATA_TIMEOUT_MS,
+			DEFAULT_DATA_TIMEOUT_MS,
+			DEFAULT_DATA_TIMEOUT_MS,
+			DEFAULT_DATA_TIMEOUT_MS,
+			DEFAULT_DATA_TIMEOUT_MS,
+			NAV_NOTIFICATION_TIMEOUT_MS,
+			NAV_NOTIFICATION_TIMEOUT_MS,
+			DEFAULT_DATA_TIMEOUT_MS,
+		],
 		callback: (
 			distToDest: unknown,
 			bearingToDest: unknown,
@@ -122,7 +140,7 @@ function createNavDataConversion(
 						pgn: 129284,
 						dst: 255,
 						fields: {
-							sid: 136,
+							sid: NAV_DATA_SID,
 							distanceToWaypoint: 12,
 							courseBearingReference: "True",
 							perpendicularCrossed: "Yes",

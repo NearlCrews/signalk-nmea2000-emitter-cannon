@@ -8,37 +8,30 @@ import type {
 	N2KMessage,
 	SignalKApp,
 } from "../types/index.js";
-import { errMessage } from "../utils/errorUtils.js";
 import { isValidNumber } from "../utils/validation.js";
 
 export default function createSpeedConversion(
-	app: SignalKApp,
+	_app: SignalKApp,
 ): ConversionModule {
 	return {
 		title: "Speed (128259)",
 		optionKey: "SPEED",
 		keys: ["navigation.speedThroughWater"],
 		callback: (speed: unknown): N2KMessage[] => {
-			try {
-				if (!isValidNumber(speed)) {
-					return [];
-				}
-
-				return [
-					{
-						prio: N2K_DEFAULT_PRIORITY,
-						pgn: 128259,
-						dst: N2K_BROADCAST_DST,
-						fields: {
-							sid: N2K_DEFAULT_SID,
-							speedWaterReferenced: speed,
-						},
-					},
-				];
-			} catch (err) {
-				app.error(errMessage(err));
+			if (!isValidNumber(speed)) {
 				return [];
 			}
+			return [
+				{
+					prio: N2K_DEFAULT_PRIORITY,
+					pgn: 128259,
+					dst: N2K_BROADCAST_DST,
+					fields: {
+						sid: N2K_DEFAULT_SID,
+						speedWaterReferenced: speed,
+					},
+				},
+			];
 		},
 
 		tests: [

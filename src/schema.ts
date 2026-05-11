@@ -1,3 +1,4 @@
+import { DEFAULT_GLOBAL_RESEND_SECONDS } from "./constants.js";
 import {
 	type TemperatureInfo,
 	temperatures,
@@ -5,33 +6,69 @@ import {
 import type { JSONSchema } from "./types/index.js";
 import { pathToPropName } from "./utils/pathUtils.js";
 
-/**
- * Build a per-source temperature schema entry for a given PGN.
- * Mirrors the optionKey shape produced by createTemperatureConversions()
- * in src/conversions/temperature.ts so every generated module has a
- * matching admin-UI entry.
- */
+const enabledField = (): JSONSchema => ({
+	title: "Enabled",
+	type: "boolean",
+	default: false,
+});
+
+const resendField = (): JSONSchema => ({
+	type: "integer",
+	title: "Resend (seconds)",
+	description:
+		"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+	default: 0,
+	minimum: 0,
+});
+
+const sourceField = (path: string, titleOverride?: string): JSONSchema => ({
+	title: titleOverride ?? `Source for ${path}`,
+	description:
+		"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
+	type: "string",
+});
+
+interface PgnEntryOptions {
+	title: string;
+	pgns: string;
+	sources?: string[];
+	extras?: Record<string, JSONSchema>;
+}
+
+function pgnEntry({
+	title,
+	pgns,
+	sources = [],
+	extras = {},
+}: PgnEntryOptions): JSONSchema {
+	const properties: Record<string, JSONSchema> = {
+		enabled: enabledField(),
+		resend: resendField(),
+	};
+	for (const path of sources) {
+		properties[pathToPropName(path)] = sourceField(path);
+	}
+	for (const [key, value] of Object.entries(extras)) {
+		properties[key] = value;
+	}
+	return {
+		type: "object",
+		title,
+		description: `PGNs: ${pgns}`,
+		additionalProperties: false,
+		properties,
+	};
+}
+
 function buildTemperatureEntry(
 	pgn: 130312 | 130316,
 	info: TemperatureInfo,
 ): JSONSchema {
-	const sourcePropName = pathToPropName(info.source);
-	const title =
-		pgn === 130316 ? `${info.n2kSource} (PGN 130316)` : info.n2kSource;
-
-	return {
-		type: "object",
-		title,
-		description: `PGNs: ${pgn}`,
-		properties: {
-			enabled: { title: "Enabled", type: "boolean", default: false },
-			resend: {
-				type: "number",
-				title: "Resend (seconds)",
-				description:
-					"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-				default: 0,
-			},
+	return pgnEntry({
+		title: `${info.n2kSource} (${pgn})`,
+		pgns: String(pgn),
+		sources: [info.source],
+		extras: {
 			instance: {
 				title: "N2K Temperature Instance",
 				description:
@@ -39,21 +76,10 @@ function buildTemperatureEntry(
 				type: "number",
 				default: info.instance,
 			},
-			[sourcePropName]: {
-				title: `Source for ${info.source}`,
-				description:
-					"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-				type: "string",
-			},
 		},
-	};
+	});
 }
 
-/**
- * Generate one schema entry for every temperature optionKey emitted by
- * createTemperatureConversions(): 11 sources × 2 PGNs = 22 entries.
- * Prefix `TEMPERATURE` corresponds to PGN 130312, `TEMPERATURE2` to 130316.
- */
 function buildTemperatureEntries(): Record<string, JSONSchema> {
 	const entries: Record<string, JSONSchema> = {};
 	for (const info of temperatures) {
@@ -66,1095 +92,339 @@ function buildTemperatureEntries(): Record<string, JSONSchema> {
 	return entries;
 }
 
+const arrayMapping = (
+	title: string,
+	itemProperties: Record<string, JSONSchema>,
+): JSONSchema => ({
+	title,
+	type: "array",
+	items: { type: "object", properties: itemProperties },
+});
+
 export const schema: JSONSchema = {
 	type: "object",
 	title: "Conversions to NMEA2000",
 	description:
 		"If there is SignalK data for the conversion generate the following NMEA2000 pgns from Signal K data:",
+	additionalProperties: false,
 	properties: {
 		globalResendInterval: {
 			type: "number",
 			title: "Global Resend Interval (seconds)",
 			description:
 				"Default resend interval for all conversions. Individual conversions override this when their own resend value is non-zero.",
-			default: 5,
+			default: DEFAULT_GLOBAL_RESEND_SECONDS,
 		},
-		WIND: {
-			type: "object",
+		WIND: pgnEntry({
 			title: "Wind",
-			description: "PGNs: 130306",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-				environmentwindangleApparent: {
-					title: "Source for environment.wind.angleApparent",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-				environmentwindspeedApparent: {
-					title: "Source for environment.wind.speedApparent",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-			},
-		},
-		DEPTH: {
-			type: "object",
+			pgns: "130306",
+			sources: [
+				"environment.wind.angleApparent",
+				"environment.wind.speedApparent",
+			],
+		}),
+		DEPTH: pgnEntry({
 			title: "Water Depth",
-			description: "PGNs: 128267",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-				environmentdepthbelowTransducer: {
-					title: "Source for environment.depth.belowTransducer",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-			},
-		},
-		COG_SOG: {
-			type: "object",
+			pgns: "128267",
+			sources: ["environment.depth.belowTransducer"],
+		}),
+		COG_SOG: pgnEntry({
 			title: "COG & SOG",
-			description: "PGNs: 129026",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-				navigationcourseOverGroundTrue: {
-					title: "Source for navigation.courseOverGroundTrue",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-				navigationspeedOverGround: {
-					title: "Source for navigation.speedOverGround",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-			},
-		},
-		HEADING: {
-			type: "object",
+			pgns: "129026",
+			sources: [
+				"navigation.courseOverGroundTrue",
+				"navigation.speedOverGround",
+			],
+		}),
+		HEADING: pgnEntry({
 			title: "Vessel Heading",
-			description: "PGNs: 127250",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-				navigationheadingMagnetic: {
-					title: "Source for navigation.headingMagnetic",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-			},
-		},
-		BATTERY: {
-			type: "object",
+			pgns: "127250",
+			sources: [
+				"navigation.headingMagnetic",
+				"navigation.magneticVariation",
+				"navigation.magneticDeviation",
+			],
+		}),
+		BATTERY: pgnEntry({
 			title: "Battery",
-			description: "PGNs: 127506, 127508",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-				batteries: {
-					title: "Battery Mapping",
+			pgns: "127506, 127508",
+			extras: {
+				batteries: arrayMapping("Battery Mapping", {
+					signalkId: { title: "Signal K battery id", type: "string" },
+					instanceId: {
+						title: "NMEA2000 Battery Instance Id",
+						type: "number",
+					},
+				}),
+			},
+		}),
+		SPEED: pgnEntry({
+			title: "Speed Through Water",
+			pgns: "128259",
+			sources: ["navigation.speedThroughWater"],
+		}),
+		RUDDER: pgnEntry({
+			title: "Rudder Position",
+			pgns: "127245",
+			sources: ["steering.rudderAngle", "steering.rudderAngleTarget"],
+		}),
+		GPS: pgnEntry({
+			title: "GPS Position",
+			pgns: "129025, 129029",
+			sources: ["navigation.position"],
+		}),
+		...buildTemperatureEntries(),
+		PRESSURE: pgnEntry({
+			title: "Atmospheric Pressure",
+			pgns: "130314",
+			sources: ["environment.outside.pressure"],
+		}),
+		HUMIDITY_OUTSIDE: pgnEntry({
+			title: "Outside Humidity",
+			pgns: "130313",
+			sources: [
+				"environment.outside.humidity",
+				"environment.outside.relativeHumidity",
+			],
+		}),
+		HUMIDITY_INSIDE: pgnEntry({
+			title: "Inside Humidity",
+			pgns: "130313",
+			sources: ["environment.inside.relativeHumidity"],
+		}),
+		ENGINE_PARAMETERS: pgnEntry({
+			title: "Engine Parameters",
+			pgns: "127488, 127489, 130312",
+			extras: {
+				engines: arrayMapping("Engine Mapping", {
+					signalkId: { title: "Signal K engine id", type: "string" },
+					instanceId: {
+						title: "NMEA2000 Engine Instance Id",
+						type: "number",
+					},
+				}),
+			},
+		}),
+		TANKS: pgnEntry({
+			title: "Tank Levels",
+			pgns: "127505",
+			extras: {
+				tanks: arrayMapping("Tank Mapping", {
+					signalkPath: {
+						title: "Signal K tank path (e.g. tanks.fuel.0)",
+						type: "string",
+					},
+					instanceId: {
+						title: "NMEA2000 Tank Instance Id",
+						type: "number",
+					},
+				}),
+			},
+		}),
+		SYSTEM_TIME: pgnEntry({ title: "System Time", pgns: "126992" }),
+		SEA_TEMP: pgnEntry({
+			title: "Sea Temperature",
+			pgns: "130310",
+			sources: [
+				"environment.water.temperature",
+				"environment.outside.temperature",
+			],
+		}),
+		SOLAR: pgnEntry({
+			title: "Solar Panels",
+			pgns: "127508",
+			extras: {
+				chargers: {
+					title: "Solar Mapping",
 					type: "array",
 					items: {
 						type: "object",
+						required: ["signalkId", "instanceId", "panelInstanceId"],
 						properties: {
-							signalkId: { title: "Signal K battery id", type: "string" },
+							signalkId: { title: "Signal K Solar id", type: "string" },
 							instanceId: {
 								title: "NMEA2000 Battery Instance Id",
-								type: "number",
-							},
-						},
-					},
-				},
-			},
-		},
-		SPEED: {
-			type: "object",
-			title: "Speed Through Water",
-			description: "PGNs: 128259",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-				navigationspeedThroughWater: {
-					title: "Source for navigation.speedThroughWater",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-			},
-		},
-		RUDDER: {
-			type: "object",
-			title: "Rudder Position",
-			description: "PGNs: 127245",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-				steeringrudderpositioning: {
-					title: "Source for steering.rudder.position",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-			},
-		},
-		GPS: {
-			type: "object",
-			title: "GPS Position",
-			description: "PGNs: 129025, 129029",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-				navigationposition: {
-					title: "Source for navigation.position",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-				navigationgnssgeoidalSeparation: {
-					title: "Source for navigation.gnss.geoidalSeparation",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-				navigationgnssmethod: {
-					title: "Source for navigation.gnss.method",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-				navigationgnssnumberOfSatellites: {
-					title: "Source for navigation.gnss.numberOfSatellites",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-				navigationgnsshorizontalDilution: {
-					title: "Source for navigation.gnss.horizontalDilution",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-			},
-		},
-		...buildTemperatureEntries(),
-		PRESSURE: {
-			type: "object",
-			title: "Atmospheric Pressure",
-			description: "PGNs: 130314",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-				environmentoutsidepressure: {
-					title: "Source for environment.outside.pressure",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-			},
-		},
-		HUMIDITY_OUTSIDE: {
-			type: "object",
-			title: "Outside Humidity",
-			description: "PGNs: 130313",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-				environmentoutsidehumidity: {
-					title: "Source for environment.outside.humidity",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-			},
-		},
-		HUMIDITY_INSIDE: {
-			type: "object",
-			title: "Inside Humidity",
-			description: "PGNs: 130313",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-				environmentinsidehumidity: {
-					title: "Source for environment.inside.humidity",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-			},
-		},
-		ENGINE_PARAMETERS: {
-			type: "object",
-			title: "Engine Parameters",
-			description: "PGNs: 127488, 127489, 130312",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-				engines: {
-					title: "Engine Mapping",
-					type: "array",
-					items: {
-						type: "object",
-						properties: {
-							signalkId: { title: "Signal K engine id", type: "string" },
-							instanceId: {
-								title: "NMEA2000 Engine Instance Id",
-								type: "number",
-							},
-						},
-					},
-				},
-			},
-		},
-		TANKS: {
-			type: "object",
-			title: "Tank Levels",
-			description: "PGNs: 127505",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-				tanks: {
-					title: "Tank Mapping",
-					type: "array",
-					items: {
-						type: "object",
-						properties: {
-							signalkPath: {
-								title: "Signal K tank path (e.g. tanks.fuel.0)",
-								type: "string",
-							},
-							instanceId: {
-								title: "NMEA2000 Tank Instance Id",
-								type: "number",
-							},
-						},
-					},
-				},
-			},
-		},
-		SYSTEM_TIME: {
-			type: "object",
-			title: "System Time",
-			description: "PGNs: 126992",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-			},
-		},
-		SEA_TEMP: {
-			type: "object",
-			title: "Sea Temperature",
-			description: "PGNs: 130310",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-				environmentwatertemperature: {
-					title: "Source for environment.water.temperature",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-				environmentoutsidetemperature: {
-					title: "Source for environment.outside.temperature",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-			},
-		},
-		SOLAR: {
-			type: "object",
-			title: "Solar Panels",
-			description: "PGNs: 127508",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-				chargers: {
-					title: "Solar Panel Mapping",
-					type: "array",
-					items: {
-						type: "object",
-						properties: {
-							signalkId: { title: "Signal K charger id", type: "string" },
-							instanceId: {
-								title: "NMEA2000 Battery Instance Id (PGN 127508)",
+								description: "Used for current/voltage",
 								type: "number",
 							},
 							panelInstanceId: {
-								title: "NMEA2000 Panel Instance Id",
+								title: "NMEA2000 Battery Panel Instance Id",
+								description: "Used for panel current/voltage",
 								type: "number",
 							},
 						},
 					},
 				},
 			},
-		},
-		ENVIRONMENT_PARAMETERS: {
-			type: "object",
+		}),
+		ENVIRONMENT_PARAMETERS: pgnEntry({
 			title: "Environmental Parameters",
-			description: "PGNs: 130311",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-				environmentoutsidepressure: {
-					title: "Source for environment.outside.pressure",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-			},
-		},
-		MAGNETIC_VARIANCE: {
-			type: "object",
+			pgns: "130311",
+			sources: ["environment.outside.pressure"],
+		}),
+		MAGNETIC_VARIANCE: pgnEntry({
 			title: "Magnetic Variance",
-			description: "PGNs: 127258",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-				navigationmagneticVariance: {
-					title: "Source for navigation.magneticVariance",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-			},
-		},
-		RATE_OF_TURN: {
-			type: "object",
+			pgns: "127258",
+			sources: [
+				"navigation.magneticVariation",
+				"navigation.magneticVariationAgeOfService",
+			],
+		}),
+		RATE_OF_TURN: pgnEntry({
 			title: "Rate of Turn",
-			description: "PGNs: 127251",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-				navigationrateOfTurn: {
-					title: "Source for navigation.rateOfTurn",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-			},
-		},
-		TRUE_HEADING: {
-			type: "object",
+			pgns: "127251",
+			sources: ["navigation.rateOfTurn"],
+		}),
+		TRUE_HEADING: pgnEntry({
 			title: "True Heading",
-			description: "PGNs: 127250",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-				navigationheadingTrue: {
-					title: "Source for navigation.headingTrue",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-			},
-		},
-		LEEWAY: {
-			type: "object",
+			pgns: "127250",
+			sources: ["navigation.headingTrue"],
+		}),
+		LEEWAY: pgnEntry({
 			title: "Leeway Angle",
-			description: "PGNs: 128000",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-				navigationleewayAngle: {
-					title: "Source for navigation.leewayAngle",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-			},
-		},
-		SET_DRIFT: {
-			type: "object",
+			pgns: "128000",
+			sources: ["navigation.leewayAngle"],
+		}),
+		SET_DRIFT: pgnEntry({
 			title: "Set and Drift",
-			description: "PGNs: 129291",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-				environmentcurrentsetTrue: {
-					title: "Source for environment.current.setTrue",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-				environmentcurrentdrift: {
-					title: "Source for environment.current.drift",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-			},
-		},
-		ATTITUDE: {
-			type: "object",
+			pgns: "129291",
+			sources: ["environment.current.setTrue", "environment.current.drift"],
+		}),
+		ATTITUDE: pgnEntry({
 			title: "Vessel Attitude",
-			description: "PGNs: 127257",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-				navigationattituderoll: {
-					title: "Source for navigation.attitude.roll",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-				navigationattitudepitch: {
-					title: "Source for navigation.attitude.pitch",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-				navigationattitudeyaw: {
-					title: "Source for navigation.attitude.yaw",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-			},
-		},
-		HEAVE: {
-			type: "object",
+			pgns: "127257",
+			sources: [
+				"navigation.attitude.roll",
+				"navigation.attitude.pitch",
+				"navigation.attitude.yaw",
+			],
+		}),
+		HEAVE: pgnEntry({
 			title: "Vessel Heave",
-			description: "PGNs: 127252",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-				navigationheave: {
-					title: "Source for navigation.heave",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-			},
-		},
-		DIRECTION_DATA: {
-			type: "object",
+			pgns: "127252",
+			sources: ["navigation.heave"],
+		}),
+		DIRECTION_DATA: pgnEntry({
 			title: "Direction Data",
-			description: "PGNs: 130577",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-				navigationcourseOverGroundTrue: {
-					title: "Source for navigation.courseOverGroundTrue",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-				navigationcourseOverGroundMagnetic: {
-					title: "Source for navigation.courseOverGroundMagnetic",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-				navigationheadingTrue: {
-					title: "Source for navigation.headingTrue",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-				navigationheadingMagnetic: {
-					title: "Source for navigation.headingMagnetic",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-				navigationcourseRhumblinenextPointbearingTrue: {
-					title: "Source for navigation.courseRhumbline.nextPoint.bearingTrue",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-				navigationcourseRhumblinenextPointbearingMagnetic: {
-					title:
-						"Source for navigation.courseRhumbline.nextPoint.bearingMagnetic",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-				navigationcourseGreatCirclenextPointbearingTrue: {
-					title:
-						"Source for navigation.courseGreatCircle.nextPoint.bearingTrue",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-				navigationcourseGreatCirclenextPointbearingMagnetic: {
-					title:
-						"Source for navigation.courseGreatCircle.nextPoint.bearingMagnetic",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-			},
-		},
-		GNSS_DOPS: {
-			type: "object",
+			pgns: "130577",
+			sources: [
+				"navigation.courseOverGroundTrue",
+				"navigation.courseOverGroundMagnetic",
+				"navigation.headingTrue",
+				"navigation.headingMagnetic",
+			],
+		}),
+		GNSS_DOPS: pgnEntry({
 			title: "GNSS DOPs",
-			description: "PGNs: 129539",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-				navigationgnsshorizontalDilution: {
-					title: "Source for navigation.gnss.horizontalDilution",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-				navigationgnssverticalDilution: {
-					title: "Source for navigation.gnss.verticalDilution",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-				navigationgnsstimeDilution: {
-					title: "Source for navigation.gnss.timeDilution",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-				navigationgnssmode: {
-					title: "Source for navigation.gnss.mode",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-			},
-		},
-		GNSS_SATELLITES: {
-			type: "object",
+			pgns: "129539",
+			sources: [
+				"navigation.gnss.horizontalDilution",
+				"navigation.gnss.verticalDilution",
+				"navigation.gnss.timeDilution",
+				"navigation.gnss.mode",
+			],
+		}),
+		GNSS_SATELLITES: pgnEntry({
 			title: "GNSS Satellites",
-			description: "PGNs: 129540",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-				navigationgnsssatellitesInViewcount: {
-					title: "Source for navigation.gnss.satellitesInView.count",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-				navigationgnsssatellitesInViewsatellites: {
-					title: "Source for navigation.gnss.satellitesInView.satellites",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-			},
-		},
-		AIS: {
-			type: "object",
-			title: "AIS",
-			description: "PGNs: 129038, 129794, 129041",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-			},
-		},
-		AIS_CLASS_B_POSITION: {
-			type: "object",
+			pgns: "129540",
+			sources: [
+				"navigation.gnss.satellitesInView.count",
+				"navigation.gnss.satellitesInView.satellites",
+			],
+		}),
+		AIS: pgnEntry({ title: "AIS", pgns: "129038, 129794, 129041" }),
+		AIS_CLASS_B_POSITION: pgnEntry({
 			title: "AIS Class B Position",
-			description: "PGNs: 129039",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-			},
-		},
-		AIS_CLASS_B_EXTENDED: {
-			type: "object",
+			pgns: "129039",
+		}),
+		AIS_CLASS_B_EXTENDED: pgnEntry({
 			title: "AIS Class B Extended",
-			description: "PGNs: 129040",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-			},
-		},
-		CROSS_TRACK_ERROR: {
-			type: "object",
+			pgns: "129040",
+		}),
+		CROSS_TRACK_ERROR: pgnEntry({
 			title: "Cross Track Error",
-			description: "PGNs: 129283",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-				navigationcoursecalcValuescrossTrackError: {
-					title: "Source for navigation.course.calcValues.crossTrackError",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-			},
-		},
-		NAVIGATION_DATA: {
-			type: "object",
+			pgns: "129283",
+			sources: ["navigation.course.calcValues.crossTrackError"],
+		}),
+		NAVIGATION_DATA: pgnEntry({
 			title: "Navigation Data",
-			description: "PGNs: 129284",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-				navigationcoursecalcValuesdistance: {
-					title: "Source for navigation.course.calcValues.distance",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-				navigationcoursecalcValuesbearing: {
-					title: "Source for navigation.course.calcValues.bearing",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-				navigationcoursecalcValuesvelocityMadeGood: {
-					title: "Source for navigation.course.calcValues.velocityMadeGood",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-				navigationcoursecalcValueseta: {
-					title: "Source for navigation.course.calcValues.eta",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-			},
-		},
-		BEARING_DISTANCE_MARKS: {
-			type: "object",
+			pgns: "129284",
+			sources: [
+				"navigation.course.calcValues.distance",
+				"navigation.course.calcValues.bearingTrue",
+				"navigation.course.calcValues.bearingTrackTrue",
+				"navigation.course.calcValues.velocityMadeGood",
+			],
+		}),
+		BEARING_DISTANCE_MARKS: pgnEntry({
 			title: "Bearing Distance Between Marks",
-			description: "PGNs: 129302",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-				navigationcoursenextPointbearingMagnetic: {
-					title: "Source for navigation.course.nextPoint.bearingMagnetic",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-				navigationcoursenextPointdistance: {
-					title: "Source for navigation.course.nextPoint.distance",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-			},
-		},
-		ROUTE_WAYPOINT: {
-			type: "object",
+			pgns: "129302",
+			sources: [
+				"navigation.courseGreatCircle.nextPoint.bearingTrue",
+				"navigation.course.nextPoint.bearingMagnetic",
+				"navigation.magneticVariation",
+				"navigation.course.nextPoint.distance",
+				"navigation.course.nextPoint.type",
+				"navigation.course.previousPoint.type",
+			],
+		}),
+		ROUTE_WAYPOINT: pgnEntry({
 			title: "Route and Waypoint Information",
-			description: "PGNs: 129285",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-				navigationcoursenextPointposition: {
-					title: "Source for navigation.course.nextPoint.position",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-				navigationcoursenextPointdistance: {
-					title: "Source for navigation.course.nextPoint.distance",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-			},
-		},
-		TIME_TO_MARK: {
-			type: "object",
+			pgns: "129285",
+			sources: [
+				"navigation.course.nextPoint.position",
+				"navigation.course.activeRoute.name",
+				"navigation.course.activeRoute.waypoints",
+			],
+		}),
+		TIME_TO_MARK: pgnEntry({
 			title: "Time to Mark",
-			description: "PGNs: 129301",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-				navigationcoursenextPointtimeToGo: {
-					title: "Source for navigation.course.nextPoint.timeToGo",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-			},
-		},
-		WIND_TRUE_GROUND: {
-			type: "object",
+			pgns: "129301",
+			sources: ["navigation.course.nextPoint.timeToGo"],
+		}),
+		WIND_TRUE_GROUND: pgnEntry({
 			title: "Wind True Over Ground",
-			description: "PGNs: 130306",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-				environmentwinddirectionTrue: {
-					title: "Source for environment.wind.directionTrue",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-				environmentwindspeedOverGround: {
-					title: "Source for environment.wind.speedOverGround",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-			},
-		},
-		WIND_TRUE: {
-			type: "object",
+			pgns: "130306",
+			sources: [
+				"environment.wind.directionTrue",
+				"environment.wind.speedOverGround",
+			],
+		}),
+		WIND_TRUE: pgnEntry({
 			title: "Wind True Over Water",
-			description: "PGNs: 130306",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-				environmentwindangleTrueWater: {
-					title: "Source for environment.wind.angleTrueWater",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-				environmentwindspeedTrue: {
-					title: "Source for environment.wind.speedTrue",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-			},
-		},
-		ENGINE_STATIC: {
-			type: "object",
+			pgns: "130306",
+			sources: [
+				"environment.wind.angleTrueWater",
+				"environment.wind.speedTrue",
+			],
+		}),
+		ENGINE_STATIC: pgnEntry({
 			title: "Engine Configuration Parameters",
-			description: "PGNs: 127498",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-				propulsionmainratedEngineSpeed: {
-					title: "Source for propulsion.main.ratedEngineSpeed",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-				propulsionmainengineoperatingHours: {
-					title: "Source for propulsion.main.engine.operatingHours",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-			},
-		},
-		TRANSMISSION_PARAMETERS: {
-			type: "object",
+			pgns: "127498",
+			sources: [
+				"propulsion.main.ratedEngineSpeed",
+				"propulsion.main.VIN",
+				"propulsion.main.softwareVersion",
+			],
+		}),
+		TRANSMISSION_PARAMETERS: pgnEntry({
 			title: "Transmission Parameters",
-			description: "PGNs: 127493",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-				propulsionmaintransmissiongearRatio: {
-					title: "Source for propulsion.main.transmission.gearRatio",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-				propulsionmaintransmissionoilPressure: {
-					title: "Source for propulsion.main.transmission.oilPressure",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-				propulsionmaintransmissionoilTemperature: {
-					title: "Source for propulsion.main.transmission.oilTemperature",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-			},
-		},
-		SMALL_CRAFT_STATUS: {
-			type: "object",
+			pgns: "127493",
+			sources: [
+				"propulsion.main.transmission.gearRatio",
+				"propulsion.main.transmission.oilPressure",
+				"propulsion.main.transmission.oilTemperature",
+			],
+		}),
+		SMALL_CRAFT_STATUS: pgnEntry({
 			title: "Small Craft Status",
-			description: "PGNs: 130576",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-				steeringtrimTabport: {
-					title: "Source for steering.trimTab.port",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-				steeringtrimTabstarboard: {
-					title: "Source for steering.trimTab.starboard",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-				environmentdepthbelowTransducer: {
-					title: "Source for environment.depth.belowTransducer",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-				navigationspeedOverGround: {
-					title: "Source for navigation.speedOverGround",
-					description:
-						"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
-					type: "string",
-				},
-			},
-		},
-		NOTIFICATIONS: {
-			type: "object",
+			pgns: "130576",
+			sources: ["steering.trimTab.port", "steering.trimTab.starboard"],
+		}),
+		NOTIFICATIONS: pgnEntry({
 			title: "Notifications",
-			description: "PGNs: 126983, 126985",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
+			pgns: "126983, 126985",
+			extras: {
 				excludePaths: {
 					type: "string",
 					title: "Exclude Paths",
@@ -1163,171 +433,51 @@ export const schema: JSONSchema = {
 					default: "",
 				},
 			},
-		},
-		PRODUCT_INFO: {
-			type: "object",
-			title: "Product Information",
-			description: "PGNs: 126996",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-			},
-		},
-		DSC_CALLS: {
-			type: "object",
-			title: "DSC Call Information",
-			description: "PGNs: 129808",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-			},
-		},
-		RAYMARINE_ALARMS: {
-			type: "object",
-			title: "Raymarine Alarms",
-			description: "PGNs: 65288",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-			},
-		},
-		PGN_LIST: {
-			type: "object",
-			title: "PGN List",
-			description: "PGNs: 126464",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-			},
-		},
-		RADIO_FREQUENCY: {
-			type: "object",
-			title: "Radio Frequency",
-			description: "PGNs: 129799",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-			},
-		},
-		RAYMARINE_BRIGHTNESS: {
-			type: "object",
+		}),
+		PRODUCT_INFO: pgnEntry({ title: "Product Information", pgns: "126996" }),
+		DSC_CALLS: pgnEntry({ title: "DSC Call Information", pgns: "129808" }),
+		RAYMARINE_ALARMS: pgnEntry({ title: "Raymarine Alarms", pgns: "65288" }),
+		PGN_LIST: pgnEntry({ title: "PGN List", pgns: "126464" }),
+		RADIO_FREQUENCY: pgnEntry({ title: "Radio Frequency", pgns: "129799" }),
+		RAYMARINE_BRIGHTNESS: pgnEntry({
 			title: "Raymarine Display Brightness",
-			description: "PGNs: 126720",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
+			pgns: "126720",
+			extras: {
+				groups: arrayMapping("Brightness Groups", {
+					signalkId: { title: "Signal K display group id", type: "string" },
+					instanceId: {
+						title: "Raymarine Display Group Label",
+						description: "e.g. Helm 1, Helm 2, Cockpit",
+						type: "string",
+					},
+				}),
 			},
-		},
-		EXHAUST_TEMPERATURE: {
-			type: "object",
+		}),
+		EXHAUST_TEMPERATURE: pgnEntry({
 			title: "Exhaust Temperature",
-			description: "PGNs: 130312",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
+			pgns: "130312",
+			extras: {
+				engines: arrayMapping("Engine Mapping", {
+					signalkId: { title: "Signal K engine id", type: "string" },
+					tempInstanceId: {
+						title: "NMEA2000 Temperature Instance Id",
+						type: "number",
+					},
+				}),
 			},
-		},
-		AIS_SAR_AIRCRAFT: {
-			type: "object",
+		}),
+		AIS_SAR_AIRCRAFT: pgnEntry({
 			title: "AIS SAR Aircraft Position",
-			description: "PGNs: 129798",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-			},
-		},
-		AIS_SAFETY_MESSAGE: {
-			type: "object",
+			pgns: "129798",
+		}),
+		AIS_SAFETY_MESSAGE: pgnEntry({
 			title: "AIS Safety Related Broadcast Message",
-			description: "PGNs: 129802",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-			},
-		},
-		NAVIGATION_DATA_GREAT_CIRCLE: {
-			type: "object",
+			pgns: "129802",
+		}),
+		NAVIGATION_DATA_GREAT_CIRCLE: pgnEntry({
 			title: "Navigation Data (Great Circle)",
-			description: "PGNs: 129284",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-			},
-		},
-		ROUTE_WP_LIST: {
-			type: "object",
-			title: "Route/WP List",
-			description: "PGNs: 129285",
-			properties: {
-				enabled: { title: "Enabled", type: "boolean", default: false },
-				resend: {
-					type: "number",
-					title: "Resend (seconds)",
-					description:
-						"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
-					default: 0,
-				},
-			},
-		},
+			pgns: "129284",
+		}),
+		ROUTE_WP_LIST: pgnEntry({ title: "Route/WP List", pgns: "130074" }),
 	},
 };

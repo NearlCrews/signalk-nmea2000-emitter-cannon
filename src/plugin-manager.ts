@@ -1,6 +1,12 @@
-import type { Context, Path } from "@signalk/server-api";
+import type { Context, NormalizedDelta, Path } from "@signalk/server-api";
 import { debounceTime, Subject } from "rxjs";
-import { STREAM_DEBOUNCE_MS, VESSELS_SELF_CONTEXT } from "./constants.js";
+import {
+	DEFAULT_GLOBAL_RESEND_SECONDS,
+	OUTPUT_TYPE,
+	SOURCE_TYPE,
+	STREAM_DEBOUNCE_MS,
+	VESSELS_SELF_CONTEXT,
+} from "./constants.js";
 import { createConversionModules } from "./conversions/index.js";
 import type {
 	ConversionModule,
@@ -9,37 +15,46 @@ import type {
 	OutputTypeProcessor,
 	PluginOptions,
 	ProcessingOptions,
+	RawPluginOptions,
 	SignalKApp,
 	SignalKPlugin,
 	SourceTypeMapper,
 	SubConversionModule,
 } from "./types/index.js";
-import { isConversionOptions } from "./types/index.js";
+import { isConversionOptions, normalizePluginOptions } from "./types/index.js";
+import { isDebugEnabled } from "./utils/debugUtils.js";
 import { errMessage } from "./utils/errorUtils.js";
 import { formatN2KMessage, validateN2KMessage } from "./utils/messageUtils.js";
 import { isDefined, pathToPropName } from "./utils/pathUtils.js";
 import { clearAllSmoothers } from "./utils/smoothing.js";
 
-/**
- * Resolve a conversion's `keys` property which may be a static array or a
- * factory function of `(options) => string[]`.
- */
 function resolveKeys(
-	keys: string[] | ((options: unknown) => string[]) | undefined,
-	options: unknown,
+	keys: string[] | ((options: ConversionOptions) => string[]) | undefined,
+	options: ConversionOptions,
 ): string[] {
 	if (keys === undefined) return [];
 	if (typeof keys === "function") return keys(options);
 	return keys;
 }
 
+// Not idempotent on a reused instance: stop() clears this.conversions and
+// removes the constructor-installed listener, so a subsequent start() on the
+// same instance is a no-op. index.ts always discards the instance after stop()
+// and constructs a fresh PluginManager on restart.
 export class PluginManager {
 	private app: SignalKApp;
 	private conversions: ConversionModule[] = [];
 	private unsubscribes: Array<() => void> = [];
 	private timers: NodeJS.Timeout[] = [];
 	private nmea2000Ready = false;
-	private globalResendInterval = 5;
+	private globalResendInterval = DEFAULT_GLOBAL_RESEND_SECONDS;
+	/**
+	 * Flipped by stop(). registerDeltaInputHandler in @signalk/server-api 2.x
+	 * exposes no unregister API, so handlers from prior start()/stop() cycles
+	 * remain installed forever. The handler closure checks this flag first and
+	 * bails out, neutralising zombie handlers without changing wire behaviour.
+	 */
+	private stopped = false;
 	/**
 	 * Stored so stop() can removeListener the exact same reference. Without
 	 * this, every plugin restart leaks a listener (and the PluginManager it
@@ -98,20 +113,23 @@ export class PluginManager {
 		}
 	}
 
-	start(options: PluginOptions): void {
+	start(rawOptions: RawPluginOptions | PluginOptions): void {
 		try {
-			this.globalResendInterval = options.globalResendInterval || 5;
+			this.stopped = false;
+			const options = normalizePluginOptions(rawOptions);
+			this.globalResendInterval =
+				options.globalResendInterval || DEFAULT_GLOBAL_RESEND_SECONDS;
 
 			this.app.setPluginStatus("Starting...");
 			this.app.debug(`=== SIGNALK-NMEA2000-EMITTER-CANNON STARTING ===`);
 			this.app.debug(
-				`Plugin options received: ${JSON.stringify(Object.keys(options))}`,
+				`Plugin options received: ${JSON.stringify(Object.keys(options.conversions))}`,
 			);
 			this.app.debug(`Using ${this.conversions.length} conversion modules`);
 
 			let enabledCount = 0;
 			for (const conv of this.conversions) {
-				const convOptions = options[conv.optionKey];
+				const convOptions = options.conversions[conv.optionKey];
 				const isEnabled =
 					isConversionOptions(convOptions) && convOptions.enabled === true;
 				this.app.debug(
@@ -124,7 +142,7 @@ export class PluginManager {
 				this.app.debug(`*** SETTING UP ENABLED CONVERSION: ${conv.title} ***`);
 
 				if (conv.onOptionsLoaded) {
-					conv.onOptionsLoaded(convOptions as Record<string, unknown>);
+					conv.onOptionsLoaded(convOptions);
 				}
 
 				const rawConversions = conv.conversions;
@@ -149,17 +167,13 @@ export class PluginManager {
 				for (const subConversion of subConversions) {
 					if (subConversion === undefined) continue;
 
-					const sourceType: NonNullable<ConversionModule["sourceType"]> =
-						subConversion.sourceType || "onValueChange";
+					const sourceType =
+						subConversion.sourceType ?? SOURCE_TYPE.ON_VALUE_CHANGE;
 					const mapper = this.sourceTypes[sourceType];
 
 					if (!mapper) {
 						this.app.error(`Unknown conversion type: ${sourceType}`);
 						continue;
-					}
-
-					if (subConversion.outputType === undefined) {
-						subConversion.outputType = "to-n2k";
 					}
 
 					mapper(subConversion as ConversionModule, convOptions);
@@ -176,15 +190,23 @@ export class PluginManager {
 			const errorMsg = errMessage(error);
 			this.app.error(`Failed to start plugin: ${errorMsg}`);
 			this.app.setPluginError(`Startup failed: ${errorMsg}`);
+			try {
+				this.stop();
+			} catch (stopErr) {
+				this.app.error(
+					`stop() during start() failure also failed: ${errMessage(stopErr)}`,
+				);
+			}
 		}
 	}
 
 	/**
 	 * Each cleanup step is wrapped so one failure doesn't prevent the rest
 	 * from running. Errors are collected and reported once. stop() must not
-	 * throw — Signal K calls it on plugin disable/uninstall.
+	 * throw: Signal K calls it on plugin disable/uninstall.
 	 */
 	stop(): void {
+		this.stopped = true;
 		const errors: string[] = [];
 		const safe = (label: string, fn: () => void) => {
 			try {
@@ -202,8 +224,8 @@ export class PluginManager {
 			safe("unsubscribe", unsubscribe);
 		}
 
-		// Resend timers are already tracked in `this.timers` — clearing the
-		// list is sole authoritative teardown. The `conversion.resendTimer`
+		// Resend timers are already tracked in `this.timers`; clearing the
+		// list is the sole authoritative teardown. The `conversion.resendTimer`
 		// field is used only as an "armed" flag, so we just drop it here.
 		const timers = this.timers;
 		this.timers = [];
@@ -215,6 +237,7 @@ export class PluginManager {
 				delete conversion.resendTimer;
 			}
 		}
+		this.conversions = [];
 
 		// Remove the nmea2000OutAvailable listener the constructor registered.
 		// Without this, every restart leaks a listener plus the closure over
@@ -255,7 +278,7 @@ export class PluginManager {
 		try {
 			if (output !== undefined) {
 				const values = await Promise.resolve(output);
-				const processor = this.outputTypes["to-n2k"];
+				const processor = this.outputTypes[OUTPUT_TYPE.TO_N2K];
 				if (processor) {
 					await processor(values);
 				}
@@ -268,9 +291,9 @@ export class PluginManager {
 		}
 
 		// Timer-source conversions (e.g. systemTime) provide their own
-		// schedule — arming a resend timer on top causes double emissions
-		// every global-resend window.
-		if (conversion.sourceType === "timer") {
+		// schedule; arming a resend timer on top would double-emit every
+		// global-resend window.
+		if (conversion.sourceType === SOURCE_TYPE.TIMER) {
 			return;
 		}
 
@@ -283,15 +306,17 @@ export class PluginManager {
 		if (effectiveResend > 0 && !conversion.resendTimer) {
 			conversion.resendTimer = setInterval(async () => {
 				try {
+					if (this.stopped) return;
 					const lastInput = this.lastInputs.get(conversion);
-					// No input ever observed → skip; do NOT emit stale defaults.
+					// No input ever observed: skip; do not emit stale defaults.
 					if (lastInput === undefined) return;
 
 					const raw = this.invokeCallback(conversion, lastInput, "resend");
 					if (raw === undefined) return;
 
 					const values = await Promise.resolve(raw);
-					const processor = this.outputTypes["to-n2k"];
+					if (this.stopped) return;
+					const processor = this.outputTypes[OUTPUT_TYPE.TO_N2K];
 					if (processor) {
 						await processor(values);
 					}
@@ -307,7 +332,10 @@ export class PluginManager {
 		}
 	}
 
-	private mapOnDelta(conversion: ConversionModule, options: unknown): void {
+	private mapOnDelta(
+		conversion: ConversionModule,
+		options: ConversionOptions,
+	): void {
 		const processingOptions = options as ProcessingOptions;
 		if (!conversion.callback) {
 			this.app.error(`Delta conversion ${conversion.title} missing callback`);
@@ -317,6 +345,7 @@ export class PluginManager {
 		// next(delta) first so app.getPath() reflects the just-applied state.
 		this.app.registerDeltaInputHandler((delta, next) => {
 			next(delta);
+			if (this.stopped) return;
 			const args: unknown[] = [delta];
 			this.lastInputs.set(conversion, args);
 			const result = this.invokeCallback(conversion, args, "delta");
@@ -325,8 +354,11 @@ export class PluginManager {
 		});
 	}
 
-	private mapRxJS(conversion: ConversionModule, options: unknown): void {
-		const pluginOptions = options as ConversionOptions;
+	private mapRxJS(
+		conversion: ConversionModule,
+		options: ConversionOptions,
+	): void {
+		const pluginOptions = options;
 		const keys = resolveKeys(conversion.keys, options);
 		const timeouts = conversion.timeouts || [];
 
@@ -334,75 +366,65 @@ export class PluginManager {
 			`Setting up conversion: ${conversion.title} with ${keys.length} keys`,
 		);
 
-		const lastValues: Record<string, { timestamp: number; value: unknown }> =
-			{};
+		// Per-key timestamp / value records, plus a parallel typed timestamp
+		// array for the per-delta freshness check. Avoids O(keys) hash lookups
+		// on every value update.
+		const now0 = Date.now();
+		const timestamps = new Array<number>(keys.length).fill(now0);
+		const values = new Array<unknown>(keys.length).fill(null);
+		const keyIndex = new Map<string, number>();
+		for (let i = 0; i < keys.length; i++) {
+			const k = keys[i];
+			if (k !== undefined) keyIndex.set(k, i);
+		}
 
-		keys.forEach((key) => {
-			lastValues[key] = {
-				timestamp: Date.now(),
-				value: null,
-			};
-		});
+		// Reused on every emit so we do not allocate `keys.length` slots per
+		// delta. The downstream Subject + debounceTime always reads the
+		// latest reference at fire time, so mutate-in-place is safe.
+		const currentValues = new Array<unknown>(keys.length);
 
-		// Create a subject to combine all streams (like Bacon.Bus). Use plain
-		// Subject (not BehaviorSubject) so the pipeline stays idle until an
-		// actual value arrives — a BehaviorSubject([]) seed would fire through
-		// debounceTime and trigger processOutput (including arming a resend
-		// timer) before any real Signal K data had been observed.
+		// Plain Subject (not BehaviorSubject) so the pipeline stays idle
+		// until a real value arrives. A BehaviorSubject([]) seed would fire
+		// through debounceTime and arm the resend timer before any data.
 		const combinedBus = new Subject<unknown[]>();
 
 		keys.forEach((skKey) => {
 			const sourceRef = pluginOptions[pathToPropName(skKey)] as
 				| string
 				| undefined;
-			this.app.debug(`Setting up ${skKey} with sourceRef: ${sourceRef}`);
 
 			let bus = this.app.streambundle.getSelfBus(skKey as Path);
 
 			if (sourceRef) {
-				// Signal K `$source` values are composites like `gps1.0` or
-				// `canbus0.127`, not bare labels. Accept either an exact match
-				// or a label prefix (`gps1` matches `gps1.0`, `gps1.1`, ...) so
-				// the UI description "enter a source label (e.g. 'gps1')"
-				// actually matches real stream values.
+				// SK `$source` values are composites like `gps1.0`. Accept an
+				// exact match or a label prefix (`gps1` matches `gps1.0`,
+				// `gps1.1`, ...) so the UI description "enter a source label"
+				// matches real stream values.
 				const sourceRefWithDot = `${sourceRef}.`;
-				bus = bus.filter((x: unknown) => {
-					const src = (x as { $source?: string }).$source;
+				bus = bus.filter((x: NormalizedDelta) => {
+					const src = x.$source;
 					if (!src) return false;
 					return src === sourceRef || src.startsWith(sourceRefWithDot);
 				});
 			}
 
-			const unsubscribe = bus.onValue((streamData: unknown) => {
-				let value: unknown;
-				if (
-					streamData &&
-					typeof streamData === "object" &&
-					"value" in (streamData as object)
-				) {
-					value = (streamData as { value: unknown }).value;
-				} else {
-					value = streamData;
-				}
-
-				this.app.debug(`${skKey}: received value update`);
+			const unsubscribe = bus.onValue((streamData: NormalizedDelta) => {
+				const value: unknown = streamData.value;
 
 				const now = Date.now();
-				const entry = lastValues[skKey];
-				if (entry) {
-					entry.timestamp = now;
-					entry.value = value;
+				const idx = keyIndex.get(skKey);
+				if (idx !== undefined) {
+					timestamps[idx] = now;
+					values[idx] = value;
 				}
 
-				const currentValues = keys.map((key, i) => {
+				for (let i = 0; i < keys.length; i++) {
 					const timeout = timeouts[i];
-					return !isDefined(timeout) ||
-						(lastValues[key]?.timestamp || 0) + (timeout || 0) > now
-						? lastValues[key]?.value
-						: null;
-				});
+					const ts = timestamps[i] ?? 0;
+					currentValues[i] =
+						!isDefined(timeout) || ts + (timeout || 0) > now ? values[i] : null;
+				}
 
-				this.app.debug(`Pushing combined values for ${conversion.title}`);
 				combinedBus.next(currentValues);
 			});
 
@@ -411,18 +433,14 @@ export class PluginManager {
 			}
 		});
 
-		// Debounce and process like the original
 		const subscription = combinedBus
 			.pipe(debounceTime(STREAM_DEBOUNCE_MS))
 			.subscribe({
 				next: (args) => {
-					this.app.debug(`Callback triggered for ${conversion.title}`);
-					this.lastInputs.set(conversion, args);
+					if (this.stopped) return;
+					this.lastInputs.set(conversion, args.slice());
 					const result = this.invokeCallback(conversion, args, "stream");
 					if (result === undefined) return;
-					this.app.debug(
-						`Callback result for ${conversion.title}: ${Array.isArray(result) ? result.length : 0} messages`,
-					);
 					void this.processOutput(conversion, pluginOptions, result);
 				},
 				error: (err) => {
@@ -440,14 +458,13 @@ export class PluginManager {
 
 	private mapSubscription(
 		conversion: ConversionModule,
-		options: unknown,
+		options: ConversionOptions,
 	): void {
-		const pluginOptions = options as ConversionOptions;
+		const pluginOptions = options;
 		const keys = resolveKeys(conversion.keys, options);
 
-		// Event-like sources (notifications, alarms) must subscribe with
-		// policy:"instant" — otherwise Signal K's default "fixed" policy with
-		// period 1000ms can drop rapid-fire alerts.
+		// Event-like sources (notifications, alarms) need policy:"instant" so
+		// Signal K's "fixed" 1000ms period doesn't drop rapid-fire alerts.
 		const subscription = {
 			context: (conversion.context || VESSELS_SELF_CONTEXT) as Context,
 			subscribe: keys.map((key) => ({
@@ -463,6 +480,7 @@ export class PluginManager {
 			this.unsubscribes,
 			(err: unknown) => this.app.error(errMessage(err)),
 			(delta) => {
+				if (this.stopped) return;
 				const args: unknown[] = [delta];
 				this.lastInputs.set(conversion, args);
 				const result = this.invokeCallback(conversion, args, "subscription");
@@ -472,7 +490,10 @@ export class PluginManager {
 		);
 	}
 
-	private mapTimer(conversion: ConversionModule, options: unknown): void {
+	private mapTimer(
+		conversion: ConversionModule,
+		options: ConversionOptions,
+	): void {
 		const processingOptions = options as ProcessingOptions;
 		if (!conversion.interval) {
 			this.app.error(`Timer conversion ${conversion.title} missing interval`);
@@ -485,6 +506,7 @@ export class PluginManager {
 		}
 
 		const timer = setInterval(() => {
+			if (this.stopped) return;
 			const args: unknown[] = [this.app];
 			this.lastInputs.set(conversion, args);
 			const result = this.invokeCallback(conversion, args, "timer");
@@ -499,28 +521,23 @@ export class PluginManager {
 		NonNullable<ConversionModule["sourceType"]>,
 		SourceTypeMapper
 	> = {
-		onDelta: (...args) => this.mapOnDelta(...args),
-		onValueChange: (...args) => this.mapRxJS(...args),
-		subscription: (...args) => this.mapSubscription(...args),
-		timer: (...args) => this.mapTimer(...args),
+		[SOURCE_TYPE.ON_DELTA]: (...args) => this.mapOnDelta(...args),
+		[SOURCE_TYPE.ON_VALUE_CHANGE]: (...args) => this.mapRxJS(...args),
+		[SOURCE_TYPE.SUBSCRIPTION]: (...args) => this.mapSubscription(...args),
+		[SOURCE_TYPE.TIMER]: (...args) => this.mapTimer(...args),
 	};
 
 	private async processToN2K(values: N2KMessage[] | null): Promise<void> {
 		if (!values) return;
 
 		if (!this.nmea2000Ready) {
-			this.app.debug("NMEA2000 output not yet available, queuing message");
+			this.app.debug("NMEA2000 output not yet available, dropping message");
 			return;
 		}
 
 		try {
 			const validPgns = values.filter(isDefined);
-			// `app.debug` is a debug-library instance that self-gates. Reading
-			// `.enabled` once before the loop avoids running formatN2KMessage
-			// (which allocates a string) when debug output is disabled for this
-			// namespace.
-			const appDebug = this.app.debug as unknown as { enabled?: boolean };
-			const debugEnabled = appDebug?.enabled === true;
+			const debugEnabled = isDebugEnabled(this.app);
 
 			for (const pgn of validPgns) {
 				try {
@@ -545,6 +562,6 @@ export class PluginManager {
 	}
 
 	private outputTypes: Record<string, OutputTypeProcessor> = {
-		"to-n2k": (...args) => this.processToN2K(...args),
+		[OUTPUT_TYPE.TO_N2K]: (...args) => this.processToN2K(...args),
 	};
 }

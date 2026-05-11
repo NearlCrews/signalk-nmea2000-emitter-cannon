@@ -1,13 +1,10 @@
 /**
- * pathUtils tests.
- *
- * Implements plan item L2: pathToPropName() collapses dots and could
- * theoretically collide for two distinct Signal K paths. Walk every key
- * across every conversion module and assert no collisions exist today.
- *
- * If two paths *do* collide in the future, the implementation needs to
- * change (e.g. switch the separator to `_` or hash) — this test guards
- * the registry against silently regressing into that state.
+ * pathUtils tests: pathToPropName() collapses dots and could theoretically
+ * collide for two distinct Signal K paths. Walk every key across every
+ * conversion module and assert no collisions exist today. If two paths do
+ * collide in the future, the implementation needs to change (e.g. switch the
+ * separator to `_` or hash); this test guards the registry against silently
+ * regressing into that state.
  */
 
 import { describe, expect, it } from "vitest";
@@ -16,7 +13,7 @@ import { schema } from "../schema.js";
 import type { SignalKApp, SignalKPlugin } from "../types/index.js";
 import { pathToPropName } from "../utils/pathUtils.js";
 
-/* Minimal mock app — pathUtils only needs the conversion factories to run.
+/* Minimal mock app: pathUtils only needs the conversion factories to run.
  * They're called purely to harvest the `keys` arrays; no streams fire. */
 const mockApp: SignalKApp = {
 	getSelfPath: () => undefined,
@@ -57,9 +54,9 @@ describe("pathToPropName", () => {
 	});
 
 	it("does not produce duplicate propnames for any registered Signal K path", () => {
-		// See plan item L2: collisions would cause two distinct Signal K paths
-		// to map onto the same per-conversion source-filter option key, silently
-		// crossing source-filter configuration between paths.
+		// Collisions would cause two distinct Signal K paths to map onto the
+		// same per-conversion source-filter option key, silently crossing
+		// source-filter configuration between paths.
 		const conversions = createConversionModules(mockApp, mockPlugin);
 
 		const allPaths = new Set<string>();
@@ -72,7 +69,7 @@ describe("pathToPropName", () => {
 					for (const key of conv.keys) allPaths.add(key);
 				}
 
-				// Also walk subconversions — a conversion can override or extend
+				// Also walk subconversions: a conversion can override or extend
 				// keys via its `conversions` array. We can't safely call the
 				// function form here without realistic options, so we only walk
 				// the static array form (which is the common case).

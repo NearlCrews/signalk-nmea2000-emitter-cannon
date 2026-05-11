@@ -9,70 +9,72 @@ import type {
 	N2KFieldValue,
 	SignalKApp,
 } from "../types/index.js";
-import { toValidNumber } from "../utils/validation.js";
+import {
+	isValidNumber,
+	normalizeAngle,
+	toValidNumber,
+} from "../utils/validation.js";
 
+// canboat MARK_TYPE entries: Collision, Turning point, Reference, Wheelover,
+// Waypoint. SK only emits "waypoint"; everything else maps to "Reference"
+// since the canonical lookup has no generic "mark" entry.
 const markTypeFor = (t: string | null) =>
-	t === "waypoint" ? "Waypoint" : "Mark";
+	t === "waypoint" ? "Waypoint" : "Reference";
+
+type BearingDistanceInputs = [
+	number | null,
+	number | null,
+	number | null,
+	number | null,
+	string | null,
+	string | null,
+];
 
 export default function createBearingDistanceBetweenMarksConversion(
 	_app: SignalKApp,
-): ConversionModule<
-	[
-		number | null,
-		number | null,
-		number | null,
-		number | null,
-		string | null,
-		string | null,
-	]
-> {
+): ConversionModule<BearingDistanceInputs> {
 	return {
 		title: "Bearing and Distance Between Two Marks (129302)",
 		optionKey: "BEARING_DISTANCE_MARKS",
 		keys: [
+			"navigation.courseGreatCircle.nextPoint.bearingTrue",
 			"navigation.course.nextPoint.bearingMagnetic",
+			"navigation.magneticVariation",
 			"navigation.course.nextPoint.distance",
-			"navigation.course.previousPoint.bearingMagnetic",
-			"navigation.course.previousPoint.distance",
 			"navigation.course.nextPoint.type",
 			"navigation.course.previousPoint.type",
 		],
-		timeouts: [5000, 5000, 5000, 5000, 5000, 5000], // 5 seconds
+		timeouts: [5000, 5000, 5000, 5000, 5000, 5000],
 		callback: ((
-			nextBearing: number | null,
+			nextBearingTrue: number | null,
+			nextBearingMagnetic: number | null,
+			magneticVariation: number | null,
 			nextDistance: number | null,
-			prevBearing: number | null,
-			prevDistance: number | null,
 			nextType: string | null,
 			prevType: string | null,
 		) => {
+			let bearing = toValidNumber(nextBearingTrue);
 			if (
-				nextBearing == null &&
-				nextDistance == null &&
-				prevBearing == null &&
-				prevDistance == null
+				bearing === null &&
+				isValidNumber(nextBearingMagnetic) &&
+				isValidNumber(magneticVariation)
 			) {
+				bearing = normalizeAngle(nextBearingMagnetic + magneticVariation);
+			}
+			const validNextDistance = toValidNumber(nextDistance);
+
+			if (bearing === null && validNextDistance === null) {
 				return [];
 			}
 
 			const fields: Record<string, N2KFieldValue> = {
 				sid: N2K_SID_ZERO,
+				calculationType: "Great Circle",
+				bearingReference: "True",
 			};
 
-			const validNextBearing = toValidNumber(nextBearing);
-			if (validNextBearing !== null)
-				fields.bearingOriginToDestination = validNextBearing;
-
-			const validNextDistance = toValidNumber(nextDistance);
-			if (validNextDistance !== null) fields.distanceToMark = validNextDistance;
-
-			const validPrevBearing = toValidNumber(prevBearing);
-			if (validPrevBearing !== null)
-				fields.bearingPositionToMark = validPrevBearing;
-
-			const validPrevDistance = toValidNumber(prevDistance);
-			if (validPrevDistance !== null)
-				fields.distancePositionToMark = validPrevDistance;
+			if (bearing !== null) fields.bearingOriginToDestination = bearing;
+			if (validNextDistance !== null) fields.distance = validNextDistance;
 
 			if (prevType != null) fields.originMarkType = markTypeFor(prevType);
 			if (nextType != null) fields.destinationMarkType = markTypeFor(nextType);
@@ -85,19 +87,10 @@ export default function createBearingDistanceBetweenMarksConversion(
 					fields,
 				},
 			];
-		}) as ConversionCallback<
-			[
-				number | null,
-				number | null,
-				number | null,
-				number | null,
-				string | null,
-				string | null,
-			]
-		>,
+		}) as ConversionCallback<BearingDistanceInputs>,
 		tests: [
 			{
-				input: [1.2217, 2000, 0.7854, 1500, "waypoint", "waypoint"], // 70° to next WP (2km), 45° from prev WP (1.5km)
+				input: [1.2217, null, null, 2000, "waypoint", "waypoint"],
 				expected: [
 					{
 						prio: 2,
@@ -105,6 +98,9 @@ export default function createBearingDistanceBetweenMarksConversion(
 						dst: 255,
 						fields: {
 							bearingOriginToDestination: 1.2217,
+							bearingReference: "True",
+							calculationType: "Great Circle",
+							distance: 2000,
 							destinationMarkType: "Waypoint",
 							originMarkType: "Waypoint",
 							sid: 0,
@@ -113,7 +109,26 @@ export default function createBearingDistanceBetweenMarksConversion(
 				],
 			},
 			{
-				input: [2.0944, 5000, null, null, "mark", null], // 120° to mark, 5km away
+				input: [null, 1.2, 0.0217, 2000, "waypoint", "waypoint"],
+				expected: [
+					{
+						prio: 2,
+						pgn: 129302,
+						dst: 255,
+						fields: {
+							bearingOriginToDestination: 1.2217,
+							bearingReference: "True",
+							calculationType: "Great Circle",
+							distance: 2000,
+							destinationMarkType: "Waypoint",
+							originMarkType: "Waypoint",
+							sid: 0,
+						},
+					},
+				],
+			},
+			{
+				input: [2.0944, null, null, 5000, "mark", null],
 				expected: [
 					{
 						prio: 2,
@@ -121,7 +136,10 @@ export default function createBearingDistanceBetweenMarksConversion(
 						dst: 255,
 						fields: {
 							bearingOriginToDestination: 2.0944,
-							destinationMarkType: "Collision",
+							bearingReference: "True",
+							calculationType: "Great Circle",
+							distance: 5000,
+							destinationMarkType: "Reference",
 							sid: 0,
 						},
 					},

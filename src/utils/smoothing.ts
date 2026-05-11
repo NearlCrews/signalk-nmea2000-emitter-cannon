@@ -1,40 +1,27 @@
-/**
- * Smoothing utilities for sensor data
- */
+import { isValidNumber } from "./validation.js";
 
-/**
- * Registry of all live ExponentialSmoother instances so the plugin can wipe
- * smoothing state on stop()/restart without each conversion module having to
- * track its own smoother. Constructor self-registers; clearAllSmoothers()
- * iterates and calls .clear() on every entry.
- */
+// Module-level registry so PluginManager.stop() can wipe smoothed state on
+// every instance without each conversion having to track its own smoothers.
 const registeredSmoothers: Set<ExponentialSmoother> = new Set();
 
-/**
- * Exponential moving average smoother
- * Maintains state for multiple instances identified by key
- */
 export class ExponentialSmoother {
 	private values: Map<string, number> = new Map();
 	private readonly alpha: number;
 
-	/**
-	 * Create a new exponential smoother
-	 * @param alpha - Smoothing factor (0-1). Higher = more weight to new values
-	 */
 	constructor(alpha: number = 0.3) {
 		this.alpha = Math.max(0, Math.min(1, alpha));
 		registeredSmoothers.add(this);
 	}
 
-	/**
-	 * Apply exponential smoothing to a value
-	 * @param key - Instance identifier for maintaining separate smoothing states
-	 * @param newValue - New value to smooth
-	 * @returns Smoothed value
-	 */
+	// Non-finite inputs (NaN, +/-Infinity) are dropped: blending them in would
+	// poison the stored value for every subsequent call against the same key.
+	// If no prior value exists either, the bad input is returned as-is so
+	// callers can detect upstream sensor failure.
 	smooth(key: string, newValue: number): number {
 		const existing = this.values.get(key);
+		if (!isValidNumber(newValue)) {
+			return existing ?? newValue;
+		}
 		if (existing === undefined) {
 			this.values.set(key, newValue);
 			return newValue;
@@ -45,38 +32,22 @@ export class ExponentialSmoother {
 		return smoothed;
 	}
 
-	/**
-	 * Get the current smoothed value for a key
-	 * @param key - Instance identifier
-	 * @returns Current smoothed value or undefined if not set
-	 */
 	get(key: string): number | undefined {
 		return this.values.get(key);
 	}
 
-	/**
-	 * Clear all smoothing state
-	 */
 	clear(): void {
 		this.values.clear();
 	}
 
-	/**
-	 * Clear smoothing state for a specific key
-	 * @param key - Instance identifier to clear
-	 */
 	clearKey(key: string): void {
 		this.values.delete(key);
 	}
 }
 
-/**
- * Clear smoothing state on every ExponentialSmoother instance currently
- * registered in this module AND release the registry references so old
- * instances can be garbage-collected. Intended for plugin lifecycle teardown
- * so stale smoothed values don't bleed across plugin restarts and the
- * registry doesn't grow unbounded with one zombie entry per restart.
- */
+// Releases registry references so old instances can be garbage-collected
+// across plugin restarts; the registry would otherwise grow one zombie
+// entry per restart.
 export function clearAllSmoothers(): void {
 	for (const smoother of registeredSmoothers) {
 		smoother.clear();
@@ -84,10 +55,6 @@ export function clearAllSmoothers(): void {
 	registeredSmoothers.clear();
 }
 
-/**
- * Number of ExponentialSmoother instances currently tracked by the registry.
- * Primarily for tests and diagnostic/status reporting.
- */
 export function getRegisteredSmootherCount(): number {
 	return registeredSmoothers.size;
 }

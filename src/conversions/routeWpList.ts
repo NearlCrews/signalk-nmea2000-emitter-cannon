@@ -1,8 +1,6 @@
 import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import type { ConversionModule, N2KMessage } from "../types/index.js";
-import { isValidNumber } from "../utils/validation.js";
-import type { Waypoint } from "./routeTypes.js";
-import { DEFAULT_ROUTE_NAME, MAX_WP_LIST_WAYPOINTS } from "./routeTypes.js";
+import { MAX_WP_LIST_WAYPOINTS, mapValidWaypoints } from "./routeTypes.js";
 
 export default function createRouteWpListConversion(): ConversionModule {
 	return {
@@ -15,35 +13,25 @@ export default function createRouteWpListConversion(): ConversionModule {
 		],
 		callback: (
 			waypoints: unknown,
-			routeName: unknown,
-			reverse: unknown,
+			_routeName: unknown,
+			_reverse: unknown,
 		): N2KMessage[] => {
 			if (!waypoints || !Array.isArray(waypoints) || waypoints.length === 0) {
 				return [];
 			}
 
-			const wpList = waypoints
-				.slice(0, MAX_WP_LIST_WAYPOINTS)
-				.flatMap((wp: Waypoint, index: number) => {
-					const lat = wp.position?.latitude;
-					const lon = wp.position?.longitude;
-					if (!isValidNumber(lat) || !isValidNumber(lon)) return [];
-					return [
-						{
-							wpId: wp.id ?? index + 1,
-							wpName: wp.name || `WP${index + 1}`,
-							wpLatitude: lat,
-							wpLongitude: lon,
-							wpBearingFromOrigin: wp.bearingFromOrigin ?? 0,
-							wpDistanceFromOrigin: wp.distanceFromOrigin ?? 0,
-							wpDescription: wp.description || "",
-						},
-					];
-				});
-
-			const routeNameString =
-				typeof routeName === "string" ? routeName : DEFAULT_ROUTE_NAME;
-			const isReverse = typeof reverse === "boolean" ? reverse : false;
+			// PGN 130074 carries only the waypoint list; route metadata
+			// (name, direction) belongs to PGN 129285.
+			const wpList = mapValidWaypoints(
+				waypoints,
+				MAX_WP_LIST_WAYPOINTS,
+				(wp, index) => ({
+					wpId: wp.id ?? index + 1,
+					wpName: wp.name || `WP${index + 1}`,
+					wpLatitude: wp.position?.latitude,
+					wpLongitude: wp.position?.longitude,
+				}),
+			);
 
 			return [
 				{
@@ -51,12 +39,10 @@ export default function createRouteWpListConversion(): ConversionModule {
 					pgn: 130074,
 					dst: N2K_BROADCAST_DST,
 					fields: {
-						startWp: 0,
+						startWpId: 0,
 						nitems: wpList.length,
+						numberOfValidWpsInTheWpList: wpList.length,
 						databaseId: 1,
-						routeId: 1,
-						navigationDirectionInRoute: isReverse ? "Reverse" : "Forward",
-						routeName: routeNameString,
 						reserved: 0,
 						list: wpList,
 					},
@@ -71,25 +57,16 @@ export default function createRouteWpListConversion(): ConversionModule {
 							id: 1,
 							name: "START",
 							position: { latitude: 39.0458, longitude: -76.6413 },
-							bearingFromOrigin: 0,
-							distanceFromOrigin: 0,
-							description: "Starting point",
 						},
 						{
 							id: 2,
 							name: "TURN1",
 							position: { latitude: 39.2904, longitude: -76.6122 },
-							bearingFromOrigin: 0.785,
-							distanceFromOrigin: 27130,
-							description: "First turn",
 						},
 						{
 							id: 3,
 							name: "DEST",
 							position: { latitude: 39.3504, longitude: -76.5422 },
-							bearingFromOrigin: 1.047,
-							distanceFromOrigin: 35420,
-							description: "Destination",
 						},
 					],
 					"Baltimore Harbor Route",
@@ -103,7 +80,9 @@ export default function createRouteWpListConversion(): ConversionModule {
 						fields: {
 							databaseId: 1,
 							nitems: 3,
+							numberOfValidWpsInTheWpList: 3,
 							reserved: 0,
+							startWpId: 0,
 							list: [
 								{
 									wpId: 1,

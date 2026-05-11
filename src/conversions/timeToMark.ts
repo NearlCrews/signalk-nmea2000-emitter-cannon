@@ -12,33 +12,26 @@ import { toValidNumber } from "../utils/validation.js";
 
 export default function createTimeToMarkConversion(): ConversionModule {
 	return {
-		title: "Time to/from Mark (129301)",
+		title: "Time to Mark (129301)",
 		optionKey: "TIME_TO_MARK",
+		// canboat 129301 has only timeToMark; the SK previousPoint.timeSince
+		// path has no canonical home in this PGN.
 		keys: [
 			"navigation.course.nextPoint.timeToGo",
-			"navigation.course.previousPoint.timeSince",
 			"navigation.course.nextPoint.type",
 		],
-		timeouts: [5000, 5000, 5000], // 5 seconds
-		callback: (
-			timeToGo: unknown,
-			timeSince: unknown,
-			markType: unknown,
-		): N2KMessage[] => {
-			if (timeToGo == null && timeSince == null) {
+		timeouts: [5000, 5000],
+		callback: (timeToGo: unknown, markType: unknown): N2KMessage[] => {
+			const validTimeToGo = toValidNumber(timeToGo);
+			if (validTimeToGo === null) {
 				return [];
 			}
 
 			const fields: Record<string, N2KFieldValue> = {
 				sid: N2K_SID_ZERO,
-				markType: markType === "waypoint" ? "Waypoint" : "Mark",
+				timeToMark: validTimeToGo,
+				markType: markType === "waypoint" ? "Waypoint" : "Reference",
 			};
-
-			const validTimeToGo = toValidNumber(timeToGo);
-			if (validTimeToGo !== null) fields.timeToMark = validTimeToGo;
-
-			const validTimeSince = toValidNumber(timeSince);
-			if (validTimeSince !== null) fields.timeSinceMark = validTimeSince;
 
 			return [
 				{
@@ -51,7 +44,7 @@ export default function createTimeToMarkConversion(): ConversionModule {
 		},
 		tests: [
 			{
-				input: [1800, null, "waypoint"], // 30 minutes to waypoint
+				input: [1800, "waypoint"],
 				expected: [
 					{
 						prio: 2,
@@ -66,7 +59,7 @@ export default function createTimeToMarkConversion(): ConversionModule {
 				],
 			},
 			{
-				input: [null, 900, "mark"], // 15 minutes since mark
+				input: [120, "mark"],
 				expected: [
 					{
 						prio: 2,
@@ -74,7 +67,8 @@ export default function createTimeToMarkConversion(): ConversionModule {
 						dst: 255,
 						fields: {
 							sid: 0,
-							markType: "Collision",
+							timeToMark: "00:02:00",
+							markType: "Reference",
 						},
 					},
 				],

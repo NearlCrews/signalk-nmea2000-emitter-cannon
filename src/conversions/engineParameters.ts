@@ -2,15 +2,14 @@ import {
 	DEFAULT_DATA_TIMEOUT_MS,
 	N2K_BROADCAST_DST,
 	N2K_DEFAULT_PRIORITY,
+	VESSELS_SELF_CONTEXT,
 } from "../constants.js";
 import type {
 	ConversionCallback,
 	ConversionModule,
-	JSONSchema,
 	SignalKApp,
 	SubConversionModule,
 } from "../types/index.js";
-import { errMessage } from "../utils/errorUtils.js";
 import { isValidNumber, toValidNumber } from "../utils/validation.js";
 
 interface ExhaustTempEngineConfig {
@@ -36,7 +35,7 @@ interface EngineParamsOptions {
 }
 
 export default function createEngineParametersConversions(
-	app: SignalKApp,
+	_app: SignalKApp,
 ): ConversionModule<unknown[]>[] {
 	// discrete status fields are not yet implemented
 	const engParKeys = [
@@ -58,26 +57,7 @@ export default function createEngineParametersConversions(
 		{
 			title: "Temperature, exhaust (130312)",
 			optionKey: "EXHAUST_TEMPERATURE",
-			context: "vessels.self",
-			properties: (): JSONSchema["properties"] => ({
-				engines: {
-					title: "Engine Mapping",
-					type: "array",
-					items: {
-						type: "object",
-						properties: {
-							signalkId: {
-								title: "Signal K engine id",
-								type: "string",
-							},
-							tempInstanceId: {
-								title: "NMEA2000 Temperature Instance Id",
-								type: "number",
-							},
-						},
-					},
-				},
-			}),
+			context: VESSELS_SELF_CONTEXT,
 
 			testOptions: {
 				engines: [
@@ -97,27 +77,21 @@ export default function createEngineParametersConversions(
 				return engineOptions.engines.map((engine) => ({
 					keys: [`propulsion.${engine.signalkId}.exhaustTemperature`],
 					callback: ((temperature: number | null) => {
-						try {
-							if (!isValidNumber(temperature)) {
-								return [];
-							}
-
-							return [
-								{
-									prio: N2K_DEFAULT_PRIORITY,
-									pgn: 130312,
-									dst: N2K_BROADCAST_DST,
-									fields: {
-										instance: engine.tempInstanceId,
-										actualTemperature: temperature,
-										source: "Exhaust Gas Temperature",
-									},
-								},
-							];
-						} catch (err) {
-							app.error(errMessage(err));
+						if (!isValidNumber(temperature)) {
 							return [];
 						}
+						return [
+							{
+								prio: N2K_DEFAULT_PRIORITY,
+								pgn: 130312,
+								dst: N2K_BROADCAST_DST,
+								fields: {
+									instance: engine.tempInstanceId,
+									actualTemperature: temperature,
+									source: "Exhaust Gas Temperature",
+								},
+							},
+						];
 					}) as ConversionCallback<[number | null]>,
 					tests: [
 						{
@@ -142,26 +116,7 @@ export default function createEngineParametersConversions(
 		{
 			title: "Engine Parameters (127489,127488)",
 			optionKey: "ENGINE_PARAMETERS",
-			context: "vessels.self",
-			properties: (): JSONSchema["properties"] => ({
-				engines: {
-					title: "Engine Mapping",
-					type: "array",
-					items: {
-						type: "object",
-						properties: {
-							signalkId: {
-								title: "Signal K engine id",
-								type: "string",
-							},
-							instanceId: {
-								title: "NMEA2000 Engine Instance Id",
-								type: "number",
-							},
-						},
-					},
-				},
-			}),
+			context: VESSELS_SELF_CONTEXT,
 
 			testOptions: {
 				engines: [
@@ -200,48 +155,43 @@ export default function createEngineParametersConversions(
 						engLoad: number | null,
 						engTorque: number | null,
 					) => {
-						try {
-							const oilPressure = toValidNumber(oilPres);
-							const oilTemperature = toValidNumber(oilTemp);
-							const temperature = toValidNumber(temp);
-							const alternatorPotential = toValidNumber(altVolt);
-							const fuelRateConverted = isValidNumber(fuelRate)
-								? fuelRate * 3600 * 1000
-								: null;
-							const totalEngineHours = toValidNumber(runTime);
-							const coolantPressure = toValidNumber(coolPres);
-							const fuelPressure = toValidNumber(fuelPres);
-							const engineLoad = isValidNumber(engLoad) ? engLoad * 100 : null;
-							const engineTorque = isValidNumber(engTorque)
-								? engTorque * 100
-								: null;
+						const oilPressure = toValidNumber(oilPres);
+						const oilTemperature = toValidNumber(oilTemp);
+						const temperature = toValidNumber(temp);
+						const alternatorPotential = toValidNumber(altVolt);
+						const fuelRateConverted = isValidNumber(fuelRate)
+							? fuelRate * 3600 * 1000
+							: null;
+						const totalEngineHours = toValidNumber(runTime);
+						const coolantPressure = toValidNumber(coolPres);
+						const fuelPressure = toValidNumber(fuelPres);
+						const engineLoad = isValidNumber(engLoad) ? engLoad * 100 : null;
+						const engineTorque = isValidNumber(engTorque)
+							? engTorque * 100
+							: null;
 
-							return [
-								{
-									prio: N2K_DEFAULT_PRIORITY,
-									pgn: 127489,
-									dst: N2K_BROADCAST_DST,
-									fields: {
-										instance: engine.instanceId,
-										oilPressure,
-										oilTemperature,
-										temperature,
-										alternatorPotential,
-										fuelRate: fuelRateConverted,
-										totalEngineHours,
-										coolantPressure,
-										fuelPressure,
-										discreteStatus1: [],
-										discreteStatus2: [],
-										engineLoad,
-										engineTorque,
-									},
+						return [
+							{
+								prio: N2K_DEFAULT_PRIORITY,
+								pgn: 127489,
+								dst: N2K_BROADCAST_DST,
+								fields: {
+									instance: engine.instanceId,
+									oilPressure,
+									oilTemperature,
+									temperature,
+									alternatorPotential,
+									fuelRate: fuelRateConverted,
+									totalEngineHours,
+									coolantPressure,
+									fuelPressure,
+									discreteStatus1: [],
+									discreteStatus2: [],
+									engineLoad,
+									engineTorque,
 								},
-							];
-						} catch (err) {
-							app.error(errMessage(err));
-							return [];
-						}
+							},
+						];
 					}) as ConversionCallback<
 						[
 							number | null,
@@ -259,7 +209,8 @@ export default function createEngineParametersConversions(
 					tests: [
 						{
 							input: [
-								102733, 210, 220, 13.1, 100, 201123, 202133, 11111111, 0.5, 1.0,
+								102733, 210, 220, 13.1, 0.0001, 201123, 202133, 11111111, 0.5,
+								1.0,
 							],
 							expected: [
 								{
@@ -272,7 +223,7 @@ export default function createEngineParametersConversions(
 										oilTemperature: 210,
 										temperature: 220,
 										alternatorPotential: 13.1,
-										fuelRate: -2355.2,
+										fuelRate: 360,
 										totalEngineHours: "55:52:03",
 										coolantPressure: 202100,
 										fuelPressure: 11111000,
@@ -297,32 +248,23 @@ export default function createEngineParametersConversions(
 						boostPressure: number | null,
 						trimState: number | null,
 					) => {
-						try {
-							const speed = isValidNumber(revolutions)
-								? revolutions * 60
-								: null;
-							const boostPres = toValidNumber(boostPressure);
-							const tiltTrim = isValidNumber(trimState)
-								? trimState * 100
-								: null;
+						const speed = isValidNumber(revolutions) ? revolutions * 60 : null;
+						const boostPres = toValidNumber(boostPressure);
+						const tiltTrim = isValidNumber(trimState) ? trimState * 100 : null;
 
-							return [
-								{
-									prio: N2K_DEFAULT_PRIORITY,
-									pgn: 127488,
-									dst: N2K_BROADCAST_DST,
-									fields: {
-										instance: engine.instanceId,
-										speed,
-										boostPressure: boostPres,
-										tiltTrim,
-									},
+						return [
+							{
+								prio: N2K_DEFAULT_PRIORITY,
+								pgn: 127488,
+								dst: N2K_BROADCAST_DST,
+								fields: {
+									instance: engine.instanceId,
+									speed,
+									boostPressure: boostPres,
+									tiltTrim,
 								},
-							];
-						} catch (err) {
-							app.error(errMessage(err));
-							return [];
-						}
+							},
+						];
 					}) as ConversionCallback<
 						[number | null, number | null, number | null]
 					>,
@@ -346,6 +288,9 @@ export default function createEngineParametersConversions(
 					],
 				}));
 
+				// Cast required by the bivariance bridge in src/types/plugin.ts (34-39):
+				// SubConversionModule callbacks are contravariant on input tuple, so
+				// merging differently-typed sub-modules needs `unknown[]`.
 				return [...dyn, ...rapid] as SubConversionModule<unknown[]>[];
 			},
 		},

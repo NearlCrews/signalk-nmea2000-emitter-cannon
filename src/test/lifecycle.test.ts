@@ -1,9 +1,7 @@
 /**
- * Lifecycle tests for PluginManager.
- *
- * Implements plan item H3: assert that start() wires up the expected
+ * Lifecycle tests for PluginManager: assert that start() wires up the expected
  * subscriptions / listeners, that the resend interval fires output, and that
- * stop() tears every one of them down — even when a conversion callback throws.
+ * stop() tears every one of them down, even when a conversion callback throws.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -47,7 +45,7 @@ interface MockSignalKApp {
 	eventListenerCount: () => number;
 	/** Number of subscriptionmanager.subscribe calls observed. */
 	subscriptionCallCount: () => number;
-	/** Captured subscription args (first call) — or undefined if none. */
+	/** Captured subscription args (first call), or undefined if none. */
 	firstSubscription: () => unknown;
 	/** Captured nmea2000JsonOut emissions. */
 	emittedMessages: N2KMessage[];
@@ -106,7 +104,7 @@ function createMockSignalKApp(): MockSignalKApp {
 	};
 
 	// Per-path bus cache so repeated getSelfBus(path) returns same bus surface.
-	// (We still create new wrapped listeners per onValue call — the cache only
+	// (We still create new wrapped listeners per onValue call; the cache only
 	// dedupes the stream identity to mirror the real streambundle behaviour.)
 	const buses = new Map<string, BaconLikeBus>();
 	const getOrCreateBus = (path: string): BaconLikeBus => {
@@ -338,7 +336,7 @@ describe("PluginManager lifecycle", () => {
 	});
 
 	it("stop() removes the nmea2000OutAvailable listener registered by the constructor", () => {
-		// Constructor ran in beforeEach — one event listener is active.
+		// Constructor ran in beforeEach: one event listener is active.
 		expect(mock.eventListenerCount()).toBeGreaterThanOrEqual(1);
 
 		manager.stop();
@@ -349,7 +347,7 @@ describe("PluginManager lifecycle", () => {
 	});
 
 	it("repeated start/stop cycles do not accumulate nmea2000OutAvailable listeners", () => {
-		// Baseline — one listener registered by the beforeEach-created manager.
+		// Baseline: one listener registered by the beforeEach-created manager.
 		expect(mock.eventListenerCount()).toBeGreaterThanOrEqual(1);
 
 		manager.stop();
@@ -376,7 +374,7 @@ describe("PluginManager lifecycle", () => {
 			subscribe: Array<{ policy?: string; period?: number }>;
 		};
 		expect(sub.subscribe.length).toBeGreaterThan(0);
-		// Default Signal K subscribe period is 1000ms — that throttles alarm
+		// Default Signal K subscribe period is 1000ms, which throttles alarm
 		// bursts and can drop an alert. Events should subscribe with
 		// policy:"instant" or period:0.
 		const first = sub.subscribe[0];
@@ -404,7 +402,7 @@ describe("PluginManager lifecycle", () => {
 	it("timer-source conversions do not also arm a resend timer", async () => {
 		// systemTime is a `timer` sourceType with its own 1s interval. A resend
 		// timer on top of that would emit PGN 126992 twice per global-resend
-		// window — once from the main timer, once from the resend.
+		// window: once from the main timer, once from the resend.
 		manager.start({
 			globalResendInterval: 5,
 			SYSTEM_TIME: { enabled: true, resend: 0 },
@@ -438,7 +436,7 @@ describe("PluginManager lifecycle", () => {
 
 		// `getSelfPath` is set to return undefined, so depth callback runs fine
 		// for valid numbers. Force a throw by pushing a value that the callback
-		// will read but the inner try/catch will log, NOT rethrow — so we also
+		// will read but the inner try/catch will log, NOT rethrow, so we also
 		// simulate an upstream error by pushing a Symbol value, which will be
 		// coerced and the validation rejection will yield [].
 		mock.pushStream("environment.depth.belowTransducer", { value: Number.NaN });
@@ -464,5 +462,32 @@ describe("PluginManager lifecycle", () => {
 		expect(() => manager.stop()).not.toThrow();
 		expect(mock.streamListenerCount()).toBe(0);
 		expect(vi.getTimerCount()).toBe(0);
+	});
+
+	it("stopped flag neutralises late deltas and resend timers after stop()", async () => {
+		const options = {
+			globalResendInterval: 5,
+			DEPTH: { enabled: true, resend: 0 },
+		} as unknown as PluginOptions;
+
+		manager.start(options);
+		(
+			mock.app as unknown as { getSelfPath: (p: string) => unknown }
+		).getSelfPath = () => 0;
+
+		mock.pushStream("environment.depth.belowTransducer", { value: 5 });
+		await flush();
+		const emittedBeforeStop = mock.emittedMessages.length;
+		expect(emittedBeforeStop).toBeGreaterThan(0);
+
+		manager.stop();
+
+		// A delta arriving after stop() must not produce any new emit, even if
+		// the upstream stream did not unsubscribe cleanly. The stopped flag
+		// also neutralises any zombie registerDeltaInputHandler closures that
+		// signalk-server has no API to unregister.
+		mock.pushStream("environment.depth.belowTransducer", { value: 6 });
+		await flush();
+		expect(mock.emittedMessages.length).toBe(emittedBeforeStop);
 	});
 });

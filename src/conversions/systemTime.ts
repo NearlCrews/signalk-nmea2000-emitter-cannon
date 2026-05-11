@@ -5,10 +5,9 @@ import type {
 	SignalKApp,
 } from "../types/index.js";
 import { toN2KDateTime } from "../utils/dateUtils.js";
-import { errMessage } from "../utils/errorUtils.js";
 
 export default function createSystemTimeConversion(
-	app: SignalKApp,
+	_app: SignalKApp,
 ): ConversionModule {
 	return {
 		title: "System Time (126992)",
@@ -16,26 +15,21 @@ export default function createSystemTimeConversion(
 		interval: 1000,
 		optionKey: "SYSTEM_TIME",
 		callback: (_app: unknown, inputDate?: unknown): N2KMessage[] => {
-			try {
-				const { date, time } = toN2KDateTime(
-					inputDate instanceof Date ? inputDate : new Date(),
-				);
+			const { date, time } = toN2KDateTime(
+				inputDate instanceof Date ? inputDate : new Date(),
+			);
 
-				return [
-					{
-						prio: N2K_DEFAULT_PRIORITY,
-						pgn: 126992,
-						dst: N2K_BROADCAST_DST,
-						fields: {
-							date,
-							time,
-						},
+			return [
+				{
+					prio: N2K_DEFAULT_PRIORITY,
+					pgn: 126992,
+					dst: N2K_BROADCAST_DST,
+					fields: {
+						date,
+						time,
 					},
-				];
-			} catch (err) {
-				app.error(errMessage(err));
-				return [];
-			}
+				},
+			];
 		},
 
 		tests: [
@@ -48,7 +42,7 @@ export default function createSystemTimeConversion(
 						dst: 255,
 						fields: {
 							date: "2017.04.15",
-							time: "14:59:53",
+							time: "14:59:53.12300",
 						},
 					},
 				],

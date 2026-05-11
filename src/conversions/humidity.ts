@@ -9,12 +9,11 @@ import type {
 	N2KMessage,
 	SignalKApp,
 } from "../types/index.js";
-import { errMessage } from "../utils/errorUtils.js";
 import { isValidNumber } from "../utils/validation.js";
 
 function createHumidityMessage(humidity: number, source: string): N2KMessage[] {
-	// Signal K spec: relativeHumidity is a ratio (0-1)
-	// NMEA 2000 PGN 130313 actualHumidity expects percentage (0-100)
+	// SK relativeHumidity is a ratio (0..1); PGN 130313 actualHumidity is a
+	// percentage (0..100).
 	const pct = humidity * 100;
 	return [
 		{
@@ -31,36 +30,29 @@ function createHumidityMessage(humidity: number, source: string): N2KMessage[] {
 }
 
 export default function createHumidityConversions(
-	app: SignalKApp,
+	_app: SignalKApp,
 ): ConversionModule<unknown[]>[] {
 	return [
 		{
 			title: "Outside Humidity (130313)",
 			optionKey: "HUMIDITY_OUTSIDE",
-			// Accept either Signal K humidity path. Some upstream plugins (e.g.
-			// signalk-virtual-weather-sensors) publish `environment.outside.humidity`;
-			// others publish `environment.outside.relativeHumidity`. `relativeHumidity`
-			// is listed first so it wins when both are present.
+			// Some upstream plugins publish `environment.outside.humidity`,
+			// others publish `environment.outside.relativeHumidity`. The
+			// `relativeHumidity` path wins when both are present.
 			keys: [
 				"environment.outside.relativeHumidity",
 				"environment.outside.humidity",
 			],
 			callback: ((rel: number | null, hum: number | null) => {
-				try {
-					const value = isValidNumber(rel)
-						? rel
-						: isValidNumber(hum)
-							? hum
-							: null;
-					if (value === null) {
-						return [];
-					}
-
-					return createHumidityMessage(value, "Outside");
-				} catch (err) {
-					app.error(errMessage(err));
+				const value = isValidNumber(rel)
+					? rel
+					: isValidNumber(hum)
+						? hum
+						: null;
+				if (value === null) {
 					return [];
 				}
+				return createHumidityMessage(value, "Outside");
 			}) as ConversionCallback<[number | null, number | null]>,
 
 			tests: [
@@ -149,16 +141,10 @@ export default function createHumidityConversions(
 			optionKey: "HUMIDITY_INSIDE",
 			keys: ["environment.inside.relativeHumidity"],
 			callback: ((humidity: number | null) => {
-				try {
-					if (!isValidNumber(humidity)) {
-						return [];
-					}
-
-					return createHumidityMessage(humidity, "Inside");
-				} catch (err) {
-					app.error(errMessage(err));
+				if (!isValidNumber(humidity)) {
 					return [];
 				}
+				return createHumidityMessage(humidity, "Inside");
 			}) as ConversionCallback<[number | null]>,
 
 			tests: [

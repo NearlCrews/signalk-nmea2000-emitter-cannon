@@ -8,7 +8,6 @@ import type {
 	N2KMessage,
 	SignalKApp,
 } from "../types/index.js";
-import { errMessage } from "../utils/errorUtils.js";
 import { isValidNumber } from "../utils/validation.js";
 
 function createPressureMessage(pressure: number, source: string): N2KMessage[] {
@@ -27,7 +26,7 @@ function createPressureMessage(pressure: number, source: string): N2KMessage[] {
 }
 
 export default function createPressureConversions(
-	app: SignalKApp,
+	_app: SignalKApp,
 ): ConversionModule[] {
 	return [
 		{
@@ -35,16 +34,10 @@ export default function createPressureConversions(
 			optionKey: "PRESSURE",
 			keys: ["environment.outside.pressure"],
 			callback: (pressure: unknown): N2KMessage[] => {
-				try {
-					if (!isValidNumber(pressure)) {
-						return [];
-					}
-
-					return createPressureMessage(pressure, "Atmospheric");
-				} catch (err) {
-					app.error(errMessage(err));
+				if (!isValidNumber(pressure)) {
 					return [];
 				}
+				return createPressureMessage(pressure, "Atmospheric");
 			},
 
 			tests: [

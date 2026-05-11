@@ -7,7 +7,7 @@ import {
 
 describe("ExponentialSmoother registry", () => {
 	it("clearAllSmoothers empties the registry so instances can be GCed", () => {
-		// Baseline — leftover instances from other tests are possible.
+		// Baseline: leftover instances from other tests are possible.
 		clearAllSmoothers();
 		expect(getRegisteredSmootherCount()).toBe(0);
 

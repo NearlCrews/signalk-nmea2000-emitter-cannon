@@ -1,185 +1,132 @@
 import type { Plugin } from "@signalk/server-api";
+import type { SourceType } from "../constants.js";
 import type { N2KMessage } from "./nmea2000.js";
-import type { JSONSchema, SignalKApp } from "./signalk.js";
+import type { SignalKApp } from "./signalk.js";
 
-/**
- * Generic callback for NMEA 2000 conversions.
- * @template T - An array of types for the callback arguments.
- */
 export type ConversionCallback<T extends unknown[] = unknown[]> = (
 	...values: T
 ) => N2KMessage[] | Promise<N2KMessage[]>;
 
-/**
- * Signal K plugin interface
- * Extends the official Plugin interface with additional properties
- */
 export interface SignalKPlugin extends Plugin {
-	/** Plugin description */
 	description: string;
 }
 
-/**
- * Configuration options for a single conversion.
- */
 export interface ConversionOptions {
 	enabled: boolean;
 	resend?: number;
 	[optionKey: string]: unknown;
 }
 
-/**
- * Plugin configuration options. Most keys map to a {@link ConversionOptions}
- * entry keyed by each conversion's `optionKey`, with a small set of reserved
- * top-level numeric options (e.g. `globalResendInterval`).
- */
+// Normalized internal shape. Per-conversion options live under
+// `conversions` keyed by each module's `optionKey`, narrowing every read
+// to `ConversionOptions | undefined` instead of the wide wire-format union.
 export interface PluginOptions {
-	/** Resend interval in seconds applied to all conversions unless per-conversion overridden. */
+	globalResendInterval?: number;
+	conversions: Record<string, ConversionOptions>;
+}
+
+// Wire format as delivered by the Signal K admin UI. Schema.ts emits a
+// flat object; PluginManager.start normalizes it into PluginOptions.
+export interface RawPluginOptions {
 	globalResendInterval?: number;
 	[key: string]: ConversionOptions | number | undefined;
 }
 
-/**
- * Type guard narrowing a {@link PluginOptions} value to a {@link ConversionOptions}
- * entry — used at the index-signature access sites so global numeric options
- * (e.g. globalResendInterval) don't get treated as conversion configs.
- */
 export function isConversionOptions(
 	v: ConversionOptions | number | undefined,
 ): v is ConversionOptions {
 	return typeof v === "object" && v !== null;
 }
 
-/**
- * Sub-conversion module (used within conversions array)
- *
- * Note: `callback` and `conversions` are declared with method-style
- * signatures so TypeScript treats their parameters bivariantly. This lets
- * the registry hold heterogeneous {@link SubConversionModule} values
- * (each with its own narrow argument tuple) under a single
- * `SubConversionModule<unknown[]>` umbrella, while individual modules
- * can still declare a precise input type for their implementation.
- */
+export function normalizePluginOptions(
+	raw: RawPluginOptions | PluginOptions,
+): PluginOptions {
+	const maybeNested = (raw as Partial<PluginOptions>).conversions;
+	if (
+		maybeNested !== undefined &&
+		typeof maybeNested === "object" &&
+		maybeNested !== null
+	) {
+		return raw as PluginOptions;
+	}
+	const flat = raw as RawPluginOptions;
+	const conversions: Record<string, ConversionOptions> = {};
+	for (const key of Object.keys(flat)) {
+		if (key === "globalResendInterval") continue;
+		const value = flat[key];
+		if (isConversionOptions(value)) {
+			conversions[key] = value;
+		}
+	}
+	const out: PluginOptions = { conversions };
+	if (typeof flat.globalResendInterval === "number") {
+		out.globalResendInterval = flat.globalResendInterval;
+	}
+	return out;
+}
+
+// `callback` and `conversions` use method-style signatures so TypeScript
+// treats their parameters bivariantly. This lets the registry hold
+// heterogeneous SubConversionModule values (each with its own narrow tuple)
+// under a single SubConversionModule<unknown[]> umbrella while individual
+// modules declare a precise input type. Switching to arrow-style under
+// strictFunctionTypes would break compilation in every module.
 export interface SubConversionModule<T extends unknown[] = unknown[]> {
-	/** Optional human-readable title (used in debug logs) */
 	title?: string;
-	/** Signal K paths that this conversion listens to */
-	keys?: string[] | ((options: unknown) => string[]);
-	/** Source type for data input */
-	sourceType?: "onDelta" | "onValueChange" | "subscription" | "timer";
-	/** Output type for data output */
-	outputType?: "to-n2k";
-	/** Timeout values for data freshness (ms) */
+	keys?: string[] | ((options: ConversionOptions) => string[]);
+	sourceType?: SourceType;
 	timeouts?: number[];
-	/** Timer interval for timer-based conversions (ms) */
 	interval?: number;
-	/** Function that converts Signal K data to N2K messages */
 	callback?(...values: T): N2KMessage[] | Promise<N2KMessage[]>;
-	/** Test cases for this conversion */
 	tests?: ConversionTest[];
 }
 
-/**
- * Conversion module configuration
- *
- * Note: `callback` and `conversions` are declared with method-style
- * signatures so TypeScript treats their parameters bivariantly (see
- * {@link SubConversionModule} for rationale).
- */
 export interface ConversionModule<T extends unknown[] = unknown[]> {
-	/** Human-readable title for this conversion */
 	title: string;
-	/** Option key used in plugin configuration */
 	optionKey: string;
-	/** Signal K paths that this conversion listens to.
-	 * May be a static array or a factory that computes keys from options. */
-	keys?: string[] | ((options: unknown) => string[]);
-	/** Context for subscriptions (e.g., 'vessels.self') */
+	keys?: string[] | ((options: ConversionOptions) => string[]);
 	context?: string;
-	/** Source type for data input */
-	sourceType?: "onDelta" | "onValueChange" | "subscription" | "timer";
-	/** Output type for data output */
-	outputType?: "to-n2k";
-	/** Timeout values for data freshness (ms) */
+	sourceType?: SourceType;
 	timeouts?: number[];
-	/** Timer interval for timer-based conversions (ms) */
 	interval?: number;
-	/** Function that converts Signal K data to N2K messages */
 	callback?(...values: T): N2KMessage[] | Promise<N2KMessage[]>;
-	/** Sub-conversions for complex conversion modules */
 	conversions?:
 		| SubConversionModule<T>[]
-		| ((options: unknown) => SubConversionModule<T>[] | null);
-	/** Additional configuration properties for this conversion */
-	properties?: JSONSchema["properties"] | (() => JSONSchema["properties"]);
-	/** Test cases for this conversion */
+		| ((options: ConversionOptions) => SubConversionModule<T>[] | null);
 	tests?: ConversionTest[];
-	/** Test options for validating this conversion */
 	testOptions?: unknown;
-	/** Timer reference for cleanup */
 	resendTimer?: NodeJS.Timeout;
-	/** Called with conversion options before first callback, for option-dependent setup */
-	onOptionsLoaded?: (options: Record<string, unknown>) => void;
+	onOptionsLoaded?: (options: ConversionOptions) => void;
 }
 
-/**
- * Test expectation that allows preprocessing of test results
- */
 export type TestExpectedMessage = N2KMessage & {
-	/** Optional preprocessing function to modify test results for validation */
 	__preprocess__?: (testResult: N2KMessage) => void;
 };
 
-/**
- * Test case for a conversion module
- */
 export interface ConversionTest {
-	/** Input values for the conversion function */
 	input: unknown[];
-	/** Expected N2K messages output */
 	expected:
 		| TestExpectedMessage[]
 		| ((testOptions: Record<string, unknown>) => TestExpectedMessage)[];
-	/** Signal K data context for the test (app.getPath) */
 	skData?: Record<string, unknown>;
-	/** Signal K self vessel data context for the test (app.getSelfPath) */
 	skSelfData?: Record<string, unknown>;
-	/** Test options passed to expected function generators */
 	testOptions?: Record<string, unknown>;
 }
 
-/**
- * Source type mapping functions
- */
 export type SourceTypeMapper = (
 	conversion: ConversionModule,
-	options: unknown,
+	options: ConversionOptions,
 ) => void;
 
-/**
- * Output type processing functions
- */
 export type OutputTypeProcessor = (
 	values: N2KMessage[] | null,
 ) => Promise<void>;
 
-/**
- * Plugin factory function type
- */
-export type PluginFactory = (app: SignalKApp) => SignalKPlugin;
-
-/**
- * Conversion module factory function type
- */
 export type ConversionModuleFactory = (
 	app: SignalKApp,
 	plugin: SignalKPlugin,
 ) => ConversionModule<unknown[]> | ConversionModule<unknown[]>[];
 
-/**
- * Options for message processing
- */
 export interface ProcessingOptions {
-	/** Whether to resend messages periodically */
 	resend?: number;
 }

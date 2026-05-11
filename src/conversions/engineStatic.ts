@@ -39,10 +39,9 @@ export default function createEngineStaticConversion(
 					pgn: 127498,
 					dst: N2K_BROADCAST_DST,
 					fields: {
-						engineInstance: 0,
-						typeOfEngine: "Gasoline",
-						locationOfEngine: "Main",
-						engineGeometry: "In-line",
+						// TODO: single-engine only; extend with an `engines` config
+						// like ENGINE_PARAMETERS to support multi-engine vessels.
+						instance: 0,
 						ratedEngineSpeed: toValidNumber(ratedEngineSpeed) ?? undefined,
 						vin: typeof VIN === "string" ? VIN : "",
 						softwareId:
@@ -60,6 +59,7 @@ export default function createEngineStaticConversion(
 						pgn: 127498,
 						dst: 255,
 						fields: {
+							instance: "Single Engine or Dual Engine Port",
 							ratedEngineSpeed: 3600,
 							vin: "ABC123456789",
 							softwareId: "v2.1.3",
@@ -68,13 +68,14 @@ export default function createEngineStaticConversion(
 				],
 			},
 			{
-				input: [2800, null, "v1.0.0"], // Missing VIN
+				input: [2800, null, "v1.0.0"],
 				expected: [
 					{
 						prio: 2,
 						pgn: 127498,
 						dst: 255,
 						fields: {
+							instance: "Single Engine or Dual Engine Port",
 							ratedEngineSpeed: 2800,
 							softwareId: "v1.0.0",
 						},

@@ -4,36 +4,29 @@ import type {
 	ConversionModule,
 	SignalKApp,
 } from "../types/index.js";
-import { errMessage } from "../utils/errorUtils.js";
 import { isValidNumber } from "../utils/validation.js";
 
 export default function createLeewayConversion(
-	app: SignalKApp,
+	_app: SignalKApp,
 ): ConversionModule<[number | null]> {
 	return {
 		title: "Leeway (128000)",
 		optionKey: "LEEWAY",
 		keys: ["navigation.leewayAngle"],
 		callback: ((leeway: number | null) => {
-			try {
-				if (!isValidNumber(leeway)) {
-					return [];
-				}
-
-				return [
-					{
-						prio: N2K_DEFAULT_PRIORITY,
-						pgn: 128000,
-						dst: N2K_BROADCAST_DST,
-						fields: {
-							leewayAngle: leeway,
-						},
-					},
-				];
-			} catch (err) {
-				app.error(errMessage(err));
+			if (!isValidNumber(leeway)) {
 				return [];
 			}
+			return [
+				{
+					prio: N2K_DEFAULT_PRIORITY,
+					pgn: 128000,
+					dst: N2K_BROADCAST_DST,
+					fields: {
+						leewayAngle: leeway,
+					},
+				},
+			];
 		}) as ConversionCallback<[number | null]>,
 
 		tests: [
@@ -51,7 +44,7 @@ export default function createLeewayConversion(
 				],
 			},
 			{
-				input: [-0.15], // Negative leeway
+				input: [-0.15],
 				expected: [
 					{
 						prio: 2,

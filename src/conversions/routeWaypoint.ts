@@ -1,8 +1,10 @@
 import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import type { ConversionModule, N2KMessage } from "../types/index.js";
-import { isValidNumber } from "../utils/validation.js";
-import type { Waypoint } from "./routeTypes.js";
-import { DEFAULT_ROUTE_NAME, MAX_RPS_WAYPOINTS } from "./routeTypes.js";
+import {
+	DEFAULT_ROUTE_NAME,
+	MAX_RPS_WAYPOINTS,
+	mapValidWaypoints,
+} from "./routeTypes.js";
 
 const ROUTE_TIMEOUT_MS = 60000;
 
@@ -25,23 +27,12 @@ export default function createRouteWaypointConversion(): ConversionModule {
 				return [];
 			}
 
-			const list = Array.isArray(waypoints)
-				? waypoints
-						.slice(0, MAX_RPS_WAYPOINTS)
-						.flatMap((wp: Waypoint, index: number) => {
-							const lat = wp.position?.latitude;
-							const lon = wp.position?.longitude;
-							if (!isValidNumber(lat) || !isValidNumber(lon)) return [];
-							return [
-								{
-									wpId: wp.id ?? index,
-									wpName: wp.name || `WP${index}`,
-									wpLatitude: lat,
-									wpLongitude: lon,
-								},
-							];
-						})
-				: [];
+			const list = mapValidWaypoints(waypoints, MAX_RPS_WAYPOINTS, (wp, i) => ({
+				wpId: wp.id ?? i,
+				wpName: wp.name || `WP${i}`,
+				wpLatitude: wp.position?.latitude,
+				wpLongitude: wp.position?.longitude,
+			}));
 
 			const routeNameString =
 				typeof routeName === "string" ? routeName : DEFAULT_ROUTE_NAME;
@@ -57,7 +48,7 @@ export default function createRouteWaypointConversion(): ConversionModule {
 						databaseId: 1,
 						routeId: 1,
 						navigationDirectionInRoute: "Forward",
-						supplementaryRouteWpDataAvailable: list.length > 0 ? "Yes" : "No",
+						supplementaryRouteWpDataAvailable: list.length > 0 ? "On" : "Off",
 						routeName: routeNameString,
 						list,
 					},
@@ -93,7 +84,7 @@ export default function createRouteWaypointConversion(): ConversionModule {
 							databaseId: 1,
 							routeId: 1,
 							navigationDirectionInRoute: "Forward",
-							supplementaryRouteWpDataAvailable: "Off",
+							supplementaryRouteWpDataAvailable: "On",
 							routeName: "Test Route",
 							list: [
 								{

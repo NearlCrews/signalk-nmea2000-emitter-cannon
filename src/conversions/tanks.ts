@@ -1,11 +1,13 @@
-import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
+import {
+	N2K_BROADCAST_DST,
+	N2K_DEFAULT_PRIORITY,
+	VESSELS_SELF_CONTEXT,
+} from "../constants.js";
 import type {
 	ConversionModule,
-	JSONSchema,
 	N2KMessage,
 	SignalKApp,
 } from "../types/index.js";
-import { errMessage } from "../utils/errorUtils.js";
 import { toValidNumber } from "../utils/validation.js";
 
 const TANK_TIMEOUT_MS = 60000;
@@ -39,47 +41,7 @@ export default function createTanksConversion(
 	return {
 		title: "Tank Levels (127505)",
 		optionKey: "TANKS",
-		context: "vessels.self",
-		properties: (): JSONSchema["properties"] | undefined => {
-			// Get tanks from Signal K self vessel data
-			const self = app.getSelfPath("") as Record<string, unknown> | undefined;
-			const tanks = self?.tanks as Record<string, unknown> | undefined;
-			const tankPaths: string[] = [];
-
-			if (tanks && typeof tanks === "object") {
-				Object.keys(tanks).forEach((type) => {
-					const tankType = tanks[type] as Record<string, unknown> | undefined;
-					if (tankType && typeof tankType === "object") {
-						Object.keys(tankType).forEach((instance) => {
-							tankPaths.push(`tanks.${type}.${instance}`);
-						});
-					}
-				});
-			}
-
-			return tankPaths.length === 0
-				? undefined
-				: {
-						tanks: {
-							title: "Tank Mapping",
-							type: "array",
-							items: {
-								type: "object",
-								properties: {
-									signalkPath: {
-										title: "Tank Path",
-										type: "string",
-										enum: tankPaths,
-									},
-									instanceId: {
-										title: "NMEA2000 Tanks Instance Id",
-										type: "number",
-									},
-								},
-							},
-						},
-					};
-		},
+		context: VESSELS_SELF_CONTEXT,
 
 		testOptions: {
 			tanks: [
@@ -119,31 +81,26 @@ export default function createTanksConversion(
 							currentLevel: unknown,
 							capacity: unknown,
 						): N2KMessage[] => {
-							try {
-								const level = toValidNumber(currentLevel);
-								const cap = toValidNumber(capacity);
+							const level = toValidNumber(currentLevel);
+							const cap = toValidNumber(capacity);
 
-								if (level === null && cap === null) {
-									return [];
-								}
-
-								return [
-									{
-										prio: N2K_DEFAULT_PRIORITY,
-										pgn: 127505,
-										dst: N2K_BROADCAST_DST,
-										fields: {
-											instance: tank.instanceId,
-											type,
-											level: level !== null ? level * 100 : null,
-											capacity: cap !== null ? cap * 1000 : null,
-										},
-									},
-								];
-							} catch (err) {
-								app.error(errMessage(err));
+							if (level === null && cap === null) {
 								return [];
 							}
+
+							return [
+								{
+									prio: N2K_DEFAULT_PRIORITY,
+									pgn: 127505,
+									dst: N2K_BROADCAST_DST,
+									fields: {
+										instance: tank.instanceId,
+										type,
+										level: level !== null ? level * 100 : null,
+										capacity: cap !== null ? cap * 1000 : null,
+									},
+								},
+							];
 						},
 						tests: [
 							{

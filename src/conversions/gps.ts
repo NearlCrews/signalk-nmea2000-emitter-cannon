@@ -10,7 +10,7 @@ import type {
 	SignalKApp,
 } from "../types/index.js";
 import { toN2KDateTime } from "../utils/dateUtils.js";
-import { errMessage } from "../utils/errorUtils.js";
+import { getSelfValue } from "../utils/pathUtils.js";
 import { isValidNumber } from "../utils/validation.js";
 
 interface Position {
@@ -31,79 +31,71 @@ export default function createGpsConversion(
 		optionKey: "GPS",
 		keys: ["navigation.position"],
 		callback: ((position: Position | null) => {
-			try {
-				if (!position || typeof position !== "object") {
-					return [];
-				}
-
-				if (
-					!isValidNumber(position.latitude) ||
-					!isValidNumber(position.longitude)
-				) {
-					return [];
-				}
-
-				const res: N2KMessage[] = [
-					{
-						prio: N2K_DEFAULT_PRIORITY,
-						pgn: 129025,
-						dst: N2K_BROADCAST_DST,
-						fields: {
-							latitude: position.latitude,
-							longitude: position.longitude,
-						},
-					},
-				];
-
-				const now = Date.now();
-				if (lastUpdate === null || now - lastUpdate > GNSS_RATE_LIMIT_MS) {
-					lastUpdate = now;
-
-					const { date, time } = toN2KDateTime();
-
-					const gnssType = app.getSelfPath("navigation.gnss.type.value");
-					const method = app.getSelfPath("navigation.gnss.methodQuality.value");
-					const integrity = app.getSelfPath("navigation.gnss.integrity.value");
-					const numberOfSvs = app.getSelfPath(
-						"navigation.gnss.satellites.value",
-					);
-					const hdop = app.getSelfPath(
-						"navigation.gnss.horizontalDilution.value",
-					);
-					const geoidalSeparation = app.getSelfPath(
-						"navigation.gnss.geoidalSeparation.value",
-					);
-
-					const fields: N2KMessage["fields"] = {
-						sid: N2K_DEFAULT_SID,
-						date,
-						time,
-						latitude: position.latitude,
-						longitude: position.longitude,
-					};
-					if (isValidNumber(position.altitude))
-						fields.altitude = position.altitude;
-					if (typeof gnssType === "string") fields.gnssType = gnssType;
-					if (typeof method === "string") fields.method = method;
-					if (typeof integrity === "string") fields.integrity = integrity;
-					if (isValidNumber(numberOfSvs)) fields.numberOfSvs = numberOfSvs;
-					if (isValidNumber(hdop)) fields.hdop = hdop;
-					if (isValidNumber(geoidalSeparation))
-						fields.geoidalSeparation = geoidalSeparation;
-
-					res.push({
-						prio: N2K_DEFAULT_PRIORITY,
-						pgn: 129029,
-						dst: N2K_BROADCAST_DST,
-						fields,
-					});
-				}
-
-				return res;
-			} catch (err) {
-				app.error(errMessage(err));
+			if (!position || typeof position !== "object") {
 				return [];
 			}
+
+			if (
+				!isValidNumber(position.latitude) ||
+				!isValidNumber(position.longitude)
+			) {
+				return [];
+			}
+
+			const res: N2KMessage[] = [
+				{
+					prio: N2K_DEFAULT_PRIORITY,
+					pgn: 129025,
+					dst: N2K_BROADCAST_DST,
+					fields: {
+						latitude: position.latitude,
+						longitude: position.longitude,
+					},
+				},
+			];
+
+			const now = Date.now();
+			if (lastUpdate === null || now - lastUpdate > GNSS_RATE_LIMIT_MS) {
+				lastUpdate = now;
+
+				const { date, time } = toN2KDateTime();
+
+				const gnssType = getSelfValue(app, "navigation.gnss.type");
+				const method = getSelfValue(app, "navigation.gnss.methodQuality");
+				const integrity = getSelfValue(app, "navigation.gnss.integrity");
+				const numberOfSvs = getSelfValue(app, "navigation.gnss.satellites");
+				const hdop = getSelfValue(app, "navigation.gnss.horizontalDilution");
+				const geoidalSeparation = getSelfValue(
+					app,
+					"navigation.gnss.geoidalSeparation",
+				);
+
+				const fields: N2KMessage["fields"] = {
+					sid: N2K_DEFAULT_SID,
+					date,
+					time,
+					latitude: position.latitude,
+					longitude: position.longitude,
+				};
+				if (isValidNumber(position.altitude))
+					fields.altitude = position.altitude;
+				if (typeof gnssType === "string") fields.gnssType = gnssType;
+				if (typeof method === "string") fields.method = method;
+				if (typeof integrity === "string") fields.integrity = integrity;
+				if (isValidNumber(numberOfSvs)) fields.numberOfSvs = numberOfSvs;
+				if (isValidNumber(hdop)) fields.hdop = hdop;
+				if (isValidNumber(geoidalSeparation))
+					fields.geoidalSeparation = geoidalSeparation;
+
+				res.push({
+					prio: N2K_DEFAULT_PRIORITY,
+					pgn: 129029,
+					dst: N2K_BROADCAST_DST,
+					fields,
+				});
+			}
+
+			return res;
 		}) as ConversionCallback<[Position | null]>,
 
 		tests: [
@@ -112,12 +104,12 @@ export default function createGpsConversion(
 					{ longitude: -75.487264, latitude: 32.0631296, altitude: 12.5 },
 				],
 				skSelfData: {
-					"navigation.gnss.methodQuality.value": "GNSS fix",
-					"navigation.gnss.integrity.value": "No integrity checking",
-					"navigation.gnss.type.value": "GPS",
-					"navigation.gnss.satellites.value": 9,
-					"navigation.gnss.horizontalDilution.value": 1.2,
-					"navigation.gnss.geoidalSeparation.value": -34.5,
+					"navigation.gnss.methodQuality": { value: "GNSS fix" },
+					"navigation.gnss.integrity": { value: "No integrity checking" },
+					"navigation.gnss.type": { value: "GPS" },
+					"navigation.gnss.satellites": { value: 9 },
+					"navigation.gnss.horizontalDilution": { value: 1.2 },
+					"navigation.gnss.geoidalSeparation": { value: -34.5 },
 				},
 				expected: [
 					{
@@ -156,7 +148,7 @@ export default function createGpsConversion(
 				],
 			},
 			{
-				// Position without altitude or GNSS metadata — second call is
+				// Position without altitude or GNSS metadata. Second call is
 				// rate-limited so only PGN 129025 is emitted.
 				input: [{ longitude: -122.419416, latitude: 37.774929 }],
 				expected: [

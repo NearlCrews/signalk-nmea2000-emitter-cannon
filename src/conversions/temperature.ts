@@ -3,11 +3,7 @@ import {
 	N2K_DEFAULT_PRIORITY,
 	N2K_DEFAULT_SID,
 } from "../constants.js";
-import type {
-	ConversionModule,
-	JSONSchema,
-	N2KMessage,
-} from "../types/index.js";
+import type { ConversionModule, N2KMessage } from "../types/index.js";
 import { isValidNumber } from "../utils/validation.js";
 
 export interface TemperatureInfo {
@@ -55,13 +51,6 @@ function makeTemperatureConversion(
 		title: `${info.n2kSource} (${pgn})`,
 		optionKey,
 		keys: [info.source],
-		properties: (): JSONSchema["properties"] => ({
-			instance: {
-				title: "N2K Temperature Instance",
-				type: "number",
-				default: info.instance,
-			},
-		}),
 
 		testOptions: [
 			{
@@ -194,6 +183,8 @@ export const temperatures: TemperatureInfo[] = [
 ];
 
 export default function createTemperatureConversions(): ConversionModule[] {
+	// Each source intentionally emits BOTH PGN 130312 and 130316: some MFDs
+	// only consume one of the two, so dual emission maximises interop.
 	return temperatures.flatMap((info) => [
 		makeTemperatureConversion(130312, "TEMPERATURE", info),
 		makeTemperatureConversion(130316, "TEMPERATURE2", info),

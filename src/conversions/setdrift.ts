@@ -4,41 +4,35 @@ import type {
 	N2KMessage,
 	SignalKApp,
 } from "../types/index.js";
-import { errMessage } from "../utils/errorUtils.js";
 import { toValidNumber } from "../utils/validation.js";
 
 export default function createSetDriftConversion(
-	app: SignalKApp,
+	_app: SignalKApp,
 ): ConversionModule {
 	return {
 		title: "Set/Drift (129291)",
 		optionKey: "SET_DRIFT",
 		keys: ["environment.current.setTrue", "environment.current.drift"],
 		callback: (set: unknown, drift: unknown): N2KMessage[] => {
-			try {
-				const setValue = toValidNumber(set);
-				const driftValue = toValidNumber(drift);
+			const setValue = toValidNumber(set);
+			const driftValue = toValidNumber(drift);
 
-				if (setValue === null && driftValue === null) {
-					return [];
-				}
-
-				return [
-					{
-						prio: N2K_DEFAULT_PRIORITY,
-						pgn: 129291,
-						dst: N2K_BROADCAST_DST,
-						fields: {
-							set: setValue,
-							drift: driftValue,
-							setReference: "True",
-						},
-					},
-				];
-			} catch (err) {
-				app.error(errMessage(err));
+			if (setValue === null && driftValue === null) {
 				return [];
 			}
+
+			return [
+				{
+					prio: N2K_DEFAULT_PRIORITY,
+					pgn: 129291,
+					dst: N2K_BROADCAST_DST,
+					fields: {
+						set: setValue,
+						drift: driftValue,
+						setReference: "True",
+					},
+				},
+			];
 		},
 
 		tests: [

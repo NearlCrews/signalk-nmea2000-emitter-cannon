@@ -1,7 +1,7 @@
 import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import type {
 	ConversionModule,
-	PluginOptions,
+	ConversionOptions,
 	SignalKApp,
 	SignalKPlugin,
 	SubConversionModule,
@@ -13,27 +13,32 @@ interface BrightnessGroup {
 	instanceId: string;
 }
 
+function isBrightnessGroup(v: unknown): v is BrightnessGroup {
+	if (typeof v !== "object" || v === null) return false;
+	const obj = v as Record<string, unknown>;
+	return (
+		typeof obj.signalkId === "string" && typeof obj.instanceId === "string"
+	);
+}
+
 export default function createRaymarineBrightnessConversion(
 	_app: SignalKApp,
 	_plugin: SignalKPlugin,
-): ConversionModule {
+): ConversionModule<[number | null]> {
 	const conversions = (
-		options: PluginOptions["RAYMARINE_BRIGHTNESS"],
+		options: ConversionOptions,
 	): SubConversionModule<[number | null]>[] => {
-		const groups =
-			options && typeof options === "object"
-				? ((options as Record<string, unknown>).groups as
-						| BrightnessGroup[]
-						| undefined)
-				: undefined;
-
-		if (!groups || !Array.isArray(groups) || groups.length === 0) {
+		const raw = options.groups;
+		if (!Array.isArray(raw) || raw.length === 0) {
+			return [];
+		}
+		const groups = raw.filter(isBrightnessGroup);
+		if (groups.length === 0) {
 			return [];
 		}
 
-		return groups.map((group: BrightnessGroup) => ({
+		return groups.map((group) => ({
 			title: `Raymarine Display Brightness ${group.instanceId} (126720)`,
-			optionKey: "RAYMARINE_BRIGHTNESS",
 			keys: [`electrical.displays.raymarine.${group.signalkId}.brightness`],
 			callback: (brightness: number | null) => {
 				if (!isValidNumber(brightness)) {
@@ -87,5 +92,5 @@ export default function createRaymarineBrightnessConversion(
 		title: "Raymarine Display Brightness (126720)",
 		optionKey: "RAYMARINE_BRIGHTNESS",
 		conversions,
-	} as ConversionModule;
+	};
 }

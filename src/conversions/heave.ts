@@ -8,38 +8,32 @@ import type {
 	ConversionModule,
 	SignalKApp,
 } from "../types/index.js";
-import { errMessage } from "../utils/errorUtils.js";
 import { isValidNumber } from "../utils/validation.js";
 
 export default function createHeaveConversion(
-	app: SignalKApp,
+	_app: SignalKApp,
 ): ConversionModule<[number | null]> {
 	return {
 		title: "Heave (127252)",
 		optionKey: "HEAVE",
 		keys: ["navigation.heave"],
-		timeouts: [1000], // 1 second for responsive motion data
+		timeouts: [1000],
 		callback: ((heave: number | null) => {
-			try {
-				if (!isValidNumber(heave)) {
-					return [];
-				}
-
-				return [
-					{
-						prio: N2K_DEFAULT_PRIORITY,
-						pgn: 127252,
-						dst: N2K_BROADCAST_DST,
-						fields: {
-							sid: N2K_SID_ZERO,
-							heave,
-						},
-					},
-				];
-			} catch (err) {
-				app.error(errMessage(err));
+			if (!isValidNumber(heave)) {
 				return [];
 			}
+
+			return [
+				{
+					prio: N2K_DEFAULT_PRIORITY,
+					pgn: 127252,
+					dst: N2K_BROADCAST_DST,
+					fields: {
+						sid: N2K_SID_ZERO,
+						heave,
+					},
+				},
+			];
 		}) as ConversionCallback<[number | null]>,
 
 		tests: [

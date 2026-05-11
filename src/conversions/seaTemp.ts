@@ -8,11 +8,10 @@ import type {
 	N2KMessage,
 	SignalKApp,
 } from "../types/index.js";
-import { errMessage } from "../utils/errorUtils.js";
 import { toValidNumber } from "../utils/validation.js";
 
 export default function createSeaTempConversion(
-	app: SignalKApp,
+	_app: SignalKApp,
 ): ConversionModule {
 	return {
 		title: "Sea/Air Temp (130310)",
@@ -27,36 +26,31 @@ export default function createSeaTempConversion(
 			air: unknown,
 			pressure: unknown,
 		): N2KMessage[] => {
-			try {
-				const waterTemperature = toValidNumber(water);
-				const outsideTemperature = toValidNumber(air);
-				const atmosphericPressure = toValidNumber(pressure);
+			const waterTemperature = toValidNumber(water);
+			const outsideTemperature = toValidNumber(air);
+			const atmosphericPressure = toValidNumber(pressure);
 
-				if (
-					waterTemperature === null &&
-					outsideTemperature === null &&
-					atmosphericPressure === null
-				) {
-					return [];
-				}
-
-				return [
-					{
-						prio: N2K_DEFAULT_PRIORITY,
-						pgn: 130310,
-						dst: N2K_BROADCAST_DST,
-						fields: {
-							sid: N2K_SID_ZERO,
-							waterTemperature,
-							outsideAmbientAirTemperature: outsideTemperature,
-							atmosphericPressure,
-						},
-					},
-				];
-			} catch (err) {
-				app.error(errMessage(err));
+			if (
+				waterTemperature === null &&
+				outsideTemperature === null &&
+				atmosphericPressure === null
+			) {
 				return [];
 			}
+
+			return [
+				{
+					prio: N2K_DEFAULT_PRIORITY,
+					pgn: 130310,
+					dst: N2K_BROADCAST_DST,
+					fields: {
+						sid: N2K_SID_ZERO,
+						waterTemperature,
+						outsideAmbientAirTemperature: outsideTemperature,
+						atmosphericPressure,
+					},
+				},
+			];
 		},
 
 		tests: [

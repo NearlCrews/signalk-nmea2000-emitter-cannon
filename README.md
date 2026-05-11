@@ -19,7 +19,7 @@ A modern TypeScript Signal K server plugin that converts Signal K data to NMEA 2
 - **Reactive Processing**: Built on RxJS 7.8 for efficient real-time data processing
 - **High Performance**: esbuild bundles to a single ~209 KB ESM file
 - **Fully Tested**: Vitest suite with CanboatJS round-trip encoding/decoding validation
-- **Modern Dependencies**: es-toolkit, RxJS 7.8, pure ESM modules
+- **Lean Runtime Dependencies**: only RxJS 7.8 and `@signalk/server-api` types, pure ESM
 - **Latest Tooling**: Biome for linting/formatting, zero errors and warnings
 - **CI/CD Ready**: GitHub Actions for multi-version Node.js testing and auto-publish to npm on tagged releases (with sigstore provenance)
 - **Developer Experience**: Pre-commit hooks with husky + lint-staged
@@ -173,7 +173,7 @@ All PGNs are aligned with Garmin specifications (corrected priorities, SID field
 
 ### ISO (announced in the transmit PGN list, not emitted by this plugin)
 
-These appear in PGN 126464's transmit list to advertise ISO support, but the plugin itself does not generate them — Signal K's NMEA 2000 stack handles ISO traffic at the bus layer.
+These appear in PGN 126464's transmit list to advertise ISO support, but the plugin itself does not generate them: Signal K's NMEA 2000 stack handles ISO traffic at the bus layer.
 
 | PGN | Description |
 |--------|-------------|
@@ -369,7 +369,7 @@ Signal K reloads plugin configuration when you save it, but some changes (for ex
 ### Plugin won't start
 
 - Check the Signal K log for `Signal K NMEA2000 Emitter Cannon` errors.
-- A common cause is the NMEA 2000 output channel not being initialized — the plugin waits for the `nmea2000OutAvailable` event before emitting messages, so confirm your NMEA 2000 gateway is connected and Signal K has registered an output provider.
+- A common cause is the NMEA 2000 output channel not being initialized: the plugin waits for the `nmea2000OutAvailable` event before emitting messages, so confirm your NMEA 2000 gateway is connected and Signal K has registered an output provider.
 
 ### AIS appears to not filter own vessel
 
@@ -377,7 +377,7 @@ The plugin uses `app.selfId` (the Signal K server's self identifier) to filter o
 
 ### No yellow delta-rate bar next to this plugin in the Signal K dashboard
 
-Expected. The yellow bar in the Signal K admin dashboard's **Plugins activity** section visualizes a plugin's `deltaRate` — the rate of Signal K deltas it *produces* into the server via `app.handleMessage(pluginId, delta)`. This plugin is an outbound emitter: it *consumes* Signal K data and writes NMEA 2000 messages out to the bus. Its activity is correctly reported through a different API (`app.reportOutputMessages`) and appears as the plain **"X msg/s"** number to the right of the plugin name. That's the right metric for a plugin of this type; the bar will always be absent unless the NOTIFICATIONS conversion is enabled and actively injecting alerts back into Signal K.
+Expected. The yellow bar in the Signal K admin dashboard's **Plugins activity** section visualizes a plugin's `deltaRate`: the rate of Signal K deltas it *produces* into the server via `app.handleMessage(pluginId, delta)`. This plugin is an outbound emitter: it *consumes* Signal K data and writes NMEA 2000 messages out to the bus. Its activity is correctly reported through a different API (`app.reportOutputMessages`) and appears as the plain **"X msg/s"** number to the right of the plugin name. That's the right metric for a plugin of this type; the bar will always be absent unless the NOTIFICATIONS conversion is enabled and actively injecting alerts back into Signal K.
 
 ## Contributing
 

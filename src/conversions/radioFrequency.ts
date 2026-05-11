@@ -2,11 +2,8 @@ import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import type { ConversionModule, N2KMessage } from "../types/index.js";
 import { isValidNumber, toValidNumber } from "../utils/validation.js";
 
-const DEFAULT_TX_POWER_W = 25;
-const DEFAULT_ANTENNA_HEIGHT_M = 10;
-const DEFAULT_SQUELCH_LEVEL = 0;
-// Marine VHF and most radio inputs land between 100 kHz and 10 GHz when given
-// in Hz; values below 1000 are treated as MHz and scaled.
+// Values below 1000 are interpreted as MHz and scaled to Hz; everything
+// above is taken as-is. Marine VHF and most SK radio paths fit this.
 const MHZ_TO_HZ = 1_000_000;
 
 export default function createRadioFrequencyConversion(): ConversionModule {
@@ -17,13 +14,11 @@ export default function createRadioFrequencyConversion(): ConversionModule {
 			"communication.vhf.rxFrequency",
 			"communication.vhf.txFrequency",
 			"communication.vhf.power",
-			"communication.vhf.squelch",
 		],
 		callback: (
 			rxFreq: unknown,
 			txFreq: unknown,
 			power: unknown,
-			squelch: unknown,
 		): N2KMessage[] => {
 			const rxFreqHz = normalizeFreq(rxFreq);
 			const txFreqHz = normalizeFreq(txFreq);
@@ -37,19 +32,14 @@ export default function createRadioFrequencyConversion(): ConversionModule {
 					fields: {
 						rxFrequency: rxFreqHz,
 						txFrequency: txFreqHz,
-						radioSystem: "VHF",
-						txPower: toValidNumber(power) ?? DEFAULT_TX_POWER_W,
-						antennaHeight: DEFAULT_ANTENNA_HEIGHT_M,
-						_2gSpectrum: "No",
-						positioningSystem: "GPS",
-						squelchLevel: toValidNumber(squelch) ?? DEFAULT_SQUELCH_LEVEL,
+						txPower: toValidNumber(power) ?? undefined,
 					},
 				},
 			];
 		},
 		tests: [
 			{
-				input: [156.8, 156.8, 25, 3],
+				input: [156.8, 156.8, 25],
 				expected: [
 					{
 						prio: 2,
@@ -64,7 +54,7 @@ export default function createRadioFrequencyConversion(): ConversionModule {
 				],
 			},
 			{
-				input: [156650000, 161250000, 5, 0],
+				input: [156650000, 161250000, 5],
 				expected: [
 					{
 						prio: 2,

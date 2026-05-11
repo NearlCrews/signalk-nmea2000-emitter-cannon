@@ -4,36 +4,29 @@ import type {
 	ConversionModule,
 	SignalKApp,
 } from "../types/index.js";
-import { errMessage } from "../utils/errorUtils.js";
 import { isValidNumber } from "../utils/validation.js";
 
 export default function createEnvironmentParametersConversion(
-	app: SignalKApp,
+	_app: SignalKApp,
 ): ConversionModule<[number | null]> {
 	return {
 		title: "Atmospheric Pressure (130311)",
 		optionKey: "ENVIRONMENT_PARAMETERS",
 		keys: ["environment.outside.pressure"],
 		callback: ((pressure: number | null) => {
-			try {
-				if (!isValidNumber(pressure)) {
-					return [];
-				}
-
-				return [
-					{
-						prio: N2K_DEFAULT_PRIORITY,
-						pgn: 130311,
-						dst: N2K_BROADCAST_DST,
-						fields: {
-							atmosphericPressure: pressure,
-						},
-					},
-				];
-			} catch (err) {
-				app.error(errMessage(err));
+			if (!isValidNumber(pressure)) {
 				return [];
 			}
+			return [
+				{
+					prio: N2K_DEFAULT_PRIORITY,
+					pgn: 130311,
+					dst: N2K_BROADCAST_DST,
+					fields: {
+						atmosphericPressure: pressure,
+					},
+				},
+			];
 		}) as ConversionCallback<[number | null]>,
 
 		tests: [

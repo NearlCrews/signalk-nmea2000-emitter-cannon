@@ -8,39 +8,32 @@ import type {
 	N2KMessage,
 	SignalKApp,
 } from "../types/index.js";
-import { errMessage } from "../utils/errorUtils.js";
 import { isValidNumber } from "../utils/validation.js";
 
 export default function createTrueHeadingConversion(
-	app: SignalKApp,
+	_app: SignalKApp,
 ): ConversionModule {
 	return {
 		title: "TrueHeading (127250)",
 		optionKey: "TRUE_HEADING",
 		keys: ["navigation.headingTrue"],
 		callback: (heading: unknown): N2KMessage[] => {
-			try {
-				if (!isValidNumber(heading)) {
-					return [];
-				}
-
-				return [
-					{
-						prio: N2K_DEFAULT_PRIORITY,
-						pgn: 127250,
-						dst: N2K_BROADCAST_DST,
-						fields: {
-							sid: N2K_DEFAULT_SID,
-							heading,
-							variation: undefined,
-							reference: "True",
-						},
-					},
-				];
-			} catch (err) {
-				app.error(errMessage(err));
+			if (!isValidNumber(heading)) {
 				return [];
 			}
+			return [
+				{
+					prio: N2K_DEFAULT_PRIORITY,
+					pgn: 127250,
+					dst: N2K_BROADCAST_DST,
+					fields: {
+						sid: N2K_DEFAULT_SID,
+						heading,
+						variation: undefined,
+						reference: "True",
+					},
+				},
+			];
 		},
 
 		tests: [

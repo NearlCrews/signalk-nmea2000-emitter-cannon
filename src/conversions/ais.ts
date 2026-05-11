@@ -6,7 +6,13 @@ import type {
 	SignalKApp,
 	SignalKPlugin,
 } from "../types/index.js";
+import { parseMmsi } from "../utils/aisUtils.js";
 import { isValidNumber } from "../utils/validation.js";
+
+// AIS Message 1 spec value for "Not defined". canboat NAV_STATUS lookup
+// stops at 14, but the AIS bitfield is 4 bits and 15 is the spec default
+// for "navigation state unknown". canboatjs accepts the numeric value.
+const NAV_STATUS_NOT_DEFINED = 15;
 
 interface Position {
 	latitude?: number;
@@ -79,6 +85,10 @@ const staticKeys = [
 
 const positionKeys = ["navigation.position"];
 
+// SK navigation.state strings to canboat NAV_STATUS numeric values.
+// Numeric is passed straight to canboatjs: feeding the SK string would silently
+// encode as 0 ("Under way using engine") since SK labels do not match the
+// NAV_STATUS LOOKUP enum exactly.
 const navStatusMapping: Record<string, number> = {
 	"not under command": 2,
 	anchored: 1,
@@ -105,43 +115,42 @@ const navStatusMapping: Record<string, number> = {
 	"hazardous material wing in ground": 10,
 };
 
-const navStatusReverse = Object.fromEntries(
-	Object.entries(navStatusMapping).map(([k, v]) => [v, k]),
-);
-
 export default function createAisConversion(
 	app: SignalKApp,
 	_plugin: SignalKPlugin,
 ): ConversionModule<[AisDelta]> {
+	// Cached on first non-null observation. `app.selfId` is configured at
+	// server boot and stable for the run, but the factory may load before
+	// it is populated, so memoize lazily rather than at module-init.
+	let cachedSelfContext: string | null = null;
+
 	return {
 		title: "AIS (129794, 129038, 129041)",
 		sourceType: "onDelta",
 		optionKey: "AIS",
 		callback: ((delta: AisDelta) => {
-			const deltaMsg = delta;
-			// Require app.selfId to be set. A bare "vessels.self" fallback
-			// never matches real urn-form contexts, so own-vessel AIS data
-			// silently leaks out as if it were a remote target.
-			if (!app.selfId) {
-				return [];
-			}
-
-			// Skip non-AIS contexts before allocating the delta index. With
-			// registerDeltaInputHandler this callback fires on every delta
-			// server-wide, so the prefix check needs to come first.
-			const ctx = deltaMsg.context;
+			// registerDeltaInputHandler fires on every delta server-wide.
+			// Cheap prefix checks first, before allocating the delta index.
+			const ctx = delta.context;
 			const isVessel = ctx.startsWith("vessels.");
 			const isAton = ctx.startsWith("atons.");
 			if (!isVessel && !isAton) {
 				return [];
 			}
 
-			const selfContext = `vessels.${app.selfId}`;
-			if (ctx === selfContext || isN2K(deltaMsg)) {
+			// A bare "vessels.self" fallback never matches real urn-form
+			// contexts, so own-vessel AIS data would silently leak as a
+			// remote target. Require selfId to be resolved first.
+			if (cachedSelfContext === null) {
+				if (!app.selfId) return [];
+				cachedSelfContext = `vessels.${app.selfId}`;
+			}
+
+			if (ctx === cachedSelfContext || isN2K(delta)) {
 				return [];
 			}
 
-			const index = buildDeltaIndex(deltaMsg);
+			const index = buildDeltaIndex(delta);
 
 			if (isVessel) {
 				const hasStatic = indexHasAnyKeys(index, staticKeys);
@@ -151,8 +160,8 @@ export default function createAisConversion(
 					return [];
 				}
 
-				const vessel = app.getPath(deltaMsg.context) as Vessel;
-				const mmsiValue = indexedFindValue(index, vessel, "mmsi");
+				const vessel = app.getPath(ctx) as Vessel;
+				const mmsiValue = indexedFindValue<string>(index, vessel, "mmsi");
 
 				if (!mmsiValue || typeof mmsiValue !== "string") {
 					return [];
@@ -225,6 +234,7 @@ export default function createAisConversion(
 						dst: 255,
 						fields: {
 							messageId: "Scheduled Class A position report",
+							repeatIndicator: "Initial",
 							userId: 367301250,
 							longitude: -76.3947165,
 							latitude: 39.1296167,
@@ -305,7 +315,7 @@ export default function createAisConversion(
 						pgn: 129041,
 						dst: 255,
 						fields: {
-							messageId: 0,
+							messageId: "ATON report",
 							repeatIndicator: "Initial",
 							userId: 993672085,
 							longitude: -76.4313882,
@@ -314,11 +324,110 @@ export default function createAisConversion(
 							raim: "not in use",
 							timeStamp: "0",
 							atonType: "Fixed beacon: starboard hand",
-							offPositionIndicator: "Yes",
-							virtualAtonFlag: "Yes",
-							assignedModeFlag: "Assigned mode",
+							offPositionIndicator: "No",
+							virtualAtonFlag: "No",
+							assignedModeFlag: "Autonomous and continuous",
 							spare: 1,
 							atonName: "78A",
+						},
+					},
+				],
+			},
+			{
+				// Regression: 129041 atonType must derive from vessel.atonType.id.
+				// id=24 is canboat ATON_TYPE "Floating AtoN: port hand mark"; if
+				// the conversion silently reverts to a hardcoded type the round-
+				// trip will decode something else and this test will catch it.
+				input: [
+					{
+						context: "atons.urn:mrn:imo:mmsi:993672085",
+						updates: [
+							{
+								values: [
+									{ path: "", value: { name: "RED-1" } },
+									{
+										path: "navigation.position",
+										value: {
+											longitude: -76.5,
+											latitude: 38.6,
+										},
+									},
+									{
+										path: "atonType",
+										value: { id: 24, name: "Port hand mark" },
+									},
+									{
+										path: "",
+										value: { mmsi: "993672085" },
+									},
+									{ path: "sensors.ais.class", value: "ATON" },
+								],
+							},
+						],
+					},
+				],
+				expected: [
+					{
+						prio: 2,
+						pgn: 129041,
+						dst: 255,
+						fields: {
+							messageId: "ATON report",
+							repeatIndicator: "Initial",
+							userId: 993672085,
+							longitude: -76.5,
+							latitude: 38.6,
+							positionAccuracy: "Low",
+							raim: "not in use",
+							timeStamp: "0",
+							atonType: "Floating AtoN: port hand mark",
+							offPositionIndicator: "No",
+							virtualAtonFlag: "No",
+							assignedModeFlag: "Autonomous and continuous",
+							spare: 1,
+							atonName: "RED-1",
+						},
+					},
+				],
+			},
+			{
+				// Regression: 129038 navStatus must respect SK navigation.state.
+				// "anchored" maps to NAV_STATUS value 1 ("At anchor"); a regression
+				// to the old reverse-lookup pattern would silently encode 0
+				// ("Under way using engine") instead.
+				input: [
+					{
+						context: "vessels.urn:mrn:imo:mmsi:367301250",
+						updates: [
+							{
+								values: [
+									{
+										path: "navigation.position",
+										value: { longitude: -76.4, latitude: 39.0 },
+									},
+									{ path: "navigation.state", value: "anchored" },
+									{ path: "", value: { mmsi: "367301250" } },
+								],
+							},
+						],
+					},
+				],
+				expected: [
+					{
+						prio: 2,
+						pgn: 129038,
+						dst: 255,
+						fields: {
+							messageId: "Scheduled Class A position report",
+							repeatIndicator: "Initial",
+							userId: 367301250,
+							longitude: -76.4,
+							latitude: 39.0,
+							positionAccuracy: "Low",
+							raim: "not in use",
+							timeStamp: "0",
+							aisTransceiverInformation: "Channel A VDL reception",
+							navStatus: "At anchor",
 						},
 					},
 				],
@@ -328,7 +437,7 @@ export default function createAisConversion(
 				// (source.type === "NMEA2000"). Re-emitting would duplicate
 				// every AIS frame on the wire. mmsi is included so that the
 				// rest of the pipeline *would* succeed if the echo guard
-				// weren't enforced — making this a genuine regression test.
+				// weren't enforced, making this a genuine regression test.
 				input: [
 					{
 						context: "vessels.urn:mrn:imo:mmsi:367301250",
@@ -360,49 +469,53 @@ function generateStatic(
 	mmsi: string,
 	index: Map<string, unknown>,
 ): N2KMessage | null {
-	const name = indexedFindValue(index, vessel, "name") as string;
-	const typeObj = indexedFindValue(
+	const name = indexedFindValue<string>(index, vessel, "name");
+	const typeObj = indexedFindValue<AisShipType>(
 		index,
 		vessel,
 		"design.aisShipType",
-	) as AisShipType;
+	);
 	const type = typeObj?.id;
-	const callsign = indexedFindValue(
+	const callsign = indexedFindValue<string>(
 		index,
 		vessel,
 		"communication.callsignVhf",
-	) as string;
-	const lengthObj = indexedFindValue(index, vessel, "design.length") as {
-		overall?: number;
-	};
+	);
+	const lengthObj = indexedFindValue<{ overall?: number }>(
+		index,
+		vessel,
+		"design.length",
+	);
 	const length = lengthObj?.overall;
-	const beam = indexedFindValue(index, vessel, "design.beam") as number;
-	const fromCenter = indexedFindValue(
+	const beam = indexedFindValue<number>(index, vessel, "design.beam");
+	const fromCenter = indexedFindValue<number>(
 		index,
 		vessel,
 		"sensors.ais.fromCenter",
-	) as number;
-	const fromBow = indexedFindValue(
+	);
+	const fromBow = indexedFindValue<number>(
 		index,
 		vessel,
 		"sensors.ais.fromBow",
-	) as number;
-	const draftObj = indexedFindValue(index, vessel, "design.draft") as {
-		maximum?: number;
-	};
+	);
+	const draftObj = indexedFindValue<{ maximum?: number }>(
+		index,
+		vessel,
+		"design.draft",
+	);
 	const draft = draftObj?.maximum;
-	const dest = indexedFindValue(
+	const dest = indexedFindValue<string>(
 		index,
 		vessel,
 		"navigation.destination.commonName",
-	) as string;
+	);
 
 	let fromStarboard: number | undefined;
 	if (beam != null && fromCenter != null) {
 		fromStarboard = beam / 2 + fromCenter;
 	}
 
-	const mmsiNumber = Number.parseInt(mmsi, 10);
+	const mmsiNumber = parseMmsi(mmsi);
 
 	return {
 		prio: N2K_DEFAULT_PRIORITY,
@@ -432,11 +545,11 @@ function generatePosition(
 	mmsi: string,
 	index: Map<string, unknown>,
 ): N2KMessage | null {
-	const position = indexedFindValue(
+	const position = indexedFindValue<Position>(
 		index,
 		vessel,
 		"navigation.position",
-	) as Position;
+	);
 
 	if (
 		!position ||
@@ -446,32 +559,26 @@ function generatePosition(
 		return null;
 	}
 
-	const cog = indexedFindValue(
+	const cog = indexedFindValue<number>(
 		index,
 		vessel,
 		"navigation.courseOverGroundTrue",
-	) as number;
-	const sog = indexedFindValue(
+	);
+	const sog = indexedFindValue<number>(
 		index,
 		vessel,
 		"navigation.speedOverGround",
-	) as number;
-	const heading = indexedFindValue(
+	);
+	const heading = indexedFindValue<number>(
 		index,
 		vessel,
 		"navigation.headingTrue",
-	) as number;
-	const rot = indexedFindValue(
-		index,
-		vessel,
-		"navigation.rateOfTurn",
-	) as number;
-	const state = indexedFindValue(index, vessel, "navigation.state") as string;
+	);
+	const rot = indexedFindValue<number>(index, vessel, "navigation.rateOfTurn");
+	const state = indexedFindValue<string>(index, vessel, "navigation.state");
 
-	let status = 0;
-	if (state && navStatusMapping[state] != null) {
-		status = navStatusMapping[state];
-	}
+	const mappedStatus = state ? navStatusMapping[state] : undefined;
+	const status = mappedStatus ?? NAV_STATUS_NOT_DEFINED;
 
 	const validCog =
 		isValidNumber(cog) && cog >= 0 && cog <= Math.PI * 2 ? cog : undefined;
@@ -480,7 +587,7 @@ function generatePosition(
 			? heading
 			: undefined;
 
-	const mmsiNumber = Number.parseInt(mmsi, 10);
+	const mmsiNumber = parseMmsi(mmsi);
 
 	return {
 		prio: N2K_DEFAULT_PRIORITY,
@@ -488,6 +595,7 @@ function generatePosition(
 		dst: N2K_BROADCAST_DST,
 		fields: {
 			messageId: "Scheduled Class A position report",
+			repeatIndicator: "Initial",
 			userId: mmsiNumber,
 			longitude: position.longitude,
 			latitude: position.latitude,
@@ -499,7 +607,7 @@ function generatePosition(
 			aisTransceiverInformation: "Channel A VDL reception",
 			heading: validHeading,
 			rateOfTurn: rot,
-			navStatus: navStatusReverse[status] ?? "Under way using engine",
+			navStatus: status,
 		},
 	};
 }
@@ -509,11 +617,11 @@ function generateAtoN(
 	mmsi: string,
 	index: Map<string, unknown>,
 ): N2KMessage | null {
-	const position = indexedFindValue(
+	const position = indexedFindValue<Position>(
 		index,
 		vessel,
 		"navigation.position",
-	) as Position;
+	);
 
 	if (
 		!position ||
@@ -523,23 +631,24 @@ function generateAtoN(
 		return null;
 	}
 
-	const name =
-		vessel?.name || (indexedFindValue(index, vessel, "name") as string);
-	const lengthObj = indexedFindValue(index, vessel, "design.length") as {
-		overall?: number;
-	};
+	const name = vessel?.name || indexedFindValue<string>(index, vessel, "name");
+	const lengthObj = indexedFindValue<{ overall?: number }>(
+		index,
+		vessel,
+		"design.length",
+	);
 	const length = lengthObj?.overall;
-	const beam = indexedFindValue(index, vessel, "design.beam") as number;
-	const fromCenter = indexedFindValue(
+	const beam = indexedFindValue<number>(index, vessel, "design.beam");
+	const fromCenter = indexedFindValue<number>(
 		index,
 		vessel,
 		"sensors.ais.fromCenter",
-	) as number;
-	const fromBow = indexedFindValue(
+	);
+	const fromBow = indexedFindValue<number>(
 		index,
 		vessel,
 		"sensors.ais.fromBow",
-	) as number;
+	);
 
 	let fromStarboard: number | undefined;
 	if (isValidNumber(beam) && isValidNumber(fromCenter)) {
@@ -547,14 +656,25 @@ function generateAtoN(
 	}
 
 	const fromBowScaled = isValidNumber(fromBow) ? fromBow * 10 : undefined;
-	const mmsiNumber = Number.parseInt(mmsi, 10);
+	const mmsiNumber = parseMmsi(mmsi);
+
+	// SK atons.* contexts publish atonType.id as the canonical AIS Message
+	// 21 type code (0..31), aligned with canboat's ATON_TYPE lookup. Pass
+	// the numeric id straight through; default to 0 ("not specified") when
+	// missing.
+	const atonTypeObj = indexedFindValue<{ id?: number }>(
+		index,
+		vessel,
+		"atonType",
+	);
+	const atonType = isValidNumber(atonTypeObj?.id) ? atonTypeObj.id : 0;
 
 	return {
 		prio: N2K_DEFAULT_PRIORITY,
 		pgn: 129041,
 		dst: N2K_BROADCAST_DST,
 		fields: {
-			messageId: 0,
+			messageId: "ATON report",
 			repeatIndicator: "Initial",
 			userId: mmsiNumber,
 			longitude: position.longitude,
@@ -566,10 +686,10 @@ function generateAtoN(
 			beamDiameter: beam,
 			positionReferenceFromStarboardEdge: fromStarboard,
 			positionReferenceFromTrueNorthFacingEdge: fromBowScaled,
-			atonType: "Fixed beacon: starboard hand",
-			offPositionIndicator: "Yes",
-			virtualAtonFlag: "Yes",
-			assignedModeFlag: "Assigned mode",
+			atonType,
+			offPositionIndicator: "No",
+			virtualAtonFlag: "No",
+			assignedModeFlag: "Autonomous and continuous",
 			spare: 1,
 			atonName: name,
 		},
@@ -607,12 +727,12 @@ function indexHasAnyKeys(index: Map<string, unknown>, keys: string[]): boolean {
 	return keys.some((key) => index.has(key));
 }
 
-function indexedFindValue(
+function indexedFindValue<T = unknown>(
 	index: Map<string, unknown>,
 	vessel: Vessel,
 	path: string,
-): unknown {
-	if (index.has(path)) return index.get(path);
+): T | undefined {
+	if (index.has(path)) return index.get(path) as T | undefined;
 
 	// Fallback: traverse the vessel object
 	const pathParts = path.split(".");
@@ -626,14 +746,16 @@ function indexedFindValue(
 		}
 	}
 
-	return val && typeof val === "object" && val != null && "value" in val
-		? (val as { value: unknown }).value
-		: val;
+	const out =
+		val && typeof val === "object" && val != null && "value" in val
+			? (val as { value: unknown }).value
+			: val;
+	return out as T | undefined;
 }
 
 /**
  * Detect deltas that originated from the vessel's own NMEA 2000 bus so we
- * don't rebroadcast them — that would duplicate every AIS frame on the wire.
+ * don't rebroadcast them: that would duplicate every AIS frame on the wire.
  * Signal K server's N2K inbound decoder labels sources with
  * `updates[].source.type === "NMEA2000"`.
  */

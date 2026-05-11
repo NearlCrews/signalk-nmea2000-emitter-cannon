@@ -1,4 +1,8 @@
-import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
+import {
+	N2K_BROADCAST_DST,
+	N2K_DEFAULT_PRIORITY,
+	VESSELS_SELF_CONTEXT,
+} from "../constants.js";
 import type { ConversionModule, N2KMessage } from "../types/index.js";
 
 interface AlarmValue {
@@ -20,14 +24,36 @@ interface AlarmPGN extends N2KMessage {
 	path: string;
 }
 
+const RAYMARINE_ALARM_SID = 1;
+
+const ALARM_ID_BY_PATH_PREFIX: ReadonlyArray<[prefix: string, id: string]> = [
+	["notifications.navigation.anchor", "Deep Anchor"],
+	["notifications.mob", "MOB"],
+];
+
+function alarmStatus(state: string, hasSound: boolean): string | undefined {
+	if (state === "normal") {
+		return hasSound ? "Alarm condition not met" : undefined;
+	}
+	return hasSound
+		? "Alarm condition met and not silenced"
+		: "Alarm condition met and silenced";
+}
+
+function alarmIdForPath(path: string): string | undefined {
+	for (const [prefix, id] of ALARM_ID_BY_PATH_PREFIX) {
+		if (path.startsWith(prefix)) return id;
+	}
+	return undefined;
+}
+
 export default function createRaymarineAlarmsConversion(): ConversionModule {
-	// Instance-scoped state (cleared when plugin restarts)
 	let pgns: AlarmPGN[] = [];
 	return {
 		title: "Raymarine (Seatalk) Alarms (65288)",
 		optionKey: "RAYMARINE_ALARMS",
 		keys: ["notifications.navigation.anchor", "notifications.mob"],
-		context: "vessels.self",
+		context: VESSELS_SELF_CONTEXT,
 		sourceType: "subscription",
 		callback: (delta: unknown): N2KMessage[] => {
 			if (!delta || typeof delta !== "object") {
@@ -66,38 +92,21 @@ export default function createRaymarineAlarmsConversion(): ConversionModule {
 
 			pgns = pgns.filter((obj) => obj.path !== path);
 
-			let state: string | undefined;
 			const method = value.method || [];
 			const hasSound = method.includes("sound");
-
-			if (value.state === "normal") {
-				if (hasSound) {
-					state = "Alarm condition not met";
-				}
-			} else {
-				state = hasSound
-					? "Alarm condition met and not silenced"
-					: "Alarm condition met and silenced";
-			}
-
-			let alarmId: string | undefined;
-			if (path.startsWith("notifications.navigation.anchor")) {
-				// canboatjs lookup table doesn't yet expose a more specific anchor alarm.
-				alarmId = "Deep Anchor";
-			} else if (path.startsWith("notifications.mob")) {
-				alarmId = "MOB";
-			}
+			const state = alarmStatus(value.state, hasSound);
+			const alarmId = alarmIdForPath(path);
 
 			if (state && alarmId) {
 				pgns.push({
 					prio: N2K_DEFAULT_PRIORITY,
 					pgn: 65288,
 					dst: N2K_BROADCAST_DST,
-					path: path,
+					path,
 					fields: {
-						sid: 1,
+						sid: RAYMARINE_ALARM_SID,
 						alarmStatus: state,
-						alarmId: alarmId,
+						alarmId,
 						alarmGroup: "Instrument",
 						alarmPriority: 1,
 						manufacturerCode: "Raymarine",

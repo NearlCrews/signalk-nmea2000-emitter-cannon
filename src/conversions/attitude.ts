@@ -9,7 +9,6 @@ import type {
 	N2KMessage,
 	SignalKApp,
 } from "../types/index.js";
-import { errMessage } from "../utils/errorUtils.js";
 import { isValidNumber } from "../utils/validation.js";
 
 interface AttitudeData {
@@ -19,35 +18,30 @@ interface AttitudeData {
 }
 
 export default function createAttitudeConversion(
-	app: SignalKApp,
+	_app: SignalKApp,
 ): ConversionModule<[AttitudeData]> {
 	return {
 		title: "Attitude (127257)",
 		optionKey: "ATTITUDE",
 		keys: ["navigation.attitude"],
 		callback: ((attitude: AttitudeData) => {
-			try {
-				if (!attitude || typeof attitude !== "object") {
-					return [];
-				}
-
-				const fields: N2KMessage["fields"] = { sid: N2K_DEFAULT_SID };
-				if (isValidNumber(attitude.pitch)) fields.pitch = attitude.pitch;
-				if (isValidNumber(attitude.yaw)) fields.yaw = attitude.yaw;
-				if (isValidNumber(attitude.roll)) fields.roll = attitude.roll;
-
-				return [
-					{
-						prio: N2K_DEFAULT_PRIORITY,
-						pgn: 127257,
-						dst: N2K_BROADCAST_DST,
-						fields,
-					},
-				];
-			} catch (err) {
-				app.error(errMessage(err));
+			if (!attitude || typeof attitude !== "object") {
 				return [];
 			}
+
+			const fields: N2KMessage["fields"] = { sid: N2K_DEFAULT_SID };
+			if (isValidNumber(attitude.pitch)) fields.pitch = attitude.pitch;
+			if (isValidNumber(attitude.yaw)) fields.yaw = attitude.yaw;
+			if (isValidNumber(attitude.roll)) fields.roll = attitude.roll;
+
+			return [
+				{
+					prio: N2K_DEFAULT_PRIORITY,
+					pgn: 127257,
+					dst: N2K_BROADCAST_DST,
+					fields,
+				},
+			];
 		}) as ConversionCallback<[AttitudeData]>,
 
 		tests: [
@@ -75,7 +69,7 @@ export default function createAttitudeConversion(
 			},
 			{
 				// Faulty IMU: pitch is NaN, yaw is Infinity. Both must be
-				// dropped from the PGN — never emitted as corrupt bits.
+				// dropped from the PGN, never emitted as corrupt bits.
 				input: [
 					{
 						yaw: Number.POSITIVE_INFINITY,

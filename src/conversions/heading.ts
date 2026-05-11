@@ -8,11 +8,10 @@ import type {
 	ConversionModule,
 	SignalKApp,
 } from "../types/index.js";
-import { errMessage } from "../utils/errorUtils.js";
 import { toValidNumber } from "../utils/validation.js";
 
 export default function createHeadingConversion(
-	app: SignalKApp,
+	_app: SignalKApp,
 ): ConversionModule<[number | null, number | null, number | null]> {
 	return {
 		title: "Heading (127250)",
@@ -27,33 +26,28 @@ export default function createHeadingConversion(
 			variation: number | null,
 			deviation: number | null,
 		) => {
-			try {
-				const validHeading = toValidNumber(heading);
-				const validVariation = toValidNumber(variation);
-				const validDeviation = toValidNumber(deviation);
+			const validHeading = toValidNumber(heading);
+			const validVariation = toValidNumber(variation);
+			const validDeviation = toValidNumber(deviation);
 
-				if (validHeading === null) {
-					return [];
-				}
-
-				return [
-					{
-						prio: N2K_DEFAULT_PRIORITY,
-						pgn: 127250,
-						dst: N2K_BROADCAST_DST,
-						fields: {
-							sid: N2K_DEFAULT_SID,
-							heading: validHeading,
-							deviation: validDeviation,
-							variation: validVariation,
-							reference: "Magnetic",
-						},
-					},
-				];
-			} catch (err) {
-				app.error(errMessage(err));
+			if (validHeading === null) {
 				return [];
 			}
+
+			return [
+				{
+					prio: N2K_DEFAULT_PRIORITY,
+					pgn: 127250,
+					dst: N2K_BROADCAST_DST,
+					fields: {
+						sid: N2K_DEFAULT_SID,
+						heading: validHeading,
+						deviation: validDeviation,
+						variation: validVariation,
+						reference: "Magnetic",
+					},
+				},
+			];
 		}) as ConversionCallback<[number | null, number | null, number | null]>,
 
 		tests: [

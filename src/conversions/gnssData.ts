@@ -1,4 +1,5 @@
 import {
+	DEFAULT_DATA_TIMEOUT_MS,
 	N2K_BROADCAST_DST,
 	N2K_DEFAULT_PRIORITY,
 	N2K_SID_ZERO,
@@ -33,7 +34,12 @@ export default function createGnssDataConversions(
 				"navigation.gnss.timeDilution",
 				"navigation.gnss.mode",
 			],
-			timeouts: [10000, 10000, 10000, 10000], // 10 seconds
+			timeouts: [
+				DEFAULT_DATA_TIMEOUT_MS,
+				DEFAULT_DATA_TIMEOUT_MS,
+				DEFAULT_DATA_TIMEOUT_MS,
+				DEFAULT_DATA_TIMEOUT_MS,
+			],
 			callback: ((
 				hdop: number | null,
 				vdop: number | null,
@@ -91,7 +97,7 @@ export default function createGnssDataConversions(
 				},
 				{
 					// When Signal K reports mode "Auto", actualMode must NOT
-					// falsely report "No GNSS" — that would tell MFDs that the
+					// falsely report "No GNSS": that would tell MFDs that the
 					// receiver has no fix. Fall through to "Auto".
 					input: [1.5, 2.0, 1.0, "Auto"],
 					expected: [
@@ -121,7 +127,7 @@ export default function createGnssDataConversions(
 				"navigation.gnss.satellitesInView.count",
 				"navigation.gnss.satellitesInView.satellites",
 			],
-			timeouts: [10000, 10000], // 10 seconds
+			timeouts: [DEFAULT_DATA_TIMEOUT_MS, DEFAULT_DATA_TIMEOUT_MS],
 			callback: ((count: number | null, satellites: SatelliteData[] | null) => {
 				if (count == null || satellites == null || !Array.isArray(satellites)) {
 					return [];
@@ -129,6 +135,8 @@ export default function createGnssDataConversions(
 
 				const countValue = isValidNumber(count) ? count : 0;
 
+				// Conservative fast-packet cap for PGN 129540: 12 satellites keep
+				// the multi-frame payload well under the 223-byte canboat limit.
 				const maxSatellites = Math.min(satellites.length, 12);
 				const satelliteData = new Array(maxSatellites);
 				for (let i = 0; i < maxSatellites; i++) {
@@ -150,7 +158,8 @@ export default function createGnssDataConversions(
 						dst: N2K_BROADCAST_DST,
 						fields: {
 							sid: N2K_SID_ZERO,
-							mode: "Auto",
+							rangeResidualMode: "Range residuals were used to calculate data",
+							// Mirror the maxSatellites cap so satsInView matches list length.
 							satsInView: Math.min(countValue, 12),
 							list: satelliteData,
 						},
@@ -192,6 +201,8 @@ export default function createGnssDataConversions(
 							dst: 255,
 							fields: {
 								sid: N2K_SID_ZERO,
+								rangeResidualMode:
+									"Range residuals were used to calculate data",
 								satsInView: 8,
 								list: [
 									{
@@ -205,7 +216,7 @@ export default function createGnssDataConversions(
 									{
 										prn: 2,
 										elevation: 0.5236,
-										// biome-ignore lint/suspicious/noApproximativeNumericConstant: encoded wire value — input Math.PI is rounded by the N2K encoder to this literal; substituting Math.PI would falsely pass.
+										// biome-ignore lint/suspicious/noApproximativeNumericConstant: encoded wire value. Input Math.PI is rounded by the N2K encoder to this literal; substituting Math.PI would falsely pass.
 										azimuth: 3.1416,
 										snr: 35,
 										rangeResiduals: 0,

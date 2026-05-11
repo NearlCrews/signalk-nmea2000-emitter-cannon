@@ -21,7 +21,10 @@ export default function createProductInfoConversion(): ConversionModule {
 			serialNumber: unknown,
 			certificationLevel: unknown,
 		): N2KMessage[] => {
-			if (manufacturerName === null && modelNumber === null) {
+			if (
+				typeof manufacturerName !== "string" &&
+				typeof modelNumber !== "string"
+			) {
 				return [];
 			}
 
@@ -31,8 +34,10 @@ export default function createProductInfoConversion(): ConversionModule {
 					pgn: 126996,
 					dst: N2K_BROADCAST_DST,
 					fields: {
-						nmea2000Version: 2100, // NMEA 2000 version 2.1
-						productCode: 12345, // Generic product code, could be made configurable
+						// canboat resolution 0.001: send the decimal version (2.1), encoder
+						// writes raw 2100 to wire. Sending 2100 directly saturates the field.
+						nmea2000Version: 2.1,
+						productCode: 12345,
 						modelId:
 							typeof modelNumber === "string"
 								? modelNumber
@@ -45,7 +50,7 @@ export default function createProductInfoConversion(): ConversionModule {
 							typeof serialNumber === "string" ? serialNumber : "SK00000001",
 						certificationLevel:
 							certificationLevel === "certified" ? "Level B" : "Level A",
-						loadEquivalency: 1, // Standard load equivalency
+						loadEquivalency: 1,
 					},
 				},
 			];
@@ -66,7 +71,7 @@ export default function createProductInfoConversion(): ConversionModule {
 						pgn: 126996,
 						dst: 255,
 						fields: {
-							nmea2000Version: 2.848,
+							nmea2000Version: 2.1,
 							productCode: 12345,
 							modelId: "SK-N2K-001",
 							softwareVersionCode: "2.1.0",
@@ -86,7 +91,7 @@ export default function createProductInfoConversion(): ConversionModule {
 						pgn: 126996,
 						dst: 255,
 						fields: {
-							nmea2000Version: 2.848,
+							nmea2000Version: 2.1,
 							productCode: 12345,
 							modelId: "SignalK-NMEA2000",
 							softwareVersionCode: "1.0.0",

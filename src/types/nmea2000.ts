@@ -1,23 +1,11 @@
-/**
- * NMEA 2000 message structure as required by CanboatJS
- * All NMEA 2000 messages must follow this exact format
- */
+// CanboatJS JSON envelope shape. Every emitted PGN must match.
 export interface N2KMessage {
-	/** Priority (0-7, typically 2 for data messages, 6 for control) */
 	prio: number;
-	/** Parameter Group Number - identifies the message type */
 	pgn: number;
-	/** Destination address (255 for broadcast) */
 	dst: number;
-	/** Source address (optional, set by canboat) */
-	src?: number;
-	/** Message fields containing the actual data */
 	fields: Record<string, N2KFieldValue>;
 }
 
-/**
- * NMEA 2000 field value types
- */
 export type N2KFieldValue =
 	| string
 	| number
@@ -25,11 +13,12 @@ export type N2KFieldValue =
 	| null
 	| undefined
 	| N2KFieldValue[]
-	| Record<string, unknown>;
+	| N2KFieldObject;
 
-/**
- * Error types for N2K message validation
- */
+export interface N2KFieldObject {
+	[key: string]: N2KFieldValue;
+}
+
 export class N2KValidationError extends Error {
 	constructor(
 		message: string,

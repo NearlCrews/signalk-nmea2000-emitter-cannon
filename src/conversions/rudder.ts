@@ -4,52 +4,46 @@ import type {
 	N2KMessage,
 	SignalKApp,
 } from "../types/index.js";
-import { errMessage } from "../utils/errorUtils.js";
 import { toValidNumber } from "../utils/validation.js";
 
 export default function createRudderConversion(
-	app: SignalKApp,
+	_app: SignalKApp,
 ): ConversionModule {
 	return {
 		title: "Rudder Position (127245)",
 		optionKey: "RUDDER",
-		keys: ["steering.rudderAngle.main", "steering.rudderAngleTarget.main"],
-		timeouts: [1000, 1000], // 1 second for responsive steering
+		keys: ["steering.rudderAngle", "steering.rudderAngleTarget"],
+		timeouts: [1000, 1000],
 		callback: (
 			rudderAngle: unknown,
 			rudderAngleTarget: unknown,
 		): N2KMessage[] => {
-			try {
-				const angle = toValidNumber(rudderAngle);
-				const target = toValidNumber(rudderAngleTarget);
+			const angle = toValidNumber(rudderAngle);
+			const target = toValidNumber(rudderAngleTarget);
 
-				if (angle === null && target === null) {
-					return [];
-				}
-
-				let directionOrder = "No Order";
-				if (target !== null) {
-					if (target > 0) directionOrder = "Move to starboard";
-					else if (target < 0) directionOrder = "Move to port";
-				}
-
-				return [
-					{
-						prio: N2K_DEFAULT_PRIORITY,
-						pgn: 127245,
-						dst: N2K_BROADCAST_DST,
-						fields: {
-							instance: 0,
-							directionOrder,
-							angleOrder: Math.abs(target ?? 0),
-							position: angle,
-						},
-					},
-				];
-			} catch (err) {
-				app.error(errMessage(err));
+			if (angle === null && target === null) {
 				return [];
 			}
+
+			let directionOrder = "No Order";
+			if (target !== null) {
+				if (target > 0) directionOrder = "Move to starboard";
+				else if (target < 0) directionOrder = "Move to port";
+			}
+
+			return [
+				{
+					prio: N2K_DEFAULT_PRIORITY,
+					pgn: 127245,
+					dst: N2K_BROADCAST_DST,
+					fields: {
+						instance: 0,
+						directionOrder,
+						angleOrder: Math.abs(target ?? 0),
+						position: angle,
+					},
+				},
+			];
 		},
 
 		tests: [

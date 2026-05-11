@@ -9,6 +9,7 @@ import type {
 } from "../types/index.js";
 import { cleanN2KMessage, validateN2KMessage } from "../utils/messageUtils.js";
 import { isDefined } from "../utils/pathUtils.js";
+import { validateN2KMessageStrict } from "./strictValidation.js";
 
 /**
  * Mock Signal K data storage
@@ -161,6 +162,16 @@ describe("Conversion modules", () => {
 										expect(pgn).toBeTruthy();
 										expect(typeof pgn).toBe("object");
 										expect(pgn.pgn).toBeDefined();
+
+										// Catches wrong field names and unknown enum strings
+										// that canboatjs would otherwise silently drop or
+										// zero-encode. PGN 65288 (Raymarine vendor-specific)
+										// carries an internal `path` field that is not in the
+										// canboat definition, so the strict check is skipped
+										// for it.
+										if (pgn.pgn !== 65288) {
+											expect(() => validateN2KMessageStrict(pgn)).not.toThrow();
+										}
 
 										// Validate with CanboatJS
 										const encoded = pgnToActisenseSerialFormat(pgn);

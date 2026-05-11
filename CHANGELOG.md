@@ -1,9 +1,63 @@
 ## Change Log
 
+### v1.4.0 (2026/05/10) - Multi-agent Compliance Review, Fix Pass, and Simplify Pass
+
+A four-expert Signal K compliance review surfaced about thirty findings spanning lifecycle, conversions, schema, types, and utilities. A six-agent fix team then resolved them, followed by a four-lane simplify pass (reuse, quality, efficiency, Signal K compliance) that caught two BLOCKER regressions introduced during the fix pass.
+
+**Wire-level correctness (PGN encoding bugs)**:
+- `magneticVariance.ts`: `ageOfService` now treats the SK value as Unix epoch seconds (the canonical spec interpretation: "seconds since 1 Jan 1970 that the variation calculation was made"), not as a delta. Previously the fix pass mis-interpreted it as "seconds since last update" and produced a 1970 date on the wire.
+- `dscCalls.ts`: `mmsi` typed as `string | null` (per SK spec) and parsed via `parseMmsi` from `aisUtils`. Was typed as `number | null`, producing a string-into-numeric-field on the wire for live data.
+- `smallCraftStatus.ts`: SK `steering.trimTab.{port,starboard}` is ratio -1..1, multiplied by 100 for PGN 130576. Dropped the `Math.abs(position) < PI` heuristic and `/0.52*100` scaling that assumed radians and produced ~2x error.
+- `aisExtended.ts`: PGN 129798 SAR Aircraft `altitude` now `undefined` (canboatjs emits the "not available" sentinel) when SK has no altitude, instead of substituting `0` (sea-level aircraft on the wire).
+- `transmissionParameters.ts`: gear classification fixed (`> 0` Forward, `< 0` Reverse, `= 0` Neutral). 1:1 direct-drive and overdrive transmissions previously misclassified as Neutral. When `gearRatio` is invalid, `transmissionGear` is now omitted so canboatjs emits the "data not available" sentinel instead of a fabricated "Neutral".
+- `bearingDistanceBetweenMarks.ts`: PGN 129302 now sets `bearingReference: "True"` and `calculationType: "Great Circle"` explicitly. Subscription prefers `navigation.courseGreatCircle.nextPoint.bearingTrue` with fallback to `bearingMagnetic + magneticVariation`.
+- `aisExtended.ts`: `safetyMessage` cap raised from 156 to 161 chars per ITU-R M.1371-5.
+- `wind.ts`, `windTrueWater.ts`, `windTrueGround.ts`: PGN 130306 now emits when EITHER `windAngle` OR `windSpeed` is valid (the absent field is sent as the canboatjs "not available" sentinel), aligning with the SK spec's partial-delta semantics instead of suppressing every angle-only or speed-only update.
+
+**Schema correctness (admin UI surfaces real controls)**:
+- `RAYMARINE_BRIGHTNESS` and `EXHAUST_TEMPERATURE` schemas now expose `groups` and `engines` arrayMappings respectively. Previously these conversions had no UI surface for their required option arrays, so they could be enabled but produced no output.
+- `RAYMARINE_BRIGHTNESS.groups[].instanceId` typed `string` (matches `BrightnessGroup` runtime check which expects "Helm 1"-style labels). Was typed `number`, causing every UI-entered group to be rejected by the type guard.
+- `RUDDER` source paths and `rudder.ts` subscription keys corrected to the canonical SK paths `steering.rudderAngle` and `steering.rudderAngleTarget` (no `.main` suffix, which is not part of the SK spec).
+- `MAGNETIC_VARIANCE` source path typo `navigation.magneticVariance` -> `navigation.magneticVariation`. Added `navigation.magneticVariationAgeOfService`.
+- `ENGINE_STATIC` sources include `propulsion.main.VIN` and `propulsion.main.softwareVersion` (de-facto SK paths; not in the canonical SK schema but widely used).
+- `ROUTE_WP_LIST` advertised PGN corrected from 129285 to 130074 (the PGN actually emitted by `routeWpList.ts`).
+- `HUMIDITY_INSIDE` source switched to canonical `environment.inside.relativeHumidity` (the subscribed path).
+- Seven additional source-filter mismatches in SMALL_CRAFT_STATUS, DIRECTION_DATA, NAVIGATION_DATA, GPS, ROUTE_WAYPOINT, HEADING normalised so every schema source matches a real subscription.
+- Temperature entries unified via `pgnEntry` helper (was a parallel `buildTemperatureEntry` envelope); shape now consistent with every other PGN.
+
+**Lifecycle hardening (`plugin-manager.ts`, `index.ts`)**:
+- `startPlugin` now stops any live `PluginManager` before allocating a fresh one. Prevents listener / timer / subscription leaks on re-entry.
+- `stop()` clears `this.conversions` to release callback closures so prior `PluginManager` instances can be garbage-collected across restarts (mitigates the upstream lack of an `unregisterDeltaInputHandler` API).
+- `start()` catch now calls `stop()` to clean up partial subscriptions and the constructor-installed `nmea2000OutAvailable` listener on startup failure.
+- Added `stopped` guards in `mapSubscription`'s deltaCb, the RxJS Subject `next` handler, and the resend timer's async race window.
+- `mapRxJS` now snapshots `args.slice()` into `lastInputs` so the resend timer sees the value at debounce-emit time, not a live view into the per-onValue reusable buffer.
+- `getSelfBus` consumers typed via `NormalizedDelta` from `@signalk/server-api`; dropped two unsafe casts.
+
+**Type-system tightening**:
+- `JSONSchema` widened to `JSONSchema7` from `@types/json-schema`; admin-UI schema can now use `minimum`, `additionalProperties`, `pattern`, `oneOf`, etc.
+- `PluginOptions` split into nested internal `{ globalResendInterval?, conversions: Record<string, ConversionOptions> }` plus `RawPluginOptions` wire format. `normalizePluginOptions` round-trips both. `start()` boundary types use `RawPluginOptions` to match what Signal K actually delivers.
+- `ConversionModule.properties` field removed (was dead-but-populated by 6 modules with no merger reading it); per-conversion sub-properties now live exclusively in `src/schema.ts`.
+- `ConversionModule` / `SubConversionModule` `outputType?` field removed (set but never read; dispatch uses `OUTPUT_TYPE.TO_N2K` directly). Same for the speculative `policy?` / `period?` subscription fields that no conversion exercised.
+- `notifications.ts`: `delta` typed via SK's `Delta`; `app.handleMessage` second arg typed `Partial<Delta>`. Drops two `as` casts.
+- `N2KFieldObject` recursive type makes `N2KFieldValue` symmetric (objects carry `N2KFieldValue`, not `unknown`).
+- `BearingDistanceInputs` tuple arity corrected (was 7 elements, callback takes 6).
+
+**Utilities (`src/utils/`)**:
+- `messageUtils.validateN2KMessage` now rejects NaN/Infinity numeric fields by routing `isValidN2KFieldValue`'s numeric branch through `isValidNumber` (previously `typeof === "number"` admitted NaN/Infinity, contradicting the documented behavior).
+- `dateUtils.toN2KTime` adds sub-second precision via `getUTCMilliseconds() / 1000` so PGN 126992 SystemTime hits its 0.0001s resolution.
+- `smoothing.ExponentialSmoother.smooth` guards non-finite input so a single NaN no longer poisons a key for the rest of the process lifetime.
+- New `utils/debugUtils.isDebugEnabled(app)` helper; the `(app.debug as unknown as { enabled?: boolean })` cast lives in exactly one place.
+- New `utils/pathUtils.getSelfValue(app, path)` helper; `gps.ts` and `depth.ts` now use the same `getSelfPath` -> envelope `.value` extraction convention.
+- New `constants.DEFAULT_GLOBAL_RESEND_SECONDS = 5`; literal `5` removed from `plugin-manager.ts` and `schema.ts`.
+- `N2K_DEFAULT_SID` (87) vs `N2K_SID_ZERO` (0) docstring clarifies the intended usage.
+- Orphan `N2KMessage.src?` field removed (no consumer; `cleanN2KMessage` strips it before validation anyway).
+- Unused exports `UnknownRecord` (from `types/index.ts`) and `PluginFactory` (from `types/plugin.ts`) removed; neither had a consumer.
+- Stale `plan item H3/L2` review-finding markers in `src/test/lifecycle.test.ts` and `src/test/pathUtils.test.ts` headers stripped (matches the v1.2.5 pass that removed `(M3)`/`(H5)`/etc).
+
 ### v1.3.2 (2026/05/09) - Full-Codebase Simplify Pass and CI Publish
 
 **Schema correctness (admin UI / config persistence)**:
-- `src/schema.ts:764`: typo `navigationgnsstitimeDilution` corrected to `navigationgnsstimeDilution`. Source-filter for `navigation.gnss.timeDilution` was silently inert because the schema key never matched the runtime `pathToPropName` output.
+- `src/schema.ts` GNSS DOPs entry: typo `navigationgnsstitimeDilution` corrected to `navigationgnsstimeDilution`. Source-filter for `navigation.gnss.timeDilution` was silently inert because the schema key never matched the runtime `pathToPropName` output.
 - `src/schema.ts` TANKS block: field renamed `signalkId` -> `signalkPath` to match what `tanks.ts` reads at runtime. Admin-UI tanks were configurable but never matched at runtime; `Invalid tank path` errored on every dispatch.
 - `src/schema.ts` SOLAR block: added `instanceId` field (battery-side instance for PGN 127508). `solar.ts` reads `charger.instanceId`; the schema only exposed `panelInstanceId`, so PGN 127508 emitted `instance: undefined`.
 

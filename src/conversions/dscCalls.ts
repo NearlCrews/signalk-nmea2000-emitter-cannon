@@ -4,6 +4,7 @@ import type {
 	ConversionModule,
 	SignalKApp,
 } from "../types/index.js";
+import { parseMmsi } from "../utils/aisUtils.js";
 
 const callTypeMapping: Record<string, string> = {
 	distress: "Distress",
@@ -21,21 +22,22 @@ const dscCategoryMapping: Record<string, string> = {
 	safety: "Safety",
 };
 
+// Maps SK distress nature codes to canboat DSC_NATURE enum names exactly.
 const distressMapping: Record<string, string> = {
-	fire: "Fire, explosion",
+	fire: "Fire",
 	flooding: "Flooding",
 	collision: "Collision",
 	grounding: "Grounding",
-	listing: "Listing, in danger of capsizing",
+	listing: "Listing",
 	sinking: "Sinking",
 	disabled: "Disabled and adrift",
 	abandoning: "Abandoning ship",
-	piracy: "Piracy/armed robbery attack",
+	piracy: "Piracy",
 	man_overboard: "Man overboard",
-	undesignated: "Undesignated distress",
+	undesignated: "Undesignated",
 };
 
-type DscInputs = [string | null, number | null, string | null];
+type DscInputs = [string | null, string | null, string | null];
 
 export default function createDscCallsConversion(
 	_app: SignalKApp,
@@ -50,7 +52,7 @@ export default function createDscCallsConversion(
 		],
 		callback: ((
 			callType: string | null,
-			mmsi: number | null,
+			mmsi: string | null,
 			nature: string | null,
 		) => {
 			if (!callType && !mmsi && !nature) {
@@ -68,11 +70,8 @@ export default function createDscCallsConversion(
 					fields: {
 						dscFormat: callTypeMapping[callTypeString] || "Routine Individual",
 						dscCategory: dscCategoryMapping[callTypeString] ?? "Routine",
-						dscMessageAddress: mmsi ?? 0,
-						natureOfDistress:
-							distressMapping[natureString] ||
-							natureString ||
-							"Undesignated distress",
+						dscMessageAddress: parseMmsi(mmsi),
+						natureOfDistress: distressMapping[natureString] ?? "Undesignated",
 						subsequentCommunicationModeOr2ndTelecommand: "No information",
 						proposedTxFrequencyChannel: "",
 						telephoneNumber: "",
@@ -83,7 +82,7 @@ export default function createDscCallsConversion(
 		}) as ConversionCallback<DscInputs>,
 		tests: [
 			{
-				input: ["distress", 367123456, "fire"],
+				input: ["distress", "367123456", "fire"],
 				expected: [
 					{
 						prio: 2,
@@ -94,7 +93,7 @@ export default function createDscCallsConversion(
 							dscCategory: "Distress",
 							dscMessageAddress: 367123456,
 							mmsiOfShipInDistress: 4294967295,
-							natureOfDistress: 0,
+							natureOfDistress: "Fire",
 							subsequentCommunicationModeOr2ndTelecommand: "No information",
 							list: [],
 						},

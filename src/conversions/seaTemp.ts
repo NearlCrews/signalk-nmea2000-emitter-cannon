@@ -14,7 +14,7 @@ export default function createSeaTempConversion(
 	_app: SignalKApp,
 ): ConversionModule {
 	return {
-		title: "Sea/Air Temp (130310)",
+		title: "Sea Temperature (PGN 130310)",
 		optionKey: "SEA_TEMP",
 		keys: [
 			"environment.water.temperature",

@@ -34,7 +34,7 @@ export default function createBearingDistanceBetweenMarksConversion(
 	_app: SignalKApp,
 ): ConversionModule<BearingDistanceInputs> {
 	return {
-		title: "Bearing and Distance Between Two Marks (129302)",
+		title: "Bearing and Distance Between Marks (PGN 129302)",
 		optionKey: "BEARING_DISTANCE_MARKS",
 		keys: [
 			"navigation.courseGreatCircle.nextPoint.bearingTrue",

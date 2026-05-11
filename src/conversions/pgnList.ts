@@ -32,7 +32,7 @@ const pgnListMessages: N2KMessage[] = [
 
 export default function createPgnListConversion(): ConversionModule {
 	return {
-		title: "PGN List (126464)",
+		title: "PGN List (PGN 126464)",
 		optionKey: "PGN_LIST",
 		keys: ["communication.pgnListRequest"],
 		callback: (_pgnListRequest: unknown): N2KMessage[] => pgnListMessages,

@@ -43,7 +43,7 @@ export default function createDscCallsConversion(
 	_app: SignalKApp,
 ): ConversionModule<DscInputs> {
 	return {
-		title: "DSC Call Information (129808)",
+		title: "DSC Call Information (PGN 129808)",
 		optionKey: "DSC_CALLS",
 		keys: [
 			"communication.dsc.callType",

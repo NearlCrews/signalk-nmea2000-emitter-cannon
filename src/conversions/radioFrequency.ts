@@ -8,7 +8,7 @@ const MHZ_TO_HZ = 1_000_000;
 
 export default function createRadioFrequencyConversion(): ConversionModule {
 	return {
-		title: "Radio Frequency/Mode/Power (129799)",
+		title: "Radio Frequency (PGN 129799)",
 		optionKey: "RADIO_FREQUENCY",
 		keys: [
 			"communication.vhf.rxFrequency",

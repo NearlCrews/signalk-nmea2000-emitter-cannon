@@ -14,7 +14,7 @@ export default function createHeaveConversion(
 	_app: SignalKApp,
 ): ConversionModule<[number | null]> {
 	return {
-		title: "Heave (127252)",
+		title: "Vessel Heave (PGN 127252)",
 		optionKey: "HEAVE",
 		keys: ["navigation.heave"],
 		timeouts: [1000],

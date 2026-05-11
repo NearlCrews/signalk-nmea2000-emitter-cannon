@@ -10,7 +10,7 @@ export default function createLeewayConversion(
 	_app: SignalKApp,
 ): ConversionModule<[number | null]> {
 	return {
-		title: "Leeway (128000)",
+		title: "Leeway Angle (PGN 128000)",
 		optionKey: "LEEWAY",
 		keys: ["navigation.leewayAngle"],
 		callback: ((leeway: number | null) => {

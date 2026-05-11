@@ -5,7 +5,7 @@ export default function createWindTrueGroundConversion(
 	app: SignalKApp,
 ): ConversionModule {
 	return createWindTrueConversion(app, {
-		title: "Wind True over ground (130306)",
+		title: "Wind True Over Ground (PGN 130306)",
 		optionKey: "WIND_TRUE_GROUND",
 		keys: [
 			"environment.wind.directionTrue",

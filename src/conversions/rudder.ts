@@ -10,7 +10,7 @@ export default function createRudderConversion(
 	_app: SignalKApp,
 ): ConversionModule {
 	return {
-		title: "Rudder Position (127245)",
+		title: "Rudder Position (PGN 127245)",
 		optionKey: "RUDDER",
 		keys: ["steering.rudderAngle", "steering.rudderAngleTarget"],
 		timeouts: [1000, 1000],

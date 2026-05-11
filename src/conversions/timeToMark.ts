@@ -12,7 +12,7 @@ import { toValidNumber } from "../utils/validation.js";
 
 export default function createTimeToMarkConversion(): ConversionModule {
 	return {
-		title: "Time to Mark (129301)",
+		title: "Time to Mark (PGN 129301)",
 		optionKey: "TIME_TO_MARK",
 		// canboat 129301 has only timeToMark; the SK previousPoint.timeSince
 		// path has no canonical home in this PGN.

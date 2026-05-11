@@ -10,7 +10,7 @@ export default function createEnvironmentParametersConversion(
 	_app: SignalKApp,
 ): ConversionModule<[number | null]> {
 	return {
-		title: "Atmospheric Pressure (130311)",
+		title: "Environmental Parameters (PGN 130311)",
 		optionKey: "ENVIRONMENT_PARAMETERS",
 		keys: ["environment.outside.pressure"],
 		callback: ((pressure: number | null) => {

@@ -38,7 +38,7 @@ export default function createRaymarineBrightnessConversion(
 		}
 
 		return groups.map((group) => ({
-			title: `Raymarine Display Brightness ${group.instanceId} (126720)`,
+			title: `Raymarine Display Brightness ${group.instanceId} (PGN 126720)`,
 			keys: [`electrical.displays.raymarine.${group.signalkId}.brightness`],
 			callback: (brightness: number | null) => {
 				if (!isValidNumber(brightness)) {
@@ -89,7 +89,7 @@ export default function createRaymarineBrightnessConversion(
 	};
 
 	return {
-		title: "Raymarine Display Brightness (126720)",
+		title: "Raymarine Display Brightness (PGN 126720)",
 		optionKey: "RAYMARINE_BRIGHTNESS",
 		conversions,
 	};

@@ -14,7 +14,7 @@ export default function createSpeedConversion(
 	_app: SignalKApp,
 ): ConversionModule {
 	return {
-		title: "Speed (128259)",
+		title: "Speed Through Water (PGN 128259)",
 		optionKey: "SPEED",
 		keys: ["navigation.speedThroughWater"],
 		callback: (speed: unknown): N2KMessage[] => {

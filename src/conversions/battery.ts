@@ -54,7 +54,7 @@ export default function createBatteryConversion(
 	];
 
 	return {
-		title: "Battery (127506 & 127508)",
+		title: "Battery (PGNs 127506, 127508)",
 		optionKey: "BATTERY",
 		context: VESSELS_SELF_CONTEXT,
 

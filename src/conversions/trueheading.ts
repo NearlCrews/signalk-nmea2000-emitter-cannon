@@ -14,7 +14,7 @@ export default function createTrueHeadingConversion(
 	_app: SignalKApp,
 ): ConversionModule {
 	return {
-		title: "TrueHeading (127250)",
+		title: "True Heading (PGN 127250)",
 		optionKey: "TRUE_HEADING",
 		keys: ["navigation.headingTrue"],
 		callback: (heading: unknown): N2KMessage[] => {

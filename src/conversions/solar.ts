@@ -31,7 +31,7 @@ export default function createSolarConversion(
 	const sharedTimeouts = solarKeys.map(() => SOLAR_TIMEOUT_MS);
 
 	return {
-		title: "Solar as Battery (127508)",
+		title: "Solar Panels (PGN 127508)",
 		optionKey: "SOLAR",
 		context: VESSELS_SELF_CONTEXT,
 

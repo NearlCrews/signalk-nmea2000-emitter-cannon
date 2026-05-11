@@ -16,7 +16,7 @@ const resendField = (): JSONSchema => ({
 	type: "integer",
 	title: "Resend (seconds)",
 	description:
-		"If non-zero, overrides the global resend interval. Set to 0 to use the global default.",
+		"Re-emit cadence for this conversion. Leave at 0 to use the Global Resend Interval. Set a positive value to override it (per-PGN tuning).",
 	default: 0,
 	minimum: 0,
 });
@@ -24,7 +24,7 @@ const resendField = (): JSONSchema => ({
 const sourceField = (path: string, titleOverride?: string): JSONSchema => ({
 	title: titleOverride ?? `Source for ${path}`,
 	description:
-		"Leave blank to accept data from any source. Enter a source label (e.g. 'gps1') to match any $source that starts with that label.",
+		"Leave blank to accept data from any source. Enter a prefix of the $source value shown in the Signal K Data Browser for this path (e.g. 'gps1' matches 'gps1.II') to restrict input to that provider.",
 	type: "string",
 });
 
@@ -65,12 +65,12 @@ function buildTemperatureEntry(
 	info: TemperatureInfo,
 ): JSONSchema {
 	return pgnEntry({
-		title: `${info.n2kSource} (${pgn})`,
+		title: info.n2kSource,
 		pgns: String(pgn),
 		sources: [info.source],
 		extras: {
 			instance: {
-				title: "N2K Temperature Instance",
+				title: "NMEA 2000 Temperature Instance",
 				description:
 					"NMEA 2000 instance ID this temperature is emitted on. Override to match a specific display's expected instance.",
 				type: "number",
@@ -95,25 +95,31 @@ function buildTemperatureEntries(): Record<string, JSONSchema> {
 const arrayMapping = (
 	title: string,
 	itemProperties: Record<string, JSONSchema>,
+	required?: string[],
 ): JSONSchema => ({
 	title,
 	type: "array",
-	items: { type: "object", properties: itemProperties },
+	items: {
+		type: "object",
+		...(required && required.length > 0 ? { required } : {}),
+		properties: itemProperties,
+	},
 });
 
 export const schema: JSONSchema = {
 	type: "object",
-	title: "Conversions to NMEA2000",
+	title: "Conversions to NMEA 2000",
 	description:
-		"If there is SignalK data for the conversion generate the following NMEA2000 pgns from Signal K data:",
+		"For each enabled conversion below, the plugin emits the listed NMEA 2000 PGNs from matching Signal K data. Configure any required mapping (battery, engine, tank, solar, brightness group) before enabling the conversion.",
 	additionalProperties: false,
 	properties: {
 		globalResendInterval: {
 			type: "number",
 			title: "Global Resend Interval (seconds)",
 			description:
-				"Default resend interval for all conversions. Individual conversions override this when their own resend value is non-zero.",
+				"Default re-emit cadence applied to every conversion whose own Resend value is 0. Many NMEA 2000 displays expect periodic re-broadcast even when the underlying value has not changed.",
 			default: DEFAULT_GLOBAL_RESEND_SECONDS,
+			minimum: 0,
 		},
 		WIND: pgnEntry({
 			title: "Wind",
@@ -129,7 +135,7 @@ export const schema: JSONSchema = {
 			sources: ["environment.depth.belowTransducer"],
 		}),
 		COG_SOG: pgnEntry({
-			title: "COG & SOG",
+			title: "COG and SOG",
 			pgns: "129026",
 			sources: [
 				"navigation.courseOverGroundTrue",
@@ -149,13 +155,22 @@ export const schema: JSONSchema = {
 			title: "Battery",
 			pgns: "127506, 127508",
 			extras: {
-				batteries: arrayMapping("Battery Mapping", {
-					signalkId: { title: "Signal K battery id", type: "string" },
-					instanceId: {
-						title: "NMEA2000 Battery Instance Id",
-						type: "number",
+				batteries: arrayMapping(
+					"Battery Mapping",
+					{
+						signalkId: {
+							title: "Signal K battery id",
+							description:
+								"Last segment of the Signal K path electrical.batteries.<id> (e.g. 'house', 'starter', or '0').",
+							type: "string",
+						},
+						instanceId: {
+							title: "NMEA 2000 Battery Instance Id",
+							type: "number",
+						},
 					},
-				}),
+					["signalkId", "instanceId"],
+				),
 			},
 		}),
 		SPEED: pgnEntry({
@@ -196,29 +211,44 @@ export const schema: JSONSchema = {
 			title: "Engine Parameters",
 			pgns: "127488, 127489, 130312",
 			extras: {
-				engines: arrayMapping("Engine Mapping", {
-					signalkId: { title: "Signal K engine id", type: "string" },
-					instanceId: {
-						title: "NMEA2000 Engine Instance Id",
-						type: "number",
+				engines: arrayMapping(
+					"Engine Mapping",
+					{
+						signalkId: {
+							title: "Signal K engine id",
+							description:
+								"Last segment of the Signal K path propulsion.<id> (e.g. 'main', 'port', 'starboard').",
+							type: "string",
+						},
+						instanceId: {
+							title: "NMEA 2000 Engine Instance Id",
+							type: "number",
+						},
 					},
-				}),
+					["signalkId", "instanceId"],
+				),
 			},
 		}),
 		TANKS: pgnEntry({
 			title: "Tank Levels",
 			pgns: "127505",
 			extras: {
-				tanks: arrayMapping("Tank Mapping", {
-					signalkPath: {
-						title: "Signal K tank path (e.g. tanks.fuel.0)",
-						type: "string",
+				tanks: arrayMapping(
+					"Tank Mapping",
+					{
+						signalkPath: {
+							title: "Signal K tank path",
+							description:
+								"Path relative to the vessel root (e.g. 'tanks.fuel.0', 'tanks.freshWater.starboard').",
+							type: "string",
+						},
+						instanceId: {
+							title: "NMEA 2000 Tank Instance Id",
+							type: "number",
+						},
 					},
-					instanceId: {
-						title: "NMEA2000 Tank Instance Id",
-						type: "number",
-					},
-				}),
+					["signalkPath", "instanceId"],
+				),
 			},
 		}),
 		SYSTEM_TIME: pgnEntry({ title: "System Time", pgns: "126992" }),
@@ -228,33 +258,35 @@ export const schema: JSONSchema = {
 			sources: [
 				"environment.water.temperature",
 				"environment.outside.temperature",
+				"environment.outside.pressure",
 			],
 		}),
 		SOLAR: pgnEntry({
 			title: "Solar Panels",
 			pgns: "127508",
 			extras: {
-				chargers: {
-					title: "Solar Mapping",
-					type: "array",
-					items: {
-						type: "object",
-						required: ["signalkId", "instanceId", "panelInstanceId"],
-						properties: {
-							signalkId: { title: "Signal K Solar id", type: "string" },
-							instanceId: {
-								title: "NMEA2000 Battery Instance Id",
-								description: "Used for current/voltage",
-								type: "number",
-							},
-							panelInstanceId: {
-								title: "NMEA2000 Battery Panel Instance Id",
-								description: "Used for panel current/voltage",
-								type: "number",
-							},
+				chargers: arrayMapping(
+					"Solar Mapping",
+					{
+						signalkId: {
+							title: "Signal K solar charger id",
+							description:
+								"Last segment of the Signal K path electrical.solar.<id> (e.g. 'bimini', 'aft').",
+							type: "string",
+						},
+						instanceId: {
+							title: "NMEA 2000 Battery Instance Id",
+							description: "Used for current/voltage",
+							type: "number",
+						},
+						panelInstanceId: {
+							title: "NMEA 2000 Battery Panel Instance Id",
+							description: "Used for panel current/voltage",
+							type: "number",
 						},
 					},
-				},
+					["signalkId", "instanceId", "panelInstanceId"],
+				),
 			},
 		}),
 		ENVIRONMENT_PARAMETERS: pgnEntry({
@@ -263,7 +295,7 @@ export const schema: JSONSchema = {
 			sources: ["environment.outside.pressure"],
 		}),
 		MAGNETIC_VARIANCE: pgnEntry({
-			title: "Magnetic Variance",
+			title: "Magnetic Variation",
 			pgns: "127258",
 			sources: [
 				"navigation.magneticVariation",
@@ -293,11 +325,7 @@ export const schema: JSONSchema = {
 		ATTITUDE: pgnEntry({
 			title: "Vessel Attitude",
 			pgns: "127257",
-			sources: [
-				"navigation.attitude.roll",
-				"navigation.attitude.pitch",
-				"navigation.attitude.yaw",
-			],
+			sources: ["navigation.attitude"],
 		}),
 		HEAVE: pgnEntry({
 			title: "Vessel Heave",
@@ -332,7 +360,7 @@ export const schema: JSONSchema = {
 				"navigation.gnss.satellitesInView.satellites",
 			],
 		}),
-		AIS: pgnEntry({ title: "AIS", pgns: "129038, 129794, 129041" }),
+		AIS: pgnEntry({ title: "AIS", pgns: "129038, 129041, 129794" }),
 		AIS_CLASS_B_POSITION: pgnEntry({
 			title: "AIS Class B Position",
 			pgns: "129039",
@@ -357,7 +385,7 @@ export const schema: JSONSchema = {
 			],
 		}),
 		BEARING_DISTANCE_MARKS: pgnEntry({
-			title: "Bearing Distance Between Marks",
+			title: "Bearing and Distance Between Marks",
 			pgns: "129302",
 			sources: [
 				"navigation.courseGreatCircle.nextPoint.bearingTrue",
@@ -414,6 +442,8 @@ export const schema: JSONSchema = {
 				"propulsion.main.transmission.gearRatio",
 				"propulsion.main.transmission.oilPressure",
 				"propulsion.main.transmission.oilTemperature",
+				"propulsion.main.transmission.discreteStatus1",
+				"propulsion.main.transmission.discreteStatus2",
 			],
 		}),
 		SMALL_CRAFT_STATUS: pgnEntry({
@@ -429,41 +459,62 @@ export const schema: JSONSchema = {
 					type: "string",
 					title: "Exclude Paths",
 					description:
-						"Comma-separated list of notification path prefixes to ignore (e.g. notifications.sensors.AccessoryBattery,notifications.sensors.EngineBattery)",
+						"Comma-separated list of notification path prefixes to ignore (e.g. notifications.sensors.AccessoryBattery, notifications.sensors.EngineBattery).",
 					default: "",
 				},
 			},
 		}),
 		PRODUCT_INFO: pgnEntry({ title: "Product Information", pgns: "126996" }),
 		DSC_CALLS: pgnEntry({ title: "DSC Call Information", pgns: "129808" }),
-		RAYMARINE_ALARMS: pgnEntry({ title: "Raymarine Alarms", pgns: "65288" }),
+		RAYMARINE_ALARMS: pgnEntry({
+			title: "Raymarine Seatalk Alarms",
+			pgns: "65288",
+		}),
 		PGN_LIST: pgnEntry({ title: "PGN List", pgns: "126464" }),
 		RADIO_FREQUENCY: pgnEntry({ title: "Radio Frequency", pgns: "129799" }),
 		RAYMARINE_BRIGHTNESS: pgnEntry({
 			title: "Raymarine Display Brightness",
 			pgns: "126720",
 			extras: {
-				groups: arrayMapping("Brightness Groups", {
-					signalkId: { title: "Signal K display group id", type: "string" },
-					instanceId: {
-						title: "Raymarine Display Group Label",
-						description: "e.g. Helm 1, Helm 2, Cockpit",
-						type: "string",
+				groups: arrayMapping(
+					"Brightness Groups",
+					{
+						signalkId: {
+							title: "Signal K display group id",
+							description:
+								"Identifier you assign to a display group in your Signal K data (e.g. 'helm', 'cockpit'); paired with the Raymarine label below.",
+							type: "string",
+						},
+						instanceId: {
+							title: "Raymarine Display Group Label",
+							description: "e.g. Helm 1, Helm 2, Cockpit",
+							type: "string",
+						},
 					},
-				}),
+					["signalkId", "instanceId"],
+				),
 			},
 		}),
 		EXHAUST_TEMPERATURE: pgnEntry({
 			title: "Exhaust Temperature",
 			pgns: "130312",
 			extras: {
-				engines: arrayMapping("Engine Mapping", {
-					signalkId: { title: "Signal K engine id", type: "string" },
-					tempInstanceId: {
-						title: "NMEA2000 Temperature Instance Id",
-						type: "number",
+				engines: arrayMapping(
+					"Engine Mapping",
+					{
+						signalkId: {
+							title: "Signal K engine id",
+							description:
+								"Last segment of the Signal K path propulsion.<id> (e.g. 'main', 'port').",
+							type: "string",
+						},
+						tempInstanceId: {
+							title: "NMEA 2000 Temperature Instance Id",
+							type: "number",
+						},
 					},
-				}),
+					["signalkId", "tempInstanceId"],
+				),
 			},
 		}),
 		AIS_SAR_AIRCRAFT: pgnEntry({
@@ -475,9 +526,18 @@ export const schema: JSONSchema = {
 			pgns: "129802",
 		}),
 		NAVIGATION_DATA_GREAT_CIRCLE: pgnEntry({
-			title: "Navigation Data (Great Circle)",
+			title: "Navigation Data Great Circle",
 			pgns: "129284",
+			sources: [
+				"navigation.course.calcValues.distance",
+				"navigation.course.calcValues.bearingTrue",
+				"navigation.course.calcValues.bearingTrackTrue",
+				"navigation.course.calcValues.velocityMadeGood",
+			],
 		}),
-		ROUTE_WP_LIST: pgnEntry({ title: "Route/WP List", pgns: "130074" }),
+		ROUTE_WP_LIST: pgnEntry({
+			title: "Route and Waypoint List",
+			pgns: "130074",
+		}),
 	},
 };

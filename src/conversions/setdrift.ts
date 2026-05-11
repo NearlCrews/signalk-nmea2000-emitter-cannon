@@ -10,7 +10,7 @@ export default function createSetDriftConversion(
 	_app: SignalKApp,
 ): ConversionModule {
 	return {
-		title: "Set/Drift (129291)",
+		title: "Set and Drift (PGN 129291)",
 		optionKey: "SET_DRIFT",
 		keys: ["environment.current.setTrue", "environment.current.drift"],
 		callback: (set: unknown, drift: unknown): N2KMessage[] => {

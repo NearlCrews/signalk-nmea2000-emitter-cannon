@@ -125,7 +125,7 @@ export default function createAisConversion(
 	let cachedSelfContext: string | null = null;
 
 	return {
-		title: "AIS (129794, 129038, 129041)",
+		title: "AIS (PGNs 129038, 129041, 129794)",
 		sourceType: "onDelta",
 		optionKey: "AIS",
 		callback: ((delta: AisDelta) => {

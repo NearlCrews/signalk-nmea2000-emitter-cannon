@@ -8,7 +8,7 @@ import { isValidNumber } from "../utils/validation.js";
 
 export default function createSmallCraftStatusConversion(): ConversionModule {
 	return {
-		title: "Small Craft Status (130576)",
+		title: "Small Craft Status (PGN 130576)",
 		optionKey: "SMALL_CRAFT_STATUS",
 		// canboat 130576 carries only portTrimTab + starboardTrimTab; the
 		// other SK paths (trim, displacement, performance.*) belong to

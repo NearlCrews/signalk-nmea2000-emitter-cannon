@@ -55,7 +55,7 @@ export default function createEngineParametersConversions(
 
 	return [
 		{
-			title: "Temperature, exhaust (130312)",
+			title: "Exhaust Temperature (PGN 130312)",
 			optionKey: "EXHAUST_TEMPERATURE",
 			context: VESSELS_SELF_CONTEXT,
 
@@ -114,7 +114,7 @@ export default function createEngineParametersConversions(
 			},
 		},
 		{
-			title: "Engine Parameters (127489,127488)",
+			title: "Engine Parameters (PGNs 127488, 127489, 130312)",
 			optionKey: "ENGINE_PARAMETERS",
 			context: VESSELS_SELF_CONTEXT,
 

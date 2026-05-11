@@ -9,7 +9,17 @@ A Signal K plugin that converts Signal K deltas into NMEA 2000 messages. 45 conv
 
 > Built on the foundation of [`signalk-to-nmea2000`](https://github.com/SignalK/signalk-to-nmea2000) by Scott Bender and the Signal K community.
 
-## What's new in 1.4.0
+## What's new in 1.4.2
+
+- Admin UI polish from a four-expert team review: schema descriptions rewritten with actionable language and concrete examples, `MAGNETIC_VARIANCE` renamed to `Magnetic Variation` to match the SK spec, brand normalized to "NMEA 2000" everywhere, AIS PGN list ordered ascending.
+- Admin form correctness: `ATTITUDE` dead per-axis source filters collapsed to the single subscribed parent path; `required` arrays added to BATTERY/ENGINE_PARAMETERS/TANKS/RAYMARINE_BRIGHTNESS/EXHAUST_TEMPERATURE array mappings so half-filled rows can no longer be silently dropped.
+- Source-filter completeness gaps closed for `SEA_TEMP`, `TRANSMISSION_PARAMETERS`, and `NAVIGATION_DATA_GREAT_CIRCLE`.
+- Conversion module titles normalized across all 45 modules to `"<Title> (PGN <n>)"` / `"<Title> (PGNs <a>, <b>)"` with notable renames (`TrueHeading` to `True Heading`, `Location` to `GPS Position`, `Sea/Air Temp` to `Sea Temperature`, etc.).
+- Plugin status surfaces: actionable N=0 message, "Waiting for NMEA 2000 output" state when the plugin starts before the server announces N2K output is available with a deferred refresh once the event fires.
+- New per-key error throttle (60 s window) prevents log floods from flaky sources, applied to callback, process, resend, subscription, and stream error paths. Sub-conversions (per-battery, per-engine, per-tank, per-temperature) now get distinct throttle keys and log labels.
+- Plugin now ships the family icon set (`assets/icons/icon.svg` plus 72/96/192/512 PNGs) shared with the sibling Signal K plugins, with a transmitter-broadcast badge glyph that reads as "emit" rather than "upload". The pre-family standalone cannon icon is removed.
+
+### What's new in 1.4.0
 
 - 30+ correctness fixes from a four-expert Signal K compliance review. Wire-level bugs in seven PGNs corrected (magneticVariance unit, dscCalls MMSI type, smallCraftStatus scaling, AIS SAR altitude sentinel, transmissionGear classification, bearingDistance reference fields, wind partial-data behavior).
 - Two inert features fixed: `RAYMARINE_BRIGHTNESS` and `EXHAUST_TEMPERATURE` now expose `groups` / `engines` array mappings in the admin UI.

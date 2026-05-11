@@ -14,7 +14,7 @@ export default function createRateOfTurnConversion(
 	_app: SignalKApp,
 ): ConversionModule {
 	return {
-		title: "Rate of Turn (127251)",
+		title: "Rate of Turn (PGN 127251)",
 		optionKey: "RATE_OF_TURN",
 		keys: ["navigation.rateOfTurn"],
 		callback: (rateOfTurn: unknown): N2KMessage[] => {

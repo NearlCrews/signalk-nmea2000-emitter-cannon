@@ -10,7 +10,7 @@ const ROUTE_TIMEOUT_MS = 60000;
 
 export default function createRouteWaypointConversion(): ConversionModule {
 	return {
-		title: "Route and Waypoint Information (129285)",
+		title: "Route and Waypoint Information (PGN 129285)",
 		optionKey: "ROUTE_WAYPOINT",
 		keys: [
 			"navigation.course.nextPoint.position",

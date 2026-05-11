@@ -39,7 +39,7 @@ export default function createTanksConversion(
 	app: SignalKApp,
 ): ConversionModule {
 	return {
-		title: "Tank Levels (127505)",
+		title: "Tank Levels (PGN 127505)",
 		optionKey: "TANKS",
 		context: VESSELS_SELF_CONTEXT,
 

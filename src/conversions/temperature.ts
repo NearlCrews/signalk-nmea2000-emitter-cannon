@@ -48,7 +48,7 @@ function makeTemperatureConversion(
 	const tempFieldName = pgn === 130316 ? "temperature" : "actualTemperature";
 
 	return {
-		title: `${info.n2kSource} (${pgn})`,
+		title: `${info.n2kSource} (PGN ${pgn})`,
 		optionKey,
 		keys: [info.source],
 

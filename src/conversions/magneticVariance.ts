@@ -15,7 +15,7 @@ export default function createMagneticVarianceConversion(
 	_app: SignalKApp,
 ): ConversionModule {
 	return {
-		title: "Magnetic Variance (127258)",
+		title: "Magnetic Variation (PGN 127258)",
 		optionKey: "MAGNETIC_VARIANCE",
 		keys: [
 			"navigation.magneticVariation",

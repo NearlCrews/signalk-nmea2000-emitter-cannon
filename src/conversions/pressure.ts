@@ -30,7 +30,7 @@ export default function createPressureConversions(
 ): ConversionModule[] {
 	return [
 		{
-			title: "Atmospheric Pressure (130314)",
+			title: "Atmospheric Pressure (PGN 130314)",
 			optionKey: "PRESSURE",
 			keys: ["environment.outside.pressure"],
 			callback: (pressure: unknown): N2KMessage[] => {

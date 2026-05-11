@@ -113,7 +113,7 @@ export default function createWindTrueWaterConversion(
 	app: SignalKApp,
 ): ConversionModule {
 	return createWindTrueConversion(app, {
-		title: "Wind True over water (130306)",
+		title: "Wind True Over Water (PGN 130306)",
 		optionKey: "WIND_TRUE",
 		keys: ["environment.wind.angleTrueWater", "environment.wind.speedTrue"],
 		reference: "True (boat referenced)",

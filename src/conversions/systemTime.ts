@@ -10,7 +10,7 @@ export default function createSystemTimeConversion(
 	_app: SignalKApp,
 ): ConversionModule {
 	return {
-		title: "System Time (126992)",
+		title: "System Time (PGN 126992)",
 		sourceType: "timer",
 		interval: 1000,
 		optionKey: "SYSTEM_TIME",

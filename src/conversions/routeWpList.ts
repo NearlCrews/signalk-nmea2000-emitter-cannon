@@ -4,7 +4,7 @@ import { MAX_WP_LIST_WAYPOINTS, mapValidWaypoints } from "./routeTypes.js";
 
 export default function createRouteWpListConversion(): ConversionModule {
 	return {
-		title: "Route WP List (130074)",
+		title: "Route and Waypoint List (PGN 130074)",
 		optionKey: "ROUTE_WP_LIST",
 		keys: [
 			"navigation.course.activeRoute.waypoints",

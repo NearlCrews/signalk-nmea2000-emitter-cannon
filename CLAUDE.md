@@ -71,10 +71,10 @@ Tests live in `src/test/index.test.ts`. Each conversion module embeds its own te
 ## Key Technical Details
 
 - **Runtime**: Node.js 20.18+, pure ESM modules
-- **Build**: esbuild bundles to single `dist/index.js` (~209 KB)
+- **Build**: esbuild bundles to single `dist/index.js` (~338 KB)
 - **Externals**: rxjs (only runtime dependency kept out of the bundle; @signalk/server-api is type-only)
 - **Reactivity**: RxJS for Signal K data subscriptions (Signal K server uses BaconJS internally)
-- **N2K Message Format**: CanboatJS format - `{ prio, pgn, dst, fields: {...} }`
+- **N2K Message Format**: CanboatJS format: `{ prio, pgn, dst, fields: {...} }`
 
 ## Signal K Server API Integration
 
@@ -103,26 +103,36 @@ app.error(err as Error);
 ```
 
 ### Plugin Status Reporting
-Use these methods for UI visibility in the Signal K admin panel:
+Use these methods for UI visibility in the Signal K admin panel. `plugin-manager.ts` already implements the four canonical states:
+- `Starting...` at the top of `start()`
+- `Running with N conversions enabled` once N>0 and `nmea2000Ready` is true
+- `No conversions enabled. Enable at least one in plugin settings.` when N=0
+- `Waiting for NMEA 2000 output (N conversions enabled)` when N>0 but `nmea2000OutAvailable` has not yet fired (refreshed automatically from the constructor-installed listener)
+- `Stopped` on `stop()`
+
+Brand: use "NMEA 2000" (with space) in user-facing strings (status, schema text, README, CHANGELOG, comments). Event identifiers like `nmea2000OutAvailable` / `nmea2000JsonOut` stay as the API names. Em dashes are banned everywhere.
+
+### NMEA 2000 Output Readiness
+Wait for the `nmea2000OutAvailable` event before emitting messages. `PluginManager` already does this: the constructor binds `onNmea2000Ready` (so `stop()` can `removeListener` the exact same reference), checks the `stopped` flag before flipping `nmea2000Ready`, and refreshes the status from `Waiting for NMEA 2000 output (...)` to the running form via `lastEnabledCount`.
+
+### Error Throttling
+Per-callback errors route through `PluginManager.throttledError(key, message)` with a per-key 60s window. Use `bucketKey(prefix, conversion, suffix?)` to build the key: it normalizes the `optionKey ?? title ?? "?"` fallback chain. Apply uniformly to every error path (callback, processOutput, resend, subscription, RxJS stream `error`); asymmetric coverage leaves a log-flood surface open. `start()` and `stop()` both clear `errorBuckets` so the next lifecycle begins fresh.
+
+### Sub-Conversion Identity (factory-returned children)
+Modules that expose `conversions: (options) => [...]` (BATTERY per-id, ENGINE_PARAMETERS per-engine, TANKS per-path, SOLAR per-charger, EXHAUST_TEMPERATURE per-engine, RAYMARINE_BRIGHTNESS per-group, TEMPERATURE_*/TEMPERATURE2_*) return `SubConversionModule` objects that lack `optionKey` and may lack `title`. The plugin-manager start() loop spreads each into a fresh `ConversionModule` with derived identity:
+
 ```typescript
-app.setPluginStatus("Running with 5 conversions enabled");
-app.setPluginError("Failed to initialize: reason");
+const labeled: ConversionModule =
+  subConversion === conv
+    ? conv
+    : {
+        ...subConversion,
+        optionKey: `${conv.optionKey}[${idx}]`,
+        title: subConversion.title ?? `${conv.title} #${idx}`,
+      };
 ```
 
-### NMEA2000 Output Readiness
-Wait for the `nmea2000OutAvailable` event before emitting messages:
-```typescript
-app.on("nmea2000OutAvailable", () => {
-  this.nmea2000Ready = true;
-});
-
-// In your output handler
-if (!this.nmea2000Ready) {
-  app.debug("NMEA2000 output not yet available");
-  return;
-}
-app.emit("nmea2000JsonOut", message);
-```
+Spread (not mutation): conversion modules are loaded once in the PluginManager constructor and reused across start/stop cycles, so mutating the source would leak annotations between cycles. The `subConversion === conv` guard preserves the single-PGN path. Result: each sub-conversion gets a unique throttle bucket key (`callback:BATTERY[0]:stream`) and a useful log label (`Battery (PGNs 127506, 127508) #0 [BATTERY[0]]`).
 
 ## Common Pitfalls
 

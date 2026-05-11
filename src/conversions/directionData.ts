@@ -16,7 +16,7 @@ export default function createDirectionDataConversion(
 	[number | null, number | null, number | null, number | null]
 > {
 	return {
-		title: "Direction Data (130577)",
+		title: "Direction Data (PGN 130577)",
 		optionKey: "DIRECTION_DATA",
 		keys: [
 			"navigation.courseOverGroundTrue",

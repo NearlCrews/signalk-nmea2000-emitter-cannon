@@ -164,7 +164,7 @@ export default function createNavigationDataConversions(): ConversionModule[] {
 	return [
 		// Cross Track Error (PGN 129283)
 		{
-			title: "Cross Track Error (129283)",
+			title: "Cross Track Error (PGN 129283)",
 			optionKey: "CROSS_TRACK_ERROR",
 			keys: ["navigation.course.calcValues.crossTrackError"],
 			callback: (XTE: unknown): N2KMessage[] => {
@@ -207,14 +207,14 @@ export default function createNavigationDataConversions(): ConversionModule[] {
 		// Navigation Data (PGN 129284)
 		createNavDataConversion(
 			"NAVIGATION_DATA",
-			"Navigation Data (129284)",
+			"Navigation Data (PGN 129284)",
 			"Rhumbline",
 		),
 
 		// Navigation Data Great Circle (PGN 129284)
 		createNavDataConversion(
 			"NAVIGATION_DATA_GREAT_CIRCLE",
-			"Navigation Data Great Circle (129284)",
+			"Navigation Data Great Circle (PGN 129284)",
 			"Great Circle",
 		),
 	];

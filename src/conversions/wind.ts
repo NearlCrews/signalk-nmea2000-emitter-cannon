@@ -14,7 +14,7 @@ export default function createWindConversion(
 	_app: SignalKApp,
 ): ConversionModule<[number | null, number | null]> {
 	return {
-		title: "Wind (130306)",
+		title: "Wind (PGN 130306)",
 		optionKey: "WIND",
 		keys: ["environment.wind.angleApparent", "environment.wind.speedApparent"],
 		callback: ((angle: number | null, speed: number | null) => {

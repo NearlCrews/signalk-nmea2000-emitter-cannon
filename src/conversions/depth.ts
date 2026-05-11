@@ -13,7 +13,7 @@ export default function createDepthConversion(
 	app: SignalKApp,
 ): ConversionModule<[number | null]> {
 	return {
-		title: "Depth (128267)",
+		title: "Water Depth (PGN 128267)",
 		optionKey: "DEPTH",
 		keys: ["environment.depth.belowTransducer"],
 		callback: ((belowTransducer: number | null) => {

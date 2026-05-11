@@ -68,6 +68,24 @@ export class PluginManager {
 	 * of re-emitting a stale cached N2KMessage[].
 	 */
 	private lastInputs: Map<ConversionModule, unknown[]> = new Map();
+	/**
+	 * Number of conversions that start() reported as enabled. Captured so a
+	 * late nmea2000OutAvailable event can refresh the plugin status from
+	 * "Waiting for NMEA 2000 output..." to the running form without re-running
+	 * the full enablement sweep.
+	 */
+	private lastEnabledCount = 0;
+	/**
+	 * Throttle state for repeated error log lines. Keyed by an error-site
+	 * identifier (e.g. `callback:<optionKey>:<source>`). A conversion bug that
+	 * fires on every delta would otherwise flood the server log; this collapses
+	 * a run of identical errors into one log per window plus a final summary.
+	 */
+	private errorBuckets: Map<string, { suppressed: number; nextEmit: number }> =
+		new Map();
+	private static readonly ERROR_THROTTLE_S = 60;
+	private static readonly ERROR_THROTTLE_MS =
+		PluginManager.ERROR_THROTTLE_S * 1000;
 
 	constructor(app: SignalKApp, plugin: SignalKPlugin) {
 		this.app = app;
@@ -76,10 +94,21 @@ export class PluginManager {
 		this.conversions = createConversionModules(app, plugin);
 		this.app.debug(`Loaded ${this.conversions.length} conversion modules`);
 
-		// Wait for NMEA2000 output to be available before emitting
+		// Wait for NMEA 2000 output to be available before emitting
 		this.onNmea2000Ready = () => {
+			// Stopped-check first: a stray post-stop event (if removeListener
+			// in stop() threw and safe() swallowed it) leaves a dead instance
+			// fully quiescent rather than re-flipping its readiness flag.
+			if (this.stopped) return;
 			this.nmea2000Ready = true;
-			this.app.debug("NMEA2000 output is now available");
+			this.app.debug("NMEA 2000 output is now available");
+			// If start() has already completed with conversions enabled, the
+			// status currently reads "Waiting for NMEA 2000 output...". Refresh
+			// it to the running form so the admin UI reflects that emission
+			// has begun.
+			if (this.lastEnabledCount > 0) {
+				this.app.setPluginStatus(this.runningStatus(this.lastEnabledCount));
+			}
 		};
 		this.app.on("nmea2000OutAvailable", this.onNmea2000Ready);
 	}
@@ -88,6 +117,45 @@ export class PluginManager {
 		const title = conversion.title || "<unnamed>";
 		const key = conversion.optionKey ? ` [${conversion.optionKey}]` : "";
 		return `${title}${key}`;
+	}
+
+	private bucketKey(
+		prefix: string,
+		conversion: ConversionModule,
+		suffix?: string,
+	): string {
+		const id = conversion.optionKey ?? conversion.title ?? "?";
+		return suffix ? `${prefix}:${id}:${suffix}` : `${prefix}:${id}`;
+	}
+
+	private runningStatus(count: number): string {
+		return `Running with ${count} conversions enabled`;
+	}
+
+	/**
+	 * Emit an error message with per-key throttling. The first message for a
+	 * key passes through immediately; subsequent identical-key errors within
+	 * ERROR_THROTTLE_MS are counted, and when the window expires the next
+	 * error appends a suppressed-count summary. Keeps a misbehaving callback
+	 * from flooding the server log on every delta.
+	 */
+	private throttledError(key: string, message: string): void {
+		const now = Date.now();
+		const bucket = this.errorBuckets.get(key);
+		if (!bucket || now >= bucket.nextEmit) {
+			const suppressed = bucket?.suppressed ?? 0;
+			const suffix =
+				suppressed > 0
+					? ` (${suppressed} similar errors suppressed in the last ${PluginManager.ERROR_THROTTLE_S}s)`
+					: "";
+			this.app.error(`${message}${suffix}`);
+			this.errorBuckets.set(key, {
+				suppressed: 0,
+				nextEmit: now + PluginManager.ERROR_THROTTLE_MS,
+			});
+			return;
+		}
+		bucket.suppressed++;
 	}
 
 	/**
@@ -106,7 +174,8 @@ export class PluginManager {
 			return conversion.callback(...args);
 		} catch (err) {
 			const message = errMessage(err);
-			this.app.error(
+			this.throttledError(
+				this.bucketKey("callback", conversion, source),
 				`Error in ${source} callback for ${this.moduleLabel(conversion)}: ${message}`,
 			);
 			return undefined;
@@ -116,30 +185,25 @@ export class PluginManager {
 	start(rawOptions: RawPluginOptions | PluginOptions): void {
 		try {
 			this.stopped = false;
+			this.errorBuckets.clear();
 			const options = normalizePluginOptions(rawOptions);
 			this.globalResendInterval =
 				options.globalResendInterval || DEFAULT_GLOBAL_RESEND_SECONDS;
 
 			this.app.setPluginStatus("Starting...");
-			this.app.debug(`=== SIGNALK-NMEA2000-EMITTER-CANNON STARTING ===`);
 			this.app.debug(
-				`Plugin options received: ${JSON.stringify(Object.keys(options.conversions))}`,
+				`Starting with ${this.conversions.length} conversion modules; option keys: ${JSON.stringify(Object.keys(options.conversions))}`,
 			);
-			this.app.debug(`Using ${this.conversions.length} conversion modules`);
 
 			let enabledCount = 0;
 			for (const conv of this.conversions) {
 				const convOptions = options.conversions[conv.optionKey];
 				const isEnabled =
 					isConversionOptions(convOptions) && convOptions.enabled === true;
-				this.app.debug(
-					`Checking conversion ${conv.title} (${conv.optionKey}) - enabled: ${isEnabled}`,
-				);
-
 				if (!isEnabled) continue;
 				enabledCount++;
 
-				this.app.debug(`*** SETTING UP ENABLED CONVERSION: ${conv.title} ***`);
+				this.app.debug(`Enabling: ${this.moduleLabel(conv)}`);
 
 				if (conv.onOptionsLoaded) {
 					conv.onOptionsLoaded(convOptions);
@@ -160,11 +224,8 @@ export class PluginManager {
 					continue;
 				}
 
-				this.app.debug(
-					`Setting up ${subConversions.length} subconversions for ${conv.title}`,
-				);
-
-				for (const subConversion of subConversions) {
+				for (let idx = 0; idx < subConversions.length; idx++) {
+					const subConversion = subConversions[idx];
 					if (subConversion === undefined) continue;
 
 					const sourceType =
@@ -176,20 +237,48 @@ export class PluginManager {
 						continue;
 					}
 
-					mapper(subConversion as ConversionModule, convOptions);
+					// Sub-conversions from a factory lack optionKey and may lack
+					// title, so without this each per-instance error would log as
+					// "<unnamed>" and collapse into a shared "?" throttle bucket
+					// (e.g. 3 batteries merging into one). Spread into a fresh
+					// ConversionModule per sub-conversion; mutating the source
+					// would persist annotations across start/stop cycles.
+					const labeled: ConversionModule =
+						subConversion === conv
+							? conv
+							: {
+									...subConversion,
+									optionKey: `${conv.optionKey}[${idx}]`,
+									title: subConversion.title ?? `${conv.title} #${idx}`,
+								};
+
+					mapper(labeled, convOptions);
 				}
 			}
 
-			this.app.debug(
-				`=== SIGNALK-NMEA2000-EMITTER-CANNON STARTUP COMPLETE ===`,
-			);
-			this.app.setPluginStatus(
-				`Running with ${enabledCount} conversions enabled`,
-			);
+			this.lastEnabledCount = enabledCount;
+			if (enabledCount === 0) {
+				this.app.setPluginStatus(
+					"No conversions enabled. Enable at least one in plugin settings.",
+				);
+			} else if (!this.nmea2000Ready) {
+				// Plugin is wired up but signalk-server has not announced
+				// nmea2000OutAvailable yet. onNmea2000Ready will refresh to the
+				// running form once emission becomes possible; if the event
+				// never fires (no N2K provider configured), this status is the
+				// accurate final state.
+				this.app.setPluginStatus(
+					`Waiting for NMEA 2000 output (${enabledCount} conversions enabled)`,
+				);
+			} else {
+				this.app.setPluginStatus(this.runningStatus(enabledCount));
+			}
 		} catch (error) {
 			const errorMsg = errMessage(error);
 			this.app.error(`Failed to start plugin: ${errorMsg}`);
-			this.app.setPluginError(`Startup failed: ${errorMsg}`);
+			this.app.setPluginError(
+				`Startup failed: ${errorMsg}. Check plugin configuration and the Signal K server log for details.`,
+			);
 			try {
 				this.stop();
 			} catch (stopErr) {
@@ -252,6 +341,12 @@ export class PluginManager {
 		// Drop cached inputs so a subsequent start() begins from a clean slate.
 		safe("clear lastInputs", () => this.lastInputs.clear());
 
+		// Reset status-bookkeeping and error-throttle state so a fresh start()
+		// reports an accurate enabled count and does not inherit suppressed
+		// errors from the prior cycle.
+		this.lastEnabledCount = 0;
+		safe("clear errorBuckets", () => this.errorBuckets.clear());
+
 		// Wipe ExponentialSmoother state across plugin restarts.
 		safe("clearAllSmoothers", () => clearAllSmoothers());
 
@@ -285,7 +380,8 @@ export class PluginManager {
 			}
 		} catch (err) {
 			const message = errMessage(err);
-			this.app.error(
+			this.throttledError(
+				this.bucketKey("process", conversion),
 				`Error processing output for ${this.moduleLabel(conversion)}: ${message}`,
 			);
 		}
@@ -322,7 +418,8 @@ export class PluginManager {
 					}
 				} catch (err) {
 					const message = errMessage(err);
-					this.app.error(
+					this.throttledError(
+						this.bucketKey("resend", conversion),
 						`Error in resend timer for ${this.moduleLabel(conversion)}: ${message}`,
 					);
 				}
@@ -444,7 +541,8 @@ export class PluginManager {
 					void this.processOutput(conversion, pluginOptions, result);
 				},
 				error: (err) => {
-					this.app.error(
+					this.throttledError(
+						this.bucketKey("stream", conversion),
 						`Stream error for ${this.moduleLabel(conversion)}: ${errMessage(err)}`,
 					);
 				},
@@ -478,7 +576,11 @@ export class PluginManager {
 		this.app.subscriptionmanager.subscribe(
 			subscription,
 			this.unsubscribes,
-			(err: unknown) => this.app.error(errMessage(err)),
+			(err: unknown) =>
+				this.throttledError(
+					this.bucketKey("subscription", conversion),
+					`Subscription error for ${this.moduleLabel(conversion)}: ${errMessage(err)}`,
+				),
 			(delta) => {
 				if (this.stopped) return;
 				const args: unknown[] = [delta];
@@ -531,7 +633,7 @@ export class PluginManager {
 		if (!values) return;
 
 		if (!this.nmea2000Ready) {
-			this.app.debug("NMEA2000 output not yet available, dropping message");
+			this.app.debug("NMEA 2000 output not yet available, dropping message");
 			return;
 		}
 

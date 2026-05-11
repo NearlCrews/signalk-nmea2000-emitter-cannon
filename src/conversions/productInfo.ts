@@ -3,7 +3,7 @@ import type { ConversionModule, N2KMessage } from "../types/index.js";
 
 export default function createProductInfoConversion(): ConversionModule {
 	return {
-		title: "Product Information (126996)",
+		title: "Product Information (PGN 126996)",
 		optionKey: "PRODUCT_INFO",
 		keys: [
 			"design.manufacturer.name",

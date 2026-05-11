@@ -21,7 +21,7 @@ export default function createAttitudeConversion(
 	_app: SignalKApp,
 ): ConversionModule<[AttitudeData]> {
 	return {
-		title: "Attitude (127257)",
+		title: "Vessel Attitude (PGN 127257)",
 		optionKey: "ATTITUDE",
 		keys: ["navigation.attitude"],
 		callback: ((attitude: AttitudeData) => {

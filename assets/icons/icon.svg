@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Signal K plugin icon for signalk-nmea2000-emitter-cannon.
+
+  Family identity (shared across @NearlCrews Signal K plugins): rounded
+  square with a deep-ocean gradient and three stacked stylized wave lines.
+  Per-project differentiation: a bottom-right circle badge in a
+  project-specific colour with a 2-3 shape glyph. This badge is the only
+  region that varies between sibling plugins.
+
+  This variant's badge: orange (#FB8C00) with three concentric arcs
+  radiating from a transmitter dot in the badge's lower-left corner,
+  signaling directional emission of NMEA 2000 frames onto the bus.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="NMEA2000 Emitter Cannon plugin icon">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0E4D6B"/>
+      <stop offset="1" stop-color="#1A8DAB"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Rounded-square background, deep-ocean gradient -->
+  <rect width="512" height="512" rx="96" ry="96" fill="url(#bg)"/>
+
+  <!-- Family motif: three stacked wave lines centered in the canvas -->
+  <g fill="none" stroke="#FFFFFF" stroke-width="20" stroke-linecap="round" stroke-linejoin="round" opacity="0.94">
+    <path d="M 80,176 q 44,-36 88,0 t 88,0 t 88,0 t 88,0"/>
+    <path d="M 80,256 q 44,-36 88,0 t 88,0 t 88,0 t 88,0"/>
+    <path d="M 80,336 q 44,-36 88,0 t 88,0 t 88,0 t 88,0"/>
+  </g>
+
+  <!-- Project badge: bottom-right circle (orange for transmit) -->
+  <circle cx="388" cy="388" r="84" fill="#FB8C00" stroke="#FFFFFF" stroke-width="8"/>
+
+  <!-- Badge glyph: transmitter dot in the badge's lower-left with three
+       concentric arcs radiating up-and-right (directional broadcast).
+       Reads as "emit / send", distinct from up-arrow upload glyphs.
+       Sized to occupy most of the badge interior. -->
+  <g fill="none" stroke="#1B3A4B" stroke-width="12" stroke-linecap="round">
+    <path d="M 392,416 A 32,32 0 0 0 360,384"/>
+    <path d="M 418,416 A 58,58 0 0 0 360,358"/>
+    <path d="M 444,416 A 84,84 0 0 0 360,332"/>
+  </g>
+  <circle cx="360" cy="416" r="12" fill="#1B3A4B"/>
+</svg>

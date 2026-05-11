@@ -69,7 +69,7 @@ export default function createNotificationsConversion(
 	let excludePrefixes: string[] = [];
 
 	return {
-		title: "Notifications (126983, 126985)",
+		title: "Notifications (PGNs 126983, 126985)",
 		optionKey: "NOTIFICATIONS",
 		keys: ["notifications.*"],
 		context: VESSELS_SELF_CONTEXT,

@@ -1,5 +1,40 @@
 ## Change Log
 
+### v1.4.2 (2026/05/11) - Admin UI, Status Lifecycle, and Error Throttling
+
+A four-expert team review of the plugin's user-visible surfaces (admin schema, plugin status messages, conversion module titles) followed by a three-lane simplify pass (reuse, quality, efficiency). All 47 source files touched; behaviour changes are additive and conservative.
+
+**Admin UI (`src/schema.ts`)**:
+- Top-level title and description rewritten; brand normalized to "NMEA 2000" (was "NMEA2000") across every title, description, status string, and comment.
+- "Magnetic Variance" renamed to "Magnetic Variation" so the schema label matches the SK spec path `navigation.magneticVariation`.
+- Section title normalization: "COG and SOG" (was "COG & SOG"), "Bearing and Distance Between Marks", "Route and Waypoint List" (was "Route/WP List"), "Raymarine Seatalk Alarms" (was "Raymarine (Seatalk) Alarms"), "Environmental Parameters" (was a duplicate "Atmospheric Pressure" entry).
+- Source-filter and resend-override descriptions rewritten with concrete examples and actionable language; `globalResendInterval` now explains why periodic re-emission matters for N2K displays.
+- Array-mapping fields ("Signal K battery id", "Signal K tank path", etc.) get descriptions with concrete examples ('house', 'starter', 'tanks.fuel.0').
+- `ATTITUDE` source filters collapsed to the single subscribed parent path `navigation.attitude`. The previous per-axis filters were dead UI: the conversion never subscribed to children.
+- Required arrays added to BATTERY, ENGINE_PARAMETERS, TANKS, RAYMARINE_BRIGHTNESS, EXHAUST_TEMPERATURE array mappings, so half-filled rows can no longer be silently dropped at runtime.
+- Source-filter completeness gaps closed for SEA_TEMP (added `environment.outside.pressure`), TRANSMISSION_PARAMETERS (added `discreteStatus1`, `discreteStatus2`), and NAVIGATION_DATA_GREAT_CIRCLE (added the four `calcValues` paths mirroring NAVIGATION_DATA).
+- AIS PGN list ordered ascending; `globalResendInterval` gets `minimum: 0`; SOLAR.chargers refactored to use the shared `arrayMapping` helper.
+
+**Conversion module titles (45 modules, 54 edits)**:
+- Canonical format adopted across every module: `"<Title> (PGN <n>)"` for single-PGN modules, `"<Title> (PGNs <a>, <b>)"` for multi-PGN modules, ascending order with comma-space.
+- Notable renames so admin-UI titles read consistently: `TrueHeading` to `True Heading`, `Sea/Air Temp` to `Sea Temperature`, `Location` to `GPS Position`, `Set/Drift` to `Set and Drift`, `Heading` to `Vessel Heading`, `Atmospheric Pressure (130311)` to `Environmental Parameters`, `Raymarine (Seatalk) Alarms` to `Raymarine Seatalk Alarms`.
+
+**Plugin status and error lifecycle (`src/plugin-manager.ts`)**:
+- N=0 case shows "No conversions enabled. Enable at least one in plugin settings." instead of the misleading "Running with 0 conversions enabled".
+- "Waiting for NMEA 2000 output (N conversions enabled)" surfaces when `start()` finishes before `nmea2000OutAvailable` fires. A constructor-installed listener refreshes the status to the running form once emission becomes possible, without re-running the full enablement sweep.
+- New per-key error throttle (60 s window) routes callback, output, resend, subscription, and stream errors through one helper. The first error per key passes through; subsequent identical-key errors are counted and appended as a summary on the next emit. Prevents a flaky source from flooding the server log on every delta.
+- Subscription and stream errors now include `moduleLabel` (was a bare `errMessage`), so the log line identifies which PGN/path is failing.
+- Startup-failure message points users to "plugin configuration and the Signal K server log for details".
+- Sub-conversions returned from `conversions:` factory closures (BATTERY, ENGINE_PARAMETERS, TANKS, SOLAR, EXHAUST_TEMPERATURE, RAYMARINE_BRIGHTNESS, and the TEMPERATURE_*/TEMPERATURE2_* family) now get distinct throttle keys and useful log labels via a spread-copy per sub-conversion (`${parent.optionKey}[${idx}]` and `${parent.title} #${idx}`). Previously all of a parent's sub-conversion errors merged into one bucket and rendered as "<unnamed>".
+- New `bucketKey(prefix, conversion, suffix?)` helper consolidates five duplicated key-formulation sites.
+- Debug-noise cleanup: dropped the `=== STARTING ===` / `=== COMPLETE ===` banners and shouty "*** SETTING UP ***" line; per-conversion startup debug consolidated to one `Enabling: <label>` line per enabled conversion.
+
+**Plugin icon refresh (`assets/icons/`)**:
+- Plugin now ships the family icon set (`icon.svg` + `icon-{72,96,192,512}.png`) shared with `signalk-virtual-weather-sensors` and `signalk-openrouter-companion`: a deep-ocean gradient with three stylized wave lines and a project-coloured badge in the bottom-right. `package.json` `signalk.appIcon` points at `icon-192.png`.
+- Badge glyph: three concentric arcs radiating from a transmitter dot in the badge interior, sized to fill most of the orange badge and anchored slightly up-and-right of the badge's lower-left corner for visual balance. Reads as directional broadcast / emit. Replaces an earlier up-arrow variant that read as an upload/update indicator, and the pre-family standalone cannon icon (`icon-72x72.png`) is removed.
+
+**Verification**: `npm run typecheck` clean, `npm test` 21/21 pass, `npm run build` 337.8 KB clean. No em dashes in source.
+
 ### v1.4.0 (2026/05/10) - Multi-agent Compliance Review, Fix Pass, and Simplify Pass
 
 A four-expert Signal K compliance review surfaced about thirty findings spanning lifecycle, conversions, schema, types, and utilities. A six-agent fix team then resolved them, followed by a four-lane simplify pass (reuse, quality, efficiency, Signal K compliance) that caught two BLOCKER regressions introduced during the fix pass.

@@ -50,7 +50,7 @@ function alarmIdForPath(path: string): string | undefined {
 export default function createRaymarineAlarmsConversion(): ConversionModule {
 	let pgns: AlarmPGN[] = [];
 	return {
-		title: "Raymarine (Seatalk) Alarms (65288)",
+		title: "Raymarine Seatalk Alarms (PGN 65288)",
 		optionKey: "RAYMARINE_ALARMS",
 		keys: ["notifications.navigation.anchor", "notifications.mob"],
 		context: VESSELS_SELF_CONTEXT,

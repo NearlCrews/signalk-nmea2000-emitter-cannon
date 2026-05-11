@@ -14,7 +14,7 @@ export default function createHeadingConversion(
 	_app: SignalKApp,
 ): ConversionModule<[number | null, number | null, number | null]> {
 	return {
-		title: "Heading (127250)",
+		title: "Vessel Heading (PGN 127250)",
 		optionKey: "HEADING",
 		keys: [
 			"navigation.headingMagnetic",

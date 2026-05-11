@@ -16,7 +16,7 @@ const TRANSMISSION_TIMEOUTS = [
 
 export default function createTransmissionParametersConversion(): ConversionModule {
 	return {
-		title: "Transmission Parameters (127493)",
+		title: "Transmission Parameters (PGN 127493)",
 		optionKey: "TRANSMISSION_PARAMETERS",
 		keys: [
 			"propulsion.main.transmission.gearRatio",

@@ -12,7 +12,7 @@ export default function createEngineStaticConversion(
 	_app: SignalKApp,
 ): ConversionModule<[number | null, string | null, string | null]> {
 	return {
-		title: "Engine Configuration Parameters (127498)",
+		title: "Engine Configuration Parameters (PGN 127498)",
 		optionKey: "ENGINE_STATIC",
 		keys: [
 			"propulsion.main.ratedEngineSpeed",

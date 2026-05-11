@@ -34,7 +34,7 @@ export default function createHumidityConversions(
 ): ConversionModule<unknown[]>[] {
 	return [
 		{
-			title: "Outside Humidity (130313)",
+			title: "Outside Humidity (PGN 130313)",
 			optionKey: "HUMIDITY_OUTSIDE",
 			// Some upstream plugins publish `environment.outside.humidity`,
 			// others publish `environment.outside.relativeHumidity`. The
@@ -137,7 +137,7 @@ export default function createHumidityConversions(
 			],
 		},
 		{
-			title: "Inside Humidity (130313)",
+			title: "Inside Humidity (PGN 130313)",
 			optionKey: "HUMIDITY_INSIDE",
 			keys: ["environment.inside.relativeHumidity"],
 			callback: ((humidity: number | null) => {

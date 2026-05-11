@@ -14,7 +14,7 @@ export default function createCogSogConversion(
 	_app: SignalKApp,
 ): ConversionModule<[number | null, number | null]> {
 	return {
-		title: "COG & SOG (129026)",
+		title: "COG and SOG (PGN 129026)",
 		optionKey: "COG_SOG",
 		keys: ["navigation.courseOverGroundTrue", "navigation.speedOverGround"],
 		callback: ((course: number | null, speed: number | null) => {

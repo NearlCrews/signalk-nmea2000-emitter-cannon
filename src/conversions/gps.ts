@@ -27,7 +27,7 @@ export default function createGpsConversion(
 	let lastUpdate: number | null = null;
 
 	return {
-		title: "Location (129025,129029)",
+		title: "GPS Position (PGNs 129025, 129029)",
 		optionKey: "GPS",
 		keys: ["navigation.position"],
 		callback: ((position: Position | null) => {

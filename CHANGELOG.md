@@ -54,6 +54,21 @@ A four-expert Signal K compliance review surfaced about thirty findings spanning
 - Unused exports `UnknownRecord` (from `types/index.ts`) and `PluginFactory` (from `types/plugin.ts`) removed; neither had a consumer.
 - Stale `plan item H3/L2` review-finding markers in `src/test/lifecycle.test.ts` and `src/test/pathUtils.test.ts` headers stripped (matches the v1.2.5 pass that removed `(M3)`/`(H5)`/etc).
 
+**Post-release follow-up (rolled into v1.4.0)**:
+
+- `battery.ts` PGN 127506 / 127508: every numeric field now routes through `toValidNumber` and missing fields are emitted as `undefined` rather than `null`. canboatjs rejects `null` field values (`Invalid field value for stateOfCharge`) and was dropping every battery message when any of `stateOfCharge` / `stateOfHealth` / `timeRemaining` / `rippleVoltage` was absent from the Signal K source. With the fix, canboatjs encodes the "not available" sentinel and the messages reach the bus cleanly. Surfaced by live-bus monitoring; logged at ~3/sec on a real install with three configured batteries.
+
+**Operational guidance for Garmin installs**:
+
+- For modern Garmin ECHOMAP / GPSMAP / GMI chartplotters, prefer the current PGN set: `TEMPERATURE2_*` (PGN 130316), `HUMIDITY_OUTSIDE` (PGN 130313), `PRESSURE` (PGN 130314), `WIND` / `WIND_TRUE_GROUND` / `WIND_TRUE` (PGN 130306). Disable the deprecated `TEMPERATURE_*` (PGN 130312) and `ENVIRONMENT_PARAMETERS` (PGN 130311) variants unless you have an older display that requires them.
+- ECHOMAP UHD2 6/7/9 sv (verified against Garmin's April 2026 Owner's Manual v13) receives 130306 / 130311 / 130312 / 130313 / 130314 / 130316. The `temperatureSource` enum on PGN 130316 carries Dew Point (9), Apparent Wind Chill (10), Theoretical Wind Chill (11), and Heat Index (12), which Garmin reads as distinct temperature sources rather than computing them locally. To get these on Garmin, enable the corresponding `TEMPERATURE2_DEWPOINT` / `TEMPERATURE2_APPARENTWINDCHILL` / `TEMPERATURE2_HEATINDEX` conversions and ensure your Signal K source (e.g. `signalk-virtual-weather-sensors`) is publishing the matching `environment.outside.*` paths.
+
+**Configuration hygiene**:
+
+- Source filters bind to a specific Signal K `$source` value (e.g., `accuweather`, `nmea2000_feed.c078be001cb01cc9`). If you decommission or rename a Signal K plugin, the filters that pointed to it remain in the saved config and silently reject every delta. The plugin will appear to be enabled but emit nothing. Periodically audit your filters against `GET /signalk/v1/api/vessels/self/<path>` to confirm the live `$source` matches what the filter expects.
+- Conversions with no Signal K source for their path are inert. They cost a little startup work but otherwise do nothing. If you know a path will not be published on your boat (for example, your hardware has no rate-of-turn sensor), disable the conversion to keep the admin UI honest.
+- The v1.4.0 schema renamed the `MAGNETIC_VARIANCE` source-filter propname from `navigationmagneticVariance` (pre-v1.4.0 typo) to `navigationmagneticVariation` (canonical Signal K path). Configurations saved against the old name carry a stale key that no schema-driven UI control writes to. Delete the stale `navigationmagneticVariance` key from `~/.signalk/plugin-config-data/signalk-nmea2000-emitter-cannon.json` and re-save through the admin UI if needed.
+
 ### v1.3.2 (2026/05/09) - Full-Codebase Simplify Pass and CI Publish
 
 **Schema correctness (admin UI / config persistence)**:

@@ -1,87 +1,112 @@
 # Signal K NMEA2000 Emitter Cannon
 
-![npm version](https://badge.fury.io/js/signalk-nmea2000-emitter-cannon.svg)
-![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat&logo=typescript&logoColor=white)
-![Signal K](https://img.shields.io/badge/Signal%20K-00D4AA?style=flat&logo=sailboat&logoColor=white)
+[![npm version](https://img.shields.io/npm/v/signalk-nmea2000-emitter-cannon.svg)](https://www.npmjs.com/package/signalk-nmea2000-emitter-cannon)
+[![npm downloads](https://img.shields.io/npm/dm/signalk-nmea2000-emitter-cannon.svg)](https://www.npmjs.com/package/signalk-nmea2000-emitter-cannon)
+[![License](https://img.shields.io/github/license/NearlCrews/signalk-nmea2000-emitter-cannon.svg)](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/blob/master/LICENSE)
+[![CI](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/actions/workflows/ci.yml/badge.svg)](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/actions/workflows/ci.yml)
 
-A modern TypeScript Signal K server plugin that converts Signal K data to NMEA 2000 format with enhanced Garmin compatibility.
+A Signal K plugin that converts Signal K deltas into NMEA 2000 messages. 45 conversion modules covering 52 data PGNs, aligned with Garmin ECHOMAP / GPSMAP / GMI specifications and the canboatjs encoder. Pairs well with sensor-side plugins such as [`signalk-virtual-weather-sensors`](https://github.com/NearlCrews/signalk-virtual-weather-sensors).
 
-> **Built on the foundation of [signalk-to-nmea2000](https://github.com/SignalK/signalk-to-nmea2000)**
->
-> This plugin is a modernized and enhanced version of the original signalk-to-nmea2000 plugin by Scott Bender and the Signal K community. Full credit to the original authors for the excellent foundation and protocol implementation.
+> Built on the foundation of [`signalk-to-nmea2000`](https://github.com/SignalK/signalk-to-nmea2000) by Scott Bender and the Signal K community.
+
+## What's new in 1.4.0
+
+- 30+ correctness fixes from a four-expert Signal K compliance review. Wire-level bugs in seven PGNs corrected (magneticVariance unit, dscCalls MMSI type, smallCraftStatus scaling, AIS SAR altitude sentinel, transmissionGear classification, bearingDistance reference fields, wind partial-data behavior).
+- Two inert features fixed: `RAYMARINE_BRIGHTNESS` and `EXHAUST_TEMPERATURE` now expose `groups` / `engines` array mappings in the admin UI.
+- Schema and path corrections: `RUDDER` subscribes to canonical `steering.rudderAngle` (was a non-spec `.main` suffix), `MAGNETIC_VARIANCE` source-path typo fixed, `ROUTE_WP_LIST` advertised PGN corrected to 130074, seven source-filter mismatches normalised.
+- Validation hardening: NaN and Infinity rejected at every numeric boundary, sub-second precision restored in PGN 126992 SystemTime, battery PGN 127506/127508 emit `undefined` sentinel instead of `null`.
+- Type system tightened to `JSONSchema7`, `PluginOptions` split into nested internal + raw wire shapes via `normalizePluginOptions`, `notifications.ts` typed via the official `Delta`.
+- Lifecycle hardening: `startPlugin` re-entry guard, `stopped` guards in every delta path, listener cleanup on every restart.
+
+See [CHANGELOG.md](CHANGELOG.md) for the full list.
 
 ## Features
 
-- **Modern TypeScript**: Fully typed under TypeScript 6 strict mode
-- **Broad PGN Coverage**: 45 conversion modules emitting 53 NMEA 2000 Parameter Group Numbers (plus 3 ISO PGNs announced in the transmit list)
-- **Signal K Native**: Seamless integration with Signal K server ecosystem using official `@signalk/server-api`
-- **Garmin Compatibility**: Aligned with Garmin PGN specifications and canboatjs framework
-- **Reactive Processing**: Built on RxJS 7.8 for efficient real-time data processing
-- **High Performance**: esbuild bundles to a single ~209 KB ESM file
-- **Fully Tested**: Vitest suite with CanboatJS round-trip encoding/decoding validation
-- **Lean Runtime Dependencies**: only RxJS 7.8 and `@signalk/server-api` types, pure ESM
-- **Latest Tooling**: Biome for linting/formatting, zero errors and warnings
-- **CI/CD Ready**: GitHub Actions for multi-version Node.js testing and auto-publish to npm on tagged releases (with sigstore provenance)
-- **Developer Experience**: Pre-commit hooks with husky + lint-staged
+- **45 conversion modules, 52 data PGNs** plus 3 ISO PGNs advertised in the 126464 transmit list
+- **Garmin-aligned** PGN priorities, SID fields, temperature-source enum values, and wind/bearing reference enums verified against the Garmin ECHOMAP UHD2 6/7/9 sv Owner's Manual (April 2026 v13)
+- **Strict TypeScript** under every TS 6 strict flag (`strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `noImplicitOverride`, `noImplicitReturns`, `noFallthroughCasesInSwitch`)
+- **Reactive subscriptions** via RxJS 7.8 with debounced multi-key aggregation and per-key freshness timeouts
+- **Source filtering** per conversion: pick a specific `$source` label or accept any
+- **Resend timers** per conversion plus a global default, so MFDs that expect periodic re-broadcast still see the data when the underlying source is quiet
+- **Single 330 KB ESM bundle** via esbuild; the only runtime dependency is RxJS (`@signalk/server-api` is type-only)
+- **Embedded canboatjs round-trip tests** on every conversion module (21 tests across 6 files)
+- **`$source: 'NMEA2000'` echo-guard** on AIS conversions to avoid re-emitting received AIS deltas back onto the bus
+- **Apache 2.0**, pure ESM, Node 20.18+
 
 ## Installation
 
-### Prerequisites
+Prerequisites: Node.js 20.18+, Signal K server 2.20+, and a supported NMEA 2000 gateway (e.g. Actisense NGT-1, Yacht Devices YDNR-02) connected so emitted messages reach the bus.
 
-- Node.js 20.18 or higher
-- Signal K server
-- A supported NMEA 2000 gateway (e.g., Actisense NGT-1, Yacht Devices YDNR-02) connected to Signal K for messages to reach the NMEA 2000 bus
-- npm or compatible package manager
+### Via Signal K AppStore
 
-### Install via Signal K AppStore
+Open the Signal K admin UI, navigate to AppStore, search for `signalk-nmea2000-emitter-cannon`, click Install.
 
-1. Open Signal K server admin interface
-2. Navigate to AppStore
-3. Search for "signalk-nmea2000-emitter-cannon"
-4. Click Install
+### From npm
 
-### Manual Installation
-
-**Option 1: From npm registry**
 ```bash
 cd ~/.signalk
 npm install signalk-nmea2000-emitter-cannon
 ```
 
-**Option 2: Link for development**
+### From source
+
 ```bash
-# Build and link from the source directory
+git clone https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon.git
+cd signalk-nmea2000-emitter-cannon
+npm install
 npm run build
-cd ~/.signalk
-npm link /path/to/signalk-nmea2000-emitter-cannon
+ln -s "$(pwd)" ~/.signalk/node_modules/signalk-nmea2000-emitter-cannon
 ```
 
 ## Configuration
 
-1. Navigate to Server → Plugin Config in Signal K admin interface
-2. Find "Signal K NMEA2000 Emitter Cannon" in the plugin list
-3. Enable the plugin
-4. Configure individual PGN conversions as needed
+In the Signal K admin UI, open Server → Plugin Config, find "Signal K NMEA2000 Emitter Cannon", enable the plugin, then configure each PGN conversion individually.
 
-### Configuration Options
+### Per-conversion options
 
-Each conversion can be individually enabled and configured:
+| Setting | Description | Default |
+|---------|-------------|---------|
+| **Enabled** | Toggle this conversion on or off | `false` |
+| **Resend** (seconds) | How often to re-emit the last value when no fresh delta has arrived. Overrides the global interval when non-zero. | `0` (use global) |
+| **Source filter** | Restrict which `$source` is accepted. Enter a label (e.g. `accuweather`) to match exactly or as a prefix (`gps1` matches `gps1.0`, `gps1.1`, ...). Leave blank to accept any source. | blank |
 
-- **Enabled**: Toggle individual PGN conversions on/off
-- **Global Resend Interval** (seconds, top-level): How often every enabled conversion re-emits its last value when the source hasn't changed. Many NMEA 2000 displays expect periodic updates.
-- **Resend** (seconds, per-conversion): Overrides the global interval for this conversion when non-zero. Set to 0 to use the global default.
-- **Source filter**: When multiple Signal K sources provide the same data path (e.g., two GPS receivers), enter a source label (e.g. `gps1`) to match any `$source` that starts with that label. Leave blank to accept any source.
+### Global option
 
-Some conversions require instance mapping to match your NMEA 2000 network:
+| Setting | Description | Default |
+|---------|-------------|---------|
+| **Global Resend Interval** (seconds) | Default resend cadence for every conversion whose own `Resend` is 0. Many NMEA 2000 displays expect periodic re-broadcast even when the underlying value is static. | `5` |
 
-- **Battery**: Map each Signal K battery ID to an NMEA 2000 battery instance ID
-- **Engine**: Map each Signal K engine ID to an NMEA 2000 engine instance ID
-- **Tank**: Map each Signal K tank path to an NMEA 2000 tank instance ID
-- **Solar**: Map each Signal K solar charger ID to an NMEA 2000 battery instance ID
+### Instance-mapped conversions
 
-## Supported PGNs (53 data PGNs across 45 modules)
+Some conversions require an explicit mapping from a Signal K identifier (battery id, engine id, etc.) to an NMEA 2000 instance number or label. These appear as a small editable array in the admin UI:
 
-All PGNs are aligned with Garmin specifications (corrected priorities, SID fields, field names).
+| Conversion | Mapping |
+|---|---|
+| `BATTERY` | Signal K battery id (e.g. `starter`, `house`) → N2K battery instance |
+| `ENGINE_PARAMETERS` | Signal K engine id → N2K engine instance |
+| `EXHAUST_TEMPERATURE` | Signal K engine id → N2K temperature instance |
+| `TANKS` | Signal K tank path → N2K tank instance |
+| `SOLAR` | Signal K charger id → N2K battery instance |
+| `RAYMARINE_BRIGHTNESS` | Signal K display-group id → Raymarine display label (e.g. `Helm 1`) |
+
+### Configuration hygiene
+
+Source filters bind to a literal `$source` value. If you decommission or rename a Signal K plugin, filters pointing at it become silent gates: the conversion looks enabled but drops every delta. Audit periodically by comparing the saved filter value to what's currently on the bus:
+
+```bash
+TOKEN=$(curl -s -X POST http://localhost:3000/signalk/v1/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"YOUR_PASSWORD"}' | jq -r .token)
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:3000/signalk/v1/api/vessels/self/<path>" \
+  | jq -r '."$source"'
+```
+
+If the live `$source` differs from your saved filter, the conversion is being silently gated. Update the filter or clear it (blank = accept any). Conversions with no published source for their path remain inert and cost nothing beyond startup work; disable them if you know they won't see data on your boat.
+
+## Supported PGNs (52 data PGNs across 45 modules)
+
+All PGNs are aligned with Garmin specifications (corrected priorities, SID fields, field names, reference enums).
 
 ### Navigation & Positioning
 
@@ -134,15 +159,17 @@ All PGNs are aligned with Garmin specifications (corrected priorities, SID field
 
 ### Environmental
 
-| PGN | Description | Module |
-|--------|-------------|--------|
-| 130306 | Wind Data (apparent, true ground, true water) | `wind.ts`, `windTrueGround.ts`, `windTrueWater.ts` |
-| 130310 | Environmental Parameters (sea temp, air temp, atmospheric pressure) | `seaTemp.ts` |
-| 130311 | Environmental Parameters (atmospheric pressure) | `environmentParameters.ts` |
-| 130312 | Temperature (exhaust + general-purpose sources) | `engineParameters.ts`, `temperature.ts` |
-| 130313 | Humidity (inside/outside) | `humidity.ts` |
-| 130314 | Actual Pressure (atmospheric) | `pressure.ts` |
-| 130316 | Temperature, Extended Range | `temperature.ts` |
+| PGN | Description | Module | Status |
+|--------|-------------|--------|--------|
+| 130306 | Wind Data (apparent, true ground, true water) | `wind.ts`, `windTrueGround.ts`, `windTrueWater.ts` | Current |
+| 130310 | Environmental Parameters (sea temp legacy) | `seaTemp.ts` | Legacy (still widely supported) |
+| 130311 | Environmental Parameters (atmospheric pressure) | `environmentParameters.ts` | Deprecated, replaced by 130313/130314/130316 |
+| 130312 | Temperature (exhaust + general-purpose sources) | `engineParameters.ts`, `temperature.ts` | Deprecated, replaced by 130316 |
+| 130313 | Humidity (inside/outside) | `humidity.ts` | Current |
+| 130314 | Actual Pressure (atmospheric) | `pressure.ts` | Current |
+| 130316 | Temperature, Extended Range | `temperature.ts` | Current (preferred by modern Garmin) |
+
+**Recommended for new Garmin installs**: enable the `TEMPERATURE2_*` (PGN 130316), `HUMIDITY_OUTSIDE` (PGN 130313), `PRESSURE` (PGN 130314), `WIND` / `WIND_TRUE_GROUND` / `WIND_TRUE` (PGN 130306) conversions and leave the deprecated `TEMPERATURE_*` (130312) and `ENVIRONMENT_PARAMETERS` (130311) disabled. Modern Garmin ECHOMAP / GPSMAP chartplotters receive all the current PGNs natively. The legacy / deprecated variants remain available for older displays that don't speak the newer PGNs.
 
 ### Electrical Systems
 
@@ -180,6 +207,24 @@ These appear in PGN 126464's transmit list to advertise ISO support, but the plu
 | 59392 | ISO Acknowledgement |
 | 59904 | ISO Request |
 | 60928 | ISO Address Claim |
+
+## Data Flow
+
+```
+Signal K deltas (any plugin or device) --> Signal K server bus
+                                                |
+                                          this plugin (subscribe + source filter)
+                                                |
+                                          conversion module callback (SK paths --> N2K fields)
+                                                |
+                                          plugin manager (debounce, freshness check, resend timer)
+                                                |
+                                          app.emit("nmea2000JsonOut", { prio, pgn, dst, fields })
+                                                |
+                                          Signal K NMEA2000 provider (e.g. canbus-canboatjs)
+                                                |
+                                          NMEA 2000 bus --> Garmin / Raymarine / B&G displays
+```
 
 ## Development
 
@@ -361,6 +406,13 @@ All conversion modules include embedded test cases that validate:
 - Check the Signal K server log for plugin errors.
 - Confirm the relevant conversion is enabled in the admin UI.
 - Confirm Signal K is publishing the source path you expect (verify with the Signal K data browser).
+- **Check that any source filter you've set still matches a live `$source`.** A source filter that points at a decommissioned plugin or a device that no longer publishes the path silently rejects every delta and the conversion appears to be enabled but emits nothing. Audit with:
+  ```bash
+  curl -s -H "Authorization: Bearer $TOKEN" \
+    "http://localhost:3000/signalk/v1/api/vessels/self/<path>" \
+    | jq -r '."$source"'
+  ```
+  Compare the result to the filter value saved in the admin UI for that conversion.
 
 ### Configuration changes don't take effect
 
@@ -393,8 +445,18 @@ Expected. The yellow bar in the Signal K admin dashboard's **Plugins activity** 
 - **Signal K Server**: 2.20.0+
 - **Node.js**: 20.18.0+
 - **CanboatJS**: 3.13.0+
-- **@signalk/server-api**: 2.10.2+
+- **`@signalk/server-api`**: 2.10.2+
 - **TypeScript**: 6.0+ (development only)
+
+### Tech Stack
+
+- TypeScript 6.0 (strict, ESM, Node 20.18+)
+- `@signalk/server-api` 2.10+
+- RxJS 7.8 (only runtime dependency that ships in the bundle)
+- esbuild 0.28 for bundling
+- Biome 2.4 for linting / formatting
+- Vitest 4.1 for testing (21 tests across 6 files with canboatjs round-trip validation)
+- Husky + lint-staged for pre-commit hooks
 
 ## License
 
@@ -406,12 +468,13 @@ Apache 2.0 License - see [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 
-This plugin builds upon the excellent foundation of the [**signalk-to-nmea2000**](https://github.com/SignalK/signalk-to-nmea2000) project:
+Built on the foundation of [`signalk-to-nmea2000`](https://github.com/SignalK/signalk-to-nmea2000) by Scott Bender and the Signal K community. Full credit to the original authors for the conversion framework and PGN implementations.
 
-- **Original Author**: Scott Bender and the Signal K community
-- **Original Implementation**: [signalk-to-nmea2000](https://github.com/SignalK/signalk-to-nmea2000) - NMEA 2000 conversion framework and PGN implementations
+- [Signal K Project](https://signalk.org/) for the marine data standard
+- [Canboat Project](https://github.com/canboat/canboat) for the NMEA 2000 protocol implementation that the canboatjs encoder is built on
 
-**Additional Thanks**:
-- [Signal K Project](https://signalk.org/) for the excellent marine data standard
-- [Canboat Project](https://github.com/canboat/canboat) for NMEA 2000 protocol implementation
-- The Signal K community for feedback, testing, and contributions
+## Support
+
+- [Report a bug](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/issues/new?template=bug_report.md)
+- [Request a feature](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/issues/new?template=feature_request.md)
+- [Security issues](SECURITY.md)

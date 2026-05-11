@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Signal K NMEA2000 Emitter Cannon is a TypeScript Signal K server plugin that converts Signal K marine navigation data to NMEA 2000 format. It supports 45 conversion modules emitting 53 data PGNs (plus 3 ISO PGNs announced in the transmit list) with Garmin compatibility.
+Signal K NMEA2000 Emitter Cannon is a TypeScript Signal K server plugin that converts Signal K marine navigation data to NMEA 2000 format. It supports 45 conversion modules emitting 52 data PGNs (plus 3 ISO PGNs announced in the transmit list) with Garmin compatibility.
 
 ## Common Commands
 

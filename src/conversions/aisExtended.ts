@@ -72,6 +72,12 @@ export default function createAisExtendedConversions(
 					return [];
 				}
 
+				// Drop the frame until self MMSI is published. parseMmsi() returns
+				// 0 when the SK value is missing or unparseable, and emitting an
+				// MMSI=0 AIS frame would broadcast as a malformed contact.
+				const mmsi = selfMmsi();
+				if (!mmsi) return [];
+
 				return [
 					{
 						prio: N2K_DEFAULT_PRIORITY,
@@ -80,7 +86,7 @@ export default function createAisExtendedConversions(
 						fields: {
 							messageId: "Standard Class B position report",
 							repeatIndicator: "Initial",
-							userId: selfMmsi(),
+							userId: mmsi,
 							longitude: position.longitude,
 							latitude: position.latitude,
 							positionAccuracy: "Low",
@@ -194,6 +200,10 @@ export default function createAisExtendedConversions(
 					return [];
 				}
 
+				// Drop until self MMSI is published; see PGN 129039 above.
+				const mmsi = selfMmsi();
+				if (!mmsi) return [];
+
 				let fromStarboard: number | null = null;
 				if (isValidNumber(beam) && isValidNumber(fromCenter)) {
 					fromStarboard = beam / 2 + fromCenter;
@@ -214,7 +224,7 @@ export default function createAisExtendedConversions(
 						fields: {
 							messageId: "Extended Class B position report",
 							repeatIndicator: "Initial",
-							userId: selfMmsi(),
+							userId: mmsi,
 							longitude: position.longitude,
 							latitude: position.latitude,
 							positionAccuracy: "Low",
@@ -336,6 +346,10 @@ export default function createAisExtendedConversions(
 					return [];
 				}
 
+				// Drop until self MMSI is published; see PGN 129039 above.
+				const mmsi = selfMmsi();
+				if (!mmsi) return [];
+
 				return [
 					{
 						prio: N2K_DEFAULT_PRIORITY,
@@ -344,7 +358,7 @@ export default function createAisExtendedConversions(
 						fields: {
 							messageId: "Standard SAR aircraft position report",
 							repeatIndicator: "Initial",
-							userId: selfMmsi(),
+							userId: mmsi,
 							longitude: position.longitude,
 							latitude: position.latitude,
 							positionAccuracy: "High",
@@ -404,6 +418,13 @@ export default function createAisExtendedConversions(
 		},
 
 		// AIS Safety Related Broadcast Message (PGN 129802)
+		//
+		// Broadcasting AIS safety messages may be regulated in some
+		// jurisdictions (transmit-class AIS station licensing, e.g. FCC ship
+		// station licence in the US). This conversion is disable-by-default;
+		// operators must opt in via the plugin config and are responsible for
+		// confirming local rules permit transmit on AIS frequencies before
+		// enabling.
 		{
 			title: "AIS Safety Related Broadcast Message (PGN 129802)",
 			optionKey: "AIS_SAFETY_MESSAGE",
@@ -416,6 +437,10 @@ export default function createAisExtendedConversions(
 					return [];
 				}
 
+				// Drop until self MMSI is published; see PGN 129039 above.
+				const mmsi = selfMmsi();
+				if (!mmsi) return [];
+
 				// "Satety related" is the canonical canboat enum string;
 				// the misspelling lives in the upstream lookup table.
 				return [
@@ -426,7 +451,7 @@ export default function createAisExtendedConversions(
 						fields: {
 							messageId: "Satety related broadcast message",
 							repeatIndicator: "Initial",
-							sourceId: selfMmsi(),
+							sourceId: mmsi,
 							reserved: 1,
 							aisTransceiverInformation: "Channel A VDL reception",
 							safetyRelatedText: safetyMessage.substring(0, 161),

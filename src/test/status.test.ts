@@ -61,3 +61,19 @@ describe("PluginManager.getStatusSnapshot", () => {
 		expect(snap.perConversion.every((c) => c.emitCount === 0)).toBe(true);
 	});
 });
+
+describe("PluginManager.getConversionMetadata", () => {
+	it("returns one entry per loaded conversion with key/category/extras", () => {
+		const app = makeMockApp();
+		const pm = new PluginManager(app, mockPlugin);
+		const meta = pm.getConversionMetadata();
+		expect(meta.length).toBeGreaterThan(40);
+		const first = meta[0];
+		expect(first).toBeDefined();
+		expect(first).toHaveProperty("key");
+		expect(first).toHaveProperty("category");
+		expect(first).toHaveProperty("extras");
+		expect(first).toHaveProperty("pgns");
+		expect(Array.isArray(first?.pgns)).toBe(true);
+	});
+});

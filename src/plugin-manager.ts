@@ -1,5 +1,7 @@
 import type { Context, NormalizedDelta, Path } from "@signalk/server-api";
 import { debounceTime, Subject } from "rxjs";
+import { metaFor } from "./api/extras-meta.js";
+import type { ConversionMetadata } from "./api/types.js";
 import { migrateLegacyConfig } from "./config/migrate.js";
 import {
 	DEFAULT_GLOBAL_RESEND_SECONDS,
@@ -35,6 +37,22 @@ function resolveKeys(
 	if (keys === undefined) return [];
 	if (typeof keys === "function") return keys(options);
 	return keys;
+}
+
+/**
+ * Extract the PGN list out of a conversion title. Titles follow either
+ * "Name (PGN 130306)" or "Name (PGNs 127506, 127508)". Returns the digit
+ * strings; falls back to [] for titles that do not match the pattern so a
+ * malformed or non-conforming title does not drop the conversion from the
+ * metadata response.
+ */
+function extractPgnsFromTitle(title: string): string[] {
+	const match = title.match(/PGNs?\s+([\d,\s]+)\)/);
+	if (!match || match[1] === undefined) return [];
+	return match[1]
+		.split(",")
+		.map((s) => s.trim())
+		.filter(Boolean);
 }
 
 // Not idempotent on a reused instance: stop() clears this.conversions and
@@ -792,6 +810,24 @@ export class PluginManager {
 			perConversion,
 			startTime: this.startTime,
 		};
+	}
+
+	/**
+	 * Catalog of loaded conversion modules for the panel's `/api/conversions`
+	 * endpoint. One entry per module loaded at construction. `paths` is empty
+	 * for modules whose keys are a function of runtime config (e.g. per-engine
+	 * factories): the panel falls back to free-text in that case.
+	 */
+	public getConversionMetadata(): ConversionMetadata[] {
+		return this.conversions.map((c) => ({
+			key: c.optionKey,
+			title: c.title,
+			pgns: extractPgnsFromTitle(c.title),
+			category: c.category,
+			presets: c.presets ?? [],
+			paths: typeof c.keys === "function" ? [] : (c.keys ?? []),
+			extras: metaFor(c),
+		}));
 	}
 
 	private outputTypes: Record<string, OutputTypeProcessor> = {

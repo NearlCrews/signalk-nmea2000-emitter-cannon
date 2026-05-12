@@ -80,12 +80,36 @@ export class PluginManager {
 	 * identifier (e.g. `callback:<optionKey>:<source>`). A conversion bug that
 	 * fires on every delta would otherwise flood the server log; this collapses
 	 * a run of identical errors into one log per window plus a final summary.
+	 *
+	 * `lastMessage` / `lastEmittedAt` are captured at the bucket-write site so
+	 * getStatusSnapshot() can surface the most recent emitted error and its age
+	 * without re-scanning the log.
 	 */
-	private errorBuckets: Map<string, { suppressed: number; nextEmit: number }> =
-		new Map();
+	private errorBuckets: Map<
+		string,
+		{
+			suppressed: number;
+			nextEmit: number;
+			lastMessage?: string;
+			lastEmittedAt?: number;
+		}
+	> = new Map();
 	private static readonly ERROR_THROTTLE_S = 60;
 	private static readonly ERROR_THROTTLE_MS =
 		PluginManager.ERROR_THROTTLE_S * 1000;
+	/**
+	 * Set of optionKeys that were enabled during the most recent start(). Kept
+	 * in parallel with `lastEnabledCount` so getStatusSnapshot() can mark each
+	 * conversion as enabled/disabled without re-running the start() sweep.
+	 */
+	private lastEnabledKeys: Set<string> | null = null;
+	/**
+	 * Per-conversion emit counters and timestamps for status reporting. Updated
+	 * via recordEmit() in the per-message emit path: one Map.set per emit.
+	 */
+	private emitCounts: Map<string, number> = new Map();
+	private lastEmitAt: Map<string, number> = new Map();
+	private startTime = Date.now();
 
 	constructor(app: SignalKApp, plugin: SignalKPlugin) {
 		this.app = app;
@@ -155,6 +179,8 @@ export class PluginManager {
 			this.errorBuckets.set(key, {
 				suppressed: 0,
 				nextEmit: now + PluginManager.ERROR_THROTTLE_MS,
+				lastMessage: message,
+				lastEmittedAt: now,
 			});
 			return;
 		}
@@ -236,12 +262,14 @@ export class PluginManager {
 			);
 
 			let enabledCount = 0;
+			const enabledKeys = new Set<string>();
 			for (const conv of this.conversions) {
 				const convOptions = options.conversions[conv.optionKey];
 				const isEnabled =
 					isConversionOptions(convOptions) && convOptions.enabled === true;
 				if (!isEnabled) continue;
 				enabledCount++;
+				enabledKeys.add(conv.optionKey);
 
 				this.app.debug(`Enabling: ${this.moduleLabel(conv)}`);
 
@@ -299,6 +327,7 @@ export class PluginManager {
 			}
 
 			this.lastEnabledCount = enabledCount;
+			this.lastEnabledKeys = enabledKeys;
 			if (enabledCount === 0) {
 				this.app.setPluginStatus(
 					"No conversions enabled. Enable at least one in plugin settings.",
@@ -387,6 +416,9 @@ export class PluginManager {
 		// reports an accurate enabled count and does not inherit suppressed
 		// errors from the prior cycle.
 		this.lastEnabledCount = 0;
+		this.lastEnabledKeys = null;
+		safe("clear emitCounts", () => this.emitCounts.clear());
+		safe("clear lastEmitAt", () => this.lastEmitAt.clear());
 		safe("clear errorBuckets", () => this.errorBuckets.clear());
 
 		// Wipe ExponentialSmoother state across plugin restarts.
@@ -417,7 +449,7 @@ export class PluginManager {
 				const values = await Promise.resolve(output);
 				const processor = this.outputTypes[OUTPUT_TYPE.TO_N2K];
 				if (processor) {
-					await processor(values);
+					await processor(values, conversion.optionKey);
 				}
 			}
 		} catch (err) {
@@ -456,7 +488,7 @@ export class PluginManager {
 					if (this.stopped) return;
 					const processor = this.outputTypes[OUTPUT_TYPE.TO_N2K];
 					if (processor) {
-						await processor(values);
+						await processor(values, conversion.optionKey);
 					}
 				} catch (err) {
 					const message = errMessage(err);
@@ -671,7 +703,10 @@ export class PluginManager {
 		[SOURCE_TYPE.TIMER]: (...args) => this.mapTimer(...args),
 	};
 
-	private async processToN2K(values: N2KMessage[] | null): Promise<void> {
+	private async processToN2K(
+		values: N2KMessage[] | null,
+		optionKey?: string,
+	): Promise<void> {
 		if (!values) return;
 
 		if (!this.nmea2000Ready) {
@@ -692,6 +727,9 @@ export class PluginManager {
 						);
 					}
 					this.app.emit("nmea2000JsonOut", validatedPgn);
+					if (optionKey !== undefined) {
+						this.recordEmit(optionKey);
+					}
 				} catch (err) {
 					this.app.error(
 						`Error writing PGN ${JSON.stringify(pgn)}: ${errMessage(err)}`,
@@ -703,6 +741,57 @@ export class PluginManager {
 		} catch (err) {
 			this.app.error(`Error processing N2K values: ${errMessage(err)}`);
 		}
+	}
+
+	/**
+	 * Per-message hook called immediately after the `nmea2000JsonOut` emit.
+	 * One Map.set per emit; no other allocations. Used by getStatusSnapshot()
+	 * to surface live emit rate / last-emit age in the panel.
+	 */
+	private recordEmit(key: string): void {
+		this.emitCounts.set(key, (this.emitCounts.get(key) ?? 0) + 1);
+		this.lastEmitAt.set(key, Date.now());
+	}
+
+	/**
+	 * Snapshot of plugin runtime state for the panel's status dashboard.
+	 * Read-only; callers must not retain references to the returned arrays
+	 * across event-loop turns since this PluginManager may stop and clear them.
+	 */
+	public getStatusSnapshot(): import("./api/types.js").StatusSnapshot {
+		const now = Date.now();
+		const enabledKeys = this.lastEnabledKeys ?? new Set<string>();
+		const perConversion: import("./api/types.js").PerConversionStatus[] =
+			this.conversions.map((c) => {
+				const lastEmitAt = this.lastEmitAt.get(c.optionKey);
+				const bucket = this.errorBuckets.get(
+					this.bucketKey("callback", c, "stream"),
+				);
+				const entry: import("./api/types.js").PerConversionStatus = {
+					key: c.optionKey,
+					title: c.title,
+					enabled: enabledKeys.has(c.optionKey),
+					emitCount: this.emitCounts.get(c.optionKey) ?? 0,
+				};
+				if (lastEmitAt !== undefined) {
+					entry.lastEmitMs = now - lastEmitAt;
+				}
+				if (bucket?.lastMessage !== undefined) {
+					entry.lastErrorMessage = bucket.lastMessage;
+				}
+				if (bucket?.lastEmittedAt !== undefined) {
+					entry.lastErrorAgeMs = now - bucket.lastEmittedAt;
+				}
+				return entry;
+			});
+
+		return {
+			nmea2000Ready: this.nmea2000Ready,
+			enabledCount: this.lastEnabledCount,
+			totalConversions: this.conversions.length,
+			perConversion,
+			startTime: this.startTime,
+		};
 	}
 
 	private outputTypes: Record<string, OutputTypeProcessor> = {

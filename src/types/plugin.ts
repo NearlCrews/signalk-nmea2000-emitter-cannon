@@ -122,6 +122,7 @@ export type SourceTypeMapper = (
 
 export type OutputTypeProcessor = (
 	values: N2KMessage[] | null,
+	optionKey?: string,
 ) => Promise<void>;
 
 export type ConversionModuleFactory = (

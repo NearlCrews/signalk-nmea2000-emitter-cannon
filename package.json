@@ -59,7 +59,7 @@
 	],
 	"license": "Apache-2.0",
 	"dependencies": {
-		"@signalk/server-api": "^2.10.2",
+		"@signalk/server-api": "^2.24.0",
 		"@sinclair/typebox": "^0.34.49",
 		"rxjs": "^7.8.2"
 	},
@@ -79,7 +79,7 @@
 		"@canboat/canboatjs": "^3.18.0",
 		"@types/express": "^5.0.6",
 		"@types/json-schema": "^7.0.15",
-		"@types/node": "^25.0.9",
+		"@types/node": "^25.7.0",
 		"@types/react": "^19.2.14",
 		"@types/react-dom": "^19.2.3",
 		"@types/supertest": "^7.2.0",
@@ -93,7 +93,7 @@
 		"react": "^19.2.6",
 		"react-dom": "^19.2.6",
 		"sharp": "^0.34.5",
-		"signalk-server": "^2.20.0",
+		"signalk-server": "^2.27.0",
 		"supertest": "^7.2.2",
 		"tsx": "^4.21.0",
 		"typescript": "^6.0.3",

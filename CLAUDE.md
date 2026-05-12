@@ -63,7 +63,7 @@ The registry `src/conversions/index.ts` imports all factories and exports `creat
 - `src/conversions/routeTypes.ts` - Shared `Position`/`Waypoint` interfaces, `DEFAULT_ROUTE_NAME`, and per-PGN waypoint capacity constants (`MAX_RPS_WAYPOINTS`, `MAX_WP_LIST_WAYPOINTS`)
 
 ### Configuration Schema
-`src/schema.ts` generates JSON Schema for Signal K admin UI. Each conversion gets enabled/resend/source filter options.
+`src/config/schema.ts` defines the TypeBox `RootConfig` schema. `Plugin.schema` returns the TypeBox value directly (it IS a valid JSON Schema literal at runtime). Adding a new conversion does NOT require new schema entries because `Conversion` already accepts a `Record<string, ConversionConfig>` with `enabled`, `resend`, `sources`, and `extras` per key. Per-conversion identity comes from each module's `category` and optional `presets` metadata.
 
 ## Testing
 
@@ -75,7 +75,7 @@ Tests live in `src/test/index.test.ts`. Each conversion module embeds its own te
 ## Key Technical Details
 
 - **Runtime**: Node.js 20.18+, pure ESM modules
-- **Build**: esbuild bundles to single `dist/index.js` (~338 KB)
+- **Build**: esbuild bundles to single `dist/index.js` (as of v1.5.0, ~447 KB)
 - **Externals**: rxjs (only runtime dependency kept out of the bundle; @signalk/server-api is type-only)
 - **Reactivity**: RxJS for Signal K data subscriptions (Signal K server uses BaconJS internally)
 - **N2K Message Format**: CanboatJS format: `{ prio, pgn, dst, fields: {...} }`
@@ -178,7 +178,7 @@ Federation specifics:
 
 Adding a new conversion now requires:
 
-1. Create the module in `src/conversions/`, including `category` (required: one of `navigation`, `engine`, `electrical`, `tanks`, `environment`, `ais`, `comms`, `system`) and optional `presets` (e.g. `["basic-navigation"]`).
+1. Create the module in `src/conversions/`, including `category` (required: one of `navigation`, `engine`, `electrical`, `tanks`, `environment`, `ais`, `comms`, `system`) and optional `presets` (e.g. `["basic-nav"]`).
 2. Add to the registry in `src/conversions/index.ts`.
 3. If the conversion has extras requiring an editor, add an `ExtrasMeta` entry in `src/api/extras-meta.ts`. If a new editor type is required, add the React component under `src/panel/components/extras/` and wire it into the discriminator in `src/panel/components/ExtrasEditor.tsx`.
 4. Add test cases in the module's `tests` array.
@@ -189,16 +189,8 @@ Source discovery: `enumerateSourcesForPath` uses `app.getSelfPath(path)` because
 
 ## Common Pitfalls
 
-1. **Schema/optionKey Mismatch**: The `optionKey` in each conversion module MUST match the key in `src/schema.ts`. Mismatches prevent users from enabling conversions.
+1. **optionKey identity**: Each conversion module's `optionKey` is the key under `conversions: Record<string, ConversionConfig>` in the persisted config. It must be unique across modules and stable across releases (renaming silently strands users' saved settings). The TypeBox schema accepts any string key, so no separate registry entry is required.
 
 2. **Subscription Path Types**: When using `subscriptionmanager.subscribe()`, paths must be cast to `Path` type.
 
 3. **Error Callback Types**: Subscription error callbacks receive `unknown`, not `Error`.
-
-## Adding a New Conversion
-
-1. Create `src/conversions/yourConversion.ts` using the factory pattern above
-2. Add to `src/conversions/index.ts` registry
-3. Add schema entry in `src/schema.ts`
-4. Include test cases in the module's `tests` array
-5. Run `npm test` and `npm run typecheck`

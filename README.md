@@ -62,8 +62,8 @@ See [CHANGELOG.md](CHANGELOG.md) for the full list.
 - **Reactive subscriptions** via RxJS 7.8 with debounced multi-key aggregation and per-key freshness timeouts
 - **Source filtering** per conversion: pick a specific `$source` label or accept any
 - **Resend timers** per conversion plus a global default, so MFDs that expect periodic re-broadcast still see the data when the underlying source is quiet
-- **Single ~340 KB ESM bundle** via esbuild; the only runtime dependency is RxJS (`@signalk/server-api` is type-only)
-- **Embedded canboatjs round-trip tests** on every conversion module (21 tests across 6 files)
+- **Single ESM bundle** via esbuild (as of v1.5.0, ~447 KB); the only runtime dependency is RxJS (`@signalk/server-api` is type-only)
+- **Embedded canboatjs round-trip tests** on every conversion module (as of v1.5.0, 50 tests across 9 files)
 - **`$source: 'NMEA2000'` echo-guard** on AIS conversions to avoid re-emitting received AIS deltas back onto the bus
 - **Apache 2.0**, pure ESM, Node 20.18+
 
@@ -363,11 +363,11 @@ The workflow also supports manual `workflow_dispatch` with a `tag` input from th
 
 1. Create `src/conversions/yourConversion.ts` using the factory pattern below
 2. Import and register in `src/conversions/index.ts` (add to imports and `conversionFactories` array)
-3. Add a configuration entry in `src/schema.ts` with `enabled` and `resend` properties
+3. If the conversion has custom mapping or field editors, add an `ExtrasMeta` entry in `src/api/extras-meta.ts`; otherwise this step is unnecessary because the TypeBox schema in `src/config/schema.ts` already accepts any conversion key with `enabled`, `resend`, `sources`, and `extras`.
 4. Include embedded test cases in the module's `tests` array
 5. Run `npm test` and `npm run typecheck`
 
-As of v1.5.0 each conversion module also carries a required `category` field (one of `navigation`, `engine`, `electrical`, `tanks`, `environment`, `ais`, `comms`, `system`) and an optional `presets` array (e.g. `["basic-navigation"]`). These drive the category tabs and preset chips in the React panel. See `CLAUDE.md` for the full set of conventions, the extras-editor wiring contract, and the source-discovery rules the panel relies on.
+As of v1.5.0 each conversion module also carries a required `category` field (one of `navigation`, `engine`, `electrical`, `tanks`, `environment`, `ais`, `comms`, `system`) and an optional `presets` array (e.g. `["basic-nav"]`). These drive the category tabs and preset chips in the React panel. See `CLAUDE.md` for the full set of conventions, the extras-editor wiring contract, and the source-discovery rules the panel relies on.
 
 Example conversion module:
 
@@ -508,7 +508,7 @@ Expected. The yellow bar in the Signal K admin dashboard's **Plugins activity** 
 - RxJS 7.8 (only runtime dependency that ships in the bundle)
 - esbuild 0.28 for bundling
 - Biome 2.4 for linting / formatting
-- Vitest 4.1 for testing (21 tests across 6 files with canboatjs round-trip validation)
+- Vitest 4.1 for testing (as of v1.5.0, 50 tests across 9 files with canboatjs round-trip validation)
 - Husky + lint-staged for pre-commit hooks
 
 ## License

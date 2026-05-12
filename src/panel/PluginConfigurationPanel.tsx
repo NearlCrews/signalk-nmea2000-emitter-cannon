@@ -32,15 +32,24 @@ export default function PluginConfigurationPanel({
 	const { state, savedState, dispatch, markSaved } = useConfig(configuration);
 	const { sourcesFor, ensureLoaded } = useSources();
 	const [meta, setMeta] = useState<ConversionMetadata[]>([]);
+	const [metaError, setMetaError] = useState<string | null>(null);
 	const [tab, setTab] = useState<ConversionCategory>("navigation");
 
 	useEffect(() => {
 		fetch(`${PLUGIN_API_BASE}/conversions`, {
 			credentials: "same-origin",
 		})
-			.then((r) => r.json() as Promise<ConversionsResponse>)
-			.then((d) => setMeta(d.conversions))
-			.catch(() => {});
+			.then(async (r) => {
+				if (!r.ok) throw new Error(`HTTP ${r.status}`);
+				return (await r.json()) as ConversionsResponse;
+			})
+			.then((d) => {
+				setMeta(d.conversions);
+				setMetaError(null);
+			})
+			.catch((e) => {
+				setMetaError(String(e));
+			});
 	}, []);
 
 	// Reducer cases always return a new object on change, so identity equality
@@ -66,6 +75,11 @@ export default function PluginConfigurationPanel({
 			<StatusDashboard status={status} />
 			{error ? (
 				<p style={{ color: "crimson", fontSize: 12 }}>Status error: {error}</p>
+			) : null}
+			{metaError ? (
+				<p style={{ color: "crimson", fontSize: 12 }}>
+					Conversion catalog error: {metaError}
+				</p>
 			) : null}
 			<PresetChips
 				onApply={(p) => dispatch({ type: "applyPreset", preset: p, meta })}

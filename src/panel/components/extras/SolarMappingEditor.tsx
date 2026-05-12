@@ -2,6 +2,9 @@ import type * as React from "react";
 import { S } from "../../styles";
 import MappingTable from "./MappingTable";
 
+// signalkId is the final segment of the SK solar charger key (e.g. "0", "1",
+// "mppt-1") under electrical.solar.<id>, not the full SK path. Tank rows use
+// signalkPath for the full path; do not unify these names.
 interface Row {
 	signalkId: string;
 	instanceId: number;

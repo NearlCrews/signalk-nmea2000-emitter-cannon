@@ -2,6 +2,11 @@ import type * as React from "react";
 import { S } from "../../styles";
 import MappingTable from "./MappingTable";
 
+// signalkId is the final segment of the SK Raymarine brightness group key
+// (e.g. "helm", "nav", "cabin"), not the full SK path. Tank rows use
+// signalkPath for the full path; do not unify these names. instanceId
+// here is the human-readable NMEA 2000 group label string (not a numeric
+// id like the other editors): rename in a future cleanup if it bites.
 interface Row {
 	signalkId: string;
 	instanceId: string;

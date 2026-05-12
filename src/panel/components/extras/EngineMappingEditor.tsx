@@ -2,6 +2,9 @@ import type * as React from "react";
 import { S } from "../../styles";
 import MappingTable from "./MappingTable";
 
+// signalkId is the final segment of the SK propulsion key (e.g. "main",
+// "port", "starboard") under propulsion.<id>, not the full SK path. Tank
+// rows use signalkPath for the full path; do not unify these names.
 interface Row {
 	signalkId: string;
 	instanceId: number;

@@ -2,6 +2,10 @@ import type * as React from "react";
 import { S } from "../../styles";
 import MappingTable from "./MappingTable";
 
+// signalkId is the final segment of the SK battery key (e.g. "house",
+// "starter", "0") under electrical.batteries.<id>, not the full SK path.
+// Tank rows by contrast use the full SK path because tanks.<type>.<id> is
+// not a single identifier. Do not rename this to signalkPath.
 interface Row {
 	signalkId: string;
 	instanceId: number;

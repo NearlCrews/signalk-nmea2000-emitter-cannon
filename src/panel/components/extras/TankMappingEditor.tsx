@@ -2,6 +2,10 @@ import type * as React from "react";
 import { S } from "../../styles";
 import MappingTable from "./MappingTable";
 
+// signalkPath is the full SK path (e.g. "tanks.fuel.0") because the SK tank
+// identity is the {type, instance} pair, not a single trailing segment.
+// Battery/engine/solar/exhaust/brightness editors use signalkId for the last
+// segment under a single registry root. Do not unify these names.
 interface Row {
 	signalkPath: string;
 	instanceId: number;

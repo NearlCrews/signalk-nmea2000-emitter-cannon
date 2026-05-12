@@ -6,9 +6,6 @@ import { migrateLegacyConfig } from "../../config/migrate";
 import type { Config, ConversionConfig } from "../../config/schema.js";
 
 type Action =
-	// `init` is reserved for external swaps of the entire config (future use).
-	// Legacy migration runs synchronously at hook init via useState initializer.
-	| { type: "init"; config: Config }
 	| { type: "setEnabled"; key: string; enabled: boolean }
 	| { type: "setResend"; key: string; ms: number }
 	| { type: "setSource"; key: string; path: string; source: string }
@@ -45,7 +42,6 @@ function withEntry(
 
 function reducer(state: Config, action: Action): Config {
 	switch (action.type) {
-		case "init":
 		case "discard":
 			return action.config;
 		case "setGlobalResend":

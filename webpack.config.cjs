@@ -31,7 +31,16 @@ module.exports = {
 			},
 		],
 	},
-	resolve: { extensions: [".tsx", ".ts", ".jsx", ".js"] },
+	resolve: {
+		extensions: [".tsx", ".ts", ".jsx", ".js"],
+		// Map ESM-style ".js" specifiers onto sibling ".ts" sources so
+		// panel-reachable modules can use the same import paths the Node plugin
+		// build (esbuild) accepts.
+		extensionAlias: {
+			".js": [".ts", ".tsx", ".js"],
+			".mjs": [".mts", ".mjs"],
+		},
+	},
 	plugins: [
 		new webpack.container.ModuleFederationPlugin({
 			name: safeName,

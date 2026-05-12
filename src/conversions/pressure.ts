@@ -32,6 +32,8 @@ export default function createPressureConversions(
 		{
 			title: "Atmospheric Pressure (PGN 130314)",
 			optionKey: "PRESSURE",
+			category: "environment",
+			presets: ["environmental"],
 			keys: ["environment.outside.pressure"],
 			callback: (pressure: unknown): N2KMessage[] => {
 				if (!isValidNumber(pressure)) {

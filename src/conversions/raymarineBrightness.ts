@@ -91,6 +91,8 @@ export default function createRaymarineBrightnessConversion(
 	return {
 		title: "Raymarine Display Brightness (PGN 126720)",
 		optionKey: "RAYMARINE_BRIGHTNESS",
+		category: "comms",
+		presets: ["raymarine"],
 		conversions,
 	};
 }

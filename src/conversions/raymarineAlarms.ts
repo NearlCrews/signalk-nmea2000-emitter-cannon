@@ -68,6 +68,8 @@ export default function createRaymarineAlarmsConversion(): ConversionModule {
 	return {
 		title: "Raymarine Seatalk Alarms (PGN 65288)",
 		optionKey: "RAYMARINE_ALARMS",
+		category: "comms",
+		presets: ["raymarine"],
 		keys: [...SUBSCRIBED_KEYS],
 		context: VESSELS_SELF_CONTEXT,
 		sourceType: "subscription",

@@ -12,6 +12,7 @@ export default function createLeewayConversion(
 	return {
 		title: "Leeway Angle (PGN 128000)",
 		optionKey: "LEEWAY",
+		category: "navigation",
 		keys: ["navigation.leewayAngle"],
 		callback: ((leeway: number | null) => {
 			if (!isValidNumber(leeway)) {

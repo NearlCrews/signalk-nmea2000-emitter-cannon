@@ -16,6 +16,8 @@ export default function createWindConversion(
 	return {
 		title: "Wind (PGN 130306)",
 		optionKey: "WIND",
+		category: "navigation",
+		presets: ["basic-nav"],
 		keys: ["environment.wind.angleApparent", "environment.wind.speedApparent"],
 		callback: ((angle: number | null, speed: number | null) => {
 			if (!isValidNumber(angle) && !isValidNumber(speed)) {

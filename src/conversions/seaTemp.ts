@@ -16,6 +16,8 @@ export default function createSeaTempConversion(
 	return {
 		title: "Sea Temperature (PGN 130310)",
 		optionKey: "SEA_TEMP",
+		category: "environment",
+		presets: ["environmental"],
 		keys: [
 			"environment.water.temperature",
 			"environment.outside.temperature",

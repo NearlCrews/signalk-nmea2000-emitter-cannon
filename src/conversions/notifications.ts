@@ -149,6 +149,7 @@ export default function createNotificationsConversion(
 	return {
 		title: "Notifications (PGNs 126983, 126985)",
 		optionKey: "NOTIFICATIONS",
+		category: "comms",
 		keys: ["notifications.*"],
 		context: VESSELS_SELF_CONTEXT,
 		sourceType: "subscription",

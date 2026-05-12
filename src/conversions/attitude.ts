@@ -23,6 +23,7 @@ export default function createAttitudeConversion(
 	return {
 		title: "Vessel Attitude (PGN 127257)",
 		optionKey: "ATTITUDE",
+		category: "navigation",
 		keys: ["navigation.attitude"],
 		callback: ((attitude: AttitudeData) => {
 			if (!attitude || typeof attitude !== "object") {

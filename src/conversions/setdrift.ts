@@ -12,6 +12,7 @@ export default function createSetDriftConversion(
 	return {
 		title: "Set and Drift (PGN 129291)",
 		optionKey: "SET_DRIFT",
+		category: "navigation",
 		keys: ["environment.current.setTrue", "environment.current.drift"],
 		callback: (set: unknown, drift: unknown): N2KMessage[] => {
 			const setValue = toValidNumber(set);

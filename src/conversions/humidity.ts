@@ -36,6 +36,8 @@ export default function createHumidityConversions(
 		{
 			title: "Outside Humidity (PGN 130313)",
 			optionKey: "HUMIDITY_OUTSIDE",
+			category: "environment",
+			presets: ["environmental"],
 			// Some upstream plugins publish `environment.outside.humidity`,
 			// others publish `environment.outside.relativeHumidity`. The
 			// `relativeHumidity` path wins when both are present.
@@ -139,6 +141,8 @@ export default function createHumidityConversions(
 		{
 			title: "Inside Humidity (PGN 130313)",
 			optionKey: "HUMIDITY_INSIDE",
+			category: "environment",
+			presets: ["environmental"],
 			keys: ["environment.inside.relativeHumidity"],
 			callback: ((humidity: number | null) => {
 				if (!isValidNumber(humidity)) {

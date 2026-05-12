@@ -14,6 +14,8 @@ export default function createEngineStaticConversion(
 	return {
 		title: "Engine Configuration Parameters (PGN 127498)",
 		optionKey: "ENGINE_STATIC",
+		category: "engine",
+		presets: ["engine-set"],
 		keys: [
 			"propulsion.main.ratedEngineSpeed",
 			"propulsion.main.VIN",

@@ -14,6 +14,7 @@ export default function createTimeToMarkConversion(): ConversionModule {
 	return {
 		title: "Time to Mark (PGN 129301)",
 		optionKey: "TIME_TO_MARK",
+		category: "navigation",
 		// canboat 129301 has only timeToMark; the SK previousPoint.timeSince
 		// path has no canonical home in this PGN.
 		keys: [

@@ -28,6 +28,7 @@ export default function createGnssDataConversions(
 		{
 			title: "GNSS DOPs (PGN 129539)",
 			optionKey: "GNSS_DOPS",
+			category: "navigation",
 			keys: [
 				"navigation.gnss.horizontalDilution",
 				"navigation.gnss.verticalDilution",
@@ -123,6 +124,7 @@ export default function createGnssDataConversions(
 		{
 			title: "GNSS Satellites (PGN 129540)",
 			optionKey: "GNSS_SATELLITES",
+			category: "navigation",
 			keys: [
 				"navigation.gnss.satellitesInView.count",
 				"navigation.gnss.satellitesInView.satellites",

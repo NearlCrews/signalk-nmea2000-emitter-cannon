@@ -16,6 +16,8 @@ export default function createTrueHeadingConversion(
 	return {
 		title: "True Heading (PGN 127250)",
 		optionKey: "TRUE_HEADING",
+		category: "navigation",
+		presets: ["basic-nav"],
 		keys: ["navigation.headingTrue"],
 		callback: (heading: unknown): N2KMessage[] => {
 			if (!isValidNumber(heading)) {

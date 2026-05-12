@@ -12,6 +12,8 @@ export default function createEnvironmentParametersConversion(
 	return {
 		title: "Environmental Parameters (PGN 130311)",
 		optionKey: "ENVIRONMENT_PARAMETERS",
+		category: "environment",
+		presets: ["environmental"],
 		keys: ["environment.outside.pressure"],
 		callback: ((pressure: number | null) => {
 			if (!isValidNumber(pressure)) {

@@ -16,6 +16,8 @@ export default function createSpeedConversion(
 	return {
 		title: "Speed Through Water (PGN 128259)",
 		optionKey: "SPEED",
+		category: "navigation",
+		presets: ["basic-nav"],
 		keys: ["navigation.speedThroughWater"],
 		callback: (speed: unknown): N2KMessage[] => {
 			if (!isValidNumber(speed)) {

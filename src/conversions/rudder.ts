@@ -12,6 +12,8 @@ export default function createRudderConversion(
 	return {
 		title: "Rudder Position (PGN 127245)",
 		optionKey: "RUDDER",
+		category: "navigation",
+		presets: ["basic-nav"],
 		keys: ["steering.rudderAngle", "steering.rudderAngleTarget"],
 		timeouts: [1000, 1000],
 		callback: (

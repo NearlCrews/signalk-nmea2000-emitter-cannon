@@ -36,6 +36,7 @@ export default function createBearingDistanceBetweenMarksConversion(
 	return {
 		title: "Bearing and Distance Between Marks (PGN 129302)",
 		optionKey: "BEARING_DISTANCE_MARKS",
+		category: "navigation",
 		keys: [
 			"navigation.courseGreatCircle.nextPoint.bearingTrue",
 			"navigation.course.nextPoint.bearingMagnetic",

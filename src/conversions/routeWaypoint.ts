@@ -14,6 +14,7 @@ export default function createRouteWaypointConversion(): ConversionModule {
 	return {
 		title: "Route and Waypoint Information (PGN 129285)",
 		optionKey: "ROUTE_WAYPOINT",
+		category: "navigation",
 		keys: [
 			"navigation.course.nextPoint.position",
 			"navigation.course.activeRoute.name",

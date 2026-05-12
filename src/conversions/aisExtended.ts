@@ -45,6 +45,8 @@ export default function createAisExtendedConversions(
 		{
 			title: "AIS Class B Position (PGN 129039)",
 			optionKey: "AIS_CLASS_B_POSITION",
+			category: "ais",
+			presets: ["full-ais"],
 			keys: [
 				"sensors.ais.class",
 				"navigation.position",
@@ -155,6 +157,8 @@ export default function createAisExtendedConversions(
 		{
 			title: "AIS Class B Extended (PGN 129040)",
 			optionKey: "AIS_CLASS_B_EXTENDED",
+			category: "ais",
+			presets: ["full-ais"],
 			keys: [
 				"sensors.ais.class",
 				"navigation.position",
@@ -305,6 +309,8 @@ export default function createAisExtendedConversions(
 		{
 			title: "AIS SAR Aircraft Position (PGN 129798)",
 			optionKey: "AIS_SAR_AIRCRAFT",
+			category: "ais",
+			presets: ["full-ais"],
 			keys: [
 				"sensors.ais.class",
 				"navigation.position",
@@ -401,6 +407,8 @@ export default function createAisExtendedConversions(
 		{
 			title: "AIS Safety Related Broadcast Message (PGN 129802)",
 			optionKey: "AIS_SAFETY_MESSAGE",
+			category: "ais",
+			presets: ["full-ais"],
 			keys: ["communication.ais.safetyMessage"],
 			timeouts: [SAFETY_MESSAGE_TIMEOUT_MS],
 			callback: ((safetyMessage: string | null) => {

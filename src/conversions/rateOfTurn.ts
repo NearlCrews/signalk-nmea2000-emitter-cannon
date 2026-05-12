@@ -16,6 +16,7 @@ export default function createRateOfTurnConversion(
 	return {
 		title: "Rate of Turn (PGN 127251)",
 		optionKey: "RATE_OF_TURN",
+		category: "navigation",
 		keys: ["navigation.rateOfTurn"],
 		callback: (rateOfTurn: unknown): N2KMessage[] => {
 			if (!isValidNumber(rateOfTurn)) {

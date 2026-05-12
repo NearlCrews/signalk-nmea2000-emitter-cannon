@@ -16,6 +16,8 @@ export default function createHeadingConversion(
 	return {
 		title: "Vessel Heading (PGN 127250)",
 		optionKey: "HEADING",
+		category: "navigation",
+		presets: ["basic-nav"],
 		keys: [
 			"navigation.headingMagnetic",
 			"navigation.magneticVariation",

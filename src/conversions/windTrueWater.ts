@@ -22,6 +22,7 @@ export function createWindTrueConversion(
 	return {
 		title: config.title,
 		optionKey: config.optionKey,
+		category: "navigation",
 		keys: config.keys,
 		callback: (angle: unknown, speed: unknown): N2KMessage[] => {
 			if (!isValidNumber(angle) && !isValidNumber(speed)) {

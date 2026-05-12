@@ -18,6 +18,7 @@ export default function createDirectionDataConversion(
 	return {
 		title: "Direction Data (PGN 130577)",
 		optionKey: "DIRECTION_DATA",
+		category: "navigation",
 		keys: [
 			"navigation.courseOverGroundTrue",
 			"navigation.courseOverGroundMagnetic",

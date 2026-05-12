@@ -10,6 +10,7 @@ export default function createRadioFrequencyConversion(): ConversionModule {
 	return {
 		title: "Radio Frequency (PGN 129799)",
 		optionKey: "RADIO_FREQUENCY",
+		category: "comms",
 		keys: [
 			"communication.vhf.rxFrequency",
 			"communication.vhf.txFrequency",

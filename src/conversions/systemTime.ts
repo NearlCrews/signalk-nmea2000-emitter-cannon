@@ -14,6 +14,7 @@ export default function createSystemTimeConversion(
 		sourceType: "timer",
 		interval: 1000,
 		optionKey: "SYSTEM_TIME",
+		category: "system",
 		callback: (_app: unknown, inputDate?: unknown): N2KMessage[] => {
 			const { date, time } = toN2KDateTime(
 				inputDate instanceof Date ? inputDate : new Date(),

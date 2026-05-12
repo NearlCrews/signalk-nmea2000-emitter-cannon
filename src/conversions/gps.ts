@@ -29,6 +29,8 @@ export default function createGpsConversion(
 	return {
 		title: "GPS Position (PGNs 129025, 129029)",
 		optionKey: "GPS",
+		category: "navigation",
+		presets: ["basic-nav"],
 		keys: ["navigation.position"],
 		callback: ((position: Position | null) => {
 			if (!position || typeof position !== "object") {

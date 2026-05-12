@@ -34,6 +34,7 @@ function createNavDataConversion(
 	return {
 		title,
 		optionKey,
+		category: "navigation",
 		keys: [
 			"navigation.course.calcValues.distance",
 			"navigation.course.calcValues.bearingTrue",
@@ -166,6 +167,7 @@ export default function createNavigationDataConversions(): ConversionModule[] {
 		{
 			title: "Cross Track Error (PGN 129283)",
 			optionKey: "CROSS_TRACK_ERROR",
+			category: "navigation",
 			keys: ["navigation.course.calcValues.crossTrackError"],
 			callback: (XTE: unknown): N2KMessage[] => {
 				if (!isValidNumber(XTE)) {

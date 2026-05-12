@@ -33,6 +33,7 @@ export default function createSolarConversion(
 	return {
 		title: "Solar Panels (PGN 127508)",
 		optionKey: "SOLAR",
+		category: "electrical",
 		context: VESSELS_SELF_CONTEXT,
 
 		testOptions: {

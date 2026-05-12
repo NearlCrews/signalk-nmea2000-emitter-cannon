@@ -18,6 +18,8 @@ export default function createTransmissionParametersConversion(): ConversionModu
 	return {
 		title: "Transmission Parameters (PGN 127493)",
 		optionKey: "TRANSMISSION_PARAMETERS",
+		category: "engine",
+		presets: ["engine-set"],
 		keys: [
 			"propulsion.main.transmission.gearRatio",
 			"propulsion.main.transmission.oilPressure",

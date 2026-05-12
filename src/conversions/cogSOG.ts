@@ -16,6 +16,8 @@ export default function createCogSogConversion(
 	return {
 		title: "COG and SOG (PGN 129026)",
 		optionKey: "COG_SOG",
+		category: "navigation",
+		presets: ["basic-nav"],
 		keys: ["navigation.courseOverGroundTrue", "navigation.speedOverGround"],
 		callback: ((course: number | null, speed: number | null) => {
 			const validCourse = toValidNumber(course);

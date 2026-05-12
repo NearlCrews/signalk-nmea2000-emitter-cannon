@@ -41,6 +41,8 @@ export default function createTanksConversion(
 	return {
 		title: "Tank Levels (PGN 127505)",
 		optionKey: "TANKS",
+		category: "tanks",
+		presets: ["engine-set"],
 		context: VESSELS_SELF_CONTEXT,
 
 		testOptions: {

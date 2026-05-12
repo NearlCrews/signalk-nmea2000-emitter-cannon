@@ -56,6 +56,8 @@ export default function createBatteryConversion(
 	return {
 		title: "Battery (PGNs 127506, 127508)",
 		optionKey: "BATTERY",
+		category: "electrical",
+		presets: ["engine-set"],
 		context: VESSELS_SELF_CONTEXT,
 
 		testOptions: {

@@ -128,6 +128,8 @@ export default function createAisConversion(
 		title: "AIS (PGNs 129038, 129041, 129794)",
 		sourceType: "onDelta",
 		optionKey: "AIS",
+		category: "ais",
+		presets: ["full-ais"],
 		callback: ((delta: AisDelta) => {
 			// registerDeltaInputHandler fires on every delta server-wide.
 			// Cheap prefix checks first, before allocating the delta index.

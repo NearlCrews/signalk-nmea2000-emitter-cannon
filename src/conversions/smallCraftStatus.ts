@@ -10,6 +10,7 @@ export default function createSmallCraftStatusConversion(): ConversionModule {
 	return {
 		title: "Small Craft Status (PGN 130576)",
 		optionKey: "SMALL_CRAFT_STATUS",
+		category: "system",
 		// canboat 130576 carries only portTrimTab + starboardTrimTab; the
 		// other SK paths (trim, displacement, performance.*) belong to
 		// different PGNs.

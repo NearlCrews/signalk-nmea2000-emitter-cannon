@@ -16,6 +16,7 @@ export default function createHeaveConversion(
 	return {
 		title: "Vessel Heave (PGN 127252)",
 		optionKey: "HEAVE",
+		category: "navigation",
 		keys: ["navigation.heave"],
 		timeouts: [1000],
 		callback: ((heave: number | null) => {

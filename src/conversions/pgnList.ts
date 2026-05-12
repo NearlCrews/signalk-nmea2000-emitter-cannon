@@ -40,6 +40,7 @@ export default function createPgnListConversion(): ConversionModule {
 	return {
 		title: "PGN List (PGN 126464)",
 		optionKey: "PGN_LIST",
+		category: "system",
 		keys: ["communication.pgnListRequest"],
 		callback: (_pgnListRequest: unknown): N2KMessage[] => pgnListMessages,
 		tests: [

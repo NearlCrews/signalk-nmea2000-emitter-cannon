@@ -15,6 +15,8 @@ export default function createDepthConversion(
 	return {
 		title: "Water Depth (PGN 128267)",
 		optionKey: "DEPTH",
+		category: "navigation",
+		presets: ["basic-nav"],
 		keys: ["environment.depth.belowTransducer"],
 		callback: ((belowTransducer: number | null) => {
 			if (!isValidNumber(belowTransducer)) {

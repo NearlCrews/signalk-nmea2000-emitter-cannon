@@ -45,6 +45,7 @@ export default function createDscCallsConversion(
 	return {
 		title: "DSC Call Information (PGN 129808)",
 		optionKey: "DSC_CALLS",
+		category: "comms",
 		keys: [
 			"communication.dsc.callType",
 			"communication.dsc.mmsi",

@@ -17,6 +17,7 @@ export default function createMagneticVarianceConversion(
 	return {
 		title: "Magnetic Variation (PGN 127258)",
 		optionKey: "MAGNETIC_VARIANCE",
+		category: "navigation",
 		keys: [
 			"navigation.magneticVariation",
 			"navigation.magneticVariationAgeOfService",

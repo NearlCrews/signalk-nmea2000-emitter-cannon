@@ -57,6 +57,8 @@ export default function createEngineParametersConversions(
 		{
 			title: "Exhaust Temperature (PGN 130312)",
 			optionKey: "EXHAUST_TEMPERATURE",
+			category: "engine",
+			presets: ["engine-set"],
 			context: VESSELS_SELF_CONTEXT,
 
 			testOptions: {
@@ -116,6 +118,8 @@ export default function createEngineParametersConversions(
 		{
 			title: "Engine Parameters (PGNs 127488, 127489, 130312)",
 			optionKey: "ENGINE_PARAMETERS",
+			category: "engine",
+			presets: ["engine-set"],
 			context: VESSELS_SELF_CONTEXT,
 
 			testOptions: {

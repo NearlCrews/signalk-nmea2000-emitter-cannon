@@ -271,6 +271,8 @@ export class PluginManager {
 									...subConversion,
 									optionKey: `${conv.optionKey}[${idx}]`,
 									title: subConversion.title ?? `${conv.title} #${idx}`,
+									category: conv.category,
+									...(conv.presets ? { presets: conv.presets } : {}),
 								};
 
 					mapper(labeled, convOptions);

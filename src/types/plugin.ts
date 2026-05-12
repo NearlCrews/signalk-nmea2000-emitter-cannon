@@ -84,6 +84,8 @@ export interface SubConversionModule<T extends unknown[] = unknown[]> {
 export interface ConversionModule<T extends unknown[] = unknown[]> {
 	title: string;
 	optionKey: string;
+	category: import("../config/schema.js").ConversionCategory;
+	presets?: import("../config/schema.js").PresetTag[];
 	keys?: string[] | ((options: ConversionOptions) => string[]);
 	context?: string;
 	sourceType?: SourceType;

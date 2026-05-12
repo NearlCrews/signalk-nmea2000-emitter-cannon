@@ -5,6 +5,7 @@ export default function createProductInfoConversion(): ConversionModule {
 	return {
 		title: "Product Information (PGN 126996)",
 		optionKey: "PRODUCT_INFO",
+		category: "system",
 		keys: [
 			"design.manufacturer.name",
 			"design.modelNumber",

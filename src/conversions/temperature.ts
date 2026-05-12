@@ -50,6 +50,8 @@ function makeTemperatureConversion(
 	return {
 		title: `${info.n2kSource} (PGN ${pgn})`,
 		optionKey,
+		category: "environment",
+		presets: ["environmental"],
 		keys: [info.source],
 
 		testOptions: [

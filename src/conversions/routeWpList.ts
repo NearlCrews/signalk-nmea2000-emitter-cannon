@@ -6,6 +6,7 @@ export default function createRouteWpListConversion(): ConversionModule {
 	return {
 		title: "Route and Waypoint List (PGN 130074)",
 		optionKey: "ROUTE_WP_LIST",
+		category: "navigation",
 		keys: [
 			"navigation.course.activeRoute.waypoints",
 			"navigation.course.activeRoute.name",

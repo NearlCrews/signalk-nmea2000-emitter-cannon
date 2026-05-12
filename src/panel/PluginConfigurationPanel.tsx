@@ -28,7 +28,7 @@ export default function PluginConfigurationPanel({
 	save,
 }: Props): React.ReactElement {
 	const { status, error } = useStatus();
-	const { state, initial, dispatch } = useConfig(configuration);
+	const { state, savedState, dispatch, markSaved } = useConfig(configuration);
 	const { sourcesFor, ensureLoaded } = useSources();
 	const [meta, setMeta] = useState<ConversionMetadata[]>([]);
 	const [tab, setTab] = useState<ConversionCategory>("navigation");
@@ -42,10 +42,10 @@ export default function PluginConfigurationPanel({
 			.catch(() => {});
 	}, []);
 
-	const dirty = useMemo(
-		() => JSON.stringify(state) !== JSON.stringify(initial),
-		[state, initial],
-	);
+	// Reducer cases always return a new object on change, so identity equality
+	// against the last-saved snapshot is a sound dirty check. Replaces a deep
+	// JSON.stringify compare that ran on every render.
+	const dirty = state !== savedState;
 
 	const visible = meta.filter((m) => m.category === tab);
 	const counts = useMemo(() => {
@@ -96,8 +96,11 @@ export default function PluginConfigurationPanel({
 			))}
 			<FooterBar
 				dirty={dirty}
-				onSave={() => save(state)}
-				onDiscard={() => dispatch({ type: "discard", config: initial })}
+				onSave={() => {
+					save(state);
+					markSaved();
+				}}
+				onDiscard={() => dispatch({ type: "discard", config: savedState })}
 			/>
 		</div>
 	);

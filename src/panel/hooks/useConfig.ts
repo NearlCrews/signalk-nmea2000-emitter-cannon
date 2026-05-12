@@ -1,5 +1,5 @@
 import type * as React from "react";
-import { useReducer, useState } from "react";
+import { useCallback, useReducer, useState } from "react";
 import type { ConversionMetadata } from "../../api/types.js";
 import type { PresetTag } from "../../config/enums.js";
 import { migrateLegacyConfig } from "../../config/migrate";
@@ -109,15 +109,25 @@ function reducer(state: Config, action: Action): Config {
 
 export function useConfig(initial: unknown): {
 	state: Config;
-	initial: Config;
+	savedState: Config;
 	dispatch: React.Dispatch<Action>;
+	markSaved: () => void;
 } {
-	// Run migration exactly once at first render so state and initial are
+	// Run migration exactly once at first render so state and savedState are
 	// both the migrated shape from the start. This keeps `dirty` false on
 	// mount and prevents legacy shapes from leaking into reducer state.
 	const [migratedInitial] = useState<Config>(() =>
 		migrateLegacyConfig(initial),
 	);
 	const [state, dispatch] = useReducer(reducer, migratedInitial);
-	return { state, initial: migratedInitial, dispatch };
+	// savedState is the last config the user persisted (or the migrated
+	// initial value, before any save). The panel uses identity equality
+	// (`state !== savedState`) as the dirty check: every reducer case
+	// returns a new object on change, so identity is a sound stand-in for
+	// the previous JSON.stringify deep compare without the O(N) cost.
+	const [savedState, setSavedState] = useState<Config>(migratedInitial);
+	const markSaved = useCallback(() => {
+		setSavedState(state);
+	}, [state]);
+	return { state, savedState, dispatch, markSaved };
 }

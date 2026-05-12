@@ -369,7 +369,10 @@ export class PluginManager {
 				`Startup failed: ${errorMsg}. Check plugin configuration and the Signal K server log for details.`,
 			);
 			try {
-				this.stop();
+				// suppressStatus: the final setPluginStatus("Stopped") in stop()
+				// would overwrite the setPluginError indicator we just set, hiding
+				// the failure cause from the admin UI.
+				this.stop(true);
 			} catch (stopErr) {
 				this.app.error(
 					`stop() during start() failure also failed: ${errMessage(stopErr)}`,
@@ -382,8 +385,14 @@ export class PluginManager {
 	 * Each cleanup step is wrapped so one failure doesn't prevent the rest
 	 * from running. Errors are collected and reported once. stop() must not
 	 * throw: Signal K calls it on plugin disable/uninstall.
+	 *
+	 * `suppressStatus` is set when stop() is called from the start() catch
+	 * block: setPluginError() has just announced the startup failure, and
+	 * overwriting it here with "Stopped" would hide the cause from the admin
+	 * UI. All other callers (Signal K disable, index.ts normal restart) leave
+	 * it false so the UI reflects the stopped state.
 	 */
-	stop(): void {
+	stop(suppressStatus = false): void {
 		this.stopped = true;
 		const errors: string[] = [];
 		const safe = (label: string, fn: () => void) => {
@@ -442,8 +451,14 @@ export class PluginManager {
 		// Wipe ExponentialSmoother state across plugin restarts.
 		safe("clearAllSmoothers", () => clearAllSmoothers());
 
-		// Surface the stopped state in the Signal K admin UI.
-		safe("setPluginStatus(Stopped)", () => this.app.setPluginStatus("Stopped"));
+		// Surface the stopped state in the Signal K admin UI. Skipped when the
+		// caller is start()'s catch path: it just called setPluginError() and
+		// "Stopped" would overwrite the failure indicator.
+		if (!suppressStatus) {
+			safe("setPluginStatus(Stopped)", () =>
+				this.app.setPluginStatus("Stopped"),
+			);
+		}
 
 		if (errors.length > 0) {
 			this.app.error(

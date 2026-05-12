@@ -24,8 +24,8 @@ function mountRouter(
 function makeFakeApp(): SignalKApp {
 	return {
 		streambundle: { getAvailablePaths: () => ["a", "b"] },
-		getPath: (p: string) =>
-			p === "vessels.self.navigation.position"
+		getSelfPath: (p: string) =>
+			p === "navigation.position"
 				? { $source: "gps1", values: { gps1: {} } }
 				: undefined,
 		securityStrategy: { addAdminMiddleware: vi.fn() },
@@ -121,7 +121,7 @@ describe("API router", () => {
 	it("logs an error when securityStrategy.addAdminMiddleware is unavailable", async () => {
 		const localApp = {
 			streambundle: { getAvailablePaths: () => [] },
-			getPath: () => undefined,
+			getSelfPath: () => undefined,
 			error: vi.fn(),
 			// securityStrategy intentionally undefined to simulate older
 			// signalk-server builds.

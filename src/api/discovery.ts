@@ -1,4 +1,3 @@
-import type { Path } from "@signalk/server-api";
 import type { SignalKApp } from "../types/index.js";
 
 /**
@@ -18,15 +17,18 @@ export function enumerateActivePaths(app: SignalKApp): string[] {
  * exposes its publisher via `$source`, and a multi-source node additionally
  * exposes each contributor as a key under `values`. The `/sources` tree is
  * device metadata (PGN lists, manufacturer codes, canName, etc.), not a
- * path-rooted tree, so it cannot answer this question. This call is sync and
- * cheap: one `getPath` lookup plus a small `Object.keys`.
+ * path-rooted tree, so it cannot answer this question. Uses `getSelfPath` so
+ * the server resolves `self` to the active MRN before walking the model:
+ * `getPath("vessels.self.<path>")` does not perform that resolution and
+ * returns undefined on a live server. This call is sync and cheap: one
+ * `getSelfPath` lookup plus a small `Object.keys`.
  */
 export function enumerateSourcesForPath(
 	app: SignalKApp,
 	path: string,
 ): string[] {
 	if (!path) return [];
-	const node = app.getPath?.(`vessels.self.${path}` as Path);
+	const node = app.getSelfPath?.(path);
 	if (!node || typeof node !== "object") return [];
 	const out = new Set<string>();
 	const single = (node as { $source?: unknown }).$source;

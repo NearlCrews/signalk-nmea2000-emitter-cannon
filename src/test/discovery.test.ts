@@ -8,14 +8,14 @@ import type { SignalKApp } from "../types/index.js";
 function mockPathsApp(paths: string[]): SignalKApp {
 	return {
 		streambundle: { getAvailablePaths: () => paths },
-		getPath: () => undefined,
+		getSelfPath: () => undefined,
 	} as unknown as SignalKApp;
 }
 
 function mockApp(pathToValue: Record<string, unknown>): SignalKApp {
 	return {
 		streambundle: { getAvailablePaths: () => [] },
-		getPath: (p: string) => pathToValue[p],
+		getSelfPath: (p: string) => pathToValue[p],
 	} as unknown as SignalKApp;
 }
 
@@ -33,7 +33,7 @@ describe("enumerateActivePaths", () => {
 describe("enumerateSourcesForPath", () => {
 	it("returns sorted dedup of $source plus values keys (multi-source)", () => {
 		const app = mockApp({
-			"vessels.self.navigation.position": {
+			"navigation.position": {
 				$source: "sim7600x_feed.GP",
 				values: {
 					"nmea2000_feed.c078be001cb01cc9": { value: {} },
@@ -48,7 +48,7 @@ describe("enumerateSourcesForPath", () => {
 	});
 	it("returns single $source when path has no values map", () => {
 		const app = mockApp({
-			"vessels.self.electrical.batteries.x.capacity.stateOfCharge": {
+			"electrical.batteries.x.capacity.stateOfCharge": {
 				$source: "ConsoleBattery",
 				value: 0.63,
 			},
@@ -68,7 +68,7 @@ describe("enumerateSourcesForPath", () => {
 	});
 	it("ignores empty-string $source", () => {
 		const app = mockApp({
-			"vessels.self.foo.bar": {
+			"foo.bar": {
 				$source: "",
 				values: { "real-source": { value: 1 } },
 			},

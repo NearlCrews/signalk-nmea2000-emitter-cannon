@@ -39,6 +39,14 @@ function resolveKeys(
 	return keys;
 }
 
+// Hoisted to module scope so the regex is compiled once at load time rather
+// than per call. extractPgnsFromTitle is invoked once per conversion per
+// /api/conversions request, which is comparatively rare, but the literal is
+// also the file's only regex and keeping it next to the function would force
+// each call to recompile it under engines that do not cache anonymous
+// regex literals.
+const PGN_TITLE_REGEX = /PGNs?\s+([\d,\s]+)\)/;
+
 /**
  * Extract the PGN list out of a conversion title. Titles follow either
  * "Name (PGN 130306)" or "Name (PGNs 127506, 127508)". Returns the digit
@@ -47,7 +55,7 @@ function resolveKeys(
  * metadata response.
  */
 function extractPgnsFromTitle(title: string): string[] {
-	const match = title.match(/PGNs?\s+([\d,\s]+)\)/);
+	const match = title.match(PGN_TITLE_REGEX);
 	if (!match || match[1] === undefined) return [];
 	return match[1]
 		.split(",")

@@ -15,7 +15,7 @@
 	"scripts": {
 		"build": "npm run clean && npm run build:plugin && npm run build:panel",
 		"build:plugin": "esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --outfile=dist/index.js --external:rxjs",
-		"build:panel": "webpack --config webpack.config.js",
+		"build:panel": "webpack --config webpack.config.cjs",
 		"build:watch": "npm run clean && esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --sourcemap=linked --outfile=dist/index.js --external:rxjs --watch",
 		"test": "vitest --run",
 		"test:ui": "vitest --ui",

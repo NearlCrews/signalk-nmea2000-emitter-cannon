@@ -76,6 +76,15 @@ function getAlertState(isAcknowledged: boolean, hasSound: boolean): string {
 	return "Silenced";
 }
 
+// dataSourceNetworkIdName is the 64-bit ISO NAME of the alert producer (used
+// by an MFD to correlate ack responses back to the source). Stuffing the
+// local 16-bit alertId here misrepresents identity and breaks ack
+// correlation across producers on the same bus. Until the plugin exposes a
+// stable producer NAME, emit 0 (the "no producer NAME" sentinel): MFDs will
+// still display the alert; ack round-tripping via PGN 126984 is already
+// out-of-scope.
+const STABLE_DATA_SOURCE_NETWORK_ID = 0;
+
 function commonAlertFields(alertId: number, type: string, category: string) {
 	return {
 		alertId,
@@ -83,7 +92,7 @@ function commonAlertFields(alertId: number, type: string, category: string) {
 		alertCategory: category,
 		alertSystem,
 		alertSubSystem: 0,
-		dataSourceNetworkIdName: alertId,
+		dataSourceNetworkIdName: STABLE_DATA_SOURCE_NETWORK_ID,
 		dataSourceInstance: 0,
 		dataSourceIndexSource: 0,
 		alertOccurrenceNumber: 0,
@@ -377,7 +386,7 @@ export default function createNotificationsConversion(
 							alertSystem: 5,
 							alertSubSystem: 0,
 							alertId: 1,
-							dataSourceNetworkIdName: 1,
+							dataSourceNetworkIdName: 0,
 							dataSourceInstance: 0,
 							dataSourceIndexSource: 0,
 							alertOccurrenceNumber: 0,
@@ -395,7 +404,7 @@ export default function createNotificationsConversion(
 							alertSystem: 5,
 							alertSubSystem: 0,
 							alertId: 1,
-							dataSourceNetworkIdName: 1,
+							dataSourceNetworkIdName: 0,
 							dataSourceInstance: 0,
 							dataSourceIndexSource: 0,
 							alertOccurrenceNumber: 0,

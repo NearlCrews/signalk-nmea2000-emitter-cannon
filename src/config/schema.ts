@@ -1,4 +1,5 @@
 import { type Static, Type } from "@sinclair/typebox";
+import { DEFAULT_GLOBAL_RESEND_SECONDS } from "../constants.js";
 
 export const Categories = [
 	"navigation",
@@ -35,7 +36,10 @@ export const Conversion = Type.Composite([
 ]);
 
 export const RootConfig = Type.Object({
-	globalResendInterval: Type.Integer({ default: 30, minimum: 0 }),
+	globalResendInterval: Type.Integer({
+		default: DEFAULT_GLOBAL_RESEND_SECONDS,
+		minimum: 0,
+	}),
 	conversions: Type.Record(Type.String(), Conversion, { default: {} }),
 });
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { migrateLegacyConfig } from "../config/migrate.js";
 import type { Config } from "../config/schema.js";
+import { DEFAULT_GLOBAL_RESEND_SECONDS } from "../constants.js";
 
 describe("migrateLegacyConfig", () => {
 	it("returns input unchanged when already in new shape", () => {
@@ -22,10 +23,10 @@ describe("migrateLegacyConfig", () => {
 		expect(out.globalResendInterval).toBe(45);
 	});
 
-	it("defaults globalResendInterval to 30 when missing", () => {
+	it("defaults globalResendInterval to DEFAULT_GLOBAL_RESEND_SECONDS when missing", () => {
 		const legacy = { WIND: { enabled: true, resend: 0 } };
 		const out = migrateLegacyConfig(legacy);
-		expect(out.globalResendInterval).toBe(30);
+		expect(out.globalResendInterval).toBe(DEFAULT_GLOBAL_RESEND_SECONDS);
 	});
 
 	it("moves enabled and resend into conversions[KEY]", () => {

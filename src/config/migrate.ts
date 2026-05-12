@@ -1,3 +1,4 @@
+import { DEFAULT_GLOBAL_RESEND_SECONDS } from "../constants.js";
 import type { Config, ConversionConfig } from "./schema.js";
 
 export function migrateLegacyConfig(raw: unknown): Config {
@@ -12,7 +13,7 @@ export function migrateLegacyConfig(raw: unknown): Config {
 	}
 
 	const conversions: Record<string, ConversionConfig> = {};
-	let globalResendInterval = 30;
+	let globalResendInterval: number = DEFAULT_GLOBAL_RESEND_SECONDS;
 
 	if (raw && typeof raw === "object") {
 		for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {

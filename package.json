@@ -68,24 +68,34 @@
 		"url": "https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/issues"
 	},
 	"devDependencies": {
+		"@babel/core": "^7.29.0",
+		"@babel/preset-react": "^7.28.5",
+		"@babel/preset-typescript": "^7.28.5",
 		"@biomejs/biome": "^2.4.15",
 		"@canboat/canboatjs": "^3.18.0",
 		"@types/express": "^5.0.6",
 		"@types/json-schema": "^7.0.15",
 		"@types/node": "^25.0.9",
+		"@types/react": "^19.2.14",
+		"@types/react-dom": "^19.2.3",
 		"@types/supertest": "^7.2.0",
 		"@vitest/coverage-v8": "^4.1.4",
 		"@vitest/ui": "^4.0.17",
+		"babel-loader": "^10.1.1",
 		"esbuild": "^0.28.0",
 		"express": "^5.2.1",
 		"husky": "^9.1.7",
 		"lint-staged": "^16.4.0",
+		"react": "^19.2.6",
+		"react-dom": "^19.2.6",
 		"sharp": "^0.34.5",
 		"signalk-server": "^2.20.0",
 		"supertest": "^7.2.2",
 		"tsx": "^4.21.0",
 		"typescript": "^6.0.3",
-		"vitest": "^4.0.17"
+		"vitest": "^4.0.17",
+		"webpack": "^5.106.2",
+		"webpack-cli": "^7.0.2"
 	},
 	"engines": {
 		"node": ">=20.18"

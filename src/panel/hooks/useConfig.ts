@@ -115,7 +115,7 @@ export function useConfig(initial: unknown): {
 			dispatch({ type: "init", config: initial as Config });
 		} else {
 			// Legacy shape from the host. Use the same migration helper.
-			void import("../../config/migrate.js").then((m) => {
+			void import("../../config/migrate").then((m) => {
 				dispatch({ type: "init", config: m.migrateLegacyConfig(initial) });
 			});
 		}

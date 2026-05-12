@@ -70,3 +70,48 @@ S.cardHeader = {
 S.cardTitle = { fontSize: 14, fontWeight: 600, flex: 1 };
 S.checkbox = { width: 16, height: 16 };
 S.cardMeta = { fontSize: 11, color: "#888" };
+S.tabs = {
+	display: "flex",
+	gap: 4,
+	borderBottom: "1px solid #e0e0e0",
+	marginBottom: 12,
+};
+S.tab = {
+	padding: "8px 14px",
+	background: "transparent",
+	border: "none",
+	borderBottom: "2px solid transparent",
+	cursor: "pointer",
+	fontSize: 13,
+	color: "#555",
+};
+S.tabActive = {
+	borderBottom: "2px solid #3b82f6",
+	color: "#3b82f6",
+	fontWeight: 600,
+};
+S.footer = {
+	display: "flex",
+	gap: 8,
+	padding: "12px 0",
+	borderTop: "1px solid #e0e0e0",
+	marginTop: 16,
+};
+S.btnPrimary = {
+	padding: "8px 16px",
+	background: "#3b82f6",
+	color: "white",
+	border: "none",
+	borderRadius: 6,
+	fontWeight: 600,
+	cursor: "pointer",
+};
+S.btnSecondary = {
+	padding: "8px 16px",
+	background: "#f3f4f6",
+	color: "#333",
+	border: "1px solid #d1d5db",
+	borderRadius: 6,
+	cursor: "pointer",
+};
+S.dirty = { color: "#92400e", fontSize: 12, marginLeft: 8 };

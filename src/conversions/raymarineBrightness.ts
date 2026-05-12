@@ -10,14 +10,17 @@ import { isValidNumber } from "../utils/validation.js";
 
 interface BrightnessGroup {
 	signalkId: string;
-	instanceId: string;
+	// groupLabel is the human-readable NMEA 2000 group label string (e.g.
+	// "Helm 1"). The previous name `instanceId` collided with the numeric
+	// instance ids used by battery/engine/solar/exhaust editors.
+	groupLabel: string;
 }
 
 function isBrightnessGroup(v: unknown): v is BrightnessGroup {
 	if (typeof v !== "object" || v === null) return false;
 	const obj = v as Record<string, unknown>;
 	return (
-		typeof obj.signalkId === "string" && typeof obj.instanceId === "string"
+		typeof obj.signalkId === "string" && typeof obj.groupLabel === "string"
 	);
 }
 
@@ -38,7 +41,7 @@ export default function createRaymarineBrightnessConversion(
 		}
 
 		return groups.map((group) => ({
-			title: `Raymarine Display Brightness ${group.instanceId} (PGN 126720)`,
+			title: `Raymarine Display Brightness ${group.groupLabel} (PGN 126720)`,
 			keys: [`electrical.displays.raymarine.${group.signalkId}.brightness`],
 			callback: (brightness: number | null) => {
 				if (!isValidNumber(brightness)) {
@@ -54,7 +57,7 @@ export default function createRaymarineBrightnessConversion(
 							manufacturerCode: "Raymarine",
 							industryCode: "Marine Industry",
 							proprietaryId: "0x0c8c",
-							group: group.instanceId || "Helm 2",
+							group: group.groupLabel || "Helm 2",
 							unknown1: 1,
 							command: "Brightness",
 							brightness: brightness * 100,

@@ -4,12 +4,12 @@ import MappingTable from "./MappingTable";
 
 // signalkId is the final segment of the SK Raymarine brightness group key
 // (e.g. "helm", "nav", "cabin"), not the full SK path. Tank rows use
-// signalkPath for the full path; do not unify these names. instanceId
-// here is the human-readable NMEA 2000 group label string (not a numeric
-// id like the other editors): rename in a future cleanup if it bites.
+// signalkPath for the full path; do not unify these names. groupLabel is
+// the human-readable NMEA 2000 group label string (not a numeric id like
+// the other editors' instanceId fields).
 interface Row {
 	signalkId: string;
-	instanceId: string;
+	groupLabel: string;
 }
 
 interface Props {
@@ -29,7 +29,7 @@ export default function BrightnessMappingEditor({
 		<MappingTable<Row>
 			title="Brightness Group Mapping"
 			rows={rows}
-			emptyRow={() => ({ signalkId: "", instanceId: "" })}
+			emptyRow={() => ({ signalkId: "", groupLabel: "" })}
 			onChange={setRows}
 			columns={[
 				{
@@ -51,9 +51,9 @@ export default function BrightnessMappingEditor({
 						<input
 							type="text"
 							style={S.input}
-							value={r.instanceId}
+							value={r.groupLabel}
 							placeholder="Helm 1"
-							onChange={(e) => set({ ...r, instanceId: e.target.value })}
+							onChange={(e) => set({ ...r, groupLabel: e.target.value })}
 							aria-label="NMEA 2000 brightness group label"
 						/>
 					),

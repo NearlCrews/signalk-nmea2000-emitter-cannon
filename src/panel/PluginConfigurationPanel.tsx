@@ -5,8 +5,8 @@ import type {
 	ConversionsResponse,
 	PerConversionStatus,
 } from "../api/types.js";
-import { Categories } from "../config/schema";
-import type { ConversionCategory } from "../config/schema.js";
+import { Categories } from "../config/enums";
+import type { ConversionCategory } from "../config/enums.js";
 import CategoryTabs from "./components/CategoryTabs";
 import ConversionCard from "./components/ConversionCard";
 import FooterBar from "./components/FooterBar";

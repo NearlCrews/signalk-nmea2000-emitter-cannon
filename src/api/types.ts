@@ -1,4 +1,4 @@
-import type { ConversionCategory, PresetTag } from "../config/schema.js";
+import type { ConversionCategory, PresetTag } from "../config/enums.js";
 
 export interface StatusSnapshot {
 	nmea2000Ready: boolean;

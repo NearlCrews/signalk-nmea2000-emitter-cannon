@@ -1,6 +1,6 @@
 import type * as React from "react";
-import { Categories } from "../../config/schema";
-import type { ConversionCategory } from "../../config/schema.js";
+import { Categories } from "../../config/enums";
+import type { ConversionCategory } from "../../config/enums.js";
 import { S } from "../styles";
 
 const LABELS: Record<ConversionCategory, string> = {

@@ -1,26 +1,15 @@
 import { type Static, Type } from "@sinclair/typebox";
 import { DEFAULT_GLOBAL_RESEND_SECONDS } from "../constants.js";
 
-export const Categories = [
-	"navigation",
-	"engine",
-	"electrical",
-	"tanks",
-	"environment",
-	"ais",
-	"comms",
-	"system",
-] as const;
-export type ConversionCategory = (typeof Categories)[number];
-
-export const PresetTags = [
-	"basic-nav",
-	"engine-set",
-	"full-ais",
-	"environmental",
-	"raymarine",
-] as const;
-export type PresetTag = (typeof PresetTags)[number];
+// Re-exported for server-side back-compat. The real definitions live in
+// ./enums.ts so the panel bundle (which never needs the typebox schema) can
+// import them without pulling @sinclair/typebox into the panel chunks.
+export {
+	Categories,
+	type ConversionCategory,
+	type PresetTag,
+	PresetTags,
+} from "./enums.js";
 
 const ConversionCommon = Type.Object({
 	enabled: Type.Boolean({ default: false }),

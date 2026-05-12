@@ -1,8 +1,9 @@
 import type * as React from "react";
 import { useReducer, useState } from "react";
 import type { ConversionMetadata } from "../../api/types.js";
+import type { PresetTag } from "../../config/enums.js";
 import { migrateLegacyConfig } from "../../config/migrate";
-import type { Config, PresetTag } from "../../config/schema.js";
+import type { Config } from "../../config/schema.js";
 
 type Action =
 	// `init` is reserved for external swaps of the entire config (future use).

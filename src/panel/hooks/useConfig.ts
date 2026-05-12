@@ -3,7 +3,7 @@ import { useCallback, useReducer, useState } from "react";
 import type { ConversionMetadata } from "../../api/types.js";
 import type { PresetTag } from "../../config/enums.js";
 import { migrateLegacyConfig } from "../../config/migrate";
-import type { Config } from "../../config/schema.js";
+import type { Config, ConversionConfig } from "../../config/schema.js";
 
 type Action =
 	// `init` is reserved for external swaps of the entire config (future use).
@@ -17,14 +17,29 @@ type Action =
 	| { type: "applyPreset"; preset: PresetTag; meta: ConversionMetadata[] }
 	| { type: "discard"; config: Config };
 
-function ensureKey(s: Config, key: string): Config {
-	if (s.conversions[key]) return s;
+// Returns the (possibly new) config plus the entry guaranteed to live at
+// `conversions[key]`. Pairing the two reads avoids the `if (!existing)
+// return s` guard each reducer case used to need under noUncheckedIndexedAccess:
+// once we have the entry typed as ConversionConfig, the index dereference is
+// already type-safe.
+function withEntry(
+	s: Config,
+	key: string,
+): { state: Config; entry: ConversionConfig } {
+	const existing = s.conversions[key];
+	if (existing) return { state: s, entry: existing };
+	const entry: ConversionConfig = {
+		enabled: false,
+		resend: 0,
+		sources: {},
+		extras: {},
+	};
 	return {
-		...s,
-		conversions: {
-			...s.conversions,
-			[key]: { enabled: false, resend: 0, sources: {}, extras: {} },
+		state: {
+			...s,
+			conversions: { ...s.conversions, [key]: entry },
 		},
+		entry,
 	};
 }
 
@@ -36,53 +51,45 @@ function reducer(state: Config, action: Action): Config {
 		case "setGlobalResend":
 			return { ...state, globalResendInterval: action.ms };
 		case "setEnabled": {
-			const s = ensureKey(state, action.key);
-			const existing = s.conversions[action.key];
-			if (!existing) return s;
+			const { state: s, entry } = withEntry(state, action.key);
 			return {
 				...s,
 				conversions: {
 					...s.conversions,
-					[action.key]: { ...existing, enabled: action.enabled },
+					[action.key]: { ...entry, enabled: action.enabled },
 				},
 			};
 		}
 		case "setResend": {
-			const s = ensureKey(state, action.key);
-			const existing = s.conversions[action.key];
-			if (!existing) return s;
+			const { state: s, entry } = withEntry(state, action.key);
 			return {
 				...s,
 				conversions: {
 					...s.conversions,
-					[action.key]: { ...existing, resend: action.ms },
+					[action.key]: { ...entry, resend: action.ms },
 				},
 			};
 		}
 		case "setSource": {
-			const s = ensureKey(state, action.key);
-			const existing = s.conversions[action.key];
-			if (!existing) return s;
-			const sources = { ...(existing.sources ?? {}) };
+			const { state: s, entry } = withEntry(state, action.key);
+			const sources = { ...(entry.sources ?? {}) };
 			if (action.source) sources[action.path] = action.source;
 			else delete sources[action.path];
 			return {
 				...s,
 				conversions: {
 					...s.conversions,
-					[action.key]: { ...existing, sources },
+					[action.key]: { ...entry, sources },
 				},
 			};
 		}
 		case "setExtras": {
-			const s = ensureKey(state, action.key);
-			const existing = s.conversions[action.key];
-			if (!existing) return s;
+			const { state: s, entry } = withEntry(state, action.key);
 			return {
 				...s,
 				conversions: {
 					...s.conversions,
-					[action.key]: { ...existing, extras: action.extras },
+					[action.key]: { ...entry, extras: action.extras },
 				},
 			};
 		}
@@ -90,14 +97,12 @@ function reducer(state: Config, action: Action): Config {
 			let next = state;
 			for (const m of action.meta) {
 				if (m.presets.includes(action.preset)) {
-					next = ensureKey(next, m.key);
-					const existing = next.conversions[m.key];
-					if (!existing) continue;
+					const { state: s, entry } = withEntry(next, m.key);
 					next = {
-						...next,
+						...s,
 						conversions: {
-							...next.conversions,
-							[m.key]: { ...existing, enabled: true },
+							...s.conversions,
+							[m.key]: { ...entry, enabled: true },
 						},
 					};
 				}

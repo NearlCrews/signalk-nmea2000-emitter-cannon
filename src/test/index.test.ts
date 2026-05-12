@@ -1,6 +1,7 @@
 import { FromPgn, pgnToActisenseSerialFormat } from "@canboat/canboatjs";
 import { beforeEach, describe, expect, it } from "vitest";
 import { RootConfig } from "../config/schema.js";
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import { createConversionModules } from "../conversions/index.js";
 import type {
 	ConversionModule,
@@ -232,9 +233,9 @@ describe("Conversion modules", () => {
 	describe("Message validation", () => {
 		it("should validate N2K message structure", () => {
 			const validMessage = {
-				prio: 2,
+				prio: N2K_DEFAULT_PRIORITY,
 				pgn: 130306,
-				dst: 255,
+				dst: N2K_BROADCAST_DST,
 				fields: {
 					windSpeed: 1.2,
 					windAngle: 2.0944,
@@ -249,7 +250,7 @@ describe("Conversion modules", () => {
 			const invalidMessage = {
 				prio: 10, // Invalid priority
 				pgn: 130306,
-				dst: 255,
+				dst: N2K_BROADCAST_DST,
 				fields: {},
 			};
 

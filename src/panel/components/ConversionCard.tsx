@@ -4,6 +4,7 @@ import type {
 	PerConversionStatus,
 } from "../../api/types.js";
 import type { ConversionConfig } from "../../config/schema.js";
+import { pathToPropName } from "../../utils/pathUtils";
 import { S } from "../styles";
 import ExtrasEditor from "./ExtrasEditor";
 import SourceField from "./SourceField";
@@ -72,7 +73,13 @@ export default function ConversionCard(props: Props): React.ReactElement {
 						<SourceField
 							key={p}
 							path={p}
-							value={cfg.sources[p] ?? ""}
+							// Read both the panel's native dotted-SK-path key and the
+							// dotless propName legacy form: migrateLegacyConfig stores
+							// underscored legacy keys verbatim, so for users coming
+							// from older configs the dotless propName form (via
+							// pathToPropName) is the path of last resort before the
+							// field reads empty.
+							value={cfg.sources[p] ?? cfg.sources[pathToPropName(p)] ?? ""}
 							onChange={(s) => props.onSetSource(p, s)}
 							sourcesFor={props.sourcesFor}
 							ensureLoaded={props.ensureLoaded}

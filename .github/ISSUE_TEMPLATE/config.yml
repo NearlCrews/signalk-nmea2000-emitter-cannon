@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or discussion
+    url: https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/discussions
+    about: For usage questions, configuration help, or general discussion, please use Discussions instead of opening an issue.
+  - name: Report a security vulnerability
+    url: https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/security/advisories/new
+    about: Please report vulnerabilities privately via GitHub Security Advisories, not as public issues.
+  - name: Signal K community
+    url: https://signalk.org/
+    about: For Signal K platform questions unrelated to this plugin.

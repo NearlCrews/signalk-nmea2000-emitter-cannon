@@ -1,0 +1,117 @@
+name: Bug report
+description: Report a defect in the plugin
+title: "[BUG] "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please fill out the sections below so the issue can be reproduced and triaged.
+        For usage questions, please use [Discussions](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/discussions) instead.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear summary of the bug.
+      placeholder: When I enable the BATTERY conversion, no PGN 127508 is emitted on the bus.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Numbered steps that consistently trigger the bug.
+      placeholder: |
+        1. Enable BATTERY conversion in plugin settings
+        2. Set battery instance to 0
+        3. Observe NMEA 2000 bus traffic
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Plugin version
+      placeholder: 1.4.2
+    validations:
+      required: true
+
+  - type: input
+    id: signalk-version
+    attributes:
+      label: Signal K server version
+      placeholder: 2.20.0
+    validations:
+      required: true
+
+  - type: input
+    id: node-version
+    attributes:
+      label: Node.js version
+      placeholder: 20.18.0
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: Debian 12 on Raspberry Pi 5
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install-method
+    attributes:
+      label: Installation method
+      options:
+        - Signal K AppStore
+        - npm
+        - Manual
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: pgn-paths
+    attributes:
+      label: Affected PGNs / Signal K paths
+      description: Optional. If the bug is tied to specific PGNs or Signal K paths, list them.
+      placeholder: PGN 127508, electrical.batteries.0.voltage
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Plugin configuration
+      description: Paste the relevant plugin configuration (redact secrets).
+      render: json
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Paste relevant log output.
+      render: text
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Screenshots, possible causes, or anything else helpful.

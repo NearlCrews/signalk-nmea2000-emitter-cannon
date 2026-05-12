@@ -25,8 +25,31 @@ Thumbs.db
 
 # Environment files
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+
+# Secrets, credentials, keys, certs
+.npmrc
+secrets/
+secrets.json
+credentials.json
+*.secret
+*.secrets
+*.credentials
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
+
+# Local agent / editor state
+.claude/
+.remember/
 
 # Vitest
 .vitest/

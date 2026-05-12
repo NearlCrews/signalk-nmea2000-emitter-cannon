@@ -1,0 +1,59 @@
+name: Feature request
+description: Suggest a new conversion, capability, or improvement
+title: "[FEATURE] "
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the suggestion. Please share enough detail to evaluate the use case and how it would fit the plugin.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Feature description
+      description: What the feature is and the problem it solves.
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use case
+      description: Who benefits and how they would use this in practice.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed
+    attributes:
+      label: Proposed solution
+      description: How you imagine the feature working.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+
+  - type: textarea
+    id: pgn-paths
+    attributes:
+      label: PGN / Signal K path
+      description: If the request involves a specific PGN or Signal K path, list it here.
+      placeholder: |
+        PGN: 129029
+        Signal K path: navigation.position
+
+  - type: textarea
+    id: equipment
+    attributes:
+      label: Marine equipment compatibility
+      description: Optional. Specific MFD, autopilot, or NMEA 2000 device this would target.
+      placeholder: |
+        Manufacturer: Garmin
+        Model: 942xs
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context

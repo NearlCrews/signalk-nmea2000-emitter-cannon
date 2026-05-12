@@ -75,7 +75,7 @@ Tests live in `src/test/` across 9 files (`index.test.ts`, `api.test.ts`, `disco
 ## Key Technical Details
 
 - **Runtime**: Node.js 22.12+, pure ESM modules
-- **Build**: esbuild bundles to single `dist/index.js` (currently ~458 KB)
+- **Build**: esbuild bundles to single `dist/index.js` (currently ~461 KB)
 - **Externals**: rxjs (only runtime dependency kept out of the bundle; @signalk/server-api is type-only)
 - **Reactivity**: RxJS for Signal K data subscriptions (Signal K server uses BaconJS internally)
 - **N2K Message Format**: CanboatJS format: `{ prio, pgn, dst, fields: {...} }`
@@ -163,7 +163,7 @@ PGN 126984 (Alert Response, inbound) is NOT handled. Acknowledgements from an MF
 
 ## Admin UI: federated React panel
 
-As of v1.5.0 the plugin's admin config UI is a webpack 5 Module Federation remote built into `public/remoteEntry.js` plus chunked `public/*.mjs` from `src/panel/`. The Signal K admin loads it because `package.json` `keywords` include `signalk-plugin-configurator`. Component contract: default export `PluginConfigurationPanel({ configuration, save })`. `save` is fire-and-forget, returns void; the next `configuration` prop reflects the saved state.
+As of v1.5.1 the plugin's admin config UI is a webpack 5 Module Federation remote built into `public/remoteEntry.js` plus chunked `public/*.mjs` from `src/panel/`. The Signal K admin loads it because `package.json` `keywords` include `signalk-plugin-configurator`. Component contract: default export `PluginConfigurationPanel({ configuration, save })`. `save` is fire-and-forget, returns void; the next `configuration` prop reflects the saved state.
 
 Live data comes from an Express router mounted via `Plugin.registerWithRouter` under `/plugins/signalk-nmea2000-emitter-cannon/api/` with these endpoints: `/status`, `/conversions`, `/paths`, `/sources`. The router calls `app.securityStrategy.addAdminMiddleware` on the API prefix so unauthenticated requests are rejected. If the running server does not expose that hook, the router logs a warning and the endpoints stay open (compat fallback for older signalk-server builds).
 

@@ -9,13 +9,13 @@ A Signal K plugin that converts Signal K deltas into NMEA 2000 messages. 45 conv
 
 > Built on the foundation of [`signalk-to-nmea2000`](https://github.com/SignalK/signalk-to-nmea2000) by Scott Bender and the Signal K community.
 
-## What's new in 1.5.0
+## What's new in 1.5.1
 
 - **New React admin config panel** loaded into the Signal K admin UI via webpack 5 Module Federation. Replaces the previous JSON-Schema-driven rjsf form. Status dashboard, preset chips, categorized tabs, per-conversion enable / resend / source dropdowns, and mapping editors for battery / engine / tank / solar / brightness / exhaust.
 - **Live data inside the panel**: NMEA 2000 readiness, enabled / total counts, per-conversion emit counts and error indicators (3s poll, paused when the admin tab is hidden). Source dropdowns are populated from the running server's data model.
 - **Preset chips**: Basic Navigation, Engine Set, Full AIS, Environmental, Raymarine. Additive: click a chip to enable the tagged conversions in one action.
 - **Plugin HTTP API** under `/plugins/signalk-nmea2000-emitter-cannon/api/` (status, conversions, paths, sources). Admin-auth gated.
-- **Config schema migrated to TypeBox** (`@sinclair/typebox`). Single source of truth for both the runtime JSON Schema and the TypeScript `Config` type. v1.4.x payloads migrate at first load; downgrading to v1.4.4 keeps the original `plugin-config.json` intact if no save was performed under v1.5.0.
+- **Config schema migrated to TypeBox** (`@sinclair/typebox`). Single source of truth for both the runtime JSON Schema and the TypeScript `Config` type. v1.4.x payloads migrate at first load; downgrading to v1.4.4 keeps the original `plugin-config.json` intact if no save was performed under v1.5.1.
 - **Minimum admin UI**: `@signalk/server-admin-ui >= 2.27.0` (bundled with signalk-server >= 2.x). Older admin UIs do not support the ESM federation runtime this plugin uses.
 
 ### What's new in 1.4.4
@@ -62,8 +62,8 @@ See [CHANGELOG.md](CHANGELOG.md) for the full list.
 - **Reactive subscriptions** via RxJS 7.8 with debounced multi-key aggregation and per-key freshness timeouts
 - **Source filtering** per conversion: pick a specific `$source` label or accept any
 - **Resend timers** per conversion plus a global default, so MFDs that expect periodic re-broadcast still see the data when the underlying source is quiet
-- **Single ESM bundle** via esbuild (as of v1.5.0, ~458 KB); the only runtime dependency is RxJS (`@signalk/server-api` is type-only)
-- **Embedded canboatjs round-trip tests** on every conversion module (as of v1.5.0, 50 tests across 9 files)
+- **Single ESM bundle** via esbuild (as of v1.5.1, ~461 KB); the only runtime dependency is RxJS (`@signalk/server-api` is type-only)
+- **Embedded canboatjs round-trip tests** on every conversion module (as of v1.5.1, 52 tests across 9 files)
 - **`$source: 'NMEA2000'` echo-guard** on AIS conversions to avoid re-emitting received AIS deltas back onto the bus
 - **Apache 2.0**, pure ESM, Node 22.12+
 
@@ -133,7 +133,7 @@ These conversions need an explicit mapping from a Signal K identifier to an NMEA
 
 ### Migration from v1.4.x
 
-The config payload shape changed in v1.5.0 (conversions are now nested under a `conversions: { KEY: { enabled, resend, sources, extras } }` block instead of flat keys). The plugin migrates v1.4.x payloads transparently the first time the panel loads them. The migration is backwards-compatible at load: downgrading back to v1.4.4 keeps your original `plugin-config.json` intact if you have not saved under v1.5.0. Once you save under v1.5.0, the on-disk file is in the new shape and a downgrade requires manual rollback of the config file.
+The config payload shape changed in v1.5.1 (conversions are now nested under a `conversions: { KEY: { enabled, resend, sources, extras } }` block instead of flat keys). The plugin migrates v1.4.x payloads transparently the first time the panel loads them. The migration is backwards-compatible at load: downgrading back to v1.4.4 keeps your original `plugin-config.json` intact if you have not saved under v1.5.1. Once you save under v1.5.1, the on-disk file is in the new shape and a downgrade requires manual rollback of the config file.
 
 ### Admin UI requirement
 
@@ -392,7 +392,7 @@ The workflow also supports manual `workflow_dispatch` with a `tag` input from th
 4. Include embedded test cases in the module's `tests` array
 5. Run `npm test` and `npm run typecheck`
 
-As of v1.5.0 each conversion module also carries a required `category` field (one of `navigation`, `engine`, `electrical`, `tanks`, `environment`, `ais`, `comms`, `system`) and an optional `presets` array (e.g. `["basic-nav"]`). These drive the category tabs and preset chips in the React panel. See `CLAUDE.md` for the full set of conventions, the extras-editor wiring contract, and the source-discovery rules the panel relies on.
+As of v1.5.1 each conversion module also carries a required `category` field (one of `navigation`, `engine`, `electrical`, `tanks`, `environment`, `ais`, `comms`, `system`) and an optional `presets` array (e.g. `["basic-nav"]`). These drive the category tabs and preset chips in the React panel. See `CLAUDE.md` for the full set of conventions, the extras-editor wiring contract, and the source-discovery rules the panel relies on.
 
 Example conversion module:
 
@@ -533,7 +533,7 @@ Expected. The yellow bar in the Signal K admin dashboard's **Plugins activity** 
 - RxJS 7.8 (only runtime dependency that ships in the bundle)
 - esbuild 0.28 for bundling
 - Biome 2.4 for linting / formatting
-- Vitest 4.1 for testing (as of v1.5.0, 50 tests across 9 files with canboatjs round-trip validation)
+- Vitest 4.1 for testing (as of v1.5.1, 52 tests across 9 files with canboatjs round-trip validation)
 - Husky + lint-staged for pre-commit hooks
 
 ## License

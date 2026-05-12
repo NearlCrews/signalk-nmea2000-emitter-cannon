@@ -1,8 +1,8 @@
 ## Change Log
 
-### v1.5.0 (2026/05/12) - React Config Panel
+### v1.5.1 (2026/05/12) - React Config Panel
 
-The hand-rolled JSON-Schema admin UI is replaced with a federated React panel built on webpack 5 Module Federation. The plugin keeps its esbuild runtime bundle untouched; the panel is a second build target that produces `public/remoteEntry.js` plus chunked `public/*.mjs`. The config payload moves from a flat shape to a nested `conversions: { KEY: { enabled, resend, sources, extras } }` shape with a load-time migration from v1.4.x, so existing installs upgrade transparently. The migration is backwards-compatible at load: downgrading back to v1.4.4 keeps the original `plugin-config.json` intact if no save has occurred under v1.5.0. No wire-level (PGN) changes.
+The hand-rolled JSON-Schema admin UI is replaced with a federated React panel built on webpack 5 Module Federation. The plugin keeps its esbuild runtime bundle untouched; the panel is a second build target that produces `public/remoteEntry.js` plus chunked `public/*.mjs`. The config payload moves from a flat shape to a nested `conversions: { KEY: { enabled, resend, sources, extras } }` shape with a load-time migration from v1.4.x, so existing installs upgrade transparently. The migration is backwards-compatible at load: downgrading back to v1.4.4 keeps the original `plugin-config.json` intact if no save has occurred under v1.5.1. No wire-level (PGN) changes.
 
 **Added**
 
@@ -12,25 +12,49 @@ The hand-rolled JSON-Schema admin UI is replaced with a federated React panel bu
 - Mapping editors for battery, engine, tank, solar, brightness, and exhaust families. Replace the previous rjsf array-of-object widgets.
 - Preset chips: Basic Navigation, Engine Set, Full AIS, Environmental, Raymarine. Additive; click a chip to enable the tagged conversions in one action.
 - Plugin HTTP API under `/plugins/signalk-nmea2000-emitter-cannon/api/` (status, conversions, paths, sources). Admin-auth gated via `app.securityStrategy.addAdminMiddleware`. Logs a warning if the server does not expose the gating hook.
+- `getModuleVersion()` lifecycle method so the admin UI displays the running plugin version.
 
 **Changed**
 
-- Config schema migrated to `@sinclair/typebox`. Single source of truth for both the runtime JSON Schema (returned from `Plugin.schema`) and the TypeScript `Config` type (derived via `Static<>`). The legacy flat config payload is migrated to the new nested shape at load time; downgrades to v1.4.x keep the original payload intact if no save has occurred under v1.5.0.
+- Config schema migrated to `@sinclair/typebox`. Single source of truth for both the runtime JSON Schema (returned from `Plugin.schema`) and the TypeScript `Config` type (derived via `Static<>`). The legacy flat config payload is migrated to the new nested shape at load time; downgrades to v1.4.x keep the original payload intact if no save has occurred under v1.5.1.
 - Each conversion module now carries `category` (required) and optional `presets` metadata. Adding a new conversion requires both fields.
 - Minimum admin UI bumped to `@signalk/server-admin-ui >= 2.27.0` for ESM federation runtime support.
-- Minimum Node.js bumped to `>=22.12` (was `>=20.18`). Node 20 reached end of life in April 2026; the CI matrix now runs on Node 22.x and 24.x. esbuild target moved from `node20` to `node22`.
+- Minimum Node.js bumped to `>=22.12` (was `>=20.18`). Node 20 reached end of life in April 2026; the CI matrix runs on Node 22.x and 24.x. esbuild target moved from `node20` to `node22`.
 - Dev dependency `lint-staged` bumped to `^17.0.4` (was `^16.4.0`). Same Biome integration; requires Node 22.22.1+ which the engines bump above already enforces.
+- All other dependency ranges refreshed via `npm update`; range floors tightened to match installed versions. Zero security audit findings.
 
-**Internal**
+**Bug fixes**
 
-- Added per-conversion emit counters and last-error tracking inside `PluginManager`. Both are surfaced via the new `/api/status` endpoint.
+- Notifications conversion short-circuits on its own delta to prevent a reentrant loop if `signalk-server` ever re-fans the rewritten alert delta.
+- AIS Class B / SAR / Safety-Message conversions return `[]` until `app.getSelfPath("mmsi")` is populated, preventing emission of frames with `userId: 0`.
+- `index.ts` nulls out `pluginManager` after a failed `start()`, so the next enable cycle sees a clean slate instead of calling `stop()` on a half-constructed instance.
+- `/api/sources` trims the `path` query before lookup, so copy-pasted paths with whitespace return the expected source list.
+- `setPluginError` set during a failed `start()` is no longer overwritten by the `stop()` epilogue's `setPluginStatus("Stopped")`.
+- Notifications PGN 126983 uses a stable `dataSourceNetworkIdName` value instead of stuffing the local 16-bit `alertId` into a 64-bit ISO NAME field; restores ack correlation semantics per IEC 61162-1 App B.
+- `PluginManager` reads source filters from both the dotted Signal K path and the legacy dotless propName form, so source-locks set in the v1.5.1 panel keep working on configs that still have the v1.4.x shape on disk.
+
+**Internal / performance**
+
+- `Categories` and `PresetTags` moved into `src/config/enums.ts` so the React panel no longer pulls TypeBox into its bundle. Panel total dropped from ~144 KiB to ~54 KiB (a 62% reduction).
+- Per-conversion emit counters and last-error tracking inside `PluginManager`. Both are surfaced via `/api/status`. Latest-error lookup indexed per parent `optionKey` for O(1) status snapshots.
+- Identity-based dirty detection in the panel (saved-state ref) replaces the O(N) `JSON.stringify` per render.
+- `useSources` deduplicates concurrent fetches for the same path, skips re-renders when the fetched list matches the cached one, and guards against unmount-mid-fetch state updates.
+- `useStatus` polls every 3 seconds with visibility-pause and cancellation on unmount; status responses skip re-render when the snapshot is byte-equivalent.
+- Status snapshot walks `errorBuckets` across all source types and bucket-key forms (parent and sub-conversion `[N]` brackets), not just the `stream` suffix. Bucket-prefix strings are named via a `BUCKET_PREFIX` const map.
+- Sub-conversion emit counters aggregate under the parent `optionKey` rather than recording per-index keys.
+- `extractPgnsFromTitle` regex hoisted to module scope.
+- Discovery helpers use `app.getSelfPath` (correct self-to-MRN resolution path), not `app.getPath("vessels.self.<path>")` (which does not resolve `self`).
 - Added the `signalk-plugin-configurator` npm keyword so the Signal K admin UI loads the federated panel instead of the rjsf form.
 - Webpack 5 + babel-loader + `@babel/preset-typescript` build target for the panel under `public/*.mjs`. esbuild keeps building the plugin bundle to `dist/index.js`.
-- Discovery helpers use `app.getSelfPath` (correct self-to-MRN resolution path), not `app.getPath("vessels.self.<path>")` (which does not resolve `self`).
-- Status snapshot walks `errorBuckets` across all source types and bucket-key forms (parent + sub-conversion `[N]` brackets), not just the `stream` suffix.
-- Sub-conversion emit counters aggregate under the parent `optionKey` rather than recording per-index keys.
+- TypeBox `Conversion` schema makes `sources` and `extras` required with `{}` defaults; eliminates a class of `?? {}` defensive spreads at the read sites.
+- Removed unused `RawPluginOptions` / `normalizePluginOptions` exports. Removed the unused `init` reducer action and unreachable guards in the config reducer.
+- Inline-style aria-labels on every form input in the panel; keyboard focus paths preserved.
+- Single `PLUGIN_API_BASE` constant for the panel's fetch URLs.
+- Timeout constants consolidated into `src/constants.ts` (`SLOW_DATA_TIMEOUT_MS`, `STATIC_DATA_TIMEOUT_MS`).
+- BrightnessMappingEditor's `instanceId` field renamed to `groupLabel` everywhere (panel + conversion read).
+- 52 tests across 9 files (up from 50; added `/api/sources` trim regression guards and PGN-presence validation).
 
-**Verification**: `npm run typecheck` clean, `npm test` 50/50 pass, `npm run check` (Biome) clean, `npm run build` clean (esbuild plugin bundle + webpack panel bundle). No em dashes in source or docs.
+**Verification**: `npm run typecheck` clean (root + panel tsconfigs), `npm test` 52/52 pass, `npm run check` (Biome) clean, `npm run build` clean (esbuild plugin bundle 461 KB + webpack federation panel total 54 KiB). No em dashes in source or docs.
 
 ### v1.4.4 (2026/05/12) - Plugin Restart Lifecycle Fix and Supply Chain Hygiene
 

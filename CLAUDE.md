@@ -107,13 +107,16 @@ Use these methods for UI visibility in the Signal K admin panel. `plugin-manager
 - `Starting...` at the top of `start()`
 - `Running with N conversions enabled` once N>0 and `nmea2000Ready` is true
 - `No conversions enabled. Enable at least one in plugin settings.` when N=0
-- `Waiting for NMEA 2000 output (N conversions enabled)` when N>0 but `nmea2000OutAvailable` has not yet fired (refreshed automatically from the constructor-installed listener)
+- `Waiting for NMEA 2000 output (N conversions enabled)` when N>0 but `nmea2000OutAvailable` has not yet fired (refreshed automatically by the listener that `start()` attaches; `start()` also reads `app.isNmea2000OutAvailable` synchronously so a plugin restarted after the one-shot event already fired still goes straight to running)
 - `Stopped` on `stop()`
 
 Brand: use "NMEA 2000" (with space) in user-facing strings (status, schema text, README, CHANGELOG, comments). Event identifiers like `nmea2000OutAvailable` / `nmea2000JsonOut` stay as the API names. Em dashes are banned everywhere.
 
 ### NMEA 2000 Output Readiness
-Wait for the `nmea2000OutAvailable` event before emitting messages. `PluginManager` already does this: the constructor binds `onNmea2000Ready` (so `stop()` can `removeListener` the exact same reference), checks the `stopped` flag before flipping `nmea2000Ready`, and refreshes the status from `Waiting for NMEA 2000 output (...)` to the running form via `lastEnabledCount`.
+Wait for the `nmea2000OutAvailable` event before emitting messages. `PluginManager` already does this:
+- The constructor binds `onNmea2000Ready` (so `stop()` can `removeListener` the exact same reference) but does NOT attach it: `start()` owns the lifecycle so a constructed-but-never-started instance does not leak a listener.
+- `start()` removes-then-adds the listener idempotently, and reads `app.isNmea2000OutAvailable` (the sync mirror that `signalk-server >= 2.x` maintains) so a plugin re-enabled after the one-shot `nmea2000OutAvailable` event already fired still detects readiness.
+- The listener checks the `stopped` flag before flipping `nmea2000Ready` and refreshes the status from `Waiting for NMEA 2000 output (...)` to the running form via `lastEnabledCount`.
 
 ### Error Throttling
 Per-callback errors route through `PluginManager.throttledError(key, message)` with a per-key 60s window. Use `bucketKey(prefix, conversion, suffix?)` to build the key: it normalizes the `optionKey ?? title ?? "?"` fallback chain. Apply uniformly to every error path (callback, processOutput, resend, subscription, RxJS stream `error`); asymmetric coverage leaves a log-flood surface open. `start()` and `stop()` both clear `errorBuckets` so the next lifecycle begins fresh.

@@ -220,9 +220,14 @@ describe("PluginManager lifecycle", () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
 		mock = createMockSignalKApp();
+		// Set the server-maintained sync mirror so start() flips nmea2000Ready
+		// via its sync-detect path. Mirrors the "plugin re-enabled after the
+		// server already announced N2K output" scenario, which is the common
+		// production case.
+		(
+			mock.app as unknown as { isNmea2000OutAvailable: boolean }
+		).isNmea2000OutAvailable = true;
 		manager = new PluginManager(mock.app, mockPlugin);
-		// Mark NMEA2000 output ready (constructor registered the listener).
-		mock.fireEvent("nmea2000OutAvailable");
 	});
 
 	afterEach(() => {
@@ -234,11 +239,22 @@ describe("PluginManager lifecycle", () => {
 		vi.useRealTimers();
 	});
 
-	it("constructor registers the nmea2000OutAvailable listener", () => {
-		// The listener is added in the PluginManager constructor; firing it in
-		// beforeEach should have set the ready flag without any errors.
+	it("start() registers the nmea2000OutAvailable listener and flips ready via the sync mirror", () => {
+		// Constructor binds the callback but does NOT attach it; start() owns
+		// the lifecycle. With isNmea2000OutAvailable=true set in beforeEach,
+		// start() flips ready via the sync-detect path.
+		expect(mock.eventListenerCount()).toBe(0);
+
+		manager.start({
+			globalResendInterval: 5,
+			WIND: { enabled: true, resend: 0 },
+		} as unknown as PluginOptions);
+
 		expect(mock.eventListenerCount()).toBeGreaterThanOrEqual(1);
 		expect(mock.loggedErrors).toEqual([]);
+		// Sync mirror was true at start(); status should be the running form,
+		// not "Waiting for NMEA 2000 output".
+		expect(mock.statusUpdates).toContain("Running with 1 conversions enabled");
 	});
 
 	it("start() wires up stream subscriptions for enabled conversions", () => {
@@ -335,8 +351,15 @@ describe("PluginManager lifecycle", () => {
 		expect(mock.emittedMessages.length).toBe(emittedBefore);
 	});
 
-	it("stop() removes the nmea2000OutAvailable listener registered by the constructor", () => {
-		// Constructor ran in beforeEach: one event listener is active.
+	it("stop() removes the nmea2000OutAvailable listener registered by start()", () => {
+		// Before start(): no listener attached (constructor only captures the
+		// callback; start() owns the registration).
+		expect(mock.eventListenerCount()).toBe(0);
+
+		manager.start({
+			globalResendInterval: 5,
+			WIND: { enabled: true, resend: 0 },
+		} as unknown as PluginOptions);
 		expect(mock.eventListenerCount()).toBeGreaterThanOrEqual(1);
 
 		manager.stop();
@@ -347,19 +370,25 @@ describe("PluginManager lifecycle", () => {
 	});
 
 	it("repeated start/stop cycles do not accumulate nmea2000OutAvailable listeners", () => {
-		// Baseline: one listener registered by the beforeEach-created manager.
-		expect(mock.eventListenerCount()).toBeGreaterThanOrEqual(1);
-
-		manager.stop();
+		// Baseline: no listener until start() runs.
 		expect(mock.eventListenerCount()).toBe(0);
 
-		// Simulate a plugin restart: new PluginManager, then stop again.
-		const manager2 = new PluginManager(mock.app, mockPlugin);
-		mock.fireEvent("nmea2000OutAvailable");
-		expect(mock.eventListenerCount()).toBe(1);
+		const opts = {
+			globalResendInterval: 5,
+			WIND: { enabled: true, resend: 0 },
+		} as unknown as PluginOptions;
 
-		manager2.stop();
-		expect(mock.eventListenerCount()).toBe(0);
+		// Exact Issue #5 scenario: disable then re-enable from the admin UI
+		// triggers stop() then start() on the same PluginManager instance. The
+		// nmea2000OutAvailable event is one-shot at server boot, so start()'s
+		// idempotent removeListener+addListener (plus the sync-mirror check
+		// via isNmea2000OutAvailable) is what keeps the listener count at 1.
+		for (let i = 0; i < 3; i++) {
+			manager.start(opts);
+			expect(mock.eventListenerCount()).toBe(1);
+			manager.stop();
+			expect(mock.eventListenerCount()).toBe(0);
+		}
 	});
 
 	it("notifications subscribe with policy:instant so bursts are not throttled", () => {

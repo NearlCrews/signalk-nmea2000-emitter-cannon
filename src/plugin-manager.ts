@@ -94,7 +94,11 @@ export class PluginManager {
 		this.conversions = createConversionModules(app, plugin);
 		this.app.debug(`Loaded ${this.conversions.length} conversion modules`);
 
-		// Wait for NMEA 2000 output to be available before emitting
+		// Wait for NMEA 2000 output to be available before emitting. start()
+		// owns the add/remove of this listener (the constructor only captures
+		// the callback so removeListener can pass the same reference). Adding
+		// here would leave a leaked listener on any constructed-but-never-
+		// started instance.
 		this.onNmea2000Ready = () => {
 			// Stopped-check first: a stray post-stop event (if removeListener
 			// in stop() threw and safe() swallowed it) leaves a dead instance
@@ -110,7 +114,6 @@ export class PluginManager {
 				this.app.setPluginStatus(this.runningStatus(this.lastEnabledCount));
 			}
 		};
-		this.app.on("nmea2000OutAvailable", this.onNmea2000Ready);
 	}
 
 	private moduleLabel(conversion: ConversionModule): string {
@@ -186,6 +189,24 @@ export class PluginManager {
 		try {
 			this.stopped = false;
 			this.errorBuckets.clear();
+			// Re-attach the nmea2000OutAvailable listener every start: stop()
+			// removes it, and start() may run multiple times across a single
+			// plugin instance (disable -> enable from the admin UI). Removing
+			// before adding keeps the call idempotent even on the first start
+			// where the listener is already attached from the constructor.
+			this.app.removeListener("nmea2000OutAvailable", this.onNmea2000Ready);
+			this.app.on("nmea2000OutAvailable", this.onNmea2000Ready);
+			// Sync check against the server-maintained mirror: if the
+			// nmea2000OutAvailable event has already fired in this process (the
+			// common case when a user disables then re-enables the plugin), the
+			// one-shot event never re-fires and the listener above would never
+			// trip. Flip the readiness flag directly so emit() is not blocked.
+			if (this.app.isNmea2000OutAvailable === true) {
+				this.nmea2000Ready = true;
+				this.app.debug(
+					"NMEA 2000 output already available at start (sync detect)",
+				);
+			}
 			const options = normalizePluginOptions(rawOptions);
 			this.globalResendInterval =
 				options.globalResendInterval || DEFAULT_GLOBAL_RESEND_SECONDS;

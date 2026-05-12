@@ -9,7 +9,12 @@ A Signal K plugin that converts Signal K deltas into NMEA 2000 messages. 45 conv
 
 > Built on the foundation of [`signalk-to-nmea2000`](https://github.com/SignalK/signalk-to-nmea2000) by Scott Bender and the Signal K community.
 
-## What's new in 1.4.3
+## What's new in 1.4.4
+
+- **Bug fix (Issue #5)**: plugin permanently stuck in "Waiting for NMEA 2000 output" after a disable/enable cycle. Root cause was a one-shot event listener that was never re-armed after `stop()`. `start()` now owns the listener lifecycle and also reads `app.isNmea2000OutAvailable` synchronously so a plugin restarted after the server already announced N2K output goes straight to running.
+- Supply chain: PR #6 (GitHub Actions group bump v4→v6 clears Node 20 deprecation) and PR #7 (dev-deps lockfile) merged. Dependabot alert on `ip-address < 10.1.1` resolved via package.json override. CodeQL job-permissions warnings cleared.
+
+### What's new in 1.4.3
 
 - Notification PGN 126983/126985 correctness: `alertCategory` now derived from the Signal K path (`notifications.mob`, `notifications.navigation.*`, `notifications.anchor`, `notifications.arrival`, `notifications.gnss` route to Navigational; everything else stays Technical), `alertPriority` mapped from Signal K state per IEC 62923 (emergency=1, alarm=2, warn=3, alert=4) instead of hardcoded 0, unknown states fall through to Caution with a debug log.
 - alertId allocator now recycles released IDs via a `Set<number>` pool, structurally bounded to the 16-bit `alertId` field range. The cached PGN list returned to the resend pipeline is rebuilt only on map mutation, restoring zero-allocation behavior on dedup callbacks.

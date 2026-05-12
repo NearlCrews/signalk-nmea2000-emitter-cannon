@@ -1,5 +1,29 @@
 ## Change Log
 
+### v1.4.4 (2026/05/12) - Plugin Restart Lifecycle Fix and Supply Chain Hygiene
+
+**Bug fix: plugin permanently stuck after restart (Issue #5)**
+
+The `nmea2000OutAvailable` event is one-shot at signalk-server startup; if you disabled and re-enabled the plugin after the server had already announced N2K output was available, the plugin's listener was registered too late to ever receive the event. `nmea2000Ready` stayed `false`, every emit was dropped with `NMEA2000 output not yet available, dropping message`, and the status read "Waiting for NMEA 2000 output (...)" indefinitely.
+
+Two underlying causes addressed in `src/plugin-manager.ts`:
+
+1. **Listener lifecycle moved from constructor to `start()`**: the constructor now only captures the `onNmea2000Ready` callback reference; `start()` does `removeListener` then `addListener` so the registration is idempotent across many disable/enable cycles. `stop()` keeps the existing `removeListener` call, so a stopped instance leaves no listener behind. Previously the constructor was the sole register-site and `start()` never re-registered after `stop()` had cleaned up.
+2. **Sync state check on `start()`**: `signalk-server >= 2.x` mirrors the one-shot event to a property (`app.isNmea2000OutAvailable`). `start()` now reads it and flips `this.nmea2000Ready` directly when the value is already `true`. The event listener remains as a backup for the cold-boot path where the server has not yet announced.
+
+`src/types/signalk.ts` adds `isNmea2000OutAvailable?: boolean` to the `SignalKApp` interface (optional so older server builds compile).
+
+`src/test/lifecycle.test.ts` updated to reflect the new design: tests now set the sync mirror in `beforeEach` and assert that `start()` (not the constructor) owns the listener registration. New coverage: repeated `start(opts) → start(opts)` calls keep the listener count at 1, not accumulating.
+
+**Supply chain**
+
+- Dependabot alert #1 (`ip-address < 10.1.1` XSS in HTML-emitting methods) resolved via `package.json` `overrides`: `"ip-address": "^10.1.1"`. The vulnerable code never shipped (signalk-server is a devDependency used to load the plugin in tests; the bundle does not include it), but the override silences the alert and the resolution is now reproducible. Side effect: signalk-server bumped 2.26.0 → 2.27.0 as npm resolved a fresh tree.
+- PR #6 merged: `actions/checkout@v4 → v6`, `actions/setup-node@v4 → v6`, `github/codeql-action@v3 → v4`. Clears the Node 20 deprecation warning GitHub Actions emits.
+- PR #7 merged: dev-dependencies bump (5 packages, lockfile only).
+- CodeQL warnings #1 and #2 (missing per-job `permissions:` block on `ci.yml`) fixed by adding `permissions: contents: read` to both jobs. The workflow-level declaration was already there; CodeQL wants per-job too.
+
+**Verification**: `npm run typecheck` clean, `npm test` 21/21 pass, `npm run check` (Biome) clean, `npm run build` 340.3 KB. No em dashes in new content.
+
 ### v1.4.3 (2026/05/12) - Notification PGN Correctness and Repo Hygiene
 
 A read-only Signal K agent scan surfaced gaps in the notification PGN family (126983/126985) and a handful of secondary issues across the conversion modules. This release fixes the actionable findings; PGN 126984 (inbound Alert Response) is intentionally deferred because the typed Signal K server API does not expose an inbound NMEA 2000 hook, so closing the alert-acknowledgement round-trip needs a separate design pass.

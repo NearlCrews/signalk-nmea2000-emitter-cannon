@@ -39,6 +39,7 @@ export default function ExhaustMappingEditor({
 							value={r.signalkId}
 							placeholder="main, port, starboard"
 							onChange={(e) => set({ ...r, signalkId: e.target.value })}
+							aria-label="Signal K engine id for exhaust temperature"
 						/>
 					),
 				},
@@ -53,6 +54,7 @@ export default function ExhaustMappingEditor({
 							onChange={(e) =>
 								set({ ...r, tempInstanceId: Number(e.target.value) | 0 })
 							}
+							aria-label="NMEA 2000 exhaust temperature instance id"
 						/>
 					),
 				},

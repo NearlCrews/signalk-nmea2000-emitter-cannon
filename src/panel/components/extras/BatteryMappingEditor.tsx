@@ -41,6 +41,7 @@ export default function BatteryMappingEditor({
 							value={r.signalkId}
 							placeholder="house, starter, 0"
 							onChange={(e) => set({ ...r, signalkId: e.target.value })}
+							aria-label="Signal K battery id"
 						/>
 					),
 				},
@@ -55,6 +56,7 @@ export default function BatteryMappingEditor({
 							onChange={(e) =>
 								set({ ...r, instanceId: Number(e.target.value) | 0 })
 							}
+							aria-label="NMEA 2000 battery instance id"
 						/>
 					),
 				},

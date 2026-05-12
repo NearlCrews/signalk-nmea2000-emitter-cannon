@@ -25,6 +25,7 @@ export default function FieldEditor({
 					style={S.checkbox}
 					checked={Boolean(v)}
 					onChange={(e) => update(e.target.checked)}
+					aria-label={meta.label}
 				/>
 			) : meta.control === "number" ? (
 				<input
@@ -32,6 +33,7 @@ export default function FieldEditor({
 					style={S.input}
 					value={Number(v) || 0}
 					onChange={(e) => update(Number(e.target.value))}
+					aria-label={meta.label}
 				/>
 			) : (
 				<input
@@ -39,6 +41,7 @@ export default function FieldEditor({
 					style={S.input}
 					value={String(v)}
 					onChange={(e) => update(e.target.value)}
+					aria-label={meta.label}
 				/>
 			)}
 		</div>

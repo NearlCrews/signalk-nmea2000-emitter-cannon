@@ -39,6 +39,7 @@ export default function EngineMappingEditor({
 							value={r.signalkId}
 							placeholder="main, port, starboard"
 							onChange={(e) => set({ ...r, signalkId: e.target.value })}
+							aria-label="Signal K engine id"
 						/>
 					),
 				},
@@ -53,6 +54,7 @@ export default function EngineMappingEditor({
 							onChange={(e) =>
 								set({ ...r, instanceId: Number(e.target.value) | 0 })
 							}
+							aria-label="NMEA 2000 engine instance id"
 						/>
 					),
 				},

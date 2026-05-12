@@ -65,6 +65,7 @@ export default function ConversionCard(props: Props): React.ReactElement {
 							onChange={(e) =>
 								props.onSetResend(Math.max(0, Number(e.target.value) | 0))
 							}
+							aria-label={`Resend interval seconds for ${props.meta.title}`}
 						/>
 					</div>
 					{props.meta.paths.map((p) => (

@@ -38,6 +38,7 @@ export default function TankMappingEditor({
 							value={r.signalkPath}
 							placeholder="tanks.fuel.0"
 							onChange={(e) => set({ ...r, signalkPath: e.target.value })}
+							aria-label="Signal K tank path"
 						/>
 					),
 				},
@@ -52,6 +53,7 @@ export default function TankMappingEditor({
 							onChange={(e) =>
 								set({ ...r, instanceId: Number(e.target.value) | 0 })
 							}
+							aria-label="NMEA 2000 tank instance id"
 						/>
 					),
 				},

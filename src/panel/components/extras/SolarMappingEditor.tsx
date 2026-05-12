@@ -40,6 +40,7 @@ export default function SolarMappingEditor({
 							value={r.signalkId}
 							placeholder="0, 1, mppt-1"
 							onChange={(e) => set({ ...r, signalkId: e.target.value })}
+							aria-label="Signal K solar charger id"
 						/>
 					),
 				},
@@ -54,6 +55,7 @@ export default function SolarMappingEditor({
 							onChange={(e) =>
 								set({ ...r, instanceId: Number(e.target.value) | 0 })
 							}
+							aria-label="NMEA 2000 solar charger instance id"
 						/>
 					),
 				},
@@ -68,6 +70,7 @@ export default function SolarMappingEditor({
 							onChange={(e) =>
 								set({ ...r, panelInstanceId: Number(e.target.value) | 0 })
 							}
+							aria-label="NMEA 2000 solar panel instance id"
 						/>
 					),
 				},

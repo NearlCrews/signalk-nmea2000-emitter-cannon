@@ -32,6 +32,7 @@ export default function SourceField({
 					style={S.select}
 					value={value}
 					onChange={(e) => onChange(e.target.value)}
+					aria-label={`Source for ${path}`}
 				>
 					<option value="">(any)</option>
 					{sources.map((s) => (
@@ -48,6 +49,7 @@ export default function SourceField({
 					placeholder="any source"
 					onChange={(e) => onChange(e.target.value)}
 					onFocus={() => setTouched(true)}
+					aria-label={`Source for ${path}`}
 				/>
 			)}
 		</div>

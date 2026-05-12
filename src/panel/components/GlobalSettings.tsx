@@ -20,6 +20,7 @@ export default function GlobalSettings({
 					style={S.input}
 					value={value}
 					onChange={(e) => onChange(Math.max(0, Number(e.target.value) | 0))}
+					aria-label="Global resend interval in seconds"
 				/>
 			</div>
 		</div>

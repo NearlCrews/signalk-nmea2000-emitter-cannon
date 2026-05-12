@@ -41,6 +41,7 @@ export default function BrightnessMappingEditor({
 							value={r.signalkId}
 							placeholder="helm, nav, cabin"
 							onChange={(e) => set({ ...r, signalkId: e.target.value })}
+							aria-label="Signal K Raymarine brightness group id"
 						/>
 					),
 				},
@@ -53,6 +54,7 @@ export default function BrightnessMappingEditor({
 							value={r.instanceId}
 							placeholder="Helm 1"
 							onChange={(e) => set({ ...r, instanceId: e.target.value })}
+							aria-label="NMEA 2000 brightness group label"
 						/>
 					),
 				},

@@ -112,6 +112,21 @@ export class PluginManager {
 			lastEmittedAt?: number;
 		}
 	> = new Map();
+	/**
+	 * Secondary index: most recent emitted error per parent optionKey. Updated
+	 * synchronously from throttledError() at the bucket-write site so
+	 * getStatusSnapshot() can look up the latest error in O(1) instead of
+	 * scanning every entry in `errorBuckets` for each conversion (the
+	 * pre-cleanup behaviour was O(conversions * buckets) per /api/status hit).
+	 *
+	 * Indexed by parent optionKey: sub-conversion buckets like
+	 * `callback:BATTERY[0]:stream` aggregate under `BATTERY`. Cleared in
+	 * start() and stop() alongside the other status-bookkeeping state.
+	 */
+	private latestErrorByParent: Map<
+		string,
+		{ message: string; emittedAt: number }
+	> = new Map();
 	private static readonly ERROR_THROTTLE_S = 60;
 	private static readonly ERROR_THROTTLE_MS =
 		PluginManager.ERROR_THROTTLE_S * 1000;
@@ -178,11 +193,32 @@ export class PluginManager {
 	}
 
 	/**
+	 * Extract the parent optionKey from a throttle-bucket key. Bucket keys
+	 * are `<prefix>:<id>[:<source>]` where id is either `OPTION_KEY` or
+	 * `OPTION_KEY[N]` for sub-conversions. Returns the bare option key so
+	 * status snapshots can index by parent regardless of which sub-conversion
+	 * (or which source: stream/delta/timer/etc) raised the error.
+	 */
+	private parentKeyFromBucketKey(bucketKey: string): string | undefined {
+		const firstColon = bucketKey.indexOf(":");
+		if (firstColon === -1) return undefined;
+		const afterPrefix = bucketKey.substring(firstColon + 1);
+		const secondColon = afterPrefix.indexOf(":");
+		const id =
+			secondColon === -1 ? afterPrefix : afterPrefix.substring(0, secondColon);
+		const bracket = id.indexOf("[");
+		return bracket === -1 ? id : id.substring(0, bracket);
+	}
+
+	/**
 	 * Emit an error message with per-key throttling. The first message for a
 	 * key passes through immediately; subsequent identical-key errors within
 	 * ERROR_THROTTLE_MS are counted, and when the window expires the next
 	 * error appends a suppressed-count summary. Keeps a misbehaving callback
 	 * from flooding the server log on every delta.
+	 *
+	 * Also updates latestErrorByParent so getStatusSnapshot() can surface the
+	 * most recent error per parent optionKey in O(1).
 	 */
 	private throttledError(key: string, message: string): void {
 		const now = Date.now();
@@ -200,6 +236,10 @@ export class PluginManager {
 				lastMessage: message,
 				lastEmittedAt: now,
 			});
+			const parent = this.parentKeyFromBucketKey(key);
+			if (parent !== undefined) {
+				this.latestErrorByParent.set(parent, { message, emittedAt: now });
+			}
 			return;
 		}
 		bucket.suppressed++;
@@ -233,6 +273,7 @@ export class PluginManager {
 		try {
 			this.stopped = false;
 			this.errorBuckets.clear();
+			this.latestErrorByParent.clear();
 			// Re-attach the nmea2000OutAvailable listener every start: stop()
 			// removes it, and start() may run multiple times across a single
 			// plugin instance (disable -> enable from the admin UI). Removing
@@ -447,6 +488,7 @@ export class PluginManager {
 		safe("clear emitCounts", () => this.emitCounts.clear());
 		safe("clear lastEmitAt", () => this.lastEmitAt.clear());
 		safe("clear errorBuckets", () => this.errorBuckets.clear());
+		safe("clear latestErrorByParent", () => this.latestErrorByParent.clear());
 
 		// Wipe ExponentialSmoother state across plugin restarts.
 		safe("clearAllSmoothers", () => clearAllSmoothers());
@@ -809,26 +851,13 @@ export class PluginManager {
 		const perConversion: import("./api/types.js").PerConversionStatus[] =
 			this.conversions.map((c) => {
 				const lastEmitAt = this.lastEmitAt.get(c.optionKey);
-				// Surface the most recent error emitted by any callback source
-				// for this conversion. Bucket keys are
-				// `callback:<optionKey>:<source>` where source is one of
-				// "stream" / "delta" / "subscription" / "timer" / "resend".
-				// Sub-conversions add a bracket suffix to the optionKey
-				// (`callback:BATTERY[0]:stream`), so we accept both `:` and
-				// `[` as the boundary character after the parent key. The
-				// linear scan runs once per /api/status request (3s polling),
-				// not on the hot emit path, and the bucket map is bounded by
-				// the count of distinct (conversion, source) pairs.
-				const prefix = `callback:${c.optionKey}`;
-				let best: { lastMessage?: string; lastEmittedAt?: number } | undefined;
-				for (const [k, b] of this.errorBuckets) {
-					if (!k.startsWith(prefix)) continue;
-					const next = k.charAt(prefix.length);
-					if (next !== ":" && next !== "[") continue;
-					if (!best || (b.lastEmittedAt ?? 0) > (best.lastEmittedAt ?? 0)) {
-						best = b;
-					}
-				}
+				// latestErrorByParent is the O(1) secondary index over
+				// errorBuckets, maintained by throttledError() at the bucket-
+				// write site. Sub-conversions (BATTERY[0], BATTERY[1], ...) and
+				// per-source variants (stream/delta/subscription/timer/resend)
+				// all aggregate under the parent optionKey, which is exactly
+				// what the panel displays per card.
+				const latest = this.latestErrorByParent.get(c.optionKey);
 				const entry: import("./api/types.js").PerConversionStatus = {
 					key: c.optionKey,
 					title: c.title,
@@ -838,11 +867,9 @@ export class PluginManager {
 				if (lastEmitAt !== undefined) {
 					entry.lastEmitMs = now - lastEmitAt;
 				}
-				if (best?.lastMessage !== undefined) {
-					entry.lastErrorMessage = best.lastMessage;
-				}
-				if (best?.lastEmittedAt !== undefined) {
-					entry.lastErrorAgeMs = now - best.lastEmittedAt;
+				if (latest !== undefined) {
+					entry.lastErrorMessage = latest.message;
+					entry.lastErrorAgeMs = now - latest.emittedAt;
 				}
 				return entry;
 			});

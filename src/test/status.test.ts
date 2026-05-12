@@ -84,57 +84,29 @@ describe("PluginManager.getStatusSnapshot", () => {
 		const app = makeMockApp();
 		const pm = new PluginManager(app, mockPlugin);
 		// NOTIFICATIONS is an ON_DELTA conversion, so its error bucket key is
-		// `callback:NOTIFICATIONS:delta`. The previous lookup hardcoded
-		// `:stream` and would have missed this entirely.
-		const buckets = (
-			pm as unknown as {
-				errorBuckets: Map<
-					string,
-					{
-						suppressed: number;
-						nextEmit: number;
-						lastMessage?: string;
-						lastEmittedAt?: number;
-					}
-				>;
-			}
-		).errorBuckets;
-		const emittedAt = Date.now() - 1000;
-		buckets.set("callback:NOTIFICATIONS:delta", {
-			suppressed: 0,
-			nextEmit: 0,
-			lastMessage: "boom",
-			lastEmittedAt: emittedAt,
-		});
+		// `callback:NOTIFICATIONS:delta`. The snapshot's parent index must
+		// surface this regardless of the `:delta` source suffix.
+		const throttledError = (
+			pm as unknown as { throttledError: (k: string, m: string) => void }
+		).throttledError.bind(pm);
+		throttledError("callback:NOTIFICATIONS:delta", "boom");
 		const snap = pm.getStatusSnapshot();
 		const notif = snap.perConversion.find((c) => c.key === "NOTIFICATIONS");
 		expect(notif).toBeDefined();
 		expect(notif?.lastErrorMessage).toBe("boom");
-		expect(notif?.lastErrorAgeMs).toBeGreaterThanOrEqual(1000);
+		expect(notif?.lastErrorAgeMs).toBeGreaterThanOrEqual(0);
 	});
 
 	it("surfaces error buckets keyed under sub-conversion brackets", () => {
 		const app = makeMockApp();
 		const pm = new PluginManager(app, mockPlugin);
-		const buckets = (
-			pm as unknown as {
-				errorBuckets: Map<
-					string,
-					{
-						suppressed: number;
-						nextEmit: number;
-						lastMessage?: string;
-						lastEmittedAt?: number;
-					}
-				>;
-			}
-		).errorBuckets;
-		buckets.set("callback:BATTERY[2]:stream", {
-			suppressed: 0,
-			nextEmit: 0,
-			lastMessage: "subfail",
-			lastEmittedAt: Date.now(),
-		});
+		// Sub-conversion buckets carry a bracketed index (BATTERY[2]); the
+		// parent-key index in latestErrorByParent must aggregate them under
+		// the bare parent optionKey (BATTERY).
+		const throttledError = (
+			pm as unknown as { throttledError: (k: string, m: string) => void }
+		).throttledError.bind(pm);
+		throttledError("callback:BATTERY[2]:stream", "subfail");
 		const snap = pm.getStatusSnapshot();
 		const battery = snap.perConversion.find((c) => c.key === "BATTERY");
 		expect(battery?.lastErrorMessage).toBe("subfail");

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace the hand-rolled JSON Schema admin UI for `signalk-nmea2000-emitter-cannon` with a federated React panel (webpack 5 Module Federation), TypeBox-derived config schema, and live discovery/status endpoints over an Express router. Target release: v2.0.0.
+**Goal:** Replace the hand-rolled JSON Schema admin UI for `signalk-nmea2000-emitter-cannon` with a federated React panel (webpack 5 Module Federation), TypeBox-derived config schema, and live discovery/status endpoints over an Express router. Target release: v1.5.0.
 
 **Architecture:** Plugin stays on esbuild (no change to runtime bundle). A second build target (`webpack --config webpack.config.js`) produces `public/remoteEntry.js` consumed by `@signalk/server-admin-ui >= 2.27.0`. Backend gains an Express router under `/plugins/signalk-nmea2000-emitter-cannon/api/` for status, conversion metadata, path discovery, and `$source` enumeration. The config shape moves into TypeBox (`src/config/schema.ts`), with a load-time migration from the legacy flat shape so existing installs upgrade transparently.
 
@@ -2650,13 +2650,13 @@ Replace the configuration section with a description of the federated panel. Add
 - Minimum admin UI requirement: `@signalk/server-admin-ui >= 2.27.0` (ships with signalk-server >= 2.x).
 - Migration note: existing installs are migrated transparently on first start; no manual action.
 - Brief tour of the panel sections (status, presets, categorized tabs).
-- Screenshots are optional for v2.0.0 release. If skipping, omit the screenshots section entirely from the README. Do NOT write placeholder text like "Screenshots coming soon"; either include a real screenshot or omit the section.
+- Screenshots are optional for v1.5.0 release. If skipping, omit the screenshots section entirely from the README. Do NOT write placeholder text like "Screenshots coming soon"; either include a real screenshot or omit the section.
 
 - [ ] **Step 2: Commit**
 
 ```bash
 git add README.md
-git commit -m "docs(readme): describe React config panel and v2.0.0 admin UI requirement"
+git commit -m "docs(readme): describe React config panel and v1.5.0 admin UI requirement"
 ```
 
 ### Task 36: CHANGELOG entry
@@ -2664,11 +2664,11 @@ git commit -m "docs(readme): describe React config panel and v2.0.0 admin UI req
 **Files:**
 - Modify: `CHANGELOG.md`
 
-- [ ] **Step 1: Add v2.0.0 section**
+- [ ] **Step 1: Add v1.5.0 section**
 
 Prepend to `CHANGELOG.md`:
 ```markdown
-## v2.0.0
+## v1.5.0
 
 ### Breaking
 
@@ -2695,7 +2695,7 @@ Prepend to `CHANGELOG.md`:
 
 ```bash
 git add CHANGELOG.md
-git commit -m "docs(changelog): v2.0.0 entry"
+git commit -m "docs(changelog): v1.5.0 entry"
 ```
 
 ### Task 37: Update CLAUDE.md
@@ -2738,7 +2738,7 @@ git commit -m "docs(claude): document the federated React panel architecture"
 - [ ] **Step 1: Bump version**
 
 ```bash
-npm version --no-git-tag-version 2.0.0
+npm version --no-git-tag-version 1.5.0
 ```
 
 - [ ] **Step 2: Full build + test pass**
@@ -2752,15 +2752,15 @@ Expected: all green.
 
 ```bash
 git add package.json package-lock.json
-git commit -m "release: v2.0.0 React config panel"
-git tag -a v2.0.0 -m "v2.0.0 React config panel (local only, not pushed)"
+git commit -m "release: v1.5.0 React config panel"
+git tag -a v1.5.0 -m "v1.5.0 React config panel (local only, not pushed)"
 ```
 
 - [ ] **Step 4: STOP**
 
 Do NOT run `git push`, `git push --tags`, `npm publish`, or `npm run release`. Per the workflow rule in CLAUDE.md and the corresponding feedback memory, wait for the user's explicit go-ahead.
 
-Final state to report: "v2.0.0 staged locally as tag v2.0.0. No push performed. Waiting for ok to push."
+Final state to report: "v1.5.0 staged locally as tag v1.5.0. No push performed. Waiting for ok to push."
 
 ---
 

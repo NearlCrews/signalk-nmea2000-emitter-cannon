@@ -13,56 +13,29 @@ export function enumerateActivePaths(app: SignalKApp): string[] {
 }
 
 /**
- * Source labels (dot-joined `/sources` tree ancestors) under which the given
- * path has been published. Used by the panel's source dropdown when a user
- * focuses a per-conversion source field. Walk depth equals `/sources` tree
- * depth (typically 2-3); this is not a hot path.
+ * Source labels under which the given path has been published. Read from the
+ * Signal K full-format model at `vessels.self.<path>`: a single-source node
+ * exposes its publisher via `$source`, and a multi-source node additionally
+ * exposes each contributor as a key under `values`. The `/sources` tree is
+ * device metadata (PGN lists, manufacturer codes, canName, etc.), not a
+ * path-rooted tree, so it cannot answer this question. This call is sync and
+ * cheap: one `getPath` lookup plus a small `Object.keys`.
  */
 export function enumerateSourcesForPath(
 	app: SignalKApp,
 	path: string,
 ): string[] {
-	const tree = app.getPath?.("/sources" as Path);
-	if (!tree || typeof tree !== "object") return [];
+	if (!path) return [];
+	const node = app.getPath?.(`vessels.self.${path}` as Path);
+	if (!node || typeof node !== "object") return [];
 	const out = new Set<string>();
-	const parts = path.split(".");
-	walk(tree as Record<string, unknown>, parts, [], out);
-	return [...out].sort();
-}
-
-// Assumption: in real Signal K /sources trees a node either matches the
-// path-suffix shape OR contains nested source labels, not both. The early
-// return on match therefore does not hide additional sources at deeper
-// nesting. No production tree observed in testing exhibits the
-// pathological case (a source label that is also itself a path container);
-// if one appears in the wild, drop the `return` so the walk continues.
-function walk(
-	node: Record<string, unknown>,
-	pathParts: string[],
-	sourceLabelStack: string[],
-	out: Set<string>,
-): void {
-	if (sourceLabelStack.length > 0 && hasPath(node, pathParts)) {
-		out.add(sourceLabelStack.join("."));
-		return;
-	}
-	for (const [k, v] of Object.entries(node)) {
-		if (v && typeof v === "object" && !Array.isArray(v)) {
-			walk(
-				v as Record<string, unknown>,
-				pathParts,
-				[...sourceLabelStack, k],
-				out,
-			);
+	const single = (node as { $source?: unknown }).$source;
+	if (typeof single === "string" && single.length > 0) out.add(single);
+	const values = (node as { values?: unknown }).values;
+	if (values && typeof values === "object" && !Array.isArray(values)) {
+		for (const k of Object.keys(values as Record<string, unknown>)) {
+			if (k.length > 0) out.add(k);
 		}
 	}
-}
-
-function hasPath(node: unknown, parts: string[]): boolean {
-	let cur: unknown = node;
-	for (const p of parts) {
-		if (!cur || typeof cur !== "object") return false;
-		cur = (cur as Record<string, unknown>)[p];
-	}
-	return cur !== undefined;
+	return [...out].sort();
 }

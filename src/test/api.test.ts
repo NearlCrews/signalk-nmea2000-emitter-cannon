@@ -25,7 +25,9 @@ function makeFakeApp(): SignalKApp {
 	return {
 		streambundle: { getAvailablePaths: () => ["a", "b"] },
 		getPath: (p: string) =>
-			p === "/sources" ? { gps1: { navigation: { position: {} } } } : undefined,
+			p === "vessels.self.navigation.position"
+				? { $source: "gps1", values: { gps1: {} } }
+				: undefined,
 		securityStrategy: { addAdminMiddleware: vi.fn() },
 		error: vi.fn(),
 	} as unknown as SignalKApp;

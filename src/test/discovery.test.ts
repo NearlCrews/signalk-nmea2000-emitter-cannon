@@ -5,45 +5,74 @@ import {
 } from "../api/discovery.js";
 import type { SignalKApp } from "../types/index.js";
 
-function mockApp(
-	paths: string[],
-	sourcesTree: Record<string, unknown> | undefined,
-): SignalKApp {
+function mockPathsApp(paths: string[]): SignalKApp {
 	return {
 		streambundle: { getAvailablePaths: () => paths },
-		getPath: (p: string) =>
-			p === "/sources" ? (sourcesTree as unknown) : undefined,
+		getPath: () => undefined,
+	} as unknown as SignalKApp;
+}
+
+function mockApp(pathToValue: Record<string, unknown>): SignalKApp {
+	return {
+		streambundle: { getAvailablePaths: () => [] },
+		getPath: (p: string) => pathToValue[p],
 	} as unknown as SignalKApp;
 }
 
 describe("enumerateActivePaths", () => {
 	it("returns sorted unique paths", () => {
-		const app = mockApp(["b", "a", "a"], {});
+		const app = mockPathsApp(["b", "a", "a"]);
 		expect(enumerateActivePaths(app)).toEqual(["a", "b"]);
 	});
 	it("returns empty when no paths published", () => {
-		const app = mockApp([], {});
+		const app = mockPathsApp([]);
 		expect(enumerateActivePaths(app)).toEqual([]);
 	});
 });
 
 describe("enumerateSourcesForPath", () => {
-	it("walks the /sources tree and collects source labels that have the target path", () => {
-		const tree = {
-			nmea0183: {
-				II: { navigation: { position: {} } },
+	it("returns sorted dedup of $source plus values keys (multi-source)", () => {
+		const app = mockApp({
+			"vessels.self.navigation.position": {
+				$source: "sim7600x_feed.GP",
+				values: {
+					"nmea2000_feed.c078be001cb01cc9": { value: {} },
+					"sim7600x_feed.GP": { value: {} },
+				},
 			},
-			"derived-data": { navigation: { position: {} } },
-			gps1: { navigation: { headingTrue: {} } },
-		};
-		const app = mockApp([], tree);
-		const sources = enumerateSourcesForPath(app, "navigation.position");
-		expect(sources).toContain("nmea0183.II");
-		expect(sources).toContain("derived-data");
-		expect(sources).not.toContain("gps1");
+		});
+		expect(enumerateSourcesForPath(app, "navigation.position")).toEqual([
+			"nmea2000_feed.c078be001cb01cc9",
+			"sim7600x_feed.GP",
+		]);
 	});
-	it("returns empty when /sources is missing", () => {
-		const app = mockApp([], undefined);
-		expect(enumerateSourcesForPath(app, "x")).toEqual([]);
+	it("returns single $source when path has no values map", () => {
+		const app = mockApp({
+			"vessels.self.electrical.batteries.x.capacity.stateOfCharge": {
+				$source: "ConsoleBattery",
+				value: 0.63,
+			},
+		});
+		expect(
+			enumerateSourcesForPath(
+				app,
+				"electrical.batteries.x.capacity.stateOfCharge",
+			),
+		).toEqual(["ConsoleBattery"]);
+	});
+	it("returns empty when path is missing from the model", () => {
+		expect(enumerateSourcesForPath(mockApp({}), "nope.nope")).toEqual([]);
+	});
+	it("returns empty for empty path", () => {
+		expect(enumerateSourcesForPath(mockApp({}), "")).toEqual([]);
+	});
+	it("ignores empty-string $source", () => {
+		const app = mockApp({
+			"vessels.self.foo.bar": {
+				$source: "",
+				values: { "real-source": { value: 1 } },
+			},
+		});
+		expect(enumerateSourcesForPath(app, "foo.bar")).toEqual(["real-source"]);
 	});
 });

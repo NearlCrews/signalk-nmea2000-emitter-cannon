@@ -40,7 +40,6 @@ Single source of truth for the config shape: TypeBox. `Type.Object({...})` retur
 src/
   config/
     schema.ts            // TypeBox: RootConfig, Conversion. Derived type Config = Static<typeof RootConfig>.
-    presets.ts           // Named preset bundles (Basic Nav, Engine Set, Full AIS, etc.). Pure data.
   panel/
     index.tsx            // Federation entry; re-exports PluginConfigurationPanel.
     PluginConfigurationPanel.tsx
@@ -51,16 +50,17 @@ src/
     styles.ts            // Inline-style objects. No CSS pipeline.
   api/
     router.ts            // Express router factory consumed by registerWithRouter.
-    discovery.ts         // enumerateActivePaths, enumerateSourcesForPath (via /sources tree walk).
-    status.ts            // StatusSnapshot builder.
+    discovery.ts         // enumerateActivePaths, enumerateSourcesForPath (via getSelfPath lookup).
 public/                  // Webpack federation output; shipped in npm tarball via "files".
   remoteEntry.js
   PluginConfigurationPanel.js
   (chunked dependency files)
-webpack.config.js
+webpack.config.cjs
 tsconfig.panel.json
 docs/superpowers/specs/2026-05-12-react-config-panel-design.md  // this file
 ```
+
+As built: the presets list is inline in `src/config/schema.ts` (`PresetTags`), so there is no separate presets module. The status snapshot builder is a `getStatusSnapshot()` method on `PluginManager` rather than a standalone status module under `src/api/`.
 
 Existing files that change:
 
@@ -162,15 +162,14 @@ Open question for implementation: middleware ordering. `addAdminMiddleware(prefi
 
 ### Source discovery
 
-`app.getPath('vessels.self.<path>')` does NOT return a per-`$source` breakdown. The correct enumeration walks the `/sources` tree:
+`app.getPath("vessels.self.<path>")` does NOT resolve the `self` indirection, so the correct call is `app.getSelfPath(path)`. The per-path node carries a `values` map keyed by `$source` ID:
 
 ```typescript
 export function enumerateSourcesForPath(app: SignalKApp, path: string): string[] {
-  const sources = app.getPath("/sources") as Record<string, any> | undefined;
-  if (!sources || typeof sources !== "object") return [];
-  const found = new Set<string>();
-  walkSourcesTree(sources, path, found);  // depth-first; collects $source IDs that have published `path`
-  return [...found].sort();
+  const node = app.getSelfPath?.(path);
+  const values = (node && typeof node === "object" ? (node as { values?: unknown }).values : undefined);
+  if (!values || typeof values !== "object") return [];
+  return Object.keys(values as Record<string, unknown>).sort();
 }
 ```
 
@@ -224,20 +223,27 @@ Styling: inline `style={}` objects. No CSS pipeline. The admin UI provides the s
 
 ## 8. Build pipeline
 
-`webpack.config.js`:
+`webpack.config.cjs` (CommonJS: `package.json` has `"type": "module"`, so the config file uses the `.cjs` extension to opt out):
 
 ```javascript
-import path from "node:path";
-import webpack from "webpack";
-import { fileURLToPath } from "node:url";
-import pkg from "./package.json" with { type: "json" };
+const path = require("node:path");
+const webpack = require("webpack");
+const pkg = require("./package.json");
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const safeName = pkg.name.replace(/[-@/]/g, "_");
 
-export default {
+module.exports = {
   entry: "./src/panel/index.tsx",
   mode: "production",
-  output: { path: path.resolve(__dirname, "public"), clean: false },
+  experiments: { outputModule: true },
+  output: {
+    path: path.resolve(__dirname, "public"),
+    filename: "[name].mjs",
+    chunkFilename: "[name].mjs",
+    module: true,
+    library: { type: "module" },
+    clean: false,
+  },
   module: {
     rules: [{
       test: /\.tsx?$/,
@@ -254,8 +260,8 @@ export default {
   resolve: { extensions: [".tsx", ".ts", ".jsx", ".js"] },
   plugins: [
     new webpack.container.ModuleFederationPlugin({
-      name: pkg.name.replace(/[-@/]/g, "_"),
-      library: { type: "var", name: pkg.name.replace(/[-@/]/g, "_") },
+      name: safeName,
+      library: { type: "module" },
       filename: "remoteEntry.js",
       exposes: { "./PluginConfigurationPanel": "./src/panel/PluginConfigurationPanel" },
       shared: {
@@ -267,6 +273,8 @@ export default {
 };
 ```
 
+The ESM federation variant (`experiments.outputModule: true`, `output.module: true`, `library: { type: "module" }`, `.mjs` chunk filenames) is required because the package's `"type": "module"` setting causes the admin UI to inject `remoteEntry.js` as `<script type="module">`. The original `library: { type: "var" }` script-tag variant was attempted first and rejected by the admin runtime; this finding came out of the milestone 3 live smoke and the spec has been updated to match.
+
 `tsconfig.panel.json` extends the root with `jsx: react-jsx`, DOM libs, and `include: ["src/panel/**/*", "src/config/**/*"]`. `npm run typecheck` runs both root and panel tsconfigs.
 
 `package.json` scripts:
@@ -275,8 +283,8 @@ export default {
 {
   "build":        "npm run clean && npm run build:plugin && npm run build:panel",
   "build:plugin": "esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --outfile=dist/index.js --external:rxjs",
-  "build:panel":  "webpack --config webpack.config.js",
-  "build:watch":  "npm run clean && npm run build:plugin -- --sourcemap=linked --watch & webpack --config webpack.config.js --watch",
+  "build:panel":  "webpack --config webpack.config.cjs",
+  "build:watch":  "npm run clean && npm run build:plugin -- --sourcemap=linked --watch & webpack --config webpack.config.cjs --watch",
   "clean":        "rm -rf dist public/*.js public/*.LICENSE.txt"
 }
 ```
@@ -302,7 +310,7 @@ Verified against `@signalk/server-admin-ui@2.27.0` source and confirmed across 1
 
 | Layer | Scope |
 |---|---|
-| Unit (Vitest) | `src/config/schema.ts` round-trip + JSON Schema validity; `migrateLegacyConfig` fixtures (one per family with extras); `src/api/discovery.ts` and `src/api/status.ts` with mocked SignalKApp; existing 21 conversion tests stay green (metadata additions are passive). |
+| Unit (Vitest) | `src/config/schema.ts` round-trip + JSON Schema validity; `migrateLegacyConfig` fixtures (one per family with extras); `src/api/discovery.ts` and `PluginManager.getStatusSnapshot()` with mocked SignalKApp; existing conversion tests stay green (metadata additions are passive). |
 | Integration (Vitest, new `src/test/api.test.ts`) | In-process Express + supertest. Hit each endpoint, assert response matches the TypeBox interface. No real signalk-server. |
 | Live smoke (manual) | Per the project feedback memory, the developer can restart the local signalk-server and the user provides feedback in the admin UI. Performed after each implementation milestone. |
 
@@ -343,6 +351,6 @@ Detail belongs in the writing-plans output, but the order is:
 - Per-conversion live emission preview (ring buffer per conversion, JSON view).
 - Dark mode / theme adaptation.
 - Component tests for the React panel.
-- User-defined custom presets (v1 ships a fixed list in `src/config/presets.ts`).
+- User-defined custom presets (v1 ships a fixed list inline in `src/config/schema.ts`).
 - Reverse "from PGN to Signal K paths" wizard.
 - AIS per-vessel filter sub-config (v1 AIS family has enabled + resend only).

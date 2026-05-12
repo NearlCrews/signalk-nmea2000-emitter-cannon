@@ -4,7 +4,7 @@
 
 **Goal:** Replace the hand-rolled JSON Schema admin UI for `signalk-nmea2000-emitter-cannon` with a federated React panel (webpack 5 Module Federation), TypeBox-derived config schema, and live discovery/status endpoints over an Express router. Target release: v1.5.0.
 
-**Architecture:** Plugin stays on esbuild (no change to runtime bundle). A second build target (`webpack --config webpack.config.js`) produces `public/remoteEntry.js` consumed by `@signalk/server-admin-ui >= 2.27.0`. Backend gains an Express router under `/plugins/signalk-nmea2000-emitter-cannon/api/` for status, conversion metadata, path discovery, and `$source` enumeration. The config shape moves into TypeBox (`src/config/schema.ts`), with a load-time migration from the legacy flat shape so existing installs upgrade transparently.
+**Architecture:** Plugin stays on esbuild (no change to runtime bundle). A second build target (`webpack --config webpack.config.cjs`) produces `public/remoteEntry.js` consumed by `@signalk/server-admin-ui >= 2.27.0`. Backend gains an Express router under `/plugins/signalk-nmea2000-emitter-cannon/api/` for status, conversion metadata, path discovery, and `$source` enumeration. The config shape moves into TypeBox (`src/config/schema.ts`), with a load-time migration from the legacy flat shape so existing installs upgrade transparently.
 
 **Tech Stack:** TypeScript (strict), Node.js 20.18+, esbuild, webpack 5 + ModuleFederationPlugin, React 19 (host-provided singleton), `@sinclair/typebox`, Express, Vitest, supertest.
 
@@ -858,6 +858,8 @@ git commit -m "feat(plugin-manager): getConversionMetadata for /api/conversions 
 - Create: `src/api/discovery.ts`
 - Create: `src/test/discovery.test.ts`
 
+**As-built note:** the snippets below sketch walking the `/sources` tree via `app.getPath("/sources")`. The actual implementation switched to `app.getSelfPath(path)` during M2, reading the per-path `values` map (keyed by `$source` ID) directly. `app.getPath("vessels.self.<path>")` does NOT resolve the `self` indirection, and the `/sources` tree stores device metadata, not path-keyed source listings. The discovery test was rewritten against the `getSelfPath` shape.
+
 - [ ] **Step 1: Write the failing test**
 
 Create `src/test/discovery.test.ts`:
@@ -1282,14 +1284,14 @@ git add tsconfig.panel.json package.json
 git commit -m "chore(build): tsconfig.panel.json for the React panel build target"
 ```
 
-### Task 17: webpack.config.js
+### Task 17: webpack.config.cjs
 
 **Files:**
-- Create: `webpack.config.js`
+- Create: `webpack.config.cjs`
 
 - [ ] **Step 1: Write the file**
 
-Create `webpack.config.js` (CommonJS to avoid ESM-from-config gotchas):
+Create `webpack.config.cjs` (CommonJS extension because `package.json` has `"type": "module"`, so plain `.js` would be parsed as ESM):
 ```javascript
 const path = require("node:path");
 const webpack = require("webpack");
@@ -1343,8 +1345,8 @@ Replace the existing `build`, `build:watch`, and `clean` scripts with:
 ```json
 "build": "npm run clean && npm run build:plugin && npm run build:panel",
 "build:plugin": "esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --outfile=dist/index.js --external:rxjs",
-"build:panel": "webpack --config webpack.config.js",
-"build:watch": "concurrently -k -n plugin,panel \"esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --sourcemap=linked --outfile=dist/index.js --external:rxjs --watch\" \"webpack --config webpack.config.js --watch\"",
+"build:panel": "webpack --config webpack.config.cjs",
+"build:watch": "concurrently -k -n plugin,panel \"esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --sourcemap=linked --outfile=dist/index.js --external:rxjs --watch\" \"webpack --config webpack.config.cjs --watch\"",
 "clean": "rm -rf dist && rm -f public/*.js public/*.LICENSE.txt public/*.map"
 ```
 
@@ -1378,7 +1380,7 @@ In `package.json`:
 - [ ] **Step 4: Commit**
 
 ```bash
-git add webpack.config.js package.json
+git add webpack.config.cjs package.json
 git commit -m "feat(build): webpack federation config and updated build scripts"
 ```
 
@@ -1387,6 +1389,8 @@ git commit -m "feat(build): webpack federation config and updated build scripts"
 **Files:**
 - Create: `src/panel/index.tsx`
 - Create: `src/panel/PluginConfigurationPanel.tsx`
+
+**As-built note:** the Task 17 config above sketches `library: { type: "var" }`, which is the legacy script-tag federation contract. The actual implementation switched to ESM federation at the end of milestone 3 (`experiments.outputModule: true`, `output.module: true`, `output.filename: "[name].mjs"`, `library: { type: "module" }` on both the `output` block and the `ModuleFederationPlugin`) because `package.json` declares `"type": "module"` and the admin UI therefore injects `remoteEntry.js` as `<script type="module">`. The `var`-typed remote was rejected by the admin runtime in the milestone-3 smoke and the change was applied before tagging `milestone3-skeleton`.
 
 - [ ] **Step 1: Federation entry**
 

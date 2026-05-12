@@ -7,6 +7,7 @@ import type {
 } from "../api/types.js";
 import { Categories } from "../config/enums";
 import type { ConversionCategory } from "../config/enums.js";
+import { PLUGIN_API_BASE } from "./api-base";
 import CategoryTabs from "./components/CategoryTabs";
 import ConversionCard from "./components/ConversionCard";
 import FooterBar from "./components/FooterBar";
@@ -34,7 +35,7 @@ export default function PluginConfigurationPanel({
 	const [tab, setTab] = useState<ConversionCategory>("navigation");
 
 	useEffect(() => {
-		fetch("/plugins/signalk-nmea2000-emitter-cannon/api/conversions", {
+		fetch(`${PLUGIN_API_BASE}/conversions`, {
 			credentials: "same-origin",
 		})
 			.then((r) => r.json() as Promise<ConversionsResponse>)

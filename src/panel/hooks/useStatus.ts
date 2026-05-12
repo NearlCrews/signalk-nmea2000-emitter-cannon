@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { StatusSnapshot } from "../../api/types.js";
+import { PLUGIN_API_BASE } from "../api-base";
 
-const URL = "/plugins/signalk-nmea2000-emitter-cannon/api/status";
+const URL = `${PLUGIN_API_BASE}/status`;
 const POLL_MS = 3000;
 
 export function useStatus(): {

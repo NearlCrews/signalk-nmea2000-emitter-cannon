@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { PLUGIN_API_BASE } from "../api-base";
 
 const CACHE_TTL_MS = 30_000;
 
@@ -40,7 +41,7 @@ export function useSources(): {
 		const p = (async () => {
 			try {
 				const r = await fetch(
-					`/plugins/signalk-nmea2000-emitter-cannon/api/sources?path=${encodeURIComponent(path)}`,
+					`${PLUGIN_API_BASE}/sources?path=${encodeURIComponent(path)}`,
 					{ credentials: "same-origin" },
 				);
 				const body = (await r.json()) as { sources: string[] };

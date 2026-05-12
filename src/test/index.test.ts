@@ -1,7 +1,7 @@
 import { FromPgn, pgnToActisenseSerialFormat } from "@canboat/canboatjs";
 import { beforeEach, describe, expect, it } from "vitest";
+import { RootConfig } from "../config/schema.js";
 import { createConversionModules } from "../conversions/index.js";
-import { schema } from "../schema.js";
 import type {
 	ConversionModule,
 	SignalKApp,
@@ -59,7 +59,7 @@ const mockPlugin: SignalKPlugin = {
 	id: "signalk-nmea2000-emitter-cannon",
 	name: "Test Plugin",
 	description: "Test plugin",
-	schema: () => schema,
+	schema: () => RootConfig,
 	start: () => {},
 	stop: () => {},
 };

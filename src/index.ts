@@ -1,11 +1,6 @@
+import { RootConfig } from "./config/schema.js";
 import { PluginManager } from "./plugin-manager.js";
-
-import { schema } from "./schema.js";
-import type {
-	RawPluginOptions,
-	SignalKApp,
-	SignalKPlugin,
-} from "./types/index.js";
+import type { SignalKApp, SignalKPlugin } from "./types/index.js";
 import { errMessage } from "./utils/errorUtils.js";
 
 /**
@@ -22,13 +17,13 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 		name: "Signal K NMEA2000 Emitter Cannon",
 		description:
 			"Plugin to convert Signal K to NMEA2000 with enhanced Garmin compatibility",
-		schema: () => schema,
+		schema: () => RootConfig,
 		start: startPlugin,
 		stop: stopPlugin,
 	};
 
 	function startPlugin(
-		options: RawPluginOptions,
+		options: unknown,
 		_restartPlugin?: (cfg: object) => void,
 	): void {
 		if (pluginManager) {

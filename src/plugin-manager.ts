@@ -1,5 +1,6 @@
 import type { Context, NormalizedDelta, Path } from "@signalk/server-api";
 import { debounceTime, Subject } from "rxjs";
+import { migrateLegacyConfig } from "./config/migrate.js";
 import {
 	DEFAULT_GLOBAL_RESEND_SECONDS,
 	OUTPUT_TYPE,
@@ -15,13 +16,12 @@ import type {
 	OutputTypeProcessor,
 	PluginOptions,
 	ProcessingOptions,
-	RawPluginOptions,
 	SignalKApp,
 	SignalKPlugin,
 	SourceTypeMapper,
 	SubConversionModule,
 } from "./types/index.js";
-import { isConversionOptions, normalizePluginOptions } from "./types/index.js";
+import { isConversionOptions } from "./types/index.js";
 import { isDebugEnabled } from "./utils/debugUtils.js";
 import { errMessage } from "./utils/errorUtils.js";
 import { formatN2KMessage, validateN2KMessage } from "./utils/messageUtils.js";
@@ -185,7 +185,7 @@ export class PluginManager {
 		}
 	}
 
-	start(rawOptions: RawPluginOptions | PluginOptions): void {
+	start(rawOptions: unknown): void {
 		try {
 			this.stopped = false;
 			this.errorBuckets.clear();
@@ -207,7 +207,26 @@ export class PluginManager {
 					"NMEA 2000 output already available at start (sync detect)",
 				);
 			}
-			const options = normalizePluginOptions(rawOptions);
+			// Migrate from the legacy flat shape (or pass through the typed
+			// new shape) before flattening each conversion's sources+extras
+			// back into the wide ConversionOptions surface that the existing
+			// downstream loops read. Milestone 2 replaces this re-flatten with
+			// metadata-driven access through `conversions[key].sources` and
+			// `conversions[key].extras`.
+			const migrated = migrateLegacyConfig(rawOptions);
+			const conversions: Record<string, ConversionOptions> = {};
+			for (const [key, value] of Object.entries(migrated.conversions)) {
+				conversions[key] = {
+					enabled: value.enabled,
+					resend: value.resend,
+					...(value.sources ?? {}),
+					...(value.extras ?? {}),
+				};
+			}
+			const options: PluginOptions = {
+				globalResendInterval: migrated.globalResendInterval,
+				conversions,
+			};
 			this.globalResendInterval =
 				options.globalResendInterval || DEFAULT_GLOBAL_RESEND_SECONDS;
 

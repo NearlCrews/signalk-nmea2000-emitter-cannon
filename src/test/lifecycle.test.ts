@@ -5,8 +5,8 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { RootConfig } from "../config/schema.js";
 import { PluginManager } from "../plugin-manager.js";
-import { schema } from "../schema.js";
 import type {
 	N2KMessage,
 	PluginOptions,
@@ -197,7 +197,7 @@ const mockPlugin: SignalKPlugin = {
 	id: "signalk-nmea2000-emitter-cannon",
 	name: "Test Plugin",
 	description: "Test plugin",
-	schema: () => schema,
+	schema: () => RootConfig,
 	start: () => {},
 	stop: () => {},
 };

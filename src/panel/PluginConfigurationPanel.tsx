@@ -1,6 +1,7 @@
 import type * as React from "react";
-import { useEffect, useState } from "react";
-import type { ConversionsResponse } from "../api/types.js";
+import StatusDashboard from "./components/StatusDashboard";
+import { useStatus } from "./hooks/useStatus";
+import { S } from "./styles";
 
 interface Props {
 	configuration: unknown;
@@ -10,26 +11,14 @@ interface Props {
 export default function PluginConfigurationPanel(
 	_props: Props,
 ): React.ReactElement {
-	const [count, setCount] = useState<number | null>(null);
-	const [error, setError] = useState<string | null>(null);
-
-	useEffect(() => {
-		fetch("/plugins/signalk-nmea2000-emitter-cannon/api/conversions")
-			.then((r) => r.json() as Promise<ConversionsResponse>)
-			.then((d) => setCount(d.conversions.length))
-			.catch((e) => setError(String(e)));
-	}, []);
-
+	const { status, error } = useStatus();
 	return (
-		<div
-			style={{
-				padding: 16,
-				fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
-			}}
-		>
-			<h2>NMEA 2000 Emitter Cannon</h2>
-			{error ? <p style={{ color: "crimson" }}>Error: {error}</p> : null}
-			{count !== null ? <p>Loaded {count} conversions.</p> : <p>Loading...</p>}
+		<div style={S.root}>
+			<StatusDashboard status={status} />
+			{error ? (
+				<p style={{ color: "crimson", fontSize: 12 }}>Status error: {error}</p>
+			) : null}
+			<p>Conversion cards coming next.</p>
 		</div>
 	);
 }

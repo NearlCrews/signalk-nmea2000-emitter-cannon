@@ -372,7 +372,7 @@ A four-expert Signal K compliance review surfaced about thirty findings spanning
   pressure, raymarineBrightness, rudder, seaTemp, setdrift, solar, tanks,
   temperature, transmissionParameters, trueheading.
 - `routeWaypoint.ts` and `routeWpList.ts` now use `?? 0` instead of `|| 0`
-  for waypoint coordinate defaults — a valid `0` latitude (equator) or `0`
+  for waypoint coordinate defaults: a valid `0` latitude (equator) or `0`
   longitude (prime meridian) is no longer treated as missing.
 - humidity outside conversion: added explicit test for `relativeHumidity = 0`
   to confirm a valid 0 % reading does not silently fall through to the
@@ -398,7 +398,7 @@ A four-expert Signal K compliance review surfaced about thirty findings spanning
 **Code quality sweep**:
 - Removed redundant WHAT-style JSDoc blocks (e.g. `/** Battery configuration interface */`)
   and narration comments (`// Validate inputs`, `// Convert and validate inputs`)
-  across 35 files — net 162 lines removed.
+  across 35 files: net 162 lines removed.
 - Stripped task-tracking comment markers (`(M3)`, `(M9)`, `(H5)`, `(L3)`)
   that referenced a planning doc no longer in the repo.
 
@@ -416,7 +416,7 @@ A four-expert Signal K compliance review surfaced about thirty findings spanning
 
 - PGN 130313 outside humidity now subscribes to both
   `environment.outside.relativeHumidity` and `environment.outside.humidity`.
-  Upstream Signal K humidity sources disagree on which path is canonical —
+  Upstream Signal K humidity sources disagree on which path is canonical.
   `signalk-virtual-weather-sensors`, for example, publishes to `.humidity`,
   while the emitter-cannon previously only listened on `.relativeHumidity`,
   so the Garmin showed no reading. `relativeHumidity` still wins when both
@@ -424,10 +424,10 @@ A four-expert Signal K compliance review surfaced about thirty findings spanning
 
 ### v1.2.3 (2026/04/19) - Bus Correctness, Lifecycle Hardening, Type Safety
 
-**NMEA 2000 Bus Correctness (wrong data on the wire — fix first)**:
+**NMEA 2000 Bus Correctness (wrong data on the wire, fix first)**:
 - PGN 127245 rudder `directionOrder` now emits the canboat enum values
   (`Move to starboard`, `Move to port`) instead of `Turn Right`/`Turn Left`,
-  which canboatjs silently dropped to `No Order` — rudder direction commands
+  which canboatjs silently dropped to `No Order`. Rudder direction commands
   were never actually transmitted.
 - PGN 130577 direction data: `cog`/`heading` fallback uses `??` instead of
   `||`, so a true-north (0 rad) reading no longer silently substitutes the
@@ -442,12 +442,12 @@ A four-expert Signal K compliance review surfaced about thirty findings spanning
 - PGN 130310 sea/air temperature uses `sid: 0` instead of `sid: 0xff` (the
   "not available" sentinel, which made the message's SID undefined).
 - PGN 129539 GNSS DOPs: `actualMode` falls through to `"Auto"` instead of
-  `"No GNSS"` when Signal K reports mode `"Auto"` — chart plotters no longer
+  `"No GNSS"` when Signal K reports mode `"Auto"`. Chart plotters no longer
   show "No GNSS fix" while the receiver is in auto-2D/3D mode.
 - PGN 128267 depth: `surfaceToTransducer` is now negated when used as the
   N2K offset (freeboard offset is signed negative per the PGN spec).
 - PGN 127257 attitude: `pitch`/`yaw`/`roll` are validated with `isValidNumber`
-  and dropped when NaN/Infinity — faulty IMU readings no longer leak corrupt
+  and dropped when NaN/Infinity. Faulty IMU readings no longer leak corrupt
   bits onto the bus.
 - PGN 130306 true wind (water/ground) now includes a `sid` field matching
   the apparent-wind variant, so correlated wind messages share a sequence ID.
@@ -456,7 +456,7 @@ A four-expert Signal K compliance review surfaced about thirty findings spanning
   Dew Point, Apparent Wind Chill, Theoretical Wind Chill, Heat Index, Freezer)
   now have unique defaults (104–111).
 - AIS: `isN2K()` now actually detects NMEA2000-originated deltas via
-  `updates[].source.type === "NMEA2000"` — closes an echo loop that doubled
+  `updates[].source.type === "NMEA2000"`, closing an echo loop that doubled
   AIS frames on vessels with a hardware receiver + this plugin.
 - AIS: own-vessel filter no longer falls back to the literal `"vessels.self"`
   (which never matched real urn-form contexts, letting own-vessel data leak
@@ -467,10 +467,10 @@ A four-expert Signal K compliance review surfaced about thirty findings spanning
   every restart leaked a listener plus the PluginManager it closed over,
   eventually tripping `MaxListenersExceeded`.
 - Timer-source conversions (e.g. `systemTime`) no longer get a redundant
-  global resend timer — `systemTime` was emitting PGN 126992 both on its
+  global resend timer. `systemTime` was emitting PGN 126992 both on its
   1s main interval and every 5s from the resend timer.
-- Replaced `BehaviorSubject<unknown[]>([])` seed with a plain `Subject` —
-  the pipeline no longer fires callbacks with empty args at startup before
+- Replaced `BehaviorSubject<unknown[]>([])` seed with a plain `Subject`.
+  The pipeline no longer fires callbacks with empty args at startup before
   any real Signal K value has arrived.
 - `clearAllSmoothers()` now releases registry entries so
   `ExponentialSmoother` instances can be garbage-collected across restarts.
@@ -478,7 +478,7 @@ A four-expert Signal K compliance review surfaced about thirty findings spanning
   `fixed` 1s period, so bursts of alerts are no longer throttled.
 - Source-filter predicate now matches label prefixes (`gps1` matches
   `gps1.0`, `gps1.1`, …) instead of requiring an exact match against the
-  composite `$source` — the admin UI description now reflects real behavior.
+  composite `$source`. The admin UI description now reflects real behavior.
 - `stop()` calls `setPluginStatus("Stopped")`.
 - Resend-timer cleanup is no longer performed twice (removed redundant
   second loop).
@@ -500,7 +500,7 @@ A four-expert Signal K compliance review surfaced about thirty findings spanning
   narrowing per project convention.
 - Removed dead `lastOutput?: N2KMessage[]` field (superseded by `lastInputs`).
 - Replaced `isFunction` (from es-toolkit, erases to `any`) with
-  `typeof x === "function"` — TypeScript narrows properly.
+  `typeof x === "function"`: TypeScript narrows properly.
 
 **Test & Build Hardening**:
 - Coverage thresholds wired into `vitest.config.ts`
@@ -508,7 +508,7 @@ A four-expert Signal K compliance review surfaced about thirty findings spanning
   silently tank coverage.
 - Module-count assertion pinned to `74` (was `toBeGreaterThan(0)`, which
   masked silent factory-load failures).
-- Production build no longer emits linked sourcemaps — 387kb of broken map
+- Production build no longer emits linked sourcemaps: 387kb of broken map
   references are out of the npm package. Sourcemaps remain in
   `build:watch` for development.
 - `biome.json` now enables the recommended rule set plus
@@ -567,7 +567,7 @@ A four-expert Signal K compliance review surfaced about thirty findings spanning
 **Configuration Simplification**:
 - Added top-level `globalResendInterval` setting (default 5s) that controls resend frequency for all conversions
 - Per-conversion `resend` value still overrides the global when non-zero
-- Removed `resendTime` entirely — timers now resend indefinitely until the plugin stops or new data arrives
+- Removed `resendTime` entirely: timers now resend indefinitely until the plugin stops or new data arrives
 
 ---
 
@@ -576,7 +576,7 @@ A four-expert Signal K compliance review surfaced about thirty findings spanning
 **Critical Bug Fixes**:
 - Fixed duplicate `design.draft` entry in AIS `staticKeys` that corrupted positional argument mapping for `fromBow` and `imo` fields
 - Fixed unreachable code branch in notifications where `value.state === "normal"` was checked inside a `value.state !== "normal"` guard
-- Fixed event listener leak in `mapOnDelta` — delta handlers now properly clean up on plugin stop via `removeListener`
+- Fixed event listener leak in `mapOnDelta`: delta handlers now properly clean up on plugin stop via `removeListener`
 
 **Resend Timer Overhaul**:
 - Fixed resend timer recreating `setInterval` on every value update (caused timer churn on high-frequency paths like GPS)

@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/github/license/NearlCrews/signalk-nmea2000-emitter-cannon.svg)](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/blob/main/LICENSE)
 [![CI](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/actions/workflows/ci.yml/badge.svg)](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/actions/workflows/ci.yml)
 
-A Signal K plugin that converts Signal K deltas into NMEA 2000 messages. 45 conversion modules covering 52 data PGNs, aligned with Garmin ECHOMAP / GPSMAP / GMI specifications and the canboatjs encoder. Pairs well with sensor-side plugins such as [`signalk-virtual-weather-sensors`](https://github.com/NearlCrews/signalk-virtual-weather-sensors).
+A Signal K plugin that converts Signal K deltas into NMEA 2000 messages. 45 conversion modules covering 53 data PGNs, aligned with Garmin ECHOMAP / GPSMAP / GMI specifications and the canboatjs encoder. Pairs well with sensor-side plugins such as [`signalk-virtual-weather-sensors`](https://github.com/NearlCrews/signalk-virtual-weather-sensors).
 
 > Built on the foundation of [`signalk-to-nmea2000`](https://github.com/SignalK/signalk-to-nmea2000) by Scott Bender and the Signal K community.
 
@@ -56,13 +56,13 @@ See [CHANGELOG.md](CHANGELOG.md) for the full list.
 
 ## Features
 
-- **45 conversion modules, 52 data PGNs** plus 3 ISO PGNs advertised in the 126464 transmit list
+- **45 conversion modules, 53 data PGNs** plus 3 ISO PGNs advertised in the 126464 transmit list
 - **Garmin-aligned** PGN priorities, SID fields, temperature-source enum values, and wind/bearing reference enums verified against the Garmin ECHOMAP UHD2 6/7/9 sv Owner's Manual (April 2026 v13)
 - **Strict TypeScript** under every TS 6 strict flag (`strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `noImplicitOverride`, `noImplicitReturns`, `noFallthroughCasesInSwitch`)
 - **Reactive subscriptions** via RxJS 7.8 with debounced multi-key aggregation and per-key freshness timeouts
 - **Source filtering** per conversion: pick a specific `$source` label or accept any
 - **Resend timers** per conversion plus a global default, so MFDs that expect periodic re-broadcast still see the data when the underlying source is quiet
-- **Single ESM bundle** via esbuild (as of v1.5.0, ~447 KB); the only runtime dependency is RxJS (`@signalk/server-api` is type-only)
+- **Single ESM bundle** via esbuild (as of v1.5.0, ~458 KB); the only runtime dependency is RxJS (`@signalk/server-api` is type-only)
 - **Embedded canboatjs round-trip tests** on every conversion module (as of v1.5.0, 50 tests across 9 files)
 - **`$source: 'NMEA2000'` echo-guard** on AIS conversions to avoid re-emitting received AIS deltas back onto the bus
 - **Apache 2.0**, pure ESM, Node 20.18+
@@ -154,7 +154,7 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 
 If the live `$source` differs from your saved filter, the conversion is being silently gated. Update the filter or clear it (blank = accept any). Conversions with no published source for their path remain inert and cost nothing beyond startup work; disable them if you know they won't see data on your boat.
 
-## Supported PGNs (52 data PGNs across 45 modules)
+## Supported PGNs (53 data PGNs across 45 modules)
 
 All PGNs are aligned with Garmin specifications (corrected priorities, SID fields, field names, reference enums).
 
@@ -318,35 +318,60 @@ npm run format
 
 ```
 src/
-├── index.ts              # Main plugin entry point
-├── plugin-manager.ts     # Core plugin lifecycle management
-├── schema.ts             # Configuration schema for Signal K admin UI
-├── constants.ts          # NMEA 2000 default values (priority, dst, SID)
-├── types/                # TypeScript type definitions
-│   ├── signalk.ts        # Signal K server types (extends @signalk/server-api)
+├── index.ts              # Plugin entry point (registerWithRouter, lifecycle)
+├── plugin-manager.ts     # Core lifecycle (subscriptions, resend, status snapshot, emit counters)
+├── constants.ts          # NMEA 2000 default values (priority, dst, SID, resend interval)
+├── config/
+│   ├── schema.ts         # TypeBox RootConfig (single source of truth)
+│   └── migrate.ts        # Load-time migration from v1.4.x legacy config
+├── api/
+│   ├── router.ts         # Express router (status, conversions, paths, sources)
+│   ├── discovery.ts      # Path / source enumeration helpers
+│   ├── extras-meta.ts    # ExtrasMeta discriminator per optionKey
+│   └── types.ts          # API response shapes
+├── panel/                # Federated React config panel (webpack module federation)
+│   ├── index.tsx         # Federation entry; re-exports PluginConfigurationPanel
+│   ├── PluginConfigurationPanel.tsx
+│   ├── styles.ts         # Inline-style objects
+│   ├── components/       # StatusDashboard, ConversionCard, CategoryTabs, etc.
+│   │   └── extras/       # MappingTable + per-family editors
+│   └── hooks/            # useStatus (3s poll), useConfig (reducer), useSources (lazy cache)
+├── types/
+│   ├── signalk.ts        # SignalKApp (extends ServerAPI)
 │   ├── nmea2000.ts       # NMEA 2000 message types
-│   ├── plugin.ts         # Plugin-specific types
-│   └── index.ts          # Type re-exports
-├── utils/                # Utility functions
-│   ├── pathUtils.ts      # Signal K path manipulation
+│   ├── plugin.ts         # ConversionModule, SubConversionModule, plugin types
+│   └── index.ts          # Re-exports
+├── utils/
+│   ├── pathUtils.ts      # Signal K path utilities
 │   ├── messageUtils.ts   # NMEA 2000 message utilities
-│   ├── dateUtils.ts      # Date/time conversions for N2K
+│   ├── dateUtils.ts      # Date/time conversions
 │   ├── errorUtils.ts     # errMessage() coercion helper
 │   ├── validation.ts     # Input validation (NaN/Infinity checks)
-│   └── smoothing.ts      # Exponential smoothing for sensor data
-├── conversions/          # PGN conversion modules (45 modules)
-│   ├── index.ts          # Module loader
+│   ├── smoothing.ts      # Exponential smoothing for sensor data
+│   └── debugUtils.ts     # Debug-flag check
+├── conversions/          # 45 PGN conversion modules
+│   ├── index.ts          # Module loader / registry
 │   ├── routeTypes.ts     # Shared Position/Waypoint types
 │   ├── wind.ts           # Wind data conversion
 │   ├── depth.ts          # Depth conversion
 │   ├── battery.ts        # Battery status conversion
-│   └── ...               # Additional conversions
-└── test/                 # Test suites
+│   └── ...               # 42 more conversions
+└── test/                 # Vitest test suites (50 tests, 9 files)
     ├── index.test.ts        # All conversion-module test cases (round-trip via canboatjs)
+    ├── api.test.ts          # /api/* router endpoints + admin auth
+    ├── discovery.test.ts    # Path / source enumeration
     ├── lifecycle.test.ts    # Plugin start/stop/resend lifecycle
+    ├── migrate.test.ts      # v1.4.x legacy config migration
     ├── pathUtils.test.ts    # pathToPropName collision regressions
     ├── smoothing.test.ts    # ExponentialSmoother registry behavior
+    ├── status.test.ts       # PluginManager.getStatusSnapshot + getConversionMetadata
     └── temperature.test.ts  # Temperature default-instance uniqueness
+public/                   # Webpack module federation output (shipped via "files" array)
+├── remoteEntry.js        # Federation entry script
+├── main.mjs              # Panel main bundle
+└── *.mjs / *.LICENSE.txt # Federation chunks
+webpack.config.cjs        # ESM module federation build config
+tsconfig.panel.json       # Panel-specific TypeScript config (jsx: react-jsx)
 .github/
 └── workflows/
     ├── ci.yml            # GitHub Actions CI pipeline (lint, typecheck, test, build)

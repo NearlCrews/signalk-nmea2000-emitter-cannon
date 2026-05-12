@@ -65,11 +65,11 @@ See [CHANGELOG.md](CHANGELOG.md) for the full list.
 - **Single ESM bundle** via esbuild (as of v1.5.0, ~458 KB); the only runtime dependency is RxJS (`@signalk/server-api` is type-only)
 - **Embedded canboatjs round-trip tests** on every conversion module (as of v1.5.0, 50 tests across 9 files)
 - **`$source: 'NMEA2000'` echo-guard** on AIS conversions to avoid re-emitting received AIS deltas back onto the bus
-- **Apache 2.0**, pure ESM, Node 20.18+
+- **Apache 2.0**, pure ESM, Node 22.12+
 
 ## Installation
 
-Prerequisites: Node.js 20.18+, Signal K server 2.20+, and a supported NMEA 2000 gateway (e.g. Actisense NGT-1, Yacht Devices YDNR-02) connected so emitted messages reach the bus.
+Prerequisites: Node.js 22.12+, Signal K server 2.20+, and a supported NMEA 2000 gateway (e.g. Actisense NGT-1, Yacht Devices YDNR-02) connected so emitted messages reach the bus.
 
 ### Via Signal K AppStore
 
@@ -280,7 +280,7 @@ Signal K deltas (any plugin or device) --> Signal K server bus
 
 ### Prerequisites
 
-- Node.js 20.18+
+- Node.js 22.12+
 - TypeScript 6+
 - Modern package manager (npm recommended)
 
@@ -521,14 +521,14 @@ Expected. The yellow bar in the Signal K admin dashboard's **Plugins activity** 
 
 - **Signal K Server**: 2.20.0+
 - **`@signalk/server-admin-ui`**: 2.27.0+ (bundled with signalk-server >= 2.x; required for the federated React panel)
-- **Node.js**: 20.18.0+
+- **Node.js**: 22.12+
 - **CanboatJS**: 3.13.0+
 - **`@signalk/server-api`**: 2.10.2+
 - **TypeScript**: 6.0+ (development only)
 
 ### Tech Stack
 
-- TypeScript 6.0 (strict, ESM, Node 20.18+)
+- TypeScript 6.0 (strict, ESM, Node 22.12+)
 - `@signalk/server-api` 2.10+
 - RxJS 7.8 (only runtime dependency that ships in the bundle)
 - esbuild 0.28 for bundling

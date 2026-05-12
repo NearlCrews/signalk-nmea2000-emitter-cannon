@@ -18,6 +18,8 @@ The hand-rolled JSON-Schema admin UI is replaced with a federated React panel bu
 - Config schema migrated to `@sinclair/typebox`. Single source of truth for both the runtime JSON Schema (returned from `Plugin.schema`) and the TypeScript `Config` type (derived via `Static<>`). The legacy flat config payload is migrated to the new nested shape at load time; downgrades to v1.4.x keep the original payload intact if no save has occurred under v1.5.0.
 - Each conversion module now carries `category` (required) and optional `presets` metadata. Adding a new conversion requires both fields.
 - Minimum admin UI bumped to `@signalk/server-admin-ui >= 2.27.0` for ESM federation runtime support.
+- Minimum Node.js bumped to `>=22.12` (was `>=20.18`). Node 20 reached end of life in April 2026; the CI matrix now runs on Node 22.x and 24.x. esbuild target moved from `node20` to `node22`.
+- Dev dependency `lint-staged` bumped to `^17.0.4` (was `^16.4.0`). Same Biome integration; requires Node 22.22.1+ which the engines bump above already enforces.
 
 **Internal**
 

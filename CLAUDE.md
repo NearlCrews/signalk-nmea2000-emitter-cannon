@@ -74,7 +74,7 @@ Tests live in `src/test/` across 9 files (`index.test.ts`, `api.test.ts`, `disco
 
 ## Key Technical Details
 
-- **Runtime**: Node.js 20.18+, pure ESM modules
+- **Runtime**: Node.js 22.12+, pure ESM modules
 - **Build**: esbuild bundles to single `dist/index.js` (currently ~458 KB)
 - **Externals**: rxjs (only runtime dependency kept out of the bundle; @signalk/server-api is type-only)
 - **Reactivity**: RxJS for Signal K data subscriptions (Signal K server uses BaconJS internally)

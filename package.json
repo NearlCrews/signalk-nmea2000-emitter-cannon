@@ -14,9 +14,9 @@
 	],
 	"scripts": {
 		"build": "npm run clean && npm run build:plugin && npm run build:panel",
-		"build:plugin": "esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --outfile=dist/index.js --external:rxjs",
+		"build:plugin": "esbuild src/index.ts --bundle --platform=node --target=node22 --format=esm --outfile=dist/index.js --external:rxjs",
 		"build:panel": "webpack --config webpack.config.cjs",
-		"build:watch": "npm run clean && esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --sourcemap=linked --outfile=dist/index.js --external:rxjs --watch",
+		"build:watch": "npm run clean && esbuild src/index.ts --bundle --platform=node --target=node22 --format=esm --sourcemap=linked --outfile=dist/index.js --external:rxjs --watch",
 		"test": "vitest --run",
 		"test:ui": "vitest --ui",
 		"test:coverage": "vitest --coverage",
@@ -89,7 +89,7 @@
 		"esbuild": "^0.28.0",
 		"express": "^5.2.1",
 		"husky": "^9.1.7",
-		"lint-staged": "^16.4.0",
+		"lint-staged": "^17.0.4",
 		"react": "^19.2.6",
 		"react-dom": "^19.2.6",
 		"sharp": "^0.34.5",
@@ -102,7 +102,7 @@
 		"webpack-cli": "^7.0.2"
 	},
 	"engines": {
-		"node": ">=20.18"
+		"node": ">=22.12"
 	},
 	"lint-staged": {
 		"*.{ts,tsx}": [

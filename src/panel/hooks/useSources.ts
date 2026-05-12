@@ -9,23 +9,32 @@ export function useSources(): {
 	const cache = useRef<Map<string, { ts: number; sources: string[] }>>(
 		new Map(),
 	);
+	const pending = useRef<Map<string, Promise<void>>>(new Map());
 	const [, force] = useState(0);
 
-	const ensureLoaded = useCallback(async (path: string) => {
+	const ensureLoaded = useCallback(async (path: string): Promise<void> => {
 		const hit = cache.current.get(path);
 		if (hit && Date.now() - hit.ts < CACHE_TTL_MS) return;
-		try {
-			const r = await fetch(
-				`/plugins/signalk-nmea2000-emitter-cannon/api/sources?path=${encodeURIComponent(path)}`,
-				{ credentials: "same-origin" },
-			);
-			const body = (await r.json()) as { sources: string[] };
-			cache.current.set(path, { ts: Date.now(), sources: body.sources });
-			force((n) => n + 1);
-		} catch {
-			cache.current.set(path, { ts: Date.now(), sources: [] });
-			force((n) => n + 1);
-		}
+		const inflight = pending.current.get(path);
+		if (inflight) return inflight;
+		const p = (async () => {
+			try {
+				const r = await fetch(
+					`/plugins/signalk-nmea2000-emitter-cannon/api/sources?path=${encodeURIComponent(path)}`,
+					{ credentials: "same-origin" },
+				);
+				const body = (await r.json()) as { sources: string[] };
+				cache.current.set(path, { ts: Date.now(), sources: body.sources });
+				force((n) => n + 1);
+			} catch {
+				cache.current.set(path, { ts: Date.now(), sources: [] });
+				force((n) => n + 1);
+			} finally {
+				pending.current.delete(path);
+			}
+		})();
+		pending.current.set(path, p);
+		return p;
 	}, []);
 
 	const sourcesFor = useCallback(

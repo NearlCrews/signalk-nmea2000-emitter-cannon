@@ -763,12 +763,24 @@ export class PluginManager {
 
 	/**
 	 * Per-message hook called immediately after the `nmea2000JsonOut` emit.
-	 * One Map.set per emit; no other allocations. Used by getStatusSnapshot()
-	 * to surface live emit rate / last-emit age in the panel.
+	 * One Map.set per emit; no other allocations on the parent-key path.
+	 *
+	 * Sub-conversion keys arrive here as `PARENT[idx]` (e.g. `BATTERY[0]`,
+	 * `BATTERY[1]`); the bracket suffix is stripped so all sub-conversions of
+	 * a module aggregate under the parent optionKey. Without this aggregation,
+	 * getStatusSnapshot() would look up the parent key and find nothing for
+	 * every factory-bearing module (BATTERY, ENGINE_PARAMETERS, TANKS, SOLAR,
+	 * EXHAUST_TEMPERATURE, RAYMARINE_BRIGHTNESS, TEMPERATURE_*).
+	 *
+	 * `indexOf("[")` returns -1 for the single-PGN path: no substring
+	 * allocation. The sub-conversion path allocates one substring per emit,
+	 * O(parent-key length), amortized across the conversion's full traffic.
 	 */
 	private recordEmit(key: string): void {
-		this.emitCounts.set(key, (this.emitCounts.get(key) ?? 0) + 1);
-		this.lastEmitAt.set(key, Date.now());
+		const bracket = key.indexOf("[");
+		const parent = bracket === -1 ? key : key.substring(0, bracket);
+		this.emitCounts.set(parent, (this.emitCounts.get(parent) ?? 0) + 1);
+		this.lastEmitAt.set(parent, Date.now());
 	}
 
 	/**

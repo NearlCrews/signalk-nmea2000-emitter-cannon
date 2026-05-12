@@ -60,6 +60,25 @@ describe("PluginManager.getStatusSnapshot", () => {
 		expect(snap.perConversion.every((c) => c.enabled === false)).toBe(true);
 		expect(snap.perConversion.every((c) => c.emitCount === 0)).toBe(true);
 	});
+
+	it("aggregates sub-conversion emit counters under the parent optionKey", () => {
+		const app = makeMockApp();
+		const pm = new PluginManager(app, mockPlugin);
+		// Simulate emits from two sub-conversions of the BATTERY module
+		// (factory creates one sub-conversion per battery instance). The
+		// processToN2K path calls recordEmit() with the indexed sub-key.
+		const recordEmit = (
+			pm as unknown as { recordEmit: (k: string) => void }
+		).recordEmit.bind(pm);
+		recordEmit("BATTERY[0]");
+		recordEmit("BATTERY[1]");
+		recordEmit("BATTERY[0]");
+		const snap = pm.getStatusSnapshot();
+		const battery = snap.perConversion.find((c) => c.key === "BATTERY");
+		expect(battery).toBeDefined();
+		expect(battery?.emitCount).toBe(3);
+		expect(battery?.lastEmitMs).toBeDefined();
+	});
 });
 
 describe("PluginManager.getConversionMetadata", () => {

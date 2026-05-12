@@ -69,13 +69,18 @@ export function createApiRouter(
 		});
 
 		router.get("/api/sources", (req: Request, res: Response) => {
-			const path = String(req.query.path ?? "");
-			if (!path) {
+			// Express parses repeated query params (`?path=a&path=b`) into a
+			// string[], and nested params into an object. Coercing those via
+			// String(...) would silently produce `"a,b"` / `"[object Object]"`
+			// and 200 with an empty source list. Reject anything that isn't a
+			// single non-empty string.
+			const raw = req.query.path;
+			if (typeof raw !== "string" || raw === "") {
 				res.status(400).json({ error: "path required" });
 				return;
 			}
 			const body: SourcesResponse = {
-				sources: enumerateSourcesForPath(app, path),
+				sources: enumerateSourcesForPath(app, raw),
 			};
 			res.json(body);
 		});

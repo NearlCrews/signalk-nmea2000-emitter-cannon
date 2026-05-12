@@ -94,6 +94,17 @@ describe("API router", () => {
 		expect(res.status).toBe(400);
 	});
 
+	it("GET /api/sources with repeated path params returns 400", async () => {
+		// Express parses `?path=a&path=b` into a string[]; the previous
+		// String(...) coercion silently collapsed it to "a,b" and 200'd
+		// with an empty source list. Should be a 400.
+		const ex = mountRouter(fakeApp, () => null);
+		const res = await request(ex).get(
+			"/plugins/signalk-nmea2000-emitter-cannon/api/sources?path=a&path=b",
+		);
+		expect(res.status).toBe(400);
+	});
+
 	it("calls addAdminMiddleware with the api prefix", async () => {
 		mountRouter(fakeApp, () => null);
 		expect(

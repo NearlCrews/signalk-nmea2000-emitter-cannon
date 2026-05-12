@@ -9,10 +9,19 @@ A Signal K plugin that converts Signal K deltas into NMEA 2000 messages. 45 conv
 
 > Built on the foundation of [`signalk-to-nmea2000`](https://github.com/SignalK/signalk-to-nmea2000) by Scott Bender and the Signal K community.
 
-## What's new in 1.4.4
+## What's new in 1.5.0
+
+- **New React admin config panel** loaded into the Signal K admin UI via webpack 5 Module Federation. Replaces the previous JSON-Schema-driven rjsf form. Status dashboard, preset chips, categorized tabs, per-conversion enable / resend / source dropdowns, and mapping editors for battery / engine / tank / solar / brightness / exhaust.
+- **Live data inside the panel**: NMEA 2000 readiness, enabled / total counts, per-conversion emit counts and error indicators (3s poll, paused when the admin tab is hidden). Source dropdowns are populated from the running server's data model.
+- **Preset chips**: Basic Navigation, Engine Set, Full AIS, Environmental, Raymarine. Additive: click a chip to enable the tagged conversions in one action.
+- **Plugin HTTP API** under `/plugins/signalk-nmea2000-emitter-cannon/api/` (status, conversions, paths, sources). Admin-auth gated.
+- **Config schema migrated to TypeBox** (`@sinclair/typebox`). Single source of truth for both the runtime JSON Schema and the TypeScript `Config` type. v1.4.x payloads migrate at first load; downgrading to v1.4.4 keeps the original `plugin-config.json` intact if no save was performed under v1.5.0.
+- **Minimum admin UI**: `@signalk/server-admin-ui >= 2.27.0` (bundled with signalk-server >= 2.x). Older admin UIs do not support the ESM federation runtime this plugin uses.
+
+### What's new in 1.4.4
 
 - **Bug fix (Issue #5)**: plugin permanently stuck in "Waiting for NMEA 2000 output" after a disable/enable cycle. Root cause was a one-shot event listener that was never re-armed after `stop()`. `start()` now owns the listener lifecycle and also reads `app.isNmea2000OutAvailable` synchronously so a plugin restarted after the server already announced N2K output goes straight to running.
-- Supply chain: PR #6 (GitHub Actions group bump v4→v6 clears Node 20 deprecation) and PR #7 (dev-deps lockfile) merged. Dependabot alert on `ip-address < 10.1.1` resolved via package.json override. CodeQL job-permissions warnings cleared.
+- Supply chain: PR #6 (GitHub Actions group bump v4 to v6 clears Node 20 deprecation) and PR #7 (dev-deps lockfile) merged. Dependabot alert on `ip-address < 10.1.1` resolved via package.json override. CodeQL job-permissions warnings cleared.
 
 ### What's new in 1.4.3
 
@@ -85,34 +94,50 @@ ln -s "$(pwd)" ~/.signalk/node_modules/signalk-nmea2000-emitter-cannon
 
 ## Configuration
 
-In the Signal K admin UI, open Server → Plugin Config, find "Signal K NMEA2000 Emitter Cannon", enable the plugin, then configure each PGN conversion individually.
+In the Signal K admin UI, open Server, then Plugin Config, find "Signal K NMEA2000 Emitter Cannon", and enable the plugin. The plugin ships a React-based config panel that the Signal K admin loads via webpack 5 Module Federation (the `signalk-plugin-configurator` keyword in `package.json` opts the plugin into the federated panel surface).
 
-### Per-conversion options
+The panel has four areas:
+
+1. **Status dashboard** at the top: NMEA 2000 output readiness, count of enabled vs total conversions, plus per-conversion emit counts and error badges. Polls every 3 seconds while the admin tab is visible.
+2. **Preset chips**: Basic Navigation, Engine Set, Full AIS, Environmental, Raymarine. Click a chip to enable the conversions tagged with that preset in one action. Presets are additive and do not disable anything you already enabled.
+3. **Global resend interval** (seconds): default cadence for every conversion whose own resend is 0. Many NMEA 2000 displays expect periodic re-broadcast even when the underlying value is static. Default `5`.
+4. **Category tabs** (Navigation, Engine, Electrical, Tanks, Environment, AIS, Comms, System), each showing per-conversion cards.
+
+### Per-conversion card
+
+Each conversion card exposes:
 
 | Setting | Description | Default |
 |---------|-------------|---------|
 | **Enabled** | Toggle this conversion on or off | `false` |
 | **Resend** (seconds) | How often to re-emit the last value when no fresh delta has arrived. Overrides the global interval when non-zero. | `0` (use global) |
-| **Source filter** | Restrict which `$source` is accepted. Enter a label (e.g. `accuweather`) to match exactly or as a prefix (`gps1` matches `gps1.0`, `gps1.1`, ...). Leave blank to accept any source. | blank |
+| **Source filter** | Restrict which `$source` is accepted. Dropdown is populated live from the server's data model for the subscribed Signal K paths. Leave on "any" to accept any source. | any |
+| **Mapping editor** (only on conversions that need it) | Editor for the conversion's instance map or extras object. See below. | empty |
 
-### Global option
+Save and Discard buttons live at the top of the panel; the panel shows a dirty indicator while there are unsaved edits.
 
-| Setting | Description | Default |
-|---------|-------------|---------|
-| **Global Resend Interval** (seconds) | Default resend cadence for every conversion whose own `Resend` is 0. Many NMEA 2000 displays expect periodic re-broadcast even when the underlying value is static. | `5` |
+### Mapping editors
 
-### Instance-mapped conversions
+These conversions need an explicit mapping from a Signal K identifier to an NMEA 2000 instance number or label. The panel renders a dedicated editor for each family instead of a generic array-of-objects widget:
 
-Some conversions require an explicit mapping from a Signal K identifier (battery id, engine id, etc.) to an NMEA 2000 instance number or label. These appear as a small editable array in the admin UI:
-
-| Conversion | Mapping |
+| Conversion | Editor |
 |---|---|
-| `BATTERY` | Signal K battery id (e.g. `starter`, `house`) → N2K battery instance |
-| `ENGINE_PARAMETERS` | Signal K engine id → N2K engine instance |
-| `EXHAUST_TEMPERATURE` | Signal K engine id → N2K temperature instance |
-| `TANKS` | Signal K tank path → N2K tank instance |
-| `SOLAR` | Signal K charger id → N2K battery instance |
-| `RAYMARINE_BRIGHTNESS` | Signal K display-group id → Raymarine display label (e.g. `Helm 1`) |
+| `BATTERY` | Signal K battery id (e.g. `starter`, `house`) to N2K battery instance |
+| `ENGINE_PARAMETERS` | Signal K engine id to N2K engine instance |
+| `EXHAUST_TEMPERATURE` | Signal K engine id to N2K temperature instance |
+| `TANKS` | Signal K tank path to N2K tank instance |
+| `SOLAR` | Signal K charger id to N2K battery instance |
+| `RAYMARINE_BRIGHTNESS` | Signal K display-group id to Raymarine display label (e.g. `Helm 1`) |
+| `NOTIFICATIONS` | List of notification paths to exclude |
+| `TEMPERATURE_*` / `TEMPERATURE2_*` | Per-source temperature instance number |
+
+### Migration from v1.4.x
+
+The config payload shape changed in v1.5.0 (conversions are now nested under a `conversions: { KEY: { enabled, resend, sources, extras } }` block instead of flat keys). The plugin migrates v1.4.x payloads transparently the first time the panel loads them. The migration is backwards-compatible at load: downgrading back to v1.4.4 keeps your original `plugin-config.json` intact if you have not saved under v1.5.0. Once you save under v1.5.0, the on-disk file is in the new shape and a downgrade requires manual rollback of the config file.
+
+### Admin UI requirement
+
+The federated panel requires `@signalk/server-admin-ui >= 2.27.0`, which is bundled with signalk-server >= 2.x. Older admin UIs do not support the ESM Module Federation runtime this plugin uses.
 
 ### Configuration hygiene
 
@@ -342,6 +367,8 @@ The workflow also supports manual `workflow_dispatch` with a `tag` input from th
 4. Include embedded test cases in the module's `tests` array
 5. Run `npm test` and `npm run typecheck`
 
+As of v1.5.0 each conversion module also carries a required `category` field (one of `navigation`, `engine`, `electrical`, `tanks`, `environment`, `ais`, `comms`, `system`) and an optional `presets` array (e.g. `["basic-navigation"]`). These drive the category tabs and preset chips in the React panel. See `CLAUDE.md` for the full set of conventions, the extras-editor wiring contract, and the source-discovery rules the panel relies on.
+
 Example conversion module:
 
 ```typescript
@@ -468,6 +495,7 @@ Expected. The yellow bar in the Signal K admin dashboard's **Plugins activity** 
 ## Compatibility
 
 - **Signal K Server**: 2.20.0+
+- **`@signalk/server-admin-ui`**: 2.27.0+ (bundled with signalk-server >= 2.x; required for the federated React panel)
 - **Node.js**: 20.18.0+
 - **CanboatJS**: 3.13.0+
 - **`@signalk/server-api`**: 2.10.2+

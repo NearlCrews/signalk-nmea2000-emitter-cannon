@@ -47,6 +47,10 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 			const msg = errMessage(error);
 			app.error(`Failed to start plugin: ${msg}`);
 			app.debug(`Full startup error: ${msg}`);
+			// Null out so the next start() does not see a half-initialised
+			// instance: stopPlugin() in that path would call stop() on a
+			// PluginManager that may have partially-wired listeners.
+			pluginManager = null;
 		}
 	}
 

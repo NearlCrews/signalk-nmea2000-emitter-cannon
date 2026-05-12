@@ -1,5 +1,56 @@
 ## Change Log
 
+### v1.4.3 (2026/05/12) - Notification PGN Correctness and Repo Hygiene
+
+A read-only Signal K agent scan surfaced gaps in the notification PGN family (126983/126985) and a handful of secondary issues across the conversion modules. This release fixes the actionable findings; PGN 126984 (inbound Alert Response) is intentionally deferred because the typed Signal K server API does not expose an inbound NMEA 2000 hook, so closing the alert-acknowledgement round-trip needs a separate design pass.
+
+**Notification PGNs 126983 / 126985 (`src/conversions/notifications.ts`)**:
+- `alertCategory` is now derived from the Signal K path instead of hardcoded to "Technical". Path prefixes `notifications.mob`, `notifications.navigation`, `notifications.anchor`, `notifications.arrival`, and `notifications.gnss` route to "Navigational" so Garmin and B&G chartplotters surface them on the chart screen instead of the alarm-list tab. Everything else still falls through to "Technical".
+- `alertPriority` now maps from the Signal K state per IEC 62923: emergency=1, alarm=2, warn=3, alert=4 (lower number = higher priority). Was hardcoded to 0, which collapsed every alert into a single visual tier on the MFD alarm list.
+- Unknown Signal K states (anything other than emergency/alarm/warn/alert/normal) now fall through to "Caution" with a debug log line, instead of emitting an undefined `alertType` field that the canboat encoder treats as missing.
+- alertId allocator now recycles released IDs through a `Set<number>` pool. The previous monotonic counter could wrap the 16-bit `alertId` field after 65,532 unique paths in a single plugin lifetime; that limit is now structural rather than incidental. Allocator uses a rolling hint so amortised cost stays O(1) under realistic load (≤256 active paths).
+- Internal state restructured around `Map<alertId, [PGN 126985, PGN 126983]>` keyed by alertId. The cached flat `N2KMessage[]` returned to the resend pipeline is now rebuilt only on mutation, restoring the pre-1.4.3 zero-allocation cost model for dedup callbacks. The reverse map (`alertIdToPath`) is load-bearing: when the PGN-cap path evicts an entry, it clears the matching `ids[path]` binding so the released alertId cannot later be re-allocated to a different path while a stale lookup still points at it.
+
+**Schema (`src/schema.ts`)**:
+- `pgnEntry` helper extended with an optional `descriptionExtra` field appended after the canonical `PGNs: <list>` description.
+- NOTIFICATIONS entry now documents that it subscribes to all `notifications.*` paths on this vessel, lists the Navigational vs Technical routing rules, and the priority map. Users could previously only infer subscription scope from the README.
+
+**Route waypoint guard (`src/conversions/routeWaypoint.ts`)**:
+- PGN 129285 is no longer emitted with `nitems: 0` when only a route name is present. Per spec, a route without waypoints or a next-point position is malformed. The guard now uses the shared `isValidNumber` helper and the `Position` type from `routeTypes.ts`, so NaN/Infinity latitudes are rejected too.
+
+**Raymarine Seatalk Alarms (`src/conversions/raymarineAlarms.ts`)**:
+- Path-prefix-to-`alarmId` mapping expanded from 2 entries (anchor, MOB) to 12, covering depth (shallow/deep), WP arrival, GPS failure, cross-track error (great-circle and rhumb-line), and the most common autopilot alarms (watch, off-course, wind shift). All values come straight from the `@canboat/ts-pgns` `SeatalkAlarmId` enum.
+- Subscription `keys` array now derived from the same prefix table, so adding an entry above propagates automatically to the Signal K subscription.
+
+**PGN list (`src/conversions/pgnList.ts`)**:
+- Transmit and receive PGN arrays hoisted to module-level `TRANSMIT_PGNS` / `RECEIVE_PGNS` constants. Both the runtime message and the embedded test reference the same source, so drift is no longer possible. (Trades the embedded-test convention slightly for a smaller drift surface; the test still asserts the full expected list.)
+
+**AIS Extended (`src/conversions/aisExtended.ts`)**:
+- Test now carries a comment explaining that `typeOfShip: "Sailing"` is the decoded label round-tripped through the canboatjs decoder from the numeric LOOKUP id (36) the callback actually emits. A future contributor "fixing" the callback to emit the string label would regress to a silent encode-as-zero failure mode.
+
+**Shared utility (`src/utils/pathUtils.ts`)**:
+- New `matchPathPrefix<T>(path, table)` helper. Two near-duplicate prefix-match functions (one in `notifications.ts`, one in `raymarineAlarms.ts`) now share this implementation.
+
+**Repo hygiene (no source changes)**:
+- Apache 2.0 LICENSE appendix filled in (Copyright 2026 Nearl Crews); the boilerplate `{yyyy} {name}` placeholders are no longer in the published license.
+- `.gitignore` hardened: broader `.env.*` coverage with `!.env.example` exception, `.npmrc` ignored (can hold publish auth tokens), key/cert patterns (`*.pem`, `*.key`, `*.crt`, `*.cer`, `*.p12`, `*.pfx`, `id_rsa*`, `id_ed25519*`), generic secrets (`secrets/`, `secrets.json`, `credentials.json`, `*.secret(s)`, `*.credentials`), and local agent state (`.claude/`, `.remember/`).
+- `SECURITY.md` supported-versions table refreshed to 1.4.x.
+- Community health: added `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1, link-only to avoid duplicating the full text in-repo), `.github/CODEOWNERS`, and `.github/ISSUE_TEMPLATE/config.yml` that disables blank issues and routes questions to Discussions and security reports to Security Advisories.
+- Issue templates converted from markdown to structured YAML issue forms with required fields.
+- PR template trimmed from 60+ checkboxes to a focused verification list plus the PGN/Signal K-specific bullets.
+- CI workflow targets `main` only (default branch reconciled from `master`), declares workflow-level `permissions: contents: read`, sets `concurrency` with cancel-in-progress for PR runs, and adds `fail-fast: false` to the Node matrix.
+- Added `.github/workflows/codeql.yml` (CodeQL on push, PR, and weekly schedule with `security-and-quality` queries).
+- Added `.github/dependabot.yml` for npm and `github-actions`, weekly, grouped by dev/production, ignoring major updates.
+- GitHub repo settings: 12 topics set, homepage points at the npm package page, branch deletion on merge enabled, wiki disabled, Dependabot security updates enabled, and a `main` branch ruleset added requiring CI status checks (`build-and-test (20.x/22.x/24.x)`, `code-quality`) and blocking force-push, deletion, and non-linear history.
+
+**Deferred (out of scope for this release)**:
+- **PGN 126984 (Alert Response, inbound)**: the typed `@signalk/server-api` does not expose an inbound NMEA 2000 hook. The plugin would need to negotiate an untyped event surface with the Signal K server (probably via `app.on('N2KAnalyzerOut', ...)`) or convert inbound 126984 messages to Signal K deltas on a `notifications.*.acknowledgedBy` path through a separate provider. Until that lands, helm-side acknowledgements at the MFD do not flow back into Signal K and the plugin keeps re-emitting `acknowledgeStatus: "No"`. Tracking issue: TBD.
+- **PGN 126986 (Alert Configuration)**: only meaningful once PGN 126984 round-trip lands.
+- **`dataSourceNetworkIdName` ISO-Name plumbing**: the field currently carries the alertId as a 1-byte number widened to an 8-byte IsoName slot, which canboatjs accepts but is not strictly spec-compliant. A correct fix requires the plugin to own its NAME claim, out of scope.
+- **`alertType` / `alertCategory` / `alertState` enum imports from `@canboat/ts-pgns`**: would catch typos at compile time but adds a runtime dependency on a package currently held as a transitive dev dep through canboatjs. The string literals are kept inline with a comment cross-referencing the enum.
+
+**Verification**: `npm run typecheck` clean, `npm test` 21/21 pass, `npm run check` (Biome) clean, `npm run build` 340.1 KB. No em dashes in source.
+
 ### v1.4.2 (2026/05/11) - Admin UI, Status Lifecycle, and Error Throttling
 
 A four-expert team review of the plugin's user-visible surfaces (admin schema, plugin status messages, conversion module titles) followed by a three-lane simplify pass (reuse, quality, efficiency). All 47 source files touched; behaviour changes are additive and conservative.

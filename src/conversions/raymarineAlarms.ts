@@ -4,6 +4,7 @@ import {
 	VESSELS_SELF_CONTEXT,
 } from "../constants.js";
 import type { ConversionModule, N2KMessage } from "../types/index.js";
+import { matchPathPrefix } from "../utils/pathUtils.js";
 
 interface AlarmValue {
 	state: string;
@@ -26,10 +27,28 @@ interface AlarmPGN extends N2KMessage {
 
 const RAYMARINE_ALARM_SID = 1;
 
+// Signal K notification path prefix → Raymarine Seatalk PGN 65288 alarmId
+// (must match @canboat/ts-pgns SeatalkAlarmId enum values verbatim).
+// Order matters: longer/more-specific prefixes come first so they take
+// precedence over their broader parents.
 const ALARM_ID_BY_PATH_PREFIX: ReadonlyArray<[prefix: string, id: string]> = [
-	["notifications.navigation.anchor", "Deep Anchor"],
 	["notifications.mob", "MOB"],
+	["notifications.navigation.anchor", "Deep Anchor"],
+	["notifications.navigation.arrival", "WP Arrival"],
+	["notifications.navigation.gnss", "GPS Failure"],
+	["notifications.navigation.courseGreatCircle.crossTrackError", "Off Course"],
+	["notifications.navigation.courseRhumbline.crossTrackError", "Off Course"],
+	["notifications.environment.depth.belowKeel", "Shallow Depth"],
+	["notifications.environment.depth.belowTransducer", "Shallow Depth"],
+	["notifications.environment.depth.deep", "Deep Depth"],
+	["notifications.steering.autopilot.watchAlarm", "Pilot Watch"],
+	["notifications.steering.autopilot.offCourse", "Pilot Off Course"],
+	["notifications.steering.autopilot.windShift", "Pilot Wind Shift"],
 ];
+
+const SUBSCRIBED_KEYS: ReadonlyArray<string> = ALARM_ID_BY_PATH_PREFIX.map(
+	([prefix]) => prefix,
+);
 
 function alarmStatus(state: string, hasSound: boolean): string | undefined {
 	if (state === "normal") {
@@ -41,10 +60,7 @@ function alarmStatus(state: string, hasSound: boolean): string | undefined {
 }
 
 function alarmIdForPath(path: string): string | undefined {
-	for (const [prefix, id] of ALARM_ID_BY_PATH_PREFIX) {
-		if (path.startsWith(prefix)) return id;
-	}
-	return undefined;
+	return matchPathPrefix(path, ALARM_ID_BY_PATH_PREFIX);
 }
 
 export default function createRaymarineAlarmsConversion(): ConversionModule {
@@ -52,7 +68,7 @@ export default function createRaymarineAlarmsConversion(): ConversionModule {
 	return {
 		title: "Raymarine Seatalk Alarms (PGN 65288)",
 		optionKey: "RAYMARINE_ALARMS",
-		keys: ["notifications.navigation.anchor", "notifications.mob"],
+		keys: [...SUBSCRIBED_KEYS],
 		context: VESSELS_SELF_CONTEXT,
 		sourceType: "subscription",
 		callback: (delta: unknown): N2KMessage[] => {

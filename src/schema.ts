@@ -33,6 +33,7 @@ interface PgnEntryOptions {
 	pgns: string;
 	sources?: string[];
 	extras?: Record<string, JSONSchema>;
+	descriptionExtra?: string;
 }
 
 function pgnEntry({
@@ -40,6 +41,7 @@ function pgnEntry({
 	pgns,
 	sources = [],
 	extras = {},
+	descriptionExtra,
 }: PgnEntryOptions): JSONSchema {
 	const properties: Record<string, JSONSchema> = {
 		enabled: enabledField(),
@@ -51,10 +53,13 @@ function pgnEntry({
 	for (const [key, value] of Object.entries(extras)) {
 		properties[key] = value;
 	}
+	const description = descriptionExtra
+		? `PGNs: ${pgns}. ${descriptionExtra}`
+		: `PGNs: ${pgns}`;
 	return {
 		type: "object",
 		title,
-		description: `PGNs: ${pgns}`,
+		description,
 		additionalProperties: false,
 		properties,
 	};
@@ -454,6 +459,8 @@ export const schema: JSONSchema = {
 		NOTIFICATIONS: pgnEntry({
 			title: "Notifications",
 			pgns: "126983, 126985",
+			descriptionExtra:
+				"Subscribes to all notifications.* paths on this vessel. Routes notifications.mob, notifications.navigation.*, notifications.anchor, notifications.arrival and notifications.gnss to the Navigational alert category; everything else falls through to Technical. alertPriority maps from Signal K state: emergency=1, alarm=2, warn=3, alert=4 (lower is higher priority per IEC 62923). Use Exclude Paths to filter chatter from specific subsystems.",
 			extras: {
 				excludePaths: {
 					type: "string",

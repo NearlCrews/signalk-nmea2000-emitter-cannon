@@ -10,6 +10,7 @@ import type {
 	SignalKApp,
 } from "../types/index.js";
 import { isDebugEnabled } from "../utils/debugUtils.js";
+import { matchPathPrefix } from "../utils/pathUtils.js";
 
 interface AlertValue {
 	state: string;
@@ -24,6 +25,9 @@ function isAlertValue(v: unknown): v is AlertValue {
 	return typeof obj.state === "string" && typeof obj.message === "string";
 }
 
+// Values mirror @canboat/ts-pgns AlertType enum verbatim. Kept inline so the
+// plugin doesn't take a runtime dependency on ts-pgns (which is only a
+// transitive dev dep via canboatjs).
 const alertTypes: Record<string, string> = {
 	emergency: "Emergency Alarm",
 	alarm: "Alarm",
@@ -31,8 +35,35 @@ const alertTypes: Record<string, string> = {
 	alert: "Caution",
 };
 
-const alertCategory = "Technical";
+// IEC 62923 alert priorities: lower number = higher priority.
+const alertPriorities: Record<string, number> = {
+	emergency: 1,
+	alarm: 2,
+	warn: 3,
+	alert: 4,
+};
+
+// Path prefixes that surface as Navigational alerts on Garmin/B&G chart screens.
+// Everything else falls through to Technical.
+const CATEGORY_BY_PATH_PREFIX: ReadonlyArray<readonly [string, string]> = [
+	["notifications.mob", "Navigational"],
+	["notifications.navigation", "Navigational"],
+	["notifications.anchor", "Navigational"],
+	["notifications.arrival", "Navigational"],
+	["notifications.gnss", "Navigational"],
+];
+
+function categoryForPath(path: string): string {
+	return matchPathPrefix(path, CATEGORY_BY_PATH_PREFIX) ?? "Technical";
+}
+
+const DEFAULT_ALERT_TYPE = "Caution";
+const DEFAULT_ALERT_PRIORITY = 4;
 const alertSystem = 5;
+// alertId field in PGN 126983/126985 is 16-bit unsigned (RangeMax 65532).
+// MAX_ALERT_ID stays one below the spec max so the canboat encoder never sees
+// the "data not available" sentinel.
+const MAX_ALERT_ID = 65531;
 // Hard caps so a misbehaving upstream cannot grow plugin state without bound.
 // 256 distinct active notification paths and 256 cached PGN entries cover
 // realistic load (each alarm contributes 2 PGN entries) with safe headroom.
@@ -45,11 +76,11 @@ function getAlertState(isAcknowledged: boolean, hasSound: boolean): string {
 	return "Silenced";
 }
 
-function commonAlertFields(alertId: number, type: string | undefined) {
+function commonAlertFields(alertId: number, type: string, category: string) {
 	return {
 		alertId,
 		alertType: type,
-		alertCategory,
+		alertCategory: category,
 		alertSystem,
 		alertSubSystem: 0,
 		dataSourceNetworkIdName: alertId,
@@ -63,10 +94,57 @@ export default function createNotificationsConversion(
 	app: SignalKApp,
 	plugin: { id: string },
 ): ConversionModule {
-	let idCounter = 0;
-	const ids: Record<string, { alertId: number }> = {};
-	let pgns: N2KMessage[] = [];
+	const usedAlertIds = new Set<number>();
+	let nextAlertIdHint = 1;
+	const ids: Map<string, number> = new Map();
+	// alertIdToPath is the reverse of `ids` for the entries we allocated.
+	// Load-bearing: `releaseAlertId` uses it to keep `ids` in sync when the
+	// PGN-cap path evicts an entry, otherwise a released alertId could later
+	// be re-allocated to a different path while the old path still has a
+	// stale `ids` binding pointing at the same number.
+	const alertIdToPath: Map<number, string> = new Map();
+	const pgnsByAlertId: Map<number, [N2KMessage, N2KMessage]> = new Map();
+	// Flat view of pgnsByAlertId, rebuilt only when the map mutates. The
+	// conversion callback returns this reference unchanged on every dedup
+	// path, matching the pre-1.4.3 zero-allocation cost model.
+	let cachedFlat: N2KMessage[] = [];
 	let excludePrefixes: string[] = [];
+
+	function rebuildFlat(): void {
+		const next: N2KMessage[] = [];
+		for (const [a, b] of pgnsByAlertId.values()) next.push(a, b);
+		cachedFlat = next;
+	}
+
+	function allocateAlertId(): number | undefined {
+		for (let i = 0; i < MAX_ALERT_ID; i++) {
+			const candidate = ((nextAlertIdHint - 1 + i) % MAX_ALERT_ID) + 1;
+			if (!usedAlertIds.has(candidate)) {
+				usedAlertIds.add(candidate);
+				nextAlertIdHint = candidate + 1;
+				return candidate;
+			}
+		}
+		return undefined;
+	}
+
+	function releaseAlertId(alertId: number): void {
+		const path = alertIdToPath.get(alertId);
+		if (path !== undefined) ids.delete(path);
+		alertIdToPath.delete(alertId);
+		usedAlertIds.delete(alertId);
+		pgnsByAlertId.delete(alertId);
+		rebuildFlat();
+	}
+
+	function resetState(): void {
+		pgnsByAlertId.clear();
+		usedAlertIds.clear();
+		alertIdToPath.clear();
+		ids.clear();
+		nextAlertIdHint = 1;
+		cachedFlat = [];
+	}
 
 	return {
 		title: "Notifications (PGNs 126983, 126985)",
@@ -82,11 +160,8 @@ export default function createNotificationsConversion(
 				.map((s) => s.trim())
 				.filter((s) => s.length > 0);
 			// Reset alert state on config change so newly excluded paths don't
-			// leak through stale cached PGNs and the alertId counter doesn't
-			// grow forever across reloads.
-			pgns = [];
-			idCounter = 0;
-			for (const key of Object.keys(ids)) delete ids[key];
+			// leak through stale cached PGNs.
+			resetState();
 			if (excludePrefixes.length > 0) {
 				app.debug(
 					`Notifications excluding paths: ${excludePrefixes.join(", ")}`,
@@ -117,96 +192,116 @@ export default function createNotificationsConversion(
 			}
 
 			if (!isAlertValue(update.value)) {
-				return pgns;
+				return cachedFlat;
 			}
 			const value = update.value;
 
 			if (update.path.includes("notifications.nmea")) {
-				return pgns;
+				return cachedFlat;
 			}
 
 			if (
 				excludePrefixes.length > 0 &&
 				excludePrefixes.some((prefix) => update.path.startsWith(prefix))
 			) {
-				return pgns;
+				return cachedFlat;
+			}
+
+			const category = categoryForPath(update.path);
+			const type = alertTypes[value.state] ?? DEFAULT_ALERT_TYPE;
+			const priority = alertPriorities[value.state] ?? DEFAULT_ALERT_PRIORITY;
+			if (alertTypes[value.state] === undefined && value.state !== "normal") {
+				app.debug(
+					`Unknown notification state "${value.state}" on ${update.path}; emitting as Caution`,
+				);
 			}
 
 			if (typeof value.alertId === "number") {
 				const alertId = value.alertId;
 				app.debug(`Using existing alertId ${alertId} for ${update.path}`);
 
-				pgns = pgns.filter((obj) => obj.fields.alertId !== alertId);
-
 				if (value.state === "normal") {
-					delete ids[update.path];
-					return pgns;
+					releaseAlertId(alertId);
+					return cachedFlat;
 				}
 
-				const type = alertTypes[value.state];
 				const method = value.method || [];
 				const isAcknowledged = method.length === 0;
 				const hasSound = method.includes("sound");
 				const state = getAlertState(isAcknowledged, hasSound);
-				const common = commonAlertFields(alertId, type);
+				const common = commonAlertFields(alertId, type, category);
 
-				pgns.push({
-					prio: N2K_DEFAULT_PRIORITY,
-					pgn: 126985,
-					dst: N2K_BROADCAST_DST,
-					fields: {
-						...common,
-						languageId: "English (US)",
-						alertTextDescription: value.message,
+				pgnsByAlertId.set(alertId, [
+					{
+						prio: N2K_DEFAULT_PRIORITY,
+						pgn: 126985,
+						dst: N2K_BROADCAST_DST,
+						fields: {
+							...common,
+							languageId: "English (US)",
+							alertTextDescription: value.message,
+						},
 					},
-				});
-
-				pgns.push({
-					prio: N2K_DEFAULT_PRIORITY,
-					pgn: 126983,
-					dst: N2K_BROADCAST_DST,
-					fields: {
-						...common,
-						temporarySilenceStatus: !isAcknowledged && !hasSound ? "Yes" : "No",
-						acknowledgeStatus: isAcknowledged ? "Yes" : "No",
-						escalationStatus: "No",
-						temporarySilenceSupport: "Yes",
-						acknowledgeSupport: "Yes",
-						escalationSupport: "No",
-						triggerCondition: "Auto",
-						thresholdStatus: "Threshold Exceeded",
-						alertPriority: 0,
-						alertState: state,
+					{
+						prio: N2K_DEFAULT_PRIORITY,
+						pgn: 126983,
+						dst: N2K_BROADCAST_DST,
+						fields: {
+							...common,
+							temporarySilenceStatus:
+								!isAcknowledged && !hasSound ? "Yes" : "No",
+							acknowledgeStatus: isAcknowledged ? "Yes" : "No",
+							escalationStatus: "No",
+							temporarySilenceSupport: "Yes",
+							acknowledgeSupport: "Yes",
+							escalationSupport: "No",
+							triggerCondition: "Auto",
+							thresholdStatus: "Threshold Exceeded",
+							alertPriority: priority,
+							alertState: state,
+						},
 					},
-				});
+				]);
+				rebuildFlat();
 
-				// Drop the oldest cached PGNs once the cap is exceeded so a
-				// stream of alerts with rotating alertIds cannot grow the
-				// resend buffer unbounded.
-				if (pgns.length > MAX_PGN_ENTRIES) {
-					pgns.splice(0, pgns.length - MAX_PGN_ENTRIES);
+				// Drop oldest tracked alerts when over cap so a rotating-alertId
+				// stream cannot grow the cache unbounded. releaseAlertId rebuilds
+				// the flat view itself.
+				if (pgnsByAlertId.size > MAX_PGN_ENTRIES) {
+					const firstKey = pgnsByAlertId.keys().next().value;
+					if (firstKey !== undefined) releaseAlertId(firstKey);
 				}
 
-				return pgns;
+				return cachedFlat;
 			}
 
-			const type = alertTypes[value.state];
-			const existingRecord = ids[update.path];
+			const existing = ids.get(update.path);
 			let alertId: number;
-			if (existingRecord?.alertId) {
-				alertId = existingRecord.alertId;
+			if (existing !== undefined) {
+				alertId = existing;
 				app.debug(`Assigning existing alertId ${alertId} to ${update.path}`);
 			} else {
-				alertId = ++idCounter;
-				ids[update.path] = { alertId };
+				const allocated = allocateAlertId();
+				if (allocated === undefined) {
+					app.error(
+						`Notifications: alertId pool exhausted (${MAX_ALERT_ID} active); dropping ${update.path}`,
+					);
+					return cachedFlat;
+				}
+				alertId = allocated;
+				ids.set(update.path, alertId);
+				alertIdToPath.set(alertId, update.path);
 				app.debug(`Assigning new alertId ${alertId} to ${update.path}`);
 				// Evict the oldest tracked path so a misbehaving stream that
 				// fires warnings without ever normalising cannot grow `ids`
-				// unbounded.
-				const keys = Object.keys(ids);
-				if (keys.length > MAX_TRACKED_PATHS) {
-					const oldest = keys[0];
-					if (oldest !== undefined) delete ids[oldest];
+				// unbounded. releaseAlertId handles the ids cleanup via
+				// alertIdToPath.
+				if (ids.size > MAX_TRACKED_PATHS) {
+					const oldest = ids.keys().next().value;
+					if (oldest !== undefined) {
+						const oldestId = ids.get(oldest);
+						if (oldestId !== undefined) releaseAlertId(oldestId);
+					}
 				}
 			}
 
@@ -222,7 +317,7 @@ export default function createNotificationsConversion(
 								value: {
 									...value,
 									alertType: type,
-									alertCategory,
+									alertCategory: category,
 									alertSystem,
 									alertId,
 								},
@@ -237,7 +332,7 @@ export default function createNotificationsConversion(
 			}
 			app.handleMessage(plugin.id, modifiedDelta);
 
-			return pgns;
+			return cachedFlat;
 		},
 		tests: [
 			{
@@ -301,7 +396,7 @@ export default function createNotificationsConversion(
 							escalationSupport: "No",
 							triggerCondition: "Auto",
 							thresholdStatus: "Threshold Exceeded",
-							alertPriority: 0,
+							alertPriority: 4,
 							alertState: "Acknowledged",
 						},
 					},

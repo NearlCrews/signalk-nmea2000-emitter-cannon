@@ -2,14 +2,24 @@
 
 [![npm version](https://img.shields.io/npm/v/signalk-nmea2000-emitter-cannon.svg)](https://www.npmjs.com/package/signalk-nmea2000-emitter-cannon)
 [![npm downloads](https://img.shields.io/npm/dm/signalk-nmea2000-emitter-cannon.svg)](https://www.npmjs.com/package/signalk-nmea2000-emitter-cannon)
-[![License](https://img.shields.io/github/license/NearlCrews/signalk-nmea2000-emitter-cannon.svg)](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/blob/master/LICENSE)
+[![License](https://img.shields.io/github/license/NearlCrews/signalk-nmea2000-emitter-cannon.svg)](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/blob/main/LICENSE)
 [![CI](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/actions/workflows/ci.yml/badge.svg)](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/actions/workflows/ci.yml)
 
 A Signal K plugin that converts Signal K deltas into NMEA 2000 messages. 45 conversion modules covering 52 data PGNs, aligned with Garmin ECHOMAP / GPSMAP / GMI specifications and the canboatjs encoder. Pairs well with sensor-side plugins such as [`signalk-virtual-weather-sensors`](https://github.com/NearlCrews/signalk-virtual-weather-sensors).
 
 > Built on the foundation of [`signalk-to-nmea2000`](https://github.com/SignalK/signalk-to-nmea2000) by Scott Bender and the Signal K community.
 
-## What's new in 1.4.2
+## What's new in 1.4.3
+
+- Notification PGN 126983/126985 correctness: `alertCategory` now derived from the Signal K path (`notifications.mob`, `notifications.navigation.*`, `notifications.anchor`, `notifications.arrival`, `notifications.gnss` route to Navigational; everything else stays Technical), `alertPriority` mapped from Signal K state per IEC 62923 (emergency=1, alarm=2, warn=3, alert=4) instead of hardcoded 0, unknown states fall through to Caution with a debug log.
+- alertId allocator now recycles released IDs via a `Set<number>` pool, structurally bounded to the 16-bit `alertId` field range. The cached PGN list returned to the resend pipeline is rebuilt only on map mutation, restoring zero-allocation behavior on dedup callbacks.
+- Raymarine Seatalk Alarms (PGN 65288) prefix map expanded from 2 entries to 12, covering depth, WP arrival, GPS failure, cross-track error, and the most common autopilot alarms.
+- Route waypoint (PGN 129285) no longer emits malformed `nitems: 0` messages when only a route name is present.
+- New `matchPathPrefix` shared helper in `utils/pathUtils.ts` replaces two near-duplicate prefix-match functions.
+- Repo hygiene: Apache 2.0 LICENSE filled in (Copyright 2026 Nearl Crews), `.gitignore` hardened with cert/key/secret patterns and local agent state, SECURITY.md supported-versions refreshed to 1.4.x, default branch reconciled from `master` to `main`. Community files added: `CODE_OF_CONDUCT.md`, `.github/CODEOWNERS`, structured YAML issue forms, CodeQL workflow, Dependabot config, branch ruleset on `main`.
+- Deferred: PGN 126984 (Alert Response, inbound) and PGN 126986 (Alert Configuration). The typed Signal K server API does not expose an inbound NMEA 2000 hook, so closing the alert-acknowledgement round-trip needs a separate design pass. See CHANGELOG for the full deferred list.
+
+### What's new in 1.4.2
 
 - Admin UI polish from a four-expert team review: schema descriptions rewritten with actionable language and concrete examples, `MAGNETIC_VARIANCE` renamed to `Magnetic Variation` to match the SK spec, brand normalized to "NMEA 2000" everywhere, AIS PGN list ordered ascending.
 - Admin form correctness: `ATTITUDE` dead per-axis source filters collapsed to the single subscribed parent path; `required` arrays added to BATTERY/ENGINE_PARAMETERS/TANKS/RAYMARINE_BRIGHTNESS/EXHAUST_TEMPERATURE array mappings so half-filled rows can no longer be silently dropped.
@@ -38,7 +48,7 @@ See [CHANGELOG.md](CHANGELOG.md) for the full list.
 - **Reactive subscriptions** via RxJS 7.8 with debounced multi-key aggregation and per-key freshness timeouts
 - **Source filtering** per conversion: pick a specific `$source` label or accept any
 - **Resend timers** per conversion plus a global default, so MFDs that expect periodic re-broadcast still see the data when the underlying source is quiet
-- **Single 330 KB ESM bundle** via esbuild; the only runtime dependency is RxJS (`@signalk/server-api` is type-only)
+- **Single ~340 KB ESM bundle** via esbuild; the only runtime dependency is RxJS (`@signalk/server-api` is type-only)
 - **Embedded canboatjs round-trip tests** on every conversion module (21 tests across 6 files)
 - **`$source: 'NMEA2000'` echo-guard** on AIS conversions to avoid re-emitting received AIS deltas back onto the bus
 - **Apache 2.0**, pure ESM, Node 20.18+
@@ -194,7 +204,7 @@ All PGNs are aligned with Garmin specifications (corrected priorities, SID field
 | PGN | Description | Module |
 |--------|-------------|--------|
 | 126464 | PGN List (transmit/receive) | `pgnList.ts` |
-| 126983 | Alert Response | `notifications.ts` |
+| 126983 | Alert | `notifications.ts` |
 | 126985 | Alert Text | `notifications.ts` |
 | 126992 | System Time | `systemTime.ts` |
 | 126996 | Product Information | `productInfo.ts` |

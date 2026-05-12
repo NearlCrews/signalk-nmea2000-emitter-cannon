@@ -286,6 +286,12 @@ export default function createAisExtendedConversions(
 								sog: 0.05,
 								timeStamp: "0",
 								trueHeading: 5.6199,
+								// Callback emits the numeric LOOKUP id (36 for Sailing). The
+								// canboatjs decoder used by the test harness round-trips the id
+								// back to its enum label "Sailing", which is what we assert
+								// against. Do NOT "fix" this by encoding the string label in
+								// the callback: passing an unmatched string encodes silently
+								// as zero.
 								typeOfShip: "Sailing",
 								userId: 367301250,
 							},

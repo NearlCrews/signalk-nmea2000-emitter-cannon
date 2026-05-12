@@ -1,9 +1,11 @@
 import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import type { ConversionModule, N2KMessage } from "../types/index.js";
+import { isValidNumber } from "../utils/validation.js";
 import {
 	DEFAULT_ROUTE_NAME,
 	MAX_RPS_WAYPOINTS,
 	mapValidWaypoints,
+	type Position,
 } from "./routeTypes.js";
 
 const ROUTE_TIMEOUT_MS = 60000;
@@ -33,6 +35,16 @@ export default function createRouteWaypointConversion(): ConversionModule {
 				wpLatitude: wp.position?.latitude,
 				wpLongitude: wp.position?.longitude,
 			}));
+
+			// PGN 129285 with nitems=0 is malformed per spec. Skip the emission
+			// when neither a waypoint list nor a nextPoint position is present:
+			// a route name alone is not enough to describe a route.
+			const pos = nextPosition as Position | null | undefined;
+			const hasNextPosition =
+				isValidNumber(pos?.latitude) && isValidNumber(pos?.longitude);
+			if (list.length === 0 && !hasNextPosition) {
+				return [];
+			}
 
 			const routeNameString =
 				typeof routeName === "string" ? routeName : DEFAULT_ROUTE_NAME;

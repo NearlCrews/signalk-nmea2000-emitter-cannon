@@ -50,7 +50,7 @@ The registry `src/conversions/index.ts` imports all factories and exports `creat
 
 ### Utilities
 - `src/utils/messageUtils.ts` - N2K message validation (`validateN2KMessage`), formatting (`formatN2KMessage`), cleaning (`cleanN2KMessage`)
-- `src/utils/pathUtils.ts` - `pathToPropName()` for config keys, `isDefined()` type guard
+- `src/utils/pathUtils.ts` - `pathToPropName()` for config keys, `isDefined()` type guard, `matchPathPrefix<T>(path, table)` first-prefix-match lookup used by `notifications.ts` (alertCategory routing) and `raymarineAlarms.ts` (alarmId mapping)
 - `src/utils/dateUtils.ts` - NMEA 2000 date/time conversions (`toN2KDate`, `toN2KTime`, `toN2KDateTime`)
 - `src/utils/errorUtils.ts` - `errMessage(err)` coercion helper for `unknown`-typed thrown values
 - `src/utils/validation.ts` - Input validation (`isValidNumber`, `toValidNumber` - rejects NaN/Infinity), `normalizeAngle()`
@@ -133,6 +133,26 @@ const labeled: ConversionModule =
 ```
 
 Spread (not mutation): conversion modules are loaded once in the PluginManager constructor and reused across start/stop cycles, so mutating the source would leak annotations between cycles. The `subConversion === conv` guard preserves the single-PGN path. Result: each sub-conversion gets a unique throttle bucket key (`callback:BATTERY[0]:stream`) and a useful log label (`Battery (PGNs 127506, 127508) #0 [BATTERY[0]]`).
+
+### Notification PGNs (126983 / 126985)
+
+`src/conversions/notifications.ts` subscribes to `notifications.*` on `vessels.self` and emits both PGN 126983 (Alert) and PGN 126985 (Alert Text) per active alert. Internal state:
+
+- `ids: Map<path, alertId>` is the forward mapping: which alertId did we assign to this Signal K path.
+- `alertIdToPath: Map<alertId, path>` is the reverse mapping. Load-bearing: `releaseAlertId()` uses it to clean up `ids` when the PGN-cap path evicts an entry, otherwise a released alertId could later be re-allocated to a different path while a stale `ids` binding still points at the same number.
+- `usedAlertIds: Set<number>` is the allocation pool (free-id check is O(1)).
+- `pgnsByAlertId: Map<alertId, [PGN_126985, PGN_126983]>` is the cached pair returned to the resend pipeline.
+- `cachedFlat: N2KMessage[]` is the flat view of `pgnsByAlertId.values()`, rebuilt only on mutation (`pgnsByAlertId.set`, `releaseAlertId`, `resetState`). All dedup callback paths return this reference unchanged, restoring zero-allocation behavior.
+
+`alertCategory` is derived from the Signal K path via `matchPathPrefix(path, CATEGORY_BY_PATH_PREFIX)`: `notifications.mob`, `notifications.navigation`, `notifications.anchor`, `notifications.arrival`, `notifications.gnss` route to "Navigational"; everything else falls through to "Technical".
+
+`alertPriority` maps from Signal K state per IEC 62923: `emergency=1, alarm=2, warn=3, alert=4`. Lower number is higher priority.
+
+Unknown Signal K states fall through to "Caution" / priority 4 with a debug log, so a misspelled state in an upstream provider still produces a valid PGN.
+
+`alertId` is a 16-bit unsigned NMEA 2000 field; the allocator caps at `MAX_ALERT_ID = 65531` (one below the spec max so the canboat encoder never sees the "data not available" sentinel) but in practice the active set is bounded by `MAX_TRACKED_PATHS = 256` (one entry in `ids` per active path, released on `state: "normal"` or LRU eviction).
+
+PGN 126984 (Alert Response, inbound) is NOT handled. Acknowledgements from an MFD do not flow back into Signal K. Closing this round-trip requires an inbound NMEA 2000 hook that the typed `@signalk/server-api` does not currently expose: needs a separate design pass.
 
 ## Common Pitfalls
 

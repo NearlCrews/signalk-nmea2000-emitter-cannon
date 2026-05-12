@@ -27,11 +27,10 @@ export default function PluginConfigurationPanel({
 	save,
 }: Props): React.ReactElement {
 	const { status, error } = useStatus();
-	const { state, dispatch } = useConfig(configuration);
+	const { state, initial, dispatch } = useConfig(configuration);
 	const { sourcesFor, ensureLoaded } = useSources();
 	const [meta, setMeta] = useState<ConversionMetadata[]>([]);
 	const [tab, setTab] = useState<ConversionCategory>("navigation");
-	const [initial] = useState<unknown>(configuration);
 
 	useEffect(() => {
 		fetch("/plugins/signalk-nmea2000-emitter-cannon/api/conversions", {
@@ -94,9 +93,7 @@ export default function PluginConfigurationPanel({
 			<FooterBar
 				dirty={dirty}
 				onSave={() => save(state)}
-				onDiscard={() =>
-					dispatch({ type: "discard", config: initial as never })
-				}
+				onDiscard={() => dispatch({ type: "discard", config: initial })}
 			/>
 		</div>
 	);

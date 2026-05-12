@@ -1,9 +1,12 @@
 import type * as React from "react";
-import { useEffect, useReducer } from "react";
+import { useReducer, useState } from "react";
 import type { ConversionMetadata } from "../../api/types.js";
+import { migrateLegacyConfig } from "../../config/migrate";
 import type { Config, PresetTag } from "../../config/schema.js";
 
 type Action =
+	// `init` is reserved for external swaps of the entire config (future use).
+	// Legacy migration runs synchronously at hook init via useState initializer.
 	| { type: "init"; config: Config }
 	| { type: "setEnabled"; key: string; enabled: boolean }
 	| { type: "setResend"; key: string; ms: number }
@@ -103,22 +106,17 @@ function reducer(state: Config, action: Action): Config {
 	}
 }
 
-const EMPTY: Config = { globalResendInterval: 30, conversions: {} };
-
 export function useConfig(initial: unknown): {
 	state: Config;
+	initial: Config;
 	dispatch: React.Dispatch<Action>;
 } {
-	const [state, dispatch] = useReducer(reducer, EMPTY);
-	useEffect(() => {
-		if (initial && typeof initial === "object" && "conversions" in initial) {
-			dispatch({ type: "init", config: initial as Config });
-		} else {
-			// Legacy shape from the host. Use the same migration helper.
-			void import("../../config/migrate").then((m) => {
-				dispatch({ type: "init", config: m.migrateLegacyConfig(initial) });
-			});
-		}
-	}, [initial]);
-	return { state, dispatch };
+	// Run migration exactly once at first render so state and initial are
+	// both the migrated shape from the start. This keeps `dirty` false on
+	// mount and prevents legacy shapes from leaking into reducer state.
+	const [migratedInitial] = useState<Config>(() =>
+		migrateLegacyConfig(initial),
+	);
+	const [state, dispatch] = useReducer(reducer, migratedInitial);
+	return { state, initial: migratedInitial, dispatch };
 }

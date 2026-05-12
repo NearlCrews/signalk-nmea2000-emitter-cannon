@@ -32,3 +32,25 @@ export const S: Record<string, CSSProperties> = {
 		fontSize: 12,
 	},
 };
+
+S.fieldRow = {
+	display: "flex",
+	alignItems: "center",
+	gap: 12,
+	marginBottom: 8,
+};
+S.label = { fontSize: 13, color: "#555", width: 280, flexShrink: 0 };
+S.select = {
+	padding: "6px 10px",
+	borderRadius: 6,
+	border: "1px solid #ccc",
+	fontSize: 13,
+	minWidth: 220,
+};
+S.input = {
+	padding: "6px 10px",
+	borderRadius: 6,
+	border: "1px solid #ccc",
+	fontSize: 13,
+	width: 220,
+};

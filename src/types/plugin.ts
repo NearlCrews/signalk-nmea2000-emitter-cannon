@@ -29,44 +29,10 @@ export interface PluginOptions {
 	conversions: Record<string, ConversionOptions>;
 }
 
-// Wire format as delivered by the Signal K admin UI. Schema.ts emits a
-// flat object; PluginManager.start normalizes it into PluginOptions.
-export interface RawPluginOptions {
-	globalResendInterval?: number;
-	[key: string]: ConversionOptions | number | undefined;
-}
-
 export function isConversionOptions(
 	v: ConversionOptions | number | undefined,
 ): v is ConversionOptions {
 	return typeof v === "object" && v !== null;
-}
-
-export function normalizePluginOptions(
-	raw: RawPluginOptions | PluginOptions,
-): PluginOptions {
-	const maybeNested = (raw as Partial<PluginOptions>).conversions;
-	if (
-		maybeNested !== undefined &&
-		typeof maybeNested === "object" &&
-		maybeNested !== null
-	) {
-		return raw as PluginOptions;
-	}
-	const flat = raw as RawPluginOptions;
-	const conversions: Record<string, ConversionOptions> = {};
-	for (const key of Object.keys(flat)) {
-		if (key === "globalResendInterval") continue;
-		const value = flat[key];
-		if (isConversionOptions(value)) {
-			conversions[key] = value;
-		}
-	}
-	const out: PluginOptions = { conversions };
-	if (typeof flat.globalResendInterval === "number") {
-		out.globalResendInterval = flat.globalResendInterval;
-	}
-	return out;
 }
 
 // `callback` and `conversions` use method-style signatures so TypeScript

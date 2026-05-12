@@ -70,7 +70,16 @@ const MAX_ALERT_ID = 65531;
 const MAX_TRACKED_PATHS = 256;
 const MAX_PGN_ENTRIES = 256;
 
-function getAlertState(isAcknowledged: boolean, hasSound: boolean): string {
+// Object param to prevent a transposition trap: the two boolean fields are
+// semantically distinct (one is "acked", the other "still audible") but a
+// positional call site is one swap away from a silent semantic flip.
+function getAlertState({
+	isAcknowledged,
+	hasSound,
+}: {
+	isAcknowledged: boolean;
+	hasSound: boolean;
+}): string {
 	if (isAcknowledged) return "Acknowledged";
 	if (hasSound) return "Active";
 	return "Silenced";
@@ -248,7 +257,7 @@ export default function createNotificationsConversion(
 				const method = value.method || [];
 				const isAcknowledged = method.length === 0;
 				const hasSound = method.includes("sound");
-				const state = getAlertState(isAcknowledged, hasSound);
+				const state = getAlertState({ isAcknowledged, hasSound });
 				const common = commonAlertFields(alertId, type, category);
 
 				pgnsByAlertId.set(alertId, [

@@ -30,6 +30,12 @@ export function enumerateSourcesForPath(
 	return [...out].sort();
 }
 
+// Assumption: in real Signal K /sources trees a node either matches the
+// path-suffix shape OR contains nested source labels, not both. The early
+// return on match therefore does not hide additional sources at deeper
+// nesting. No production tree observed in testing exhibits the
+// pathological case (a source label that is also itself a path container);
+// if one appears in the wild, drop the `return` so the walk continues.
 function walk(
 	node: Record<string, unknown>,
 	pathParts: string[],

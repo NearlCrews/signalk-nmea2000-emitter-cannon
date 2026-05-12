@@ -155,4 +155,17 @@ describe("PluginManager.getConversionMetadata", () => {
 		expect(first).toHaveProperty("pgns");
 		expect(Array.isArray(first?.pgns)).toBe(true);
 	});
+
+	// Regression guard: extractPgnsFromTitle parses the "Name (PGN N)" /
+	// "Name (PGNs N, M)" suffix. A future rename that drops the parenthetical
+	// would silently produce empty pgns arrays in the /api/conversions
+	// response without this assertion. Every loaded conversion must yield at
+	// least one PGN string.
+	it("every loaded conversion exposes at least one PGN", () => {
+		const app = makeMockApp();
+		const pm = new PluginManager(app, mockPlugin);
+		const meta = pm.getConversionMetadata();
+		const missing = meta.filter((m) => m.pgns.length === 0);
+		expect(missing).toEqual([]);
+	});
 });

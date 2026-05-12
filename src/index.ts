@@ -1,3 +1,4 @@
+import { createApiRouter } from "./api/router.js";
 import { RootConfig } from "./config/schema.js";
 import { PluginManager } from "./plugin-manager.js";
 import type { SignalKApp, SignalKPlugin } from "./types/index.js";
@@ -21,6 +22,11 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 		start: startPlugin,
 		stop: stopPlugin,
 	};
+
+	// Closure form: the router always sees the current PluginManager instance.
+	// PluginManager is recreated on every start/stop cycle, so a direct
+	// reference would go stale after the first restart.
+	plugin.registerWithRouter = createApiRouter(app, () => pluginManager);
 
 	function startPlugin(
 		options: unknown,

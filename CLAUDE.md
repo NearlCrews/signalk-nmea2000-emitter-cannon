@@ -161,6 +161,32 @@ Unknown Signal K states fall through to "Caution" / priority 4 with a debug log,
 
 PGN 126984 (Alert Response, inbound) is NOT handled. Acknowledgements from an MFD do not flow back into Signal K. Closing this round-trip requires an inbound NMEA 2000 hook that the typed `@signalk/server-api` does not currently expose: needs a separate design pass.
 
+## Admin UI: federated React panel
+
+As of v1.5.0 the plugin's admin config UI is a webpack 5 Module Federation remote built into `public/remoteEntry.js` plus chunked `public/*.mjs` from `src/panel/`. The Signal K admin loads it because `package.json` `keywords` include `signalk-plugin-configurator`. Component contract: default export `PluginConfigurationPanel({ configuration, save })`. `save` is fire-and-forget, returns void; the next `configuration` prop reflects the saved state.
+
+Live data comes from an Express router mounted via `Plugin.registerWithRouter` under `/plugins/signalk-nmea2000-emitter-cannon/api/` with these endpoints: `/status`, `/conversions`, `/paths`, `/sources`. The router calls `app.securityStrategy.addAdminMiddleware` on the API prefix so unauthenticated requests are rejected. If the running server does not expose that hook, the router logs a warning and the endpoints stay open (compat fallback for older signalk-server builds).
+
+Config shape: TypeBox at `src/config/schema.ts`. `Plugin.schema` returns the TypeBox value directly (a valid JSON Schema literal at runtime). `Static<typeof RootConfig>` derives the `Config` TypeScript type. Migration of v1.4.x payloads runs once at `useConfig` init in the panel (synchronously imported from `src/config/migrate.ts`). The on-disk shape is now `conversions: { KEY: { enabled, resend, sources, extras } }`; the load-time migration accepts the old flat shape and normalizes it.
+
+Federation specifics:
+
+- `package.json` has `"type": "module"`, so the admin injects the remoteEntry script as `<script type="module">`. The webpack config uses ESM federation (`experiments.outputModule: true`, `output.module: true`, `library: { type: "module" }`, chunk filenames end `.mjs`).
+- Library name: `pkg.name.replace(/[-@/]/g, "_")` (the safe identifier form derived from the package name).
+- Shared singletons: `react` and `react-dom` at `^19`. Admin UI provides them; the panel bundles a fallback used only when no compatible singleton exists.
+- Minimum admin UI: `@signalk/server-admin-ui >= 2.27.0`.
+
+Adding a new conversion now requires:
+
+1. Create the module in `src/conversions/`, including `category` (required: one of `navigation`, `engine`, `electrical`, `tanks`, `environment`, `ais`, `comms`, `system`) and optional `presets` (e.g. `["basic-navigation"]`).
+2. Add to the registry in `src/conversions/index.ts`.
+3. If the conversion has extras requiring an editor, add an `ExtrasMeta` entry in `src/api/extras-meta.ts`. If a new editor type is required, add the React component under `src/panel/components/extras/` and wire it into the discriminator in `src/panel/components/ExtrasEditor.tsx`.
+4. Add test cases in the module's `tests` array.
+
+Source discovery: `enumerateSourcesForPath` uses `app.getSelfPath(path)` because `app.getPath("vessels.self.<path>")` does NOT resolve the `self` indirection. The `/sources` tree on the Signal K server is unrelated: it stores device metadata, not path-keyed source listings.
+
+`PluginManager.recordEmit` aggregates per-conversion emit counters by stripping the `[N]` suffix used for sub-conversion bucket keys, so totals are reported under the parent `optionKey`. The `/api/status` snapshot walks all source-type bucket suffixes (delta, stream, subscription, timer) and matches both parent and sub-conversion key forms so a flaky sub-conversion still surfaces as an error indicator on the parent card.
+
 ## Common Pitfalls
 
 1. **Schema/optionKey Mismatch**: The `optionKey` in each conversion module MUST match the key in `src/schema.ts`. Mismatches prevent users from enabling conversions.

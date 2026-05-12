@@ -1,7 +1,7 @@
 import type { IRouter } from "express";
 import express from "express";
 import request from "supertest";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createApiRouter } from "../api/router.js";
 import type { PluginManager } from "../plugin-manager.js";
 import type { SignalKApp } from "../types/index.js";
@@ -17,13 +17,27 @@ function mountRouter(
 	return expressApp;
 }
 
-describe("API router", () => {
-	const fakeApp = {
+// Built per-test in beforeEach so each case starts with fresh mock state
+// (a shared module-scoped fakeApp would accumulate vi.fn() call history
+// across tests and let the addAdminMiddleware assertion succeed off prior
+// runs).
+function makeFakeApp(): SignalKApp {
+	return {
 		streambundle: { getAvailablePaths: () => ["a", "b"] },
 		getPath: (p: string) =>
 			p === "/sources" ? { gps1: { navigation: { position: {} } } } : undefined,
 		securityStrategy: { addAdminMiddleware: vi.fn() },
+		error: vi.fn(),
 	} as unknown as SignalKApp;
+}
+
+describe("API router", () => {
+	let fakeApp: SignalKApp;
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		fakeApp = makeFakeApp();
+	});
 
 	it("GET /api/status returns the canonical shape", async () => {
 		const pm = {
@@ -81,18 +95,31 @@ describe("API router", () => {
 	});
 
 	it("calls addAdminMiddleware with the api prefix", async () => {
-		const localApp = {
-			streambundle: { getAvailablePaths: () => [] },
-			getPath: () => undefined,
-			securityStrategy: { addAdminMiddleware: vi.fn() },
-		} as unknown as SignalKApp;
-		mountRouter(localApp, () => null);
+		mountRouter(fakeApp, () => null);
 		expect(
 			(
-				localApp.securityStrategy as {
+				fakeApp.securityStrategy as {
 					addAdminMiddleware: ReturnType<typeof vi.fn>;
 				}
 			).addAdminMiddleware,
 		).toHaveBeenCalledWith("/plugins/signalk-nmea2000-emitter-cannon/api");
+	});
+
+	it("logs an error when securityStrategy.addAdminMiddleware is unavailable", async () => {
+		const localApp = {
+			streambundle: { getAvailablePaths: () => [] },
+			getPath: () => undefined,
+			error: vi.fn(),
+			// securityStrategy intentionally undefined to simulate older
+			// signalk-server builds.
+		} as unknown as SignalKApp;
+		mountRouter(localApp, () => null);
+		expect(
+			(localApp as unknown as { error: ReturnType<typeof vi.fn> }).error,
+		).toHaveBeenCalledTimes(1);
+		const firstCall = (
+			localApp as unknown as { error: ReturnType<typeof vi.fn> }
+		).error.mock.calls[0];
+		expect(firstCall?.[0]).toMatch(/addAdminMiddleware unavailable/);
 	});
 });

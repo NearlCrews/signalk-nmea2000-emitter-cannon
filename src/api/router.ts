@@ -26,7 +26,19 @@ export function createApiRouter(
 	getManager: () => PluginManager | null,
 ): (router: IRouter) => void {
 	return (router) => {
-		app.securityStrategy?.addAdminMiddleware?.(API_PREFIX);
+		// Spec requires admin-gated routes. The optional-chain check below
+		// stays defensive so the plugin still loads against older
+		// signalk-server builds that don't expose securityStrategy /
+		// addAdminMiddleware, but absence is logged once (not silently
+		// no-op'd) so operators can see why the routes are unauthenticated.
+		const addMw = app.securityStrategy?.addAdminMiddleware;
+		if (typeof addMw === "function") {
+			addMw.call(app.securityStrategy, API_PREFIX);
+		} else {
+			app.error(
+				`securityStrategy.addAdminMiddleware unavailable; ${API_PREFIX}/* routes will be unauthenticated. Update signalk-server to >= 2.x.`,
+			);
+		}
 
 		router.get("/api/status", (_req: Request, res: Response) => {
 			const pm = getManager();

@@ -63,6 +63,20 @@ function extractPgnsFromTitle(title: string): string[] {
 		.filter(Boolean);
 }
 
+// Throttle-bucket prefixes used by bucketKey() and the per-source label
+// passed into invokeCallback(). Centralised so the snapshot path (which
+// parses these prefixes) and the write sites stay in lockstep: a string
+// drift between the two would silently hide errors from the panel.
+const BUCKET_PREFIX = {
+	CALLBACK: "callback",
+	STREAM: "stream",
+	DELTA: "delta",
+	SUBSCRIPTION: "subscription",
+	TIMER: "timer",
+	RESEND: "resend",
+	PROCESS: "process",
+} as const;
+
 // Not idempotent on a reused instance: stop() clears this.conversions and
 // removes the constructor-installed listener, so a subsequent start() on the
 // same instance is a no-op. index.ts always discards the instance after stop()
@@ -270,7 +284,7 @@ export class PluginManager {
 		} catch (err) {
 			const message = errMessage(err);
 			this.throttledError(
-				this.bucketKey("callback", conversion, source),
+				this.bucketKey(BUCKET_PREFIX.CALLBACK, conversion, source),
 				`Error in ${source} callback for ${this.moduleLabel(conversion)}: ${message}`,
 			);
 			return undefined;
@@ -538,7 +552,7 @@ export class PluginManager {
 		} catch (err) {
 			const message = errMessage(err);
 			this.throttledError(
-				this.bucketKey("process", conversion),
+				this.bucketKey(BUCKET_PREFIX.PROCESS, conversion),
 				`Error processing output for ${this.moduleLabel(conversion)}: ${message}`,
 			);
 		}
@@ -564,7 +578,11 @@ export class PluginManager {
 					// No input ever observed: skip; do not emit stale defaults.
 					if (lastInput === undefined) return;
 
-					const raw = this.invokeCallback(conversion, lastInput, "resend");
+					const raw = this.invokeCallback(
+						conversion,
+						lastInput,
+						BUCKET_PREFIX.RESEND,
+					);
 					if (raw === undefined) return;
 
 					const values = await Promise.resolve(raw);
@@ -576,7 +594,7 @@ export class PluginManager {
 				} catch (err) {
 					const message = errMessage(err);
 					this.throttledError(
-						this.bucketKey("resend", conversion),
+						this.bucketKey(BUCKET_PREFIX.RESEND, conversion),
 						`Error in resend timer for ${this.moduleLabel(conversion)}: ${message}`,
 					);
 				}
@@ -602,7 +620,7 @@ export class PluginManager {
 			if (this.stopped) return;
 			const args: unknown[] = [delta];
 			this.lastInputs.set(conversion, args);
-			const result = this.invokeCallback(conversion, args, "delta");
+			const result = this.invokeCallback(conversion, args, BUCKET_PREFIX.DELTA);
 			if (result === undefined) return;
 			void this.processOutput(conversion, processingOptions, result);
 		});
@@ -693,13 +711,17 @@ export class PluginManager {
 				next: (args) => {
 					if (this.stopped) return;
 					this.lastInputs.set(conversion, args.slice());
-					const result = this.invokeCallback(conversion, args, "stream");
+					const result = this.invokeCallback(
+						conversion,
+						args,
+						BUCKET_PREFIX.STREAM,
+					);
 					if (result === undefined) return;
 					void this.processOutput(conversion, pluginOptions, result);
 				},
 				error: (err) => {
 					this.throttledError(
-						this.bucketKey("stream", conversion),
+						this.bucketKey(BUCKET_PREFIX.STREAM, conversion),
 						`Stream error for ${this.moduleLabel(conversion)}: ${errMessage(err)}`,
 					);
 				},
@@ -735,14 +757,18 @@ export class PluginManager {
 			this.unsubscribes,
 			(err: unknown) =>
 				this.throttledError(
-					this.bucketKey("subscription", conversion),
+					this.bucketKey(BUCKET_PREFIX.SUBSCRIPTION, conversion),
 					`Subscription error for ${this.moduleLabel(conversion)}: ${errMessage(err)}`,
 				),
 			(delta) => {
 				if (this.stopped) return;
 				const args: unknown[] = [delta];
 				this.lastInputs.set(conversion, args);
-				const result = this.invokeCallback(conversion, args, "subscription");
+				const result = this.invokeCallback(
+					conversion,
+					args,
+					BUCKET_PREFIX.SUBSCRIPTION,
+				);
 				if (result === undefined) return;
 				void this.processOutput(conversion, pluginOptions, result);
 			},
@@ -768,7 +794,7 @@ export class PluginManager {
 			if (this.stopped) return;
 			const args: unknown[] = [this.app];
 			this.lastInputs.set(conversion, args);
-			const result = this.invokeCallback(conversion, args, "timer");
+			const result = this.invokeCallback(conversion, args, BUCKET_PREFIX.TIMER);
 			if (result === undefined) return;
 			void this.processOutput(conversion, processingOptions, result);
 		}, conversion.interval);

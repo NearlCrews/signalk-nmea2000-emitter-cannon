@@ -187,6 +187,16 @@ export default function createNotificationsConversion(
 				return [];
 			}
 
+			// Short-circuit on our own rewritten delta. handleMessage() below
+			// re-emits this delta with `source: { label: plugin.id, type: "plugin" }`;
+			// if signalk-server ever normalises that back through the subscription
+			// pipeline, the reentrant pass would re-allocate an alertId and recurse.
+			// Bail before any allocation so the loop is impossible regardless of
+			// upstream normalisation behaviour.
+			if (firstUpdate.source?.label === plugin.id) {
+				return cachedFlat;
+			}
+
 			const update = firstUpdate.values[0];
 			if (!update) {
 				return [];

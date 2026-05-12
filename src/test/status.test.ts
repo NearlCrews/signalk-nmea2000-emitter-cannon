@@ -79,6 +79,66 @@ describe("PluginManager.getStatusSnapshot", () => {
 		expect(battery?.emitCount).toBe(3);
 		expect(battery?.lastEmitMs).toBeDefined();
 	});
+
+	it("surfaces error buckets from non-stream sources (e.g. delta)", () => {
+		const app = makeMockApp();
+		const pm = new PluginManager(app, mockPlugin);
+		// NOTIFICATIONS is an ON_DELTA conversion, so its error bucket key is
+		// `callback:NOTIFICATIONS:delta`. The previous lookup hardcoded
+		// `:stream` and would have missed this entirely.
+		const buckets = (
+			pm as unknown as {
+				errorBuckets: Map<
+					string,
+					{
+						suppressed: number;
+						nextEmit: number;
+						lastMessage?: string;
+						lastEmittedAt?: number;
+					}
+				>;
+			}
+		).errorBuckets;
+		const emittedAt = Date.now() - 1000;
+		buckets.set("callback:NOTIFICATIONS:delta", {
+			suppressed: 0,
+			nextEmit: 0,
+			lastMessage: "boom",
+			lastEmittedAt: emittedAt,
+		});
+		const snap = pm.getStatusSnapshot();
+		const notif = snap.perConversion.find((c) => c.key === "NOTIFICATIONS");
+		expect(notif).toBeDefined();
+		expect(notif?.lastErrorMessage).toBe("boom");
+		expect(notif?.lastErrorAgeMs).toBeGreaterThanOrEqual(1000);
+	});
+
+	it("surfaces error buckets keyed under sub-conversion brackets", () => {
+		const app = makeMockApp();
+		const pm = new PluginManager(app, mockPlugin);
+		const buckets = (
+			pm as unknown as {
+				errorBuckets: Map<
+					string,
+					{
+						suppressed: number;
+						nextEmit: number;
+						lastMessage?: string;
+						lastEmittedAt?: number;
+					}
+				>;
+			}
+		).errorBuckets;
+		buckets.set("callback:BATTERY[2]:stream", {
+			suppressed: 0,
+			nextEmit: 0,
+			lastMessage: "subfail",
+			lastEmittedAt: Date.now(),
+		});
+		const snap = pm.getStatusSnapshot();
+		const battery = snap.perConversion.find((c) => c.key === "BATTERY");
+		expect(battery?.lastErrorMessage).toBe("subfail");
+	});
 });
 
 describe("PluginManager.getConversionMetadata", () => {

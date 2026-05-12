@@ -794,9 +794,26 @@ export class PluginManager {
 		const perConversion: import("./api/types.js").PerConversionStatus[] =
 			this.conversions.map((c) => {
 				const lastEmitAt = this.lastEmitAt.get(c.optionKey);
-				const bucket = this.errorBuckets.get(
-					this.bucketKey("callback", c, "stream"),
-				);
+				// Surface the most recent error emitted by any callback source
+				// for this conversion. Bucket keys are
+				// `callback:<optionKey>:<source>` where source is one of
+				// "stream" / "delta" / "subscription" / "timer" / "resend".
+				// Sub-conversions add a bracket suffix to the optionKey
+				// (`callback:BATTERY[0]:stream`), so we accept both `:` and
+				// `[` as the boundary character after the parent key. The
+				// linear scan runs once per /api/status request (3s polling),
+				// not on the hot emit path, and the bucket map is bounded by
+				// the count of distinct (conversion, source) pairs.
+				const prefix = `callback:${c.optionKey}`;
+				let best: { lastMessage?: string; lastEmittedAt?: number } | undefined;
+				for (const [k, b] of this.errorBuckets) {
+					if (!k.startsWith(prefix)) continue;
+					const next = k.charAt(prefix.length);
+					if (next !== ":" && next !== "[") continue;
+					if (!best || (b.lastEmittedAt ?? 0) > (best.lastEmittedAt ?? 0)) {
+						best = b;
+					}
+				}
 				const entry: import("./api/types.js").PerConversionStatus = {
 					key: c.optionKey,
 					title: c.title,
@@ -806,11 +823,11 @@ export class PluginManager {
 				if (lastEmitAt !== undefined) {
 					entry.lastEmitMs = now - lastEmitAt;
 				}
-				if (bucket?.lastMessage !== undefined) {
-					entry.lastErrorMessage = bucket.lastMessage;
+				if (best?.lastMessage !== undefined) {
+					entry.lastErrorMessage = best.lastMessage;
 				}
-				if (bucket?.lastEmittedAt !== undefined) {
-					entry.lastErrorAgeMs = now - bucket.lastEmittedAt;
+				if (best?.lastEmittedAt !== undefined) {
+					entry.lastErrorAgeMs = now - best.lastEmittedAt;
 				}
 				return entry;
 			});

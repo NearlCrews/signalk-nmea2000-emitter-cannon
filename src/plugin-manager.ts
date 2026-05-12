@@ -664,9 +664,12 @@ export class PluginManager {
 		const combinedBus = new Subject<unknown[]>();
 
 		keys.forEach((skKey) => {
-			const sourceRef = pluginOptions[pathToPropName(skKey)] as
-				| string
-				| undefined;
+			// Accept both shapes during the legacy-flat to nested-sources transition.
+			// Panel writes use the dotted Signal K path as the source key; legacy
+			// on-disk configs and migrate.ts use the dotless propName form. Reading
+			// both keeps source-locks working regardless of how the config landed.
+			const sourceRef = (pluginOptions[skKey] ??
+				pluginOptions[pathToPropName(skKey)]) as string | undefined;
 
 			let bus = this.app.streambundle.getSelfBus(skKey as Path);
 

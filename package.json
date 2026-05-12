@@ -6,13 +6,16 @@
 	"type": "module",
 	"files": [
 		"dist/",
+		"public/",
 		"assets/",
 		"README.md",
 		"LICENSE",
 		"CHANGELOG.md"
 	],
 	"scripts": {
-		"build": "npm run clean && esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --outfile=dist/index.js --external:rxjs",
+		"build": "npm run clean && npm run build:plugin && npm run build:panel",
+		"build:plugin": "esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --outfile=dist/index.js --external:rxjs",
+		"build:panel": "webpack --config webpack.config.js",
 		"build:watch": "npm run clean && esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --sourcemap=linked --outfile=dist/index.js --external:rxjs --watch",
 		"test": "vitest --run",
 		"test:ui": "vitest --ui",
@@ -21,7 +24,7 @@
 		"format": "biome format src/ --write",
 		"check": "biome check src/",
 		"typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.panel.json",
-		"clean": "rm -rf dist",
+		"clean": "rm -rf dist && rm -f public/*.js public/*.LICENSE.txt public/*.map",
 		"prepare": "husky",
 		"prepack": "npm run build",
 		"create-release": "gh release create v$npm_package_version --generate-notes",
@@ -29,6 +32,7 @@
 	},
 	"keywords": [
 		"signalk-node-server-plugin",
+		"signalk-plugin-configurator",
 		"signalk-category-nmea-2000",
 		"signalk-category-ais",
 		"nmea2000",

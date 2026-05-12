@@ -115,3 +115,19 @@ S.btnSecondary = {
 	cursor: "pointer",
 };
 S.dirty = { color: "#92400e", fontSize: 12, marginLeft: 8 };
+S.chipRow = {
+	display: "flex",
+	gap: 8,
+	flexWrap: "wrap",
+	marginBottom: 16,
+};
+S.chip = {
+	padding: "6px 12px",
+	background: "#eef2ff",
+	color: "#3730a3",
+	border: "1px solid #c7d2fe",
+	borderRadius: 999,
+	fontSize: 12,
+	fontWeight: 500,
+	cursor: "pointer",
+};

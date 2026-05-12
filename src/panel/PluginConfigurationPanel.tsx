@@ -11,6 +11,7 @@ import CategoryTabs from "./components/CategoryTabs";
 import ConversionCard from "./components/ConversionCard";
 import FooterBar from "./components/FooterBar";
 import GlobalSettings from "./components/GlobalSettings";
+import PresetChips from "./components/PresetChips";
 import StatusDashboard from "./components/StatusDashboard";
 import { useConfig } from "./hooks/useConfig";
 import { useSources } from "./hooks/useSources";
@@ -65,6 +66,9 @@ export default function PluginConfigurationPanel({
 			{error ? (
 				<p style={{ color: "crimson", fontSize: 12 }}>Status error: {error}</p>
 			) : null}
+			<PresetChips
+				onApply={(p) => dispatch({ type: "applyPreset", preset: p, meta })}
+			/>
 			<GlobalSettings
 				value={state.globalResendInterval}
 				onChange={(ms) => dispatch({ type: "setGlobalResend", ms })}

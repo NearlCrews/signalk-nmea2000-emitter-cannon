@@ -6,6 +6,15 @@ import { createApiRouter } from "../api/router.js";
 import type { PluginManager } from "../plugin-manager.js";
 import type { SignalKApp } from "../types/index.js";
 
+// Mock surface narrowed to the two methods createApiRouter calls on a
+// PluginManager: getStatusSnapshot and getConversionMetadata. Tests cast
+// the literal through this type instead of `as unknown as PluginManager`
+// with embedded `as never` casts, so the structural shape is checked.
+type MockPluginManager = Pick<
+	PluginManager,
+	"getStatusSnapshot" | "getConversionMetadata"
+>;
+
 function mountRouter(
 	app: SignalKApp,
 	getPm: () => PluginManager | null,
@@ -42,7 +51,7 @@ describe("API router", () => {
 	});
 
 	it("GET /api/status returns the canonical shape", async () => {
-		const pm = {
+		const pm: MockPluginManager = {
 			getStatusSnapshot: () => ({
 				nmea2000Ready: true,
 				enabledCount: 3,
@@ -51,8 +60,8 @@ describe("API router", () => {
 				startTime: 1000,
 			}),
 			getConversionMetadata: () => [],
-		} as unknown as PluginManager;
-		const ex = mountRouter(fakeApp, () => pm);
+		};
+		const ex = mountRouter(fakeApp, () => pm as PluginManager);
 		const res = await request(ex).get(
 			"/plugins/signalk-nmea2000-emitter-cannon/api/status",
 		);
@@ -61,15 +70,34 @@ describe("API router", () => {
 	});
 
 	it("GET /api/conversions returns an array under .conversions", async () => {
-		const pm = {
-			getStatusSnapshot: () => ({}) as never,
-			getConversionMetadata: () => [{ key: "WIND" } as never],
-		} as unknown as PluginManager;
-		const ex = mountRouter(fakeApp, () => pm);
+		// /api/conversions does not read the snapshot, only the metadata list,
+		// but a sound mock honours both methods of the narrowed surface.
+		const pm: MockPluginManager = {
+			getStatusSnapshot: () => ({
+				nmea2000Ready: false,
+				enabledCount: 0,
+				totalConversions: 0,
+				perConversion: [],
+				startTime: 0,
+			}),
+			getConversionMetadata: () => [
+				{
+					key: "WIND",
+					title: "Wind",
+					pgns: [],
+					category: "navigation",
+					presets: [],
+					paths: [],
+					extras: { type: "none" },
+				},
+			],
+		};
+		const ex = mountRouter(fakeApp, () => pm as PluginManager);
 		const res = await request(ex).get(
 			"/plugins/signalk-nmea2000-emitter-cannon/api/conversions",
 		);
-		expect(res.body.conversions).toEqual([{ key: "WIND" }]);
+		expect(res.body.conversions).toHaveLength(1);
+		expect(res.body.conversions[0].key).toBe("WIND");
 	});
 
 	it("GET /api/paths returns sorted paths", async () => {

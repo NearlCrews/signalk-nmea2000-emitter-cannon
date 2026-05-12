@@ -72,7 +72,9 @@ function reducer(state: Config, action: Action): Config {
 		}
 		case "setSource": {
 			const { state: s, entry } = withEntry(state, action.key);
-			const sources = { ...(entry.sources ?? {}) };
+			// schema.ts now declares sources as required `{}` default, so the
+			// spread does not need a defensive `?? {}` guard.
+			const sources = { ...entry.sources };
 			if (action.source) sources[action.path] = action.source;
 			else delete sources[action.path];
 			return {

@@ -71,7 +71,7 @@ export default function ConversionCard(props: Props): React.ReactElement {
 						<SourceField
 							key={p}
 							path={p}
-							value={cfg.sources?.[p] ?? ""}
+							value={cfg.sources[p] ?? ""}
 							onChange={(s) => props.onSetSource(p, s)}
 							sourcesFor={props.sourcesFor}
 							ensureLoaded={props.ensureLoaded}
@@ -79,7 +79,7 @@ export default function ConversionCard(props: Props): React.ReactElement {
 					))}
 					<ExtrasEditor
 						meta={props.meta.extras}
-						value={cfg.extras ?? {}}
+						value={cfg.extras}
 						onChange={(e) => props.onSetExtras(e)}
 					/>
 				</>

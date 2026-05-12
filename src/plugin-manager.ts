@@ -323,11 +323,14 @@ export class PluginManager {
 			const migrated = migrateLegacyConfig(rawOptions);
 			const conversions: Record<string, ConversionOptions> = {};
 			for (const [key, value] of Object.entries(migrated.conversions)) {
+				// sources and extras are required `{}` defaults in schema.ts and
+				// migrateLegacyConfig backfills them, so the spread is safe
+				// without `?? {}` defensive guards.
 				conversions[key] = {
 					enabled: value.enabled,
 					resend: value.resend,
-					...(value.sources ?? {}),
-					...(value.extras ?? {}),
+					...value.sources,
+					...value.extras,
 				};
 			}
 			const options: PluginOptions = {

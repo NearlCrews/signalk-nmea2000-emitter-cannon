@@ -11,16 +11,22 @@ export {
 	PresetTags,
 } from "./enums.js";
 
+// sources and extras are required with a {} default so every consumer can
+// rely on them being objects. The previous Type.Optional shape forced a
+// `?? {}` spread at every read site (panel reducer, plugin-manager flatten,
+// ConversionCard render). migrateLegacyConfig and the panel reducer both
+// emit {} for missing values so on-disk configs that pre-date this change
+// still load.
 const ConversionCommon = Type.Object({
 	enabled: Type.Boolean({ default: false }),
 	resend: Type.Integer({ default: 0, minimum: 0 }),
-	sources: Type.Optional(Type.Record(Type.String(), Type.String())),
+	sources: Type.Record(Type.String(), Type.String(), { default: {} }),
 });
 
 export const Conversion = Type.Composite([
 	ConversionCommon,
 	Type.Object({
-		extras: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
+		extras: Type.Record(Type.String(), Type.Unknown(), { default: {} }),
 	}),
 ]);
 

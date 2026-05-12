@@ -4,6 +4,10 @@ import { PluginManager } from "./plugin-manager.js";
 import type { SignalKApp, SignalKPlugin } from "./types/index.js";
 import { errMessage } from "./utils/errorUtils.js";
 
+// Single source of truth for the runtime version string surfaced to the
+// admin UI. Keep this in lockstep with package.json on every release.
+const PLUGIN_VERSION = "1.5.0";
+
 /**
  * Signal K to NMEA 2000 conversion plugin factory
  *
@@ -21,6 +25,10 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 		schema: () => RootConfig,
 		start: startPlugin,
 		stop: stopPlugin,
+		// signalk-server reads this for the version line in the Server Plugins
+		// list. Without it the admin UI shows "Unknown" next to the plugin
+		// name even though package.json carries the real version.
+		getModuleVersion: () => PLUGIN_VERSION,
 	};
 
 	// Closure form: the router always sees the current PluginManager instance.

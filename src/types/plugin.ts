@@ -9,6 +9,10 @@ export type ConversionCallback<T extends unknown[] = unknown[]> = (
 
 export interface SignalKPlugin extends Plugin {
 	description: string;
+	// Optional plugin hook signalk-server reads for the version line in the
+	// admin Plugins list. The upstream @signalk/server-api Plugin type does
+	// not declare this yet, so we widen it here.
+	getModuleVersion?: () => string;
 }
 
 export interface ConversionOptions {

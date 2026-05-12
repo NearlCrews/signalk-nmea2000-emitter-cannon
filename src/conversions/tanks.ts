@@ -1,6 +1,7 @@
 import {
 	N2K_BROADCAST_DST,
 	N2K_DEFAULT_PRIORITY,
+	SLOW_DATA_TIMEOUT_MS,
 	VESSELS_SELF_CONTEXT,
 } from "../constants.js";
 import type {
@@ -9,8 +10,6 @@ import type {
 	SignalKApp,
 } from "../types/index.js";
 import { toValidNumber } from "../utils/validation.js";
-
-const TANK_TIMEOUT_MS = 60000;
 
 const typeMapping: Record<string, string> = {
 	fuel: "Fuel",
@@ -78,7 +77,7 @@ export default function createTanksConversion(
 							`${tank.signalkPath}.currentLevel`,
 							`${tank.signalkPath}.capacity`,
 						],
-						timeouts: [TANK_TIMEOUT_MS, TANK_TIMEOUT_MS],
+						timeouts: [SLOW_DATA_TIMEOUT_MS, SLOW_DATA_TIMEOUT_MS],
 						callback: (
 							currentLevel: unknown,
 							capacity: unknown,

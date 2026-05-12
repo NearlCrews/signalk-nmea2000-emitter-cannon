@@ -1,6 +1,7 @@
 import {
 	N2K_BROADCAST_DST,
 	N2K_DEFAULT_PRIORITY,
+	SLOW_DATA_TIMEOUT_MS,
 	VESSELS_SELF_CONTEXT,
 } from "../constants.js";
 import type {
@@ -22,13 +23,11 @@ interface SolarOptions {
 	resend?: number;
 }
 
-const SOLAR_TIMEOUT_MS = 60000;
-
 export default function createSolarConversion(
 	_app: SignalKApp,
 ): ConversionModule {
 	const solarKeys = ["voltage", "current", "panelCurrent", "panelVoltage"];
-	const sharedTimeouts = solarKeys.map(() => SOLAR_TIMEOUT_MS);
+	const sharedTimeouts = solarKeys.map(() => SLOW_DATA_TIMEOUT_MS);
 
 	return {
 		title: "Solar Panels (PGN 127508)",

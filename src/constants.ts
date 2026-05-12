@@ -7,6 +7,16 @@ export const N2K_DEFAULT_SID = 87;
 export const N2K_SID_ZERO = 0;
 export const N2K_DEFAULT_INSTANCE = 100;
 export const DEFAULT_DATA_TIMEOUT_MS = 10000;
+// 1-minute freshness window for slow-cadence data sources where the
+// data-path is expected to update much less often than the 10s default.
+// Used by battery/solar/tank gauges, route metadata, and nav notification
+// freshness windows that ride alongside per-key 10s data timeouts.
+export const SLOW_DATA_TIMEOUT_MS = 60000;
+// 1-hour freshness for "static" PGNs (engine rated speed, VIN, software
+// version): these fields change on the timescale of vessel commissioning,
+// not navigation, so a long freshness window prevents the conversion from
+// silently dropping mid-run while the original SK value remains valid.
+export const STATIC_DATA_TIMEOUT_MS = 60 * 60 * 1000;
 export const DEFAULT_GLOBAL_RESEND_SECONDS = 5;
 export const VESSELS_SELF_CONTEXT = "vessels.self";
 export const STREAM_DEBOUNCE_MS = 10;

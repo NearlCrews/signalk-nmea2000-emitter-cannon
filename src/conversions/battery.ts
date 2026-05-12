@@ -1,6 +1,7 @@
 import {
 	N2K_BROADCAST_DST,
 	N2K_DEFAULT_PRIORITY,
+	SLOW_DATA_TIMEOUT_MS,
 	VESSELS_SELF_CONTEXT,
 } from "../constants.js";
 import type {
@@ -14,7 +15,6 @@ import type {
 import { ExponentialSmoother } from "../utils/smoothing.js";
 import { toValidNumber } from "../utils/validation.js";
 
-const BATTERY_TIMEOUT_MS = 60000;
 const BATTERY_TIME_REMAINING_ALPHA = 0.3;
 const DISCHARGE_THRESHOLD_A = 0.5;
 // PGN 127506 timeRemaining clamp: 30 days. Anything beyond saturates the
@@ -75,7 +75,7 @@ export default function createBatteryConversion(
 				return null;
 			}
 
-			const sharedTimeouts = batteryKeys.map(() => BATTERY_TIMEOUT_MS);
+			const sharedTimeouts = batteryKeys.map(() => SLOW_DATA_TIMEOUT_MS);
 
 			return batteryOptions.batteries.map((battery): SubConversionModule => {
 				const smoothingKey = `${battery.signalkId}_${battery.instanceId}`;

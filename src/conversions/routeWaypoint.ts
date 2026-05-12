@@ -1,4 +1,8 @@
-import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
+import {
+	N2K_BROADCAST_DST,
+	N2K_DEFAULT_PRIORITY,
+	SLOW_DATA_TIMEOUT_MS,
+} from "../constants.js";
 import type { ConversionModule, N2KMessage } from "../types/index.js";
 import { isValidNumber } from "../utils/validation.js";
 import {
@@ -7,8 +11,6 @@ import {
 	mapValidWaypoints,
 	type Position,
 } from "./routeTypes.js";
-
-const ROUTE_TIMEOUT_MS = 60000;
 
 export default function createRouteWaypointConversion(): ConversionModule {
 	return {
@@ -20,7 +22,11 @@ export default function createRouteWaypointConversion(): ConversionModule {
 			"navigation.course.activeRoute.name",
 			"navigation.course.activeRoute.waypoints",
 		],
-		timeouts: [ROUTE_TIMEOUT_MS, ROUTE_TIMEOUT_MS, ROUTE_TIMEOUT_MS],
+		timeouts: [
+			SLOW_DATA_TIMEOUT_MS,
+			SLOW_DATA_TIMEOUT_MS,
+			SLOW_DATA_TIMEOUT_MS,
+		],
 		callback: (
 			nextPosition: unknown,
 			routeName: unknown,

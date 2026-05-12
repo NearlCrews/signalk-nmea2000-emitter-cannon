@@ -2,6 +2,7 @@ import {
 	DEFAULT_DATA_TIMEOUT_MS,
 	N2K_BROADCAST_DST,
 	N2K_DEFAULT_PRIORITY,
+	SLOW_DATA_TIMEOUT_MS,
 } from "../constants.js";
 import type { ConversionModule, N2KMessage } from "../types/index.js";
 import { toN2KDateTime } from "../utils/dateUtils.js";
@@ -10,10 +11,10 @@ import { isValidNumber } from "../utils/validation.js";
 // PGN 129284 uses a fixed sequence identifier per common implementations.
 const NAV_DATA_SID = 0x88;
 
-// Notification freshness for arrival-circle / perpendicular-passed (60s) is
-// intentionally longer than data-path freshness so a brief notification flicker
-// remains visible across the full PGN window.
-const NAV_NOTIFICATION_TIMEOUT_MS = 60000;
+// Notification freshness for arrival-circle / perpendicular-passed is
+// intentionally longer than data-path freshness (SLOW_DATA_TIMEOUT_MS = 60s
+// vs DEFAULT_DATA_TIMEOUT_MS = 10s) so a brief notification flicker remains
+// visible across the full PGN window.
 
 interface DestinationPoint {
 	position?: {
@@ -51,8 +52,8 @@ function createNavDataConversion(
 			DEFAULT_DATA_TIMEOUT_MS,
 			DEFAULT_DATA_TIMEOUT_MS,
 			DEFAULT_DATA_TIMEOUT_MS,
-			NAV_NOTIFICATION_TIMEOUT_MS,
-			NAV_NOTIFICATION_TIMEOUT_MS,
+			SLOW_DATA_TIMEOUT_MS,
+			SLOW_DATA_TIMEOUT_MS,
 			DEFAULT_DATA_TIMEOUT_MS,
 		],
 		callback: (

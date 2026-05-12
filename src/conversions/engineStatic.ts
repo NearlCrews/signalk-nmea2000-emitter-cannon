@@ -1,12 +1,14 @@
-import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
+import {
+	N2K_BROADCAST_DST,
+	N2K_DEFAULT_PRIORITY,
+	STATIC_DATA_TIMEOUT_MS,
+} from "../constants.js";
 import type {
 	ConversionCallback,
 	ConversionModule,
 	SignalKApp,
 } from "../types/index.js";
 import { toValidNumber } from "../utils/validation.js";
-
-const STATIC_DATA_TIMEOUT_MS = 60 * 60 * 1000;
 
 export default function createEngineStaticConversion(
 	_app: SignalKApp,

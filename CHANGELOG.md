@@ -1,5 +1,35 @@
 ## Change Log
 
+### v1.5.0 (2026/05/12) - React Config Panel
+
+The hand-rolled JSON-Schema admin UI is replaced with a federated React panel built on webpack 5 Module Federation. The plugin keeps its esbuild runtime bundle untouched; the panel is a second build target that produces `public/remoteEntry.js` plus chunked `public/*.mjs`. The config payload moves from a flat shape to a nested `conversions: { KEY: { enabled, resend, sources, extras } }` shape with a load-time migration from v1.4.x, so existing installs upgrade transparently. The migration is backwards-compatible at load: downgrading back to v1.4.4 keeps the original `plugin-config.json` intact if no save has occurred under v1.5.0. No wire-level (PGN) changes.
+
+**Added**
+
+- React-based admin config panel loaded via webpack 5 Module Federation. Replaces the previous JSON-Schema-driven rjsf form. Categorized tabs (Navigation, Engine, Electrical, Tanks, Environment, AIS, Comms, System).
+- Live status dashboard: NMEA 2000 readiness, enabled / total counts, per-conversion emit counts and error indicators (3s poll, paused when admin tab is hidden).
+- Live source dropdowns populated from the running server's full data model (`vessels.self.<path>.$source` + `.values`).
+- Mapping editors for battery, engine, tank, solar, brightness, and exhaust families. Replace the previous rjsf array-of-object widgets.
+- Preset chips: Basic Navigation, Engine Set, Full AIS, Environmental, Raymarine. Additive; click a chip to enable the tagged conversions in one action.
+- Plugin HTTP API under `/plugins/signalk-nmea2000-emitter-cannon/api/` (status, conversions, paths, sources). Admin-auth gated via `app.securityStrategy.addAdminMiddleware`. Logs a warning if the server does not expose the gating hook.
+
+**Changed**
+
+- Config schema migrated to `@sinclair/typebox`. Single source of truth for both the runtime JSON Schema (returned from `Plugin.schema`) and the TypeScript `Config` type (derived via `Static<>`). The legacy flat config payload is migrated to the new nested shape at load time; downgrades to v1.4.x keep the original payload intact if no save has occurred under v1.5.0.
+- Each conversion module now carries `category` (required) and optional `presets` metadata. Adding a new conversion requires both fields.
+- Minimum admin UI bumped to `@signalk/server-admin-ui >= 2.27.0` for ESM federation runtime support.
+
+**Internal**
+
+- Added per-conversion emit counters and last-error tracking inside `PluginManager`. Both are surfaced via the new `/api/status` endpoint.
+- Added the `signalk-plugin-configurator` npm keyword so the Signal K admin UI loads the federated panel instead of the rjsf form.
+- Webpack 5 + babel-loader + `@babel/preset-typescript` build target for the panel under `public/*.mjs`. esbuild keeps building the plugin bundle to `dist/index.js`.
+- Discovery helpers use `app.getSelfPath` (correct self-to-MRN resolution path), not `app.getPath("vessels.self.<path>")` (which does not resolve `self`).
+- Status snapshot walks `errorBuckets` across all source types and bucket-key forms (parent + sub-conversion `[N]` brackets), not just the `stream` suffix.
+- Sub-conversion emit counters aggregate under the parent `optionKey` rather than recording per-index keys.
+
+**Verification**: `npm run typecheck` clean, `npm test` 50/50 pass, `npm run check` (Biome) clean, `npm run build` clean (esbuild plugin bundle + webpack panel bundle). No em dashes in source or docs.
+
 ### v1.4.4 (2026/05/12) - Plugin Restart Lifecycle Fix and Supply Chain Hygiene
 
 **Bug fix: plugin permanently stuck after restart (Issue #5)**

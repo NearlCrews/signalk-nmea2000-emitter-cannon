@@ -54,3 +54,19 @@ S.input = {
 	fontSize: 13,
 	width: 220,
 };
+S.card = {
+	background: "#fff",
+	border: "1px solid #e0e0e0",
+	borderRadius: 10,
+	padding: "12px 16px",
+	marginBottom: 10,
+};
+S.cardHeader = {
+	display: "flex",
+	alignItems: "center",
+	gap: 12,
+	marginBottom: 8,
+};
+S.cardTitle = { fontSize: 14, fontWeight: 600, flex: 1 };
+S.checkbox = { width: 16, height: 16 };
+S.cardMeta = { fontSize: 11, color: "#888" };

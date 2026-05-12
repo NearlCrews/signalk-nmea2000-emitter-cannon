@@ -73,14 +73,21 @@ export function createApiRouter(
 			// string[], and nested params into an object. Coercing those via
 			// String(...) would silently produce `"a,b"` / `"[object Object]"`
 			// and 200 with an empty source list. Reject anything that isn't a
-			// single non-empty string.
+			// single non-empty string, then trim so a stray leading/trailing
+			// whitespace from a hand-typed URL does not produce an empty
+			// source list under a 200 response.
 			const raw = req.query.path;
-			if (typeof raw !== "string" || raw === "") {
+			if (typeof raw !== "string") {
+				res.status(400).json({ error: "path required" });
+				return;
+			}
+			const path = raw.trim();
+			if (!path) {
 				res.status(400).json({ error: "path required" });
 				return;
 			}
 			const body: SourcesResponse = {
-				sources: enumerateSourcesForPath(app, raw),
+				sources: enumerateSourcesForPath(app, path),
 			};
 			res.json(body);
 		});

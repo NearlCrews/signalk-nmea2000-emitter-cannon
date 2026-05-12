@@ -27,7 +27,7 @@ export default function PluginConfigurationPanel(
 				fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
 			}}
 		>
-			<h2>NMEA2000 Emitter Cannon</h2>
+			<h2>NMEA 2000 Emitter Cannon</h2>
 			{error ? <p style={{ color: "crimson" }}>Error: {error}</p> : null}
 			{count !== null ? <p>Loaded {count} conversions.</p> : <p>Loading...</p>}
 		</div>

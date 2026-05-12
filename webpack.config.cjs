@@ -7,8 +7,13 @@ const safeName = pkg.name.replace(/[-@/]/g, "_");
 module.exports = {
 	entry: "./src/panel/index.tsx",
 	mode: "production",
+	experiments: { outputModule: true },
 	output: {
 		path: path.resolve(__dirname, "public"),
+		filename: "[name].mjs",
+		chunkFilename: "[name].mjs",
+		module: true,
+		library: { type: "module" },
 		clean: false,
 	},
 	module: {
@@ -30,7 +35,7 @@ module.exports = {
 	plugins: [
 		new webpack.container.ModuleFederationPlugin({
 			name: safeName,
-			library: { type: "var", name: safeName },
+			library: { type: "module" },
 			filename: "remoteEntry.js",
 			exposes: {
 				"./PluginConfigurationPanel": "./src/panel/PluginConfigurationPanel",

@@ -24,7 +24,7 @@
 		"format": "biome format src/ --write",
 		"check": "biome check src/",
 		"typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.panel.json",
-		"clean": "rm -rf dist && rm -f public/*.js public/*.LICENSE.txt public/*.map",
+		"clean": "rm -rf dist && rm -f public/*.js public/*.mjs public/*.LICENSE.txt public/*.map",
 		"prepare": "husky",
 		"prepack": "npm run build",
 		"create-release": "gh release create v$npm_package_version --generate-notes",

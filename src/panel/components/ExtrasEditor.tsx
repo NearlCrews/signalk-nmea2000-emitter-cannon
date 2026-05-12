@@ -1,5 +1,12 @@
 import type * as React from "react";
 import type { ExtrasMeta } from "../../api/types.js";
+import BatteryMappingEditor from "./extras/BatteryMappingEditor";
+import BrightnessMappingEditor from "./extras/BrightnessMappingEditor";
+import EngineMappingEditor from "./extras/EngineMappingEditor";
+import ExhaustMappingEditor from "./extras/ExhaustMappingEditor";
+import FieldEditor from "./extras/FieldEditor";
+import SolarMappingEditor from "./extras/SolarMappingEditor";
+import TankMappingEditor from "./extras/TankMappingEditor";
 
 interface Props {
 	meta: ExtrasMeta;
@@ -9,11 +16,25 @@ interface Props {
 
 export default function ExtrasEditor({
 	meta,
+	value,
+	onChange,
 }: Props): React.ReactElement | null {
-	if (meta.type === "none") return null;
-	return (
-		<div style={{ fontSize: 12, color: "#999", marginTop: 6 }}>
-			[{meta.type} editor coming in Milestone 6]
-		</div>
-	);
+	switch (meta.type) {
+		case "none":
+			return null;
+		case "batteryMapping":
+			return <BatteryMappingEditor value={value} onChange={onChange} />;
+		case "engineMapping":
+			return <EngineMappingEditor value={value} onChange={onChange} />;
+		case "tankMapping":
+			return <TankMappingEditor value={value} onChange={onChange} />;
+		case "solarMapping":
+			return <SolarMappingEditor value={value} onChange={onChange} />;
+		case "brightnessMapping":
+			return <BrightnessMappingEditor value={value} onChange={onChange} />;
+		case "exhaustMapping":
+			return <ExhaustMappingEditor value={value} onChange={onChange} />;
+		case "field":
+			return <FieldEditor meta={meta} value={value} onChange={onChange} />;
+	}
 }

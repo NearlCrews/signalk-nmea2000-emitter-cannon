@@ -1,8 +1,8 @@
 ## Change Log
 
-### v1.5.1 (2026/05/12) - React Config Panel
+### v1.5.2 (2026/05/12) - React Config Panel
 
-The hand-rolled JSON-Schema admin UI is replaced with a federated React panel built on webpack 5 Module Federation. The plugin keeps its esbuild runtime bundle untouched; the panel is a second build target that produces `public/remoteEntry.js` plus chunked `public/*.mjs`. The config payload moves from a flat shape to a nested `conversions: { KEY: { enabled, resend, sources, extras } }` shape with a load-time migration from v1.4.x, so existing installs upgrade transparently. The migration is backwards-compatible at load: downgrading back to v1.4.4 keeps the original `plugin-config.json` intact if no save has occurred under v1.5.1. No wire-level (PGN) changes.
+The hand-rolled JSON-Schema admin UI is replaced with a federated React panel built on webpack 5 Module Federation. The plugin keeps its esbuild runtime bundle untouched; the panel is a second build target that produces `public/remoteEntry.js` plus chunked `public/*.mjs`. The config payload moves from a flat shape to a nested `conversions: { KEY: { enabled, resend, sources, extras } }` shape with a load-time migration from v1.4.x, so existing installs upgrade transparently. The migration is backwards-compatible at load: downgrading back to v1.4.4 keeps the original `plugin-config.json` intact if no save has occurred under v1.5.2. No wire-level (PGN) changes.
 
 **Added**
 
@@ -16,7 +16,7 @@ The hand-rolled JSON-Schema admin UI is replaced with a federated React panel bu
 
 **Changed**
 
-- Config schema migrated to `@sinclair/typebox`. Single source of truth for both the runtime JSON Schema (returned from `Plugin.schema`) and the TypeScript `Config` type (derived via `Static<>`). The legacy flat config payload is migrated to the new nested shape at load time; downgrades to v1.4.x keep the original payload intact if no save has occurred under v1.5.1.
+- Config schema migrated to `@sinclair/typebox`. Single source of truth for both the runtime JSON Schema (returned from `Plugin.schema`) and the TypeScript `Config` type (derived via `Static<>`). The legacy flat config payload is migrated to the new nested shape at load time; downgrades to v1.4.x keep the original payload intact if no save has occurred under v1.5.2.
 - Each conversion module now carries `category` (required) and optional `presets` metadata. Adding a new conversion requires both fields.
 - Minimum admin UI bumped to `@signalk/server-admin-ui >= 2.27.0` for ESM federation runtime support.
 - Minimum Node.js bumped to `>=22.12` (was `>=20.18`). Node 20 reached end of life in April 2026; the CI matrix runs on Node 22.x and 24.x. esbuild target moved from `node20` to `node22`.
@@ -31,7 +31,7 @@ The hand-rolled JSON-Schema admin UI is replaced with a federated React panel bu
 - `/api/sources` trims the `path` query before lookup, so copy-pasted paths with whitespace return the expected source list.
 - `setPluginError` set during a failed `start()` is no longer overwritten by the `stop()` epilogue's `setPluginStatus("Stopped")`.
 - Notifications PGN 126983 uses a stable `dataSourceNetworkIdName` value instead of stuffing the local 16-bit `alertId` into a 64-bit ISO NAME field; restores ack correlation semantics per IEC 61162-1 App B.
-- `PluginManager` reads source filters from both the dotted Signal K path and the legacy dotless propName form, so source-locks set in the v1.5.1 panel keep working on configs that still have the v1.4.x shape on disk.
+- `PluginManager` reads source filters from both the dotted Signal K path and the legacy dotless propName form, so source-locks set in the v1.5.2 panel keep working on configs that still have the v1.4.x shape on disk.
 
 **Internal / performance**
 

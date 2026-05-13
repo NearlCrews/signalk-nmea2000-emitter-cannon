@@ -1,4 +1,4 @@
-import type { ConversionModule } from "../types/index.js";
+import type { ConversionModule, SignalKApp } from "../types/index.js";
 import type { ExtrasMeta } from "./types.js";
 
 const EXTRAS_BY_OPTION_KEY: Record<string, ExtrasMeta> = {
@@ -57,4 +57,27 @@ export function metaFor(conversion: ConversionModule): ExtrasMeta {
 		return TEMPERATURE_INSTANCE_META;
 	}
 	return EXTRAS_BY_OPTION_KEY[k] ?? { type: "none" };
+}
+
+/**
+ * Developer-only sanity check: any optionKey in EXTRAS_BY_OPTION_KEY must
+ * correspond to a real loaded conversion. A typo or a renamed/removed
+ * conversion would otherwise silently leave a dead entry in the table that
+ * never matches and is never exercised by the panel.
+ *
+ * Logs via app.debug so production deployments stay quiet; warnings only
+ * surface when DEBUG is enabled. Does not fail loud: an extras-meta drift
+ * does not break runtime emission, it only breaks the per-card editor UI
+ * for the misspelled key.
+ */
+export function validateExtrasMetaKeys(
+	app: SignalKApp,
+	loaded: readonly ConversionModule[],
+): void {
+	const loadedKeys = new Set(loaded.map((c) => c.optionKey));
+	for (const key of Object.keys(EXTRAS_BY_OPTION_KEY)) {
+		if (!loadedKeys.has(key)) {
+			app.debug(`extras-meta has entry for unknown optionKey '${key}'`);
+		}
+	}
 }

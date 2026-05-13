@@ -1,6 +1,6 @@
 import type { Context, NormalizedDelta, Path } from "@signalk/server-api";
 import { debounceTime, Subject } from "rxjs";
-import { metaFor } from "./api/extras-meta.js";
+import { metaFor, validateExtrasMetaKeys } from "./api/extras-meta.js";
 import type { ConversionMetadata } from "./api/types.js";
 import { migrateLegacyConfig } from "./config/migrate.js";
 import {
@@ -182,6 +182,11 @@ export class PluginManager {
 		// Load conversions at initialization
 		this.conversions = createConversionModules(app, plugin);
 		this.app.debug(`Loaded ${this.conversions.length} conversion modules`);
+		// Sanity check: the extras-meta table must reference real loaded
+		// optionKeys. A drift here breaks the per-card editor in the panel
+		// without breaking runtime emission, so log via app.debug rather than
+		// failing loud at startup.
+		validateExtrasMetaKeys(this.app, this.conversions);
 
 		// Wait for NMEA 2000 output to be available before emitting. start()
 		// owns the add/remove of this listener (the constructor only captures

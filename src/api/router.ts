@@ -10,6 +10,14 @@ import type {
 
 const API_PREFIX = "/plugins/signalk-nmea2000-emitter-cannon/api";
 
+// UNAUTHORIZED is added defensively for future use even though the route
+// handlers never emit it: the admin middleware installed above intercepts
+// unauthenticated requests before they reach a handler.
+const HTTP_STATUS = {
+	BAD_REQUEST: 400,
+	UNAUTHORIZED: 401,
+} as const;
+
 /**
  * Factory for the panel's HTTP API router. Returns the function that
  * `Plugin.registerWithRouter` passes the Express router to.
@@ -78,12 +86,12 @@ export function createApiRouter(
 			// source list under a 200 response.
 			const raw = req.query.path;
 			if (typeof raw !== "string") {
-				res.status(400).json({ error: "path required" });
+				res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "path required" });
 				return;
 			}
 			const path = raw.trim();
 			if (!path) {
-				res.status(400).json({ error: "path required" });
+				res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "path required" });
 				return;
 			}
 			const body: SourcesResponse = {

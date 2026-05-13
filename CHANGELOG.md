@@ -1,5 +1,31 @@
 ## Change Log
 
+### v1.5.4 (2026/05/12) - Notifications ping-pong fix and bus-rate throttle
+
+**Bug fix: ping-pong loop with signalk-server's notifications API**
+
+For every `notifications.*` delta the plugin received, it allocated an `alertId`, rewrote the value with the alertId injected, and re-published via `app.handleMessage(plugin.id, ...)` so downstream consumers could see the assigned id. signalk-server's built-in notifications API (the same one that owns the `notifications.*` namespace) intercepted that re-emit via its `registerDeltaInputHandler`, stripped the notification value out of our delta because our delta did not carry the `notificationId` field it uses to recognise its own messages, rebroadcast under `$source: notificationApi.*` without `alertId`, and the cycle reached the plugin's callback again. The callback could not detect this as "already handled" (the inbound value had its `alertId` stripped), allocated against the existing path entry, re-emitted, and the loop ran at ~48 round-trips per second per active alert.
+
+Fix: the alertId is now published exactly once per path (the first time the plugin sees it). Subsequent updates on the same path build PGNs and update the cache but do not re-emit to Signal K.
+
+**Bug fix: emit throttle for `notifications.*` callback fan-out**
+
+The conversion subscribes to `notifications.*` and the callback fires for every notification delta on the vessel, regardless of which path carries the change. Some installs (Garmin / Evinrude / Mercury) broadcast tens of `notifications.propulsion.*.<symbol>` paths at 1-3 Hz each with `state="normal"`, which kept the callback running at 50-60 Hz. Each invocation used to return the full cached PGN array, so a single active alert produced ~100 PGN/s on the wire.
+
+Each cached alert now carries a payload digest. The callback emits a PGN pair only when (a) the digest changed (state, ack, silence, message edit), or (b) at least 1000 ms has elapsed since the last emit for that alert (matching the NMEA 2000 transmission cadence for PGN 126983). Bus traffic for one active alert drops from ~100 PGN/s to 2 PGN/s. Multiple active alerts scale linearly: N alerts produce 2N PGN/s.
+
+**Bug fix: `$source` on plugin-emitted notifications no longer reads `signalk-nmea2000-emitter-cannon.XX`**
+
+signalk-schema's `getSourceId(source)` appends the literal string `.XX` to the source label when the source object lacks `canName`, `src`, or `talker`. The plugin's notification re-emit only set `source: { label, type }`, so it hit the fallback. Fix: the re-emit now sets `$source` directly, which short-circuits signalk-server's `handleMessage` derivation. Note that signalk-server's own `notificationApi` plugin hits the same `.XX` fallback for the same reason; in practice the plugin's `$source` only wins on paths the notifications API does not own.
+
+**Misc**
+
+- Display name simplified to "NMEA2000 Emitter Cannon" in `Plugin.name`, `package.json` `displayName`, and README references. The npm package id stays `signalk-nmea2000-emitter-cannon`.
+- `buildAlertPgns(...)` helper extracted: the two PGN-construction blocks in `notifications.ts` (path with explicit `alertId` and path with plugin-allocated `alertId`) now share a single options-keyed builder.
+- `setAlertPgns(...)` and `evictOldestIfOverCap()` helpers centralise the cache + digest write and the overflow-eviction code that previously appeared twice in the callback.
+
+**Verification**: live-tested against a synthetic notification probe on signalk-server v2.x. Pre-fix: 48 round-trips/sec, 97 PGN/s on the wire while one alert active. Post-fix: 0 round-trips, 2 PGN/s on the wire (1 Hz per alert as designed). Idle (no active alerts): 0 PGN/s. 52/52 tests pass, typecheck / biome / build clean. Bundle 464 KB (was 466 KB).
+
 ### v1.5.3 (2026/05/12) - Post-save lifecycle fix
 
 **Bug fix: plugin stuck on "Waiting for NMEA 2000 output" after every Save**

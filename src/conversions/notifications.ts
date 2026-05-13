@@ -1,4 +1,9 @@
-import { type Delta, hasValues, type Timestamp } from "@signalk/server-api";
+import {
+	type Delta,
+	hasValues,
+	type SourceRef,
+	type Timestamp,
+} from "@signalk/server-api";
 import {
 	N2K_BROADCAST_DST,
 	N2K_DEFAULT_PRIORITY,
@@ -108,6 +113,58 @@ function commonAlertFields(alertId: number, type: string, category: string) {
 	};
 }
 
+interface BuildAlertPgnsArgs {
+	alertId: number;
+	type: string;
+	category: string;
+	priority: number;
+	value: AlertValue;
+}
+
+function buildAlertPgns({
+	alertId,
+	type,
+	category,
+	priority,
+	value,
+}: BuildAlertPgnsArgs): [N2KMessage, N2KMessage] {
+	const method = value.method || [];
+	const isAcknowledged = method.length === 0;
+	const hasSound = method.includes("sound");
+	const state = getAlertState({ isAcknowledged, hasSound });
+	const common = commonAlertFields(alertId, type, category);
+	return [
+		{
+			prio: N2K_DEFAULT_PRIORITY,
+			pgn: 126985,
+			dst: N2K_BROADCAST_DST,
+			fields: {
+				...common,
+				languageId: "English (US)",
+				alertTextDescription: value.message,
+			},
+		},
+		{
+			prio: N2K_DEFAULT_PRIORITY,
+			pgn: 126983,
+			dst: N2K_BROADCAST_DST,
+			fields: {
+				...common,
+				temporarySilenceStatus: !isAcknowledged && !hasSound ? "Yes" : "No",
+				acknowledgeStatus: isAcknowledged ? "Yes" : "No",
+				escalationStatus: "No",
+				temporarySilenceSupport: "Yes",
+				acknowledgeSupport: "Yes",
+				escalationSupport: "No",
+				triggerCondition: "Auto",
+				thresholdStatus: "Threshold Exceeded",
+				alertPriority: priority,
+				alertState: state,
+			},
+		},
+	];
+}
+
 export default function createNotificationsConversion(
 	app: SignalKApp,
 	plugin: { id: string },
@@ -121,17 +178,52 @@ export default function createNotificationsConversion(
 	// be re-allocated to a different path while the old path still has a
 	// stale `ids` binding pointing at the same number.
 	const alertIdToPath: Map<number, string> = new Map();
-	const pgnsByAlertId: Map<number, [N2KMessage, N2KMessage]> = new Map();
-	// Flat view of pgnsByAlertId, rebuilt only when the map mutates. The
-	// conversion callback returns this reference unchanged on every dedup
-	// path, matching the pre-1.4.3 zero-allocation cost model.
-	let cachedFlat: N2KMessage[] = [];
+	// Cached PGN pair + payload digest per active alert. The digest is
+	// computed at set time so the per-callback emit gate is an integer
+	// `Date.now` check plus a string compare, not a stringify per active
+	// alert per delta.
+	const pgnsByAlertId: Map<
+		number,
+		{ pgns: [N2KMessage, N2KMessage]; digest: string }
+	> = new Map();
+	// Per-alert emit gate. The conversion callback fires for every
+	// `notifications.*` delta on the vessel (Evinrude alone broadcasts 24
+	// state=normal paths at ~2.4 Hz each), so returning the full PGN cache
+	// on every invocation flooded the bus at ~100 PGN/s per active alert.
+	// Emit only when the payload digest changed (state, ack, silence, etc.)
+	// or MIN_EMIT_INTERVAL_MS has elapsed (1 Hz rebroadcast, matching the
+	// NMEA 2000 guidance for PGN 126983).
+	const emitTracker: Map<number, { lastEmitMs: number; lastDigest: string }> =
+		new Map();
+	const MIN_EMIT_INTERVAL_MS = 1000;
+	const EMPTY_EMIT: N2KMessage[] = [];
 	let excludePrefixes: string[] = [];
 
-	function rebuildFlat(): void {
-		const next: N2KMessage[] = [];
-		for (const [a, b] of pgnsByAlertId.values()) next.push(a, b);
-		cachedFlat = next;
+	function setAlertPgns(alertId: number, pgns: [N2KMessage, N2KMessage]): void {
+		pgnsByAlertId.set(alertId, { pgns, digest: JSON.stringify(pgns) });
+	}
+
+	function evictOldestIfOverCap(): void {
+		if (pgnsByAlertId.size <= MAX_PGN_ENTRIES) return;
+		const firstKey = pgnsByAlertId.keys().next().value;
+		if (firstKey !== undefined) releaseAlertId(firstKey);
+	}
+
+	function buildEmitList(): N2KMessage[] {
+		if (pgnsByAlertId.size === 0) return EMPTY_EMIT;
+		const now = Date.now();
+		const out: N2KMessage[] = [];
+		for (const [alertId, entry] of pgnsByAlertId) {
+			const prev = emitTracker.get(alertId);
+			const changed = prev === undefined || prev.lastDigest !== entry.digest;
+			const stale =
+				prev === undefined || now - prev.lastEmitMs >= MIN_EMIT_INTERVAL_MS;
+			if (changed || stale) {
+				out.push(entry.pgns[0], entry.pgns[1]);
+				emitTracker.set(alertId, { lastEmitMs: now, lastDigest: entry.digest });
+			}
+		}
+		return out.length === 0 ? EMPTY_EMIT : out;
 	}
 
 	function allocateAlertId(): number | undefined {
@@ -152,7 +244,7 @@ export default function createNotificationsConversion(
 		alertIdToPath.delete(alertId);
 		usedAlertIds.delete(alertId);
 		pgnsByAlertId.delete(alertId);
-		rebuildFlat();
+		emitTracker.delete(alertId);
 	}
 
 	function resetState(): void {
@@ -160,8 +252,8 @@ export default function createNotificationsConversion(
 		usedAlertIds.clear();
 		alertIdToPath.clear();
 		ids.clear();
+		emitTracker.clear();
 		nextAlertIdHint = 1;
-		cachedFlat = [];
 	}
 
 	return {
@@ -205,14 +297,9 @@ export default function createNotificationsConversion(
 				return [];
 			}
 
-			// Short-circuit on our own rewritten delta. handleMessage() below
-			// re-emits this delta with `source: { label: plugin.id, type: "plugin" }`;
-			// if signalk-server ever normalises that back through the subscription
-			// pipeline, the reentrant pass would re-allocate an alertId and recurse.
-			// Bail before any allocation so the loop is impossible regardless of
-			// upstream normalisation behaviour.
+			// Skip our own re-emitted delta (see one-shot publish below).
 			if (firstUpdate.source?.label === plugin.id) {
-				return cachedFlat;
+				return buildEmitList();
 			}
 
 			const update = firstUpdate.values[0];
@@ -221,19 +308,19 @@ export default function createNotificationsConversion(
 			}
 
 			if (!isAlertValue(update.value)) {
-				return cachedFlat;
+				return buildEmitList();
 			}
 			const value = update.value;
 
 			if (update.path.includes("notifications.nmea")) {
-				return cachedFlat;
+				return buildEmitList();
 			}
 
 			if (
 				excludePrefixes.length > 0 &&
 				excludePrefixes.some((prefix) => update.path.startsWith(prefix))
 			) {
-				return cachedFlat;
+				return buildEmitList();
 			}
 
 			const category = categoryForPath(update.path);
@@ -251,61 +338,20 @@ export default function createNotificationsConversion(
 
 				if (value.state === "normal") {
 					releaseAlertId(alertId);
-					return cachedFlat;
+					return buildEmitList();
 				}
 
-				const method = value.method || [];
-				const isAcknowledged = method.length === 0;
-				const hasSound = method.includes("sound");
-				const state = getAlertState({ isAcknowledged, hasSound });
-				const common = commonAlertFields(alertId, type, category);
-
-				pgnsByAlertId.set(alertId, [
-					{
-						prio: N2K_DEFAULT_PRIORITY,
-						pgn: 126985,
-						dst: N2K_BROADCAST_DST,
-						fields: {
-							...common,
-							languageId: "English (US)",
-							alertTextDescription: value.message,
-						},
-					},
-					{
-						prio: N2K_DEFAULT_PRIORITY,
-						pgn: 126983,
-						dst: N2K_BROADCAST_DST,
-						fields: {
-							...common,
-							temporarySilenceStatus:
-								!isAcknowledged && !hasSound ? "Yes" : "No",
-							acknowledgeStatus: isAcknowledged ? "Yes" : "No",
-							escalationStatus: "No",
-							temporarySilenceSupport: "Yes",
-							acknowledgeSupport: "Yes",
-							escalationSupport: "No",
-							triggerCondition: "Auto",
-							thresholdStatus: "Threshold Exceeded",
-							alertPriority: priority,
-							alertState: state,
-						},
-					},
-				]);
-				rebuildFlat();
-
-				// Drop oldest tracked alerts when over cap so a rotating-alertId
-				// stream cannot grow the cache unbounded. releaseAlertId rebuilds
-				// the flat view itself.
-				if (pgnsByAlertId.size > MAX_PGN_ENTRIES) {
-					const firstKey = pgnsByAlertId.keys().next().value;
-					if (firstKey !== undefined) releaseAlertId(firstKey);
-				}
-
-				return cachedFlat;
+				setAlertPgns(
+					alertId,
+					buildAlertPgns({ alertId, type, category, priority, value }),
+				);
+				evictOldestIfOverCap();
+				return buildEmitList();
 			}
 
 			const existing = ids.get(update.path);
 			let alertId: number;
+			let firstAllocation = false;
 			if (existing !== undefined) {
 				alertId = existing;
 				app.debug(`Assigning existing alertId ${alertId} to ${update.path}`);
@@ -315,11 +361,12 @@ export default function createNotificationsConversion(
 					app.error(
 						`Notifications: alertId pool exhausted (${MAX_ALERT_ID} active); dropping ${update.path}`,
 					);
-					return cachedFlat;
+					return buildEmitList();
 				}
 				alertId = allocated;
 				ids.set(update.path, alertId);
 				alertIdToPath.set(alertId, update.path);
+				firstAllocation = true;
 				app.debug(`Assigning new alertId ${alertId} to ${update.path}`);
 				// Evict the oldest tracked path so a misbehaving stream that
 				// fires warnings without ever normalising cannot grow `ids`
@@ -334,34 +381,55 @@ export default function createNotificationsConversion(
 				}
 			}
 
-			const modifiedDelta: Partial<Delta> = {
-				...(delta.context !== undefined && { context: delta.context }),
-				updates: [
-					{
-						source: { label: plugin.id, type: "plugin" },
-						timestamp: new Date().toISOString() as Timestamp,
-						values: [
-							{
-								path: update.path,
-								value: {
-									...value,
-									alertType: type,
-									alertCategory: category,
-									alertSystem,
-									alertId,
-								},
-							},
-						],
-					},
-				],
-			};
-
-			if (isDebugEnabled(app)) {
-				app.debug(`New delta with alertId: ${JSON.stringify(modifiedDelta)}`);
+			// notificationApi bounce-backs strip our alertId, so a release
+			// can land here on path #2 with state="normal".
+			if (value.state === "normal") {
+				releaseAlertId(alertId);
+				return buildEmitList();
 			}
-			app.handleMessage(plugin.id, modifiedDelta);
 
-			return cachedFlat;
+			setAlertPgns(
+				alertId,
+				buildAlertPgns({ alertId, type, category, priority, value }),
+			);
+			evictOldestIfOverCap();
+
+			// One-shot publish of the assigned alertId. signalk-server's
+			// notificationApi strips notifications.* values from our re-emit
+			// (our delta lacks the notificationId field it uses for its own
+			// messages) and rebroadcasts under `notificationApi` without
+			// alertId. Re-emitting on every update would ping-pong.
+			if (firstAllocation) {
+				const modifiedDelta: Partial<Delta> = {
+					...(delta.context !== undefined && { context: delta.context }),
+					updates: [
+						{
+							source: { label: plugin.id, type: "plugin" },
+							$source: plugin.id as SourceRef,
+							timestamp: new Date().toISOString() as Timestamp,
+							values: [
+								{
+									path: update.path,
+									value: {
+										...value,
+										alertType: type,
+										alertCategory: category,
+										alertSystem,
+										alertId,
+									},
+								},
+							],
+						},
+					],
+				};
+
+				if (isDebugEnabled(app)) {
+					app.debug(`New delta with alertId: ${JSON.stringify(modifiedDelta)}`);
+				}
+				app.handleMessage(plugin.id, modifiedDelta);
+			}
+
+			return buildEmitList();
 		},
 		tests: [
 			{

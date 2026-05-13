@@ -163,7 +163,7 @@ PGN 126984 (Alert Response, inbound) is NOT handled. Acknowledgements from an MF
 
 ## Admin UI: federated React panel
 
-As of v1.5.3 the plugin's admin config UI is a webpack 5 Module Federation remote built into `public/remoteEntry.js` plus chunked `public/*.mjs` from `src/panel/`. The Signal K admin loads it because `package.json` `keywords` include `signalk-plugin-configurator`. Component contract: default export `PluginConfigurationPanel({ configuration, save })`. `save` is fire-and-forget, returns void; the next `configuration` prop reflects the saved state.
+As of v1.5.4 the plugin's admin config UI is a webpack 5 Module Federation remote built into `public/remoteEntry.js` plus chunked `public/*.mjs` from `src/panel/`. The Signal K admin loads it because `package.json` `keywords` include `signalk-plugin-configurator`. Component contract: default export `PluginConfigurationPanel({ configuration, save })`. `save` is fire-and-forget, returns void; the next `configuration` prop reflects the saved state.
 
 Live data comes from an Express router mounted via `Plugin.registerWithRouter` under `/plugins/signalk-nmea2000-emitter-cannon/api/` with these endpoints: `/status`, `/conversions`, `/paths`, `/sources`. The router calls `app.securityStrategy.addAdminMiddleware` on the API prefix so unauthenticated requests are rejected. If the running server does not expose that hook, the router logs a warning and the endpoints stay open (compat fallback for older signalk-server builds).
 

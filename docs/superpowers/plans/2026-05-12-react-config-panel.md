@@ -2742,7 +2742,7 @@ git commit -m "docs(claude): document the federated React panel architecture"
 - [ ] **Step 1: Bump version**
 
 ```bash
-npm version --no-git-tag-version 1.5.0
+npm version --no-git-tag-version 1.5.1
 ```
 
 - [ ] **Step 2: Full build + test pass**

@@ -71,8 +71,8 @@ The hand-rolled JSON-Schema admin UI is replaced with a federated React panel bu
 - AIS Safety Message conversion now carries an inline ITU-R M.1371 licensing note next to its declaration so the regulatory constraint is visible to anyone reading the source.
 - Radio Frequency MHz / Hz heuristic documented: explains the magnitude-based boundary and the future SDR / L-band case where it would need to be replaced with an explicit units field rather than widened.
 - `PluginManager` collapsed four parallel per-conversion Maps (emit counters, last-emit timestamps, enabled set, latest-error secondary index) into a single `Map<optionKey, PerConversionState>`. Status snapshot read shrinks from two Map lookups per conversion to one; `recordEmit` becomes one Map.get plus two in-place field writes.
-- `src/api/router.ts` exposes an `HTTP_STATUS` table (`BAD_REQUEST`, `UNAUTHORIZED`) instead of the bare literal 400 used for the `/api/sources` missing-path response.
-- `validateExtrasMetaKeys()` runs once from the `PluginManager` constructor and logs (via `app.debug`) any entry in `EXTRAS_BY_OPTION_KEY` that does not match a loaded conversion. Catches a typo or renamed conversion that would otherwise silently break the panel's per-card editor without breaking runtime emission.
+- `src/api/router.ts` exposes an `HTTP_STATUS` constant (`BAD_REQUEST`) instead of the bare literal 400 used for the `/api/sources` missing-path response.
+- `findOrphanExtrasMetaKeys(loaded)` runs once from the `PluginManager` constructor and logs (via `app.debug`) any entry in `EXTRAS_BY_OPTION_KEY` that does not match a loaded conversion. Catches a typo or renamed conversion that would otherwise silently break the panel's per-card editor without breaking runtime emission. Pure function: the caller decides the log channel.
 - `PluginConfigurationPanel` `save` prop carries a JSDoc note documenting it as fire-and-forget; do not await.
 - `useStatus` interval cleanup simplified: the id was unconditionally assigned so the nullable type and null-guard at teardown were dead code.
 - `useSources` cache capped at 256 entries with insertion-order eviction; bounds memory if an admin session queries a large number of ad-hoc paths.
@@ -504,7 +504,7 @@ A four-expert Signal K compliance review surfaced about thirty findings spanning
 - Temperature instance collisions resolved: eight sources that previously
   defaulted to instance `107` (Main Cabin, Refrigerator, Heating System,
   Dew Point, Apparent Wind Chill, Theoretical Wind Chill, Heat Index, Freezer)
-  now have unique defaults (104–111).
+  now have unique defaults (104 to 111).
 - AIS: `isN2K()` now actually detects NMEA2000-originated deltas via
   `updates[].source.type === "NMEA2000"`, closing an echo loop that doubled
   AIS frames on vessels with a hardware receiver + this plugin.
@@ -686,7 +686,7 @@ A four-expert Signal K compliance review surfaced about thirty findings spanning
 - Added `src/utils/validation.ts` with type-safe validation utilities
   - `isValidNumber()` - checks for finite numbers (rejects NaN/Infinity)
   - `toValidNumber()` - coerces values with null fallback
-  - `normalizeAngle()` - normalizes angles to 0–2π range
+  - `normalizeAngle()` - normalizes angles to 0..2π range
 - Applied NaN/Infinity validation to critical conversions: wind, heading, speed, COG/SOG
 
 **New Utilities**:

@@ -37,13 +37,16 @@ export default function createBearingDistanceBetweenMarksConversion(
 		title: "Bearing and Distance Between Marks (PGN 129302)",
 		optionKey: "BEARING_DISTANCE_MARKS",
 		category: "navigation",
+		// v2 navigation.course.* is not pushed into the v1 streambundle;
+		// use the v1 sibling under navigation.courseGreatCircle.* so the
+		// subscriptions actually fire.
 		keys: [
 			"navigation.courseGreatCircle.nextPoint.bearingTrue",
-			"navigation.course.nextPoint.bearingMagnetic",
+			"navigation.courseGreatCircle.nextPoint.bearingMagnetic",
 			"navigation.magneticVariation",
-			"navigation.course.nextPoint.distance",
-			"navigation.course.nextPoint.type",
-			"navigation.course.previousPoint.type",
+			"navigation.courseGreatCircle.nextPoint.distance",
+			"navigation.courseGreatCircle.nextPoint.type",
+			"navigation.courseGreatCircle.previousPoint.type",
 		],
 		timeouts: [5000, 5000, 5000, 5000, 5000, 5000],
 		callback: ((

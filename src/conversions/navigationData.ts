@@ -32,19 +32,27 @@ function createNavDataConversion(
 	title: string,
 	calculationType: "Rhumbline" | "Great Circle",
 ): ConversionModule {
+	// v2 Course API paths (navigation.course.*) are not pushed into the v1
+	// streambundle by signalk-server. Subscribe to the v1 siblings under
+	// navigation.courseRhumbline.* / navigation.courseGreatCircle.* per
+	// calculation mode.
+	const courseBranch =
+		calculationType === "Great Circle"
+			? "navigation.courseGreatCircle"
+			: "navigation.courseRhumbline";
 	return {
 		title,
 		optionKey,
 		category: "navigation",
 		keys: [
-			"navigation.course.calcValues.distance",
-			"navigation.course.calcValues.bearingTrue",
-			"navigation.course.calcValues.bearingTrackTrue",
-			"navigation.course.nextPoint",
-			"navigation.course.calcValues.velocityMadeGood",
+			`${courseBranch}.calcValues.distance`,
+			`${courseBranch}.calcValues.bearingTrue`,
+			`${courseBranch}.calcValues.bearingTrackTrue`,
+			`${courseBranch}.nextPoint`,
+			`${courseBranch}.calcValues.velocityMadeGood`,
 			"notifications.navigation.arrivalCircleEntered",
 			"notifications.navigation.perpendicularPassed",
-			"navigation.course.activeRoute",
+			`${courseBranch}.activeRoute`,
 		],
 		timeouts: [
 			DEFAULT_DATA_TIMEOUT_MS,
@@ -169,7 +177,9 @@ export default function createNavigationDataConversions(): ConversionModule[] {
 			title: "Cross Track Error (PGN 129283)",
 			optionKey: "CROSS_TRACK_ERROR",
 			category: "navigation",
-			keys: ["navigation.course.calcValues.crossTrackError"],
+			// XTE applies to either course mode; rhumbline is the conservative
+			// v1 default (v2 navigation.course.* is not pushed to streambundle).
+			keys: ["navigation.courseRhumbline.calcValues.crossTrackError"],
 			callback: (XTE: unknown): N2KMessage[] => {
 				if (!isValidNumber(XTE)) {
 					return [];

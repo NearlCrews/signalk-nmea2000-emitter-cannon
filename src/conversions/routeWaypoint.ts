@@ -17,10 +17,14 @@ export default function createRouteWaypointConversion(): ConversionModule {
 		title: "Route and Waypoint Information (PGN 129285)",
 		optionKey: "ROUTE_WAYPOINT",
 		category: "navigation",
+		// v2 navigation.course.* is not pushed into the v1 streambundle;
+		// the v1 sibling under navigation.courseGreatCircle.* matches the
+		// live-server path for nextPoint.position and is the spec-canonical
+		// home for activeRoute when a route is active.
 		keys: [
-			"navigation.course.nextPoint.position",
-			"navigation.course.activeRoute.name",
-			"navigation.course.activeRoute.waypoints",
+			"navigation.courseGreatCircle.nextPoint.position",
+			"navigation.courseGreatCircle.activeRoute.name",
+			"navigation.courseGreatCircle.activeRoute.waypoints",
 		],
 		timeouts: [
 			SLOW_DATA_TIMEOUT_MS,

@@ -16,10 +16,12 @@ export default function createTimeToMarkConversion(): ConversionModule {
 		optionKey: "TIME_TO_MARK",
 		category: "navigation",
 		// canboat 129301 has only timeToMark; the SK previousPoint.timeSince
-		// path has no canonical home in this PGN.
+		// path has no canonical home in this PGN. v2 navigation.course.* is
+		// not pushed into the v1 streambundle; subscribe to the v1 sibling
+		// under navigation.courseGreatCircle.*.
 		keys: [
-			"navigation.course.nextPoint.timeToGo",
-			"navigation.course.nextPoint.type",
+			"navigation.courseGreatCircle.nextPoint.timeToGo",
+			"navigation.courseGreatCircle.nextPoint.type",
 		],
 		timeouts: [5000, 5000],
 		callback: (timeToGo: unknown, markType: unknown): N2KMessage[] => {

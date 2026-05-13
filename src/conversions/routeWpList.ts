@@ -7,10 +7,12 @@ export default function createRouteWpListConversion(): ConversionModule {
 		title: "Route and Waypoint List (PGN 130074)",
 		optionKey: "ROUTE_WP_LIST",
 		category: "navigation",
+		// v2 navigation.course.* is not pushed into the v1 streambundle;
+		// subscribe to the v1 sibling under navigation.courseGreatCircle.*.
 		keys: [
-			"navigation.course.activeRoute.waypoints",
-			"navigation.course.activeRoute.name",
-			"navigation.course.activeRoute.reverse",
+			"navigation.courseGreatCircle.activeRoute.waypoints",
+			"navigation.courseGreatCircle.activeRoute.name",
+			"navigation.courseGreatCircle.activeRoute.reverse",
 		],
 		callback: (
 			waypoints: unknown,

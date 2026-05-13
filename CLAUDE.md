@@ -67,7 +67,7 @@ The registry `src/conversions/index.ts` imports all factories and exports `creat
 
 ## Testing
 
-Tests live in `src/test/` across 9 files (`index.test.ts`, `api.test.ts`, `discovery.test.ts`, `lifecycle.test.ts`, `migrate.test.ts`, `pathUtils.test.ts`, `smoothing.test.ts`, `status.test.ts`, `temperature.test.ts`). The conversion-module test cases live embedded in each module's `tests` array, run by `src/test/index.test.ts`. The full suite (50 tests):
+Tests live in `src/test/` across 9 files (`index.test.ts`, `api.test.ts`, `discovery.test.ts`, `lifecycle.test.ts`, `migrate.test.ts`, `pathUtils.test.ts`, `smoothing.test.ts`, `status.test.ts`, `temperature.test.ts`). The conversion-module test cases live embedded in each module's `tests` array, run by `src/test/index.test.ts`. The full suite (52 tests):
 1. Loads all 45 conversion modules
 2. Validates each module has test cases
 3. Runs embedded tests against CanboatJS encoder/decoder
@@ -75,7 +75,7 @@ Tests live in `src/test/` across 9 files (`index.test.ts`, `api.test.ts`, `disco
 ## Key Technical Details
 
 - **Runtime**: Node.js 22.12+, pure ESM modules
-- **Build**: esbuild bundles to single `dist/index.js` (currently ~461 KB)
+- **Build**: esbuild bundles to single `dist/index.js` (currently ~466 KB)
 - **Externals**: rxjs (only runtime dependency kept out of the bundle; @signalk/server-api is type-only)
 - **Reactivity**: RxJS for Signal K data subscriptions (Signal K server uses BaconJS internally)
 - **N2K Message Format**: CanboatJS format: `{ prio, pgn, dst, fields: {...} }`

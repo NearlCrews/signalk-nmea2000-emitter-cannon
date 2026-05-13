@@ -4,7 +4,7 @@
 
 **Date:** 2026-05-12
 
-**Target release:** v1.5.0
+**Target release:** v1.5.1
 
 ## 1. Problem
 
@@ -127,7 +127,7 @@ function migrateLegacyConfig(raw: any): Config {
 }
 ```
 
-The migrated object is written back only on the next user-driven save through the panel. A user who downgrades to v1.4.4 after seeing v1.5.0 still has their original `plugin-config.json` intact.
+The migrated object is written back only on the next user-driven save through the panel. A user who downgrades to v1.4.4 after seeing v1.5.1 still has their original `plugin-config.json` intact.
 
 ## 6. Plugin runtime additions
 
@@ -282,7 +282,7 @@ The ESM federation variant (`experiments.outputModule: true`, `output.module: tr
 ```json
 {
   "build":        "npm run clean && npm run build:plugin && npm run build:panel",
-  "build:plugin": "esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --outfile=dist/index.js --external:rxjs",
+  "build:plugin": "esbuild src/index.ts --bundle --platform=node --target=node22 --format=esm --outfile=dist/index.js --external:rxjs",
   "build:panel":  "webpack --config webpack.config.cjs",
   "build:watch":  "npm run clean && npm run build:plugin -- --sourcemap=linked --watch & webpack --config webpack.config.cjs --watch",
   "clean":        "rm -rf dist public/*.js public/*.LICENSE.txt"
@@ -318,7 +318,7 @@ The React panel itself receives **no automated tests in v1**. Component tests on
 
 ## 11. Rollout
 
-- **Version:** v1.5.0.
+- **Version:** v1.5.1.
 - **Breaking changes:** Config shape (read-compatible via migration; write-shape changed). Admin UI now loads a federated panel and ignores the rjsf form. Minimum admin UI bumped to 2.27.0 (documented in README).
 - **Push policy:** Commits land locally only. No push, no `npm publish`, no `npm run release` until the user explicitly says go (see `CLAUDE.md` workflow rules and the corresponding feedback memory).
 
@@ -344,7 +344,7 @@ Detail belongs in the writing-plans output, but the order is:
 5. ConversionCard with enabled / resend / source dropdown (no extras).
 6. ExtrasEditor variants, one PR per family: battery, engine, tank, solar, brightness, exhaust, notifications.excludePaths, temperature.instance.
 7. Preset chips.
-8. Documentation rewrite (README, CHANGELOG), v1.5.0 release candidate. Local commit only, no push.
+8. Documentation rewrite (README, CHANGELOG), v1.5.1 release candidate. Local commit only, no push.
 
 ## 14. Out of scope for v1
 

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace the hand-rolled JSON Schema admin UI for `signalk-nmea2000-emitter-cannon` with a federated React panel (webpack 5 Module Federation), TypeBox-derived config schema, and live discovery/status endpoints over an Express router. Target release: v1.5.0.
+**Goal:** Replace the hand-rolled JSON Schema admin UI for `signalk-nmea2000-emitter-cannon` with a federated React panel (webpack 5 Module Federation), TypeBox-derived config schema, and live discovery/status endpoints over an Express router. Target release: v1.5.1.
 
 **Architecture:** Plugin stays on esbuild (no change to runtime bundle). A second build target (`webpack --config webpack.config.cjs`) produces `public/remoteEntry.js` consumed by `@signalk/server-admin-ui >= 2.27.0`. Backend gains an Express router under `/plugins/signalk-nmea2000-emitter-cannon/api/` for status, conversion metadata, path discovery, and `$source` enumeration. The config shape moves into TypeBox (`src/config/schema.ts`), with a load-time migration from the legacy flat shape so existing installs upgrade transparently.
 
@@ -1344,9 +1344,9 @@ module.exports = {
 Replace the existing `build`, `build:watch`, and `clean` scripts with:
 ```json
 "build": "npm run clean && npm run build:plugin && npm run build:panel",
-"build:plugin": "esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --outfile=dist/index.js --external:rxjs",
+"build:plugin": "esbuild src/index.ts --bundle --platform=node --target=node22 --format=esm --outfile=dist/index.js --external:rxjs",
 "build:panel": "webpack --config webpack.config.cjs",
-"build:watch": "concurrently -k -n plugin,panel \"esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --sourcemap=linked --outfile=dist/index.js --external:rxjs --watch\" \"webpack --config webpack.config.cjs --watch\"",
+"build:watch": "concurrently -k -n plugin,panel \"esbuild src/index.ts --bundle --platform=node --target=node22 --format=esm --sourcemap=linked --outfile=dist/index.js --external:rxjs --watch\" \"webpack --config webpack.config.cjs --watch\"",
 "clean": "rm -rf dist && rm -f public/*.js public/*.LICENSE.txt public/*.map"
 ```
 
@@ -2654,13 +2654,13 @@ Replace the configuration section with a description of the federated panel. Add
 - Minimum admin UI requirement: `@signalk/server-admin-ui >= 2.27.0` (ships with signalk-server >= 2.x).
 - Migration note: existing installs are migrated transparently on first start; no manual action.
 - Brief tour of the panel sections (status, presets, categorized tabs).
-- Screenshots are optional for v1.5.0 release. If skipping, omit the screenshots section entirely from the README. Do NOT write placeholder text like "Screenshots coming soon"; either include a real screenshot or omit the section.
+- Screenshots are optional for v1.5.1 release. If skipping, omit the screenshots section entirely from the README. Do NOT write placeholder text like "Screenshots coming soon"; either include a real screenshot or omit the section.
 
 - [ ] **Step 2: Commit**
 
 ```bash
 git add README.md
-git commit -m "docs(readme): describe React config panel and v1.5.0 admin UI requirement"
+git commit -m "docs(readme): describe React config panel and v1.5.1 admin UI requirement"
 ```
 
 ### Task 36: CHANGELOG entry
@@ -2668,11 +2668,11 @@ git commit -m "docs(readme): describe React config panel and v1.5.0 admin UI req
 **Files:**
 - Modify: `CHANGELOG.md`
 
-- [ ] **Step 1: Add v1.5.0 section**
+- [ ] **Step 1: Add v1.5.1 section**
 
 Prepend to `CHANGELOG.md`:
 ```markdown
-## v1.5.0
+## v1.5.1
 
 ### Breaking
 
@@ -2699,7 +2699,7 @@ Prepend to `CHANGELOG.md`:
 
 ```bash
 git add CHANGELOG.md
-git commit -m "docs(changelog): v1.5.0 entry"
+git commit -m "docs(changelog): v1.5.1 entry"
 ```
 
 ### Task 37: Update CLAUDE.md
@@ -2756,15 +2756,15 @@ Expected: all green.
 
 ```bash
 git add package.json package-lock.json
-git commit -m "release: v1.5.0 React config panel"
-git tag -a v1.5.0 -m "v1.5.0 React config panel (local only, not pushed)"
+git commit -m "release: v1.5.1 React config panel"
+git tag -a v1.5.1 -m "v1.5.1 React config panel (local only, not pushed)"
 ```
 
 - [ ] **Step 4: STOP**
 
 Do NOT run `git push`, `git push --tags`, `npm publish`, or `npm run release`. Per the workflow rule in CLAUDE.md and the corresponding feedback memory, wait for the user's explicit go-ahead.
 
-Final state to report: "v1.5.0 staged locally as tag v1.5.0. No push performed. Waiting for ok to push."
+Final state to report: "v1.5.1 staged locally as tag v1.5.1. No push performed. Waiting for ok to push."
 
 ---
 

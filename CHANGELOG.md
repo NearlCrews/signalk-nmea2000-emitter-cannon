@@ -78,7 +78,7 @@ The hand-rolled JSON-Schema admin UI is replaced with a federated React panel bu
 - `useSources` cache capped at 256 entries with insertion-order eviction; bounds memory if an admin session queries a large number of ad-hoc paths.
 - `magneticVariance.ts` notes the historical optionKey-vs-path mismatch (`MAGNETIC_VARIANCE` vs `navigation.magneticVariation`); kept for config backwards compatibility.
 
-**Verification**: `npm run typecheck` clean (root + panel tsconfigs), `npm test` 52/52 pass, `npm run check` (Biome) clean, `npm run build` clean (esbuild plugin bundle 461 KB + webpack federation panel total 54 KiB). No em dashes in source or docs.
+**Verification**: `npm run typecheck` clean (root + panel tsconfigs), `npm test` 52/52 pass, `npm run check` (Biome) clean, `npm run build` clean (esbuild plugin bundle 466 KB + webpack federation panel total 54 KiB). No em dashes in source or docs.
 
 ### v1.4.4 (2026/05/12) - Plugin Restart Lifecycle Fix and Supply Chain Hygiene
 

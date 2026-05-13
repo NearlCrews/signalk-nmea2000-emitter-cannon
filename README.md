@@ -62,7 +62,7 @@ See [CHANGELOG.md](CHANGELOG.md) for the full list.
 - **Reactive subscriptions** via RxJS 7.8 with debounced multi-key aggregation and per-key freshness timeouts
 - **Source filtering** per conversion: pick a specific `$source` label or accept any
 - **Resend timers** per conversion plus a global default, so MFDs that expect periodic re-broadcast still see the data when the underlying source is quiet
-- **Single ESM bundle** via esbuild (as of v1.5.1, ~461 KB); the only runtime dependency is RxJS (`@signalk/server-api` is type-only)
+- **Single ESM bundle** via esbuild (as of v1.5.1, ~466 KB); the only runtime dependency is RxJS (`@signalk/server-api` is type-only)
 - **Embedded canboatjs round-trip tests** on every conversion module (as of v1.5.1, 52 tests across 9 files)
 - **`$source: 'NMEA2000'` echo-guard** on AIS conversions to avoid re-emitting received AIS deltas back onto the bus
 - **Apache 2.0**, pure ESM, Node 22.12+
@@ -356,7 +356,7 @@ src/
 │   ├── depth.ts          # Depth conversion
 │   ├── battery.ts        # Battery status conversion
 │   └── ...               # 42 more conversions
-└── test/                 # Vitest test suites (50 tests, 9 files)
+└── test/                 # Vitest test suites (52 tests, 9 files)
     ├── index.test.ts        # All conversion-module test cases (round-trip via canboatjs)
     ├── api.test.ts          # /api/* router endpoints + admin auth
     ├── discovery.test.ts    # Path / source enumeration

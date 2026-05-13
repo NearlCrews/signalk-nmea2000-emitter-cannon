@@ -54,6 +54,18 @@ The hand-rolled JSON-Schema admin UI is replaced with a federated React panel bu
 - BrightnessMappingEditor's `instanceId` field renamed to `groupLabel` everywhere (panel + conversion read).
 - 52 tests across 9 files (up from 50; added `/api/sources` trim regression guards and PGN-presence validation).
 
+**Signal K path corrections**
+
+- Navigation Data, Cross Track Error, Navigation Data Great Circle, Bearing and Distance Between Marks, Time to Mark, Route and Waypoint Information, Route and Waypoint List: switched from v2-only `navigation.course.*` paths to v1 siblings under `navigation.courseRhumbline.*` / `navigation.courseGreatCircle.*`. The v2 Course API is not pushed into the v1 streambundle that `getSelfBus` reads.
+- Set and Drift: subscribe to `environment.water.current.{set,drift}` (live signalk-server compat) instead of `environment.current.{setTrue,drift}`.
+- GNSS DOPs: subscribe only to canonical `horizontalDilution` / `positionDilution`; drop non-canonical `verticalDilution`, `timeDilution`, `mode` leaves.
+- GNSS Satellites: subscribe to the composite `navigation.gnss.satellitesInView` (returns `{count, satellites}`) plus the scalar `navigation.gnss.satellites`, instead of non-existent `.count` / `.satellites` sub-paths.
+- AIS SAR Aircraft: read altitude from `position.altitude` (canonical) instead of a non-canonical top-level `navigation.altitude`.
+- Transmission Parameters: read gear from the canonical `propulsion.<id>.transmission.gear` enum instead of non-canonical `discreteStatus1/2` leaves.
+- Engine Configuration Parameters (PGN 127498): moved to plugin-config inputs (rated engine speed, VIN, software version) emitted on a 60-second timer; there is no canonical Signal K source for these fields. Adds a `fields` extras meta type so the panel renders the three text/number inputs.
+- Battery `voltage.ripple` subscription dropped: no canonical Signal K source. `rippleVoltage` is omitted from PGN 127506 (canboatjs encodes as "data not available").
+- DSC, VHF, PGN-list, AIS safety message, and trim-tab subscriptions documented inline as non-canonical conventions that require a domain-aware upstream provider.
+
 **Verification**: `npm run typecheck` clean (root + panel tsconfigs), `npm test` 52/52 pass, `npm run check` (Biome) clean, `npm run build` clean (esbuild plugin bundle 461 KB + webpack federation panel total 54 KiB). No em dashes in source or docs.
 
 ### v1.4.4 (2026/05/12) - Plugin Restart Lifecycle Fix and Supply Chain Hygiene

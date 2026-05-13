@@ -66,6 +66,18 @@ The hand-rolled JSON-Schema admin UI is replaced with a federated React panel bu
 - Battery `voltage.ripple` subscription dropped: no canonical Signal K source. `rippleVoltage` is omitted from PGN 127506 (canboatjs encodes as "data not available").
 - DSC, VHF, PGN-list, AIS safety message, and trim-tab subscriptions documented inline as non-canonical conventions that require a domain-aware upstream provider.
 
+**Cleanup pass (low-priority follow-ups)**
+
+- AIS Safety Message conversion now carries an inline ITU-R M.1371 licensing note next to its declaration so the regulatory constraint is visible to anyone reading the source.
+- Radio Frequency MHz / Hz heuristic documented: explains the magnitude-based boundary and the future SDR / L-band case where it would need to be replaced with an explicit units field rather than widened.
+- `PluginManager` collapsed four parallel per-conversion Maps (emit counters, last-emit timestamps, enabled set, latest-error secondary index) into a single `Map<optionKey, PerConversionState>`. Status snapshot read shrinks from two Map lookups per conversion to one; `recordEmit` becomes one Map.get plus two in-place field writes.
+- `src/api/router.ts` exposes an `HTTP_STATUS` table (`BAD_REQUEST`, `UNAUTHORIZED`) instead of the bare literal 400 used for the `/api/sources` missing-path response.
+- `validateExtrasMetaKeys()` runs once from the `PluginManager` constructor and logs (via `app.debug`) any entry in `EXTRAS_BY_OPTION_KEY` that does not match a loaded conversion. Catches a typo or renamed conversion that would otherwise silently break the panel's per-card editor without breaking runtime emission.
+- `PluginConfigurationPanel` `save` prop carries a JSDoc note documenting it as fire-and-forget; do not await.
+- `useStatus` interval cleanup simplified: the id was unconditionally assigned so the nullable type and null-guard at teardown were dead code.
+- `useSources` cache capped at 256 entries with insertion-order eviction; bounds memory if an admin session queries a large number of ad-hoc paths.
+- `magneticVariance.ts` notes the historical optionKey-vs-path mismatch (`MAGNETIC_VARIANCE` vs `navigation.magneticVariation`); kept for config backwards compatibility.
+
 **Verification**: `npm run typecheck` clean (root + panel tsconfigs), `npm test` 52/52 pass, `npm run check` (Biome) clean, `npm run build` clean (esbuild plugin bundle 461 KB + webpack federation panel total 54 KiB). No em dashes in source or docs.
 
 ### v1.4.4 (2026/05/12) - Plugin Restart Lifecycle Fix and Supply Chain Hygiene

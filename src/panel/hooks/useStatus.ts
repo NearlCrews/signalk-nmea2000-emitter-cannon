@@ -31,7 +31,7 @@ export function useStatus(): {
 		}
 
 		void tick();
-		let id: ReturnType<typeof setInterval> | null = setInterval(() => {
+		const id = setInterval(() => {
 			if (document.visibilityState === "visible") void tick();
 		}, POLL_MS);
 
@@ -42,8 +42,7 @@ export function useStatus(): {
 
 		return () => {
 			cancelled.current = true;
-			if (id !== null) clearInterval(id);
-			id = null;
+			clearInterval(id);
 			document.removeEventListener("visibilitychange", onVisibility);
 		};
 	}, []);

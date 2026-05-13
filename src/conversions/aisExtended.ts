@@ -15,6 +15,10 @@ import { isValidNumber } from "../utils/validation.js";
 interface Position {
 	latitude?: number;
 	longitude?: number;
+	// SK publishes altitude as a sub-field of the position value when
+	// available (e.g. for SAR aircraft); there is no canonical top-level
+	// navigation.altitude path.
+	altitude?: number;
 }
 
 interface AisShipType {
@@ -321,20 +325,20 @@ export default function createAisExtendedConversions(
 			optionKey: "AIS_SAR_AIRCRAFT",
 			category: "ais",
 			presets: ["full-ais"],
+			// Altitude is read from the position value (position.altitude),
+			// not a non-canonical navigation.altitude top-level path.
 			keys: [
 				"sensors.ais.class",
 				"navigation.position",
 				"navigation.courseOverGroundTrue",
 				"navigation.speedOverGround",
-				"navigation.altitude",
 			],
-			timeouts: Array(5).fill(DEFAULT_DATA_TIMEOUT_MS),
+			timeouts: Array(4).fill(DEFAULT_DATA_TIMEOUT_MS),
 			callback: ((
 				aisClass: string | null,
 				position: Position | null,
 				cog: number | null,
 				sog: number | null,
-				altitude: number | null,
 			) => {
 				if (
 					aisClass !== "SAR" ||
@@ -349,6 +353,8 @@ export default function createAisExtendedConversions(
 				// Drop until self MMSI is published; see PGN 129039 above.
 				const mmsi = selfMmsi();
 				if (!mmsi) return [];
+
+				const altitude = position.altitude;
 
 				return [
 					{
@@ -373,23 +379,16 @@ export default function createAisExtendedConversions(
 					},
 				];
 			}) as ConversionCallback<
-				[
-					string | null,
-					Position | null,
-					number | null,
-					number | null,
-					number | null,
-				]
+				[string | null, Position | null, number | null, number | null]
 			>,
 			tests: [
 				{
 					skSelfData: { mmsi: "111000001" },
 					input: [
 						"SAR",
-						{ latitude: 40.7128, longitude: -74.006 },
+						{ latitude: 40.7128, longitude: -74.006, altitude: 500 },
 						0.7854,
 						25.7,
-						500,
 					],
 					expected: [
 						{

@@ -13,7 +13,10 @@ export default function createSetDriftConversion(
 		title: "Set and Drift (PGN 129291)",
 		optionKey: "SET_DRIFT",
 		category: "navigation",
-		keys: ["environment.current.setTrue", "environment.current.drift"],
+		// Live signalk-server publishes the current under environment.water.current.*.
+		// The older environment.current.* form is not pushed into the v1
+		// streambundle on the current schema, so subscribe to the water branch.
+		keys: ["environment.water.current.set", "environment.water.current.drift"],
 		callback: (set: unknown, drift: unknown): N2KMessage[] => {
 			const setValue = toValidNumber(set);
 			const driftValue = toValidNumber(drift);

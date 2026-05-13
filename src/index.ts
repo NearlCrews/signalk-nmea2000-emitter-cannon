@@ -1,12 +1,14 @@
+import pkg from "../package.json" with { type: "json" };
 import { createApiRouter } from "./api/router.js";
 import { RootConfig } from "./config/schema.js";
 import { PluginManager } from "./plugin-manager.js";
 import type { SignalKApp, SignalKPlugin } from "./types/index.js";
 import { errMessage } from "./utils/errorUtils.js";
 
-// Single source of truth for the runtime version string surfaced to the
-// admin UI. Keep this in lockstep with package.json on every release.
-const PLUGIN_VERSION = "1.5.0";
+// Read the runtime version from package.json so it stays in lockstep with
+// the published version automatically. esbuild inlines the JSON into the
+// bundle at build time, so there is no runtime FS read.
+const PLUGIN_VERSION = pkg.version;
 
 /**
  * Signal K to NMEA 2000 conversion plugin factory
@@ -16,6 +18,26 @@ const PLUGIN_VERSION = "1.5.0";
  */
 export default function createPlugin(app: SignalKApp): SignalKPlugin {
 	let pluginManager: PluginManager | null = null;
+
+	// Persistent readiness state across PluginManager restarts.
+	//
+	// signalk-server passes plugins a SHALLOW COPY of `app` (via
+	// `_.assign({}, app, ...)` in interfaces/plugins.js), so the
+	// `appCopy.isNmea2000OutAvailable` we see is frozen at plugin-registration
+	// time. canboat flips the live `app.isNmea2000OutAvailable` to true when
+	// it claims an address, but our snapshot stays false forever. The
+	// `nmea2000OutAvailable` event still reaches us because event-listener
+	// registration goes through prototype methods that reach the live app, but
+	// the event is one-shot: subsequent PluginManager restarts (e.g. on Save
+	// from the panel) miss it and stay stuck on "Waiting for NMEA 2000 output".
+	//
+	// The factory closure outlives PluginManager instances, so we latch the
+	// flag here on the FIRST emit and reuse it for every subsequent restart.
+	let nmea2000Ready = false;
+	const factoryListener = (): void => {
+		nmea2000Ready = true;
+	};
+	app.on("nmea2000OutAvailable", factoryListener);
 
 	const plugin: SignalKPlugin = {
 		id: "signalk-nmea2000-emitter-cannon",
@@ -49,7 +71,7 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 			pluginManager = null;
 		}
 		try {
-			pluginManager = new PluginManager(app, plugin);
+			pluginManager = new PluginManager(app, plugin, () => nmea2000Ready);
 			pluginManager.start(options);
 		} catch (error) {
 			const msg = errMessage(error);

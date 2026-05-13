@@ -176,7 +176,17 @@ export class PluginManager {
 		return entry;
 	}
 
-	constructor(app: SignalKApp, plugin: SignalKPlugin) {
+	constructor(
+		app: SignalKApp,
+		plugin: SignalKPlugin,
+		// Reads the factory-level latched `nmea2000Ready` flag. signalk-server
+		// passes plugins a SHALLOW COPY of `app` (see index.ts comment), so
+		// reading `app.isNmea2000OutAvailable` here returns the stale snapshot
+		// from plugin-registration time. The factory closure in index.ts owns
+		// a listener that latches the real flag and exposes it via this getter,
+		// which survives the PluginManager construct / discard cycle.
+		private readonly factoryNmea2000Ready: () => boolean = () => false,
+	) {
 		this.app = app;
 
 		// Load conversions at initialization
@@ -323,15 +333,15 @@ export class PluginManager {
 			// where the listener is already attached from the constructor.
 			this.app.removeListener("nmea2000OutAvailable", this.onNmea2000Ready);
 			this.app.on("nmea2000OutAvailable", this.onNmea2000Ready);
-			// Sync check against the server-maintained mirror: if the
-			// nmea2000OutAvailable event has already fired in this process (the
-			// common case when a user disables then re-enables the plugin), the
-			// one-shot event never re-fires and the listener above would never
-			// trip. Flip the readiness flag directly so emit() is not blocked.
-			if (this.app.isNmea2000OutAvailable === true) {
+			// Sync check via the factory-latched flag. signalk-server's
+			// `app.isNmea2000OutAvailable` is a stale snapshot on the appCopy
+			// it gives plugins (see index.ts), so we cannot rely on it here.
+			// The factory installs its own listener once at registration time
+			// and latches the real flag, which survives PluginManager restarts.
+			if (this.factoryNmea2000Ready()) {
 				this.nmea2000Ready = true;
 				this.app.debug(
-					"NMEA 2000 output already available at start (sync detect)",
+					"NMEA 2000 output already available at start (factory-latched flag)",
 				);
 			}
 			// Migrate from the legacy flat shape (or pass through the typed

@@ -25,13 +25,13 @@ export default function StatusDashboard({
 				title={ready ? "NMEA 2000 ready" : "Waiting for NMEA 2000 output"}
 			/>
 			<span>
-				<span style={S.statLabel}>Enabled</span>
+				<span style={S.statLabel}>Enabled </span>
 				<span style={S.statValue}>
 					{status.enabledCount} / {status.totalConversions}
 				</span>
 			</span>
 			<span>
-				<span style={S.statLabel}>NMEA 2000</span>
+				<span style={S.statLabel}>NMEA 2000 </span>
 				<span style={S.statValue}>{ready ? "ready" : "waiting"}</span>
 			</span>
 			{errors > 0 ? (

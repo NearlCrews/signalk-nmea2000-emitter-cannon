@@ -220,14 +220,13 @@ describe("PluginManager lifecycle", () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
 		mock = createMockSignalKApp();
-		// Set the server-maintained sync mirror so start() flips nmea2000Ready
-		// via its sync-detect path. Mirrors the "plugin re-enabled after the
-		// server already announced N2K output" scenario, which is the common
-		// production case.
-		(
-			mock.app as unknown as { isNmea2000OutAvailable: boolean }
-		).isNmea2000OutAvailable = true;
-		manager = new PluginManager(mock.app, mockPlugin);
+		// Pass a factory-latched getter that returns true so start() flips
+		// nmea2000Ready via its sync-detect path. Mirrors the "plugin re-enabled
+		// after the server already announced N2K output" scenario, which is the
+		// common production case. (The constructor's third argument replaced
+		// the older reliance on `app.isNmea2000OutAvailable`, which is a stale
+		// snapshot on the appCopy signalk-server passes plugins.)
+		manager = new PluginManager(mock.app, mockPlugin, () => true);
 	});
 
 	afterEach(() => {

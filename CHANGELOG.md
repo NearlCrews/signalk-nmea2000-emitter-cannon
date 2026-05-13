@@ -1,5 +1,22 @@
 ## Change Log
 
+### v1.5.3 (2026/05/12) - Post-save lifecycle fix
+
+**Bug fix: plugin stuck on "Waiting for NMEA 2000 output" after every Save**
+
+After clicking Save in the React config panel (or otherwise triggering a plugin restart), the plugin would freeze with status `Waiting for NMEA 2000 output (N conversions enabled)` and emit zero PGNs until `signalk` was restarted. Same shape as v1.4.4 Issue #5, different root cause.
+
+signalk-server passes plugins a SHALLOW COPY of the `app` object (`_.assign({}, app, ...)` in `interfaces/plugins.js`), so the `appCopy.isNmea2000OutAvailable` we read is frozen at plugin-registration time. It stays `false` forever even after canboatjs flips the live `app.isNmea2000OutAvailable` to true. The `nmea2000OutAvailable` event still reaches us on the initial start because event-listener registration goes through prototype methods that reach the live emitter, but the event is one-shot: subsequent PluginManager restarts attach a new listener that never fires.
+
+Fix: the plugin's factory closure (which outlives PluginManager instances) installs its own listener once at registration time and latches the real ready flag. PluginManager's `start()` consults the latched flag via a constructor-injected getter instead of reading the stale `app.isNmea2000OutAvailable`. Survives any number of save / restart cycles.
+
+**Other fixes**
+
+- `getModuleVersion()` was returning `"1.5.0"` (stale literal in `src/index.ts` since the React panel landing). Now read directly from `package.json` via a JSON import (esbuild inlines it into the bundle), so the version can never drift again.
+- Status dashboard panel: explicit spaces between the "Enabled / NMEA 2000" labels and their values so the rendered text doesn't run together on every browser. Was relying on a CSS `marginLeft: 4` that didn't survive the federation host's CSS.
+
+**Verification**: 5 rapid back-to-back saves all recover correctly (was: all stuck). 52/52 tests pass, typecheck / biome / build clean. Bundle unchanged (~466 KB).
+
 ### v1.5.2 (2026/05/12) - React Config Panel
 
 The hand-rolled JSON-Schema admin UI is replaced with a federated React panel built on webpack 5 Module Federation. The plugin keeps its esbuild runtime bundle untouched; the panel is a second build target that produces `public/remoteEntry.js` plus chunked `public/*.mjs`. The config payload moves from a flat shape to a nested `conversions: { KEY: { enabled, resend, sources, extras } }` shape with a load-time migration from v1.4.x, so existing installs upgrade transparently. The migration is backwards-compatible at load: downgrading back to v1.4.4 keeps the original `plugin-config.json` intact if no save has occurred under v1.5.2. No wire-level (PGN) changes.

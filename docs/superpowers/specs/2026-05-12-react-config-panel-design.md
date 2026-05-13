@@ -4,7 +4,7 @@
 
 **Date:** 2026-05-12
 
-**Target release:** v1.5.2
+**Target release:** v1.5.3
 
 ## 1. Problem
 
@@ -127,7 +127,7 @@ function migrateLegacyConfig(raw: any): Config {
 }
 ```
 
-The migrated object is written back only on the next user-driven save through the panel. A user who downgrades to v1.4.4 after seeing v1.5.2 still has their original `plugin-config.json` intact.
+The migrated object is written back only on the next user-driven save through the panel. A user who downgrades to v1.4.4 after seeing v1.5.3 still has their original `plugin-config.json` intact.
 
 ## 6. Plugin runtime additions
 
@@ -318,7 +318,7 @@ The React panel itself receives **no automated tests in v1**. Component tests on
 
 ## 11. Rollout
 
-- **Version:** v1.5.2.
+- **Version:** v1.5.3.
 - **Breaking changes:** Config shape (read-compatible via migration; write-shape changed). Admin UI now loads a federated panel and ignores the rjsf form. Minimum admin UI bumped to 2.27.0 (documented in README).
 - **Push policy:** Commits land locally only. No push, no `npm publish`, no `npm run release` until the user explicitly says go (see `CLAUDE.md` workflow rules and the corresponding feedback memory).
 
@@ -344,7 +344,7 @@ Detail belongs in the writing-plans output, but the order is:
 5. ConversionCard with enabled / resend / source dropdown (no extras).
 6. ExtrasEditor variants, one PR per family: battery, engine, tank, solar, brightness, exhaust, notifications.excludePaths, temperature.instance.
 7. Preset chips.
-8. Documentation rewrite (README, CHANGELOG), v1.5.2 release candidate. Local commit only, no push.
+8. Documentation rewrite (README, CHANGELOG), v1.5.3 release candidate. Local commit only, no push.
 
 ## 14. Out of scope for v1
 

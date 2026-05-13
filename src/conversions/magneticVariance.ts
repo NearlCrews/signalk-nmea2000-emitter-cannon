@@ -16,6 +16,11 @@ export default function createMagneticVarianceConversion(
 ): ConversionModule {
 	return {
 		title: "Magnetic Variation (PGN 127258)",
+		// The Signal K path and user-facing title use "Variation" (the spec
+		// term); the optionKey kept the older "Variance" spelling. Renaming
+		// the optionKey would strand every existing user's configuration
+		// (the key is the lookup into plugin settings), so the mismatch is
+		// deliberate and preserved for backward compatibility.
 		optionKey: "MAGNETIC_VARIANCE",
 		category: "navigation",
 		keys: [

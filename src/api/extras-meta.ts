@@ -15,6 +15,32 @@ const EXTRAS_BY_OPTION_KEY: Record<string, ExtrasMeta> = {
 		control: "text",
 		default: "",
 	},
+	// PGN 127498 carries static engine identity: rated speed (RPM), VIN,
+	// and software version. There is no canonical SK source for these
+	// fields, so the user enters them in plugin config.
+	ENGINE_STATIC: {
+		type: "fields",
+		fields: [
+			{
+				key: "ratedEngineSpeed",
+				label: "Rated Engine Speed (RPM)",
+				control: "number",
+				default: 0,
+			},
+			{
+				key: "VIN",
+				label: "Vehicle Identification Number",
+				control: "text",
+				default: "",
+			},
+			{
+				key: "softwareVersion",
+				label: "Software Version",
+				control: "text",
+				default: "",
+			},
+		],
+	},
 };
 
 // Temperature instance editor: applies to every TEMPERATURE_* / TEMPERATURE2_* key.

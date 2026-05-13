@@ -35,6 +35,7 @@ export default function ExtrasEditor({
 		case "exhaustMapping":
 			return <ExhaustMappingEditor value={value} onChange={onChange} />;
 		case "field":
+		case "fields":
 			return <FieldEditor meta={meta} value={value} onChange={onChange} />;
 	}
 }

@@ -18,6 +18,13 @@ export interface PerConversionStatus {
 	lastErrorAgeMs?: number;
 }
 
+export interface ExtrasFieldSpec {
+	key: string;
+	label: string;
+	control: "text" | "number" | "boolean";
+	default?: unknown;
+}
+
 export type ExtrasMeta =
 	| { type: "none" }
 	| {
@@ -30,13 +37,8 @@ export type ExtrasMeta =
 				| "exhaustMapping";
 			minRows: 0;
 	  }
-	| {
-			type: "field";
-			key: string;
-			label: string;
-			control: "text" | "number" | "boolean";
-			default?: unknown;
-	  };
+	| ({ type: "field" } & ExtrasFieldSpec)
+	| { type: "fields"; fields: ExtrasFieldSpec[] };
 
 export interface ConversionMetadata {
 	key: string;

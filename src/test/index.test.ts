@@ -139,6 +139,18 @@ describe("Conversion modules", () => {
 									skData = test.skData || {};
 									skSelfData = test.skSelfData || {};
 
+									// Drive onOptionsLoaded for conversions that pull
+									// values from plugin config (extras) rather than from
+									// path subscriptions: the test-level testOptions stand
+									// in for the live options the plugin-manager would
+									// otherwise pass on lifecycle start.
+									if (test.testOptions && conv.onOptionsLoaded) {
+										conv.onOptionsLoaded({
+											enabled: true,
+											...test.testOptions,
+										});
+									}
+
 									// Execute the conversion callback
 									const result = subConv.callback?.(...test.input);
 

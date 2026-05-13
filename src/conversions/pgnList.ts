@@ -41,6 +41,10 @@ export default function createPgnListConversion(): ConversionModule {
 		title: "PGN List (PGN 126464)",
 		optionKey: "PGN_LIST",
 		category: "system",
+		// communication.pgnListRequest is not part of the canonical Signal K
+		// v1 schema; it is a convention used by NMEA 2000-aware upstream
+		// providers (e.g. signalk-to-nmea2000) to trigger a transmit-list
+		// announcement. Requires such a provider.
 		keys: ["communication.pgnListRequest"],
 		callback: (_pgnListRequest: unknown): N2KMessage[] => pgnListMessages,
 		tests: [

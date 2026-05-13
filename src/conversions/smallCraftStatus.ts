@@ -14,6 +14,10 @@ export default function createSmallCraftStatusConversion(): ConversionModule {
 		// canboat 130576 carries only portTrimTab + starboardTrimTab; the
 		// other SK paths (trim, displacement, performance.*) belong to
 		// different PGNs.
+		//
+		// steering.trimTab.{port,starboard} is not part of the canonical
+		// Signal K v1 schema; it is the established convention used by
+		// trim-tab-aware upstream providers. Requires such a provider.
 		keys: ["steering.trimTab.port", "steering.trimTab.starboard"],
 		timeouts: [5000, 5000],
 		callback: (trimTabPort: unknown, trimTabStbd: unknown): N2KMessage[] => {

@@ -429,6 +429,9 @@ export default function createAisExtendedConversions(
 			optionKey: "AIS_SAFETY_MESSAGE",
 			category: "ais",
 			presets: ["full-ais"],
+			// communication.ais.safetyMessage is not part of the canonical
+			// Signal K v1 schema; it is a convention used by AIS-aware
+			// upstream providers. Requires such a provider.
 			keys: ["communication.ais.safetyMessage"],
 			timeouts: [SAFETY_MESSAGE_TIMEOUT_MS],
 			callback: ((safetyMessage: string | null) => {

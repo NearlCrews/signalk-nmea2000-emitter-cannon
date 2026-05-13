@@ -11,6 +11,9 @@ export default function createRadioFrequencyConversion(): ConversionModule {
 		title: "Radio Frequency (PGN 129799)",
 		optionKey: "RADIO_FREQUENCY",
 		category: "comms",
+		// communication.vhf.* is not part of the canonical Signal K v1
+		// schema; it is a convention used by VHF-aware upstream providers.
+		// Requires such a provider.
 		keys: [
 			"communication.vhf.rxFrequency",
 			"communication.vhf.txFrequency",

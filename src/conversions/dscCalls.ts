@@ -46,6 +46,9 @@ export default function createDscCallsConversion(
 		title: "DSC Call Information (PGN 129808)",
 		optionKey: "DSC_CALLS",
 		category: "comms",
+		// communication.dsc.* is not part of the canonical Signal K v1 schema
+		// (which has no top-level communication branch); it is a convention
+		// used by DSC-aware upstream providers. Requires such a provider.
 		keys: [
 			"communication.dsc.callType",
 			"communication.dsc.mmsi",

@@ -424,6 +424,9 @@ export default function createAisExtendedConversions(
 		// operators must opt in via the plugin config and are responsible for
 		// confirming local rules permit transmit on AIS frequencies before
 		// enabling.
+		//
+		// Per ITU-R M.1371, transmit only if your vessel has a licensed AIS
+		// transceiver and the configured MMSI matches it.
 		{
 			title: "AIS Safety Related Broadcast Message (PGN 129802)",
 			optionKey: "AIS_SAFETY_MESSAGE",

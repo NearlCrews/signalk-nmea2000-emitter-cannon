@@ -115,24 +115,37 @@ export default function createGnssDataConversions(
 			title: "GNSS Satellites (PGN 129540)",
 			optionKey: "GNSS_SATELLITES",
 			category: "navigation",
-			keys: [
-				"navigation.gnss.satellitesInView.count",
-				"navigation.gnss.satellitesInView.satellites",
-			],
+			// satellitesInView is a composite published as a single value at
+			// the parent path: { count, satellites: [...] }. signalk-server
+			// does not push child sub-paths into the streambundle, so we
+			// subscribe to the composite and the scalar satellites count
+			// (published separately) as a fallback.
+			keys: ["navigation.gnss.satellitesInView", "navigation.gnss.satellites"],
 			timeouts: [DEFAULT_DATA_TIMEOUT_MS, DEFAULT_DATA_TIMEOUT_MS],
-			callback: ((count: number | null, satellites: SatelliteData[] | null) => {
-				if (count == null || satellites == null || !Array.isArray(satellites)) {
+			callback: ((
+				satellitesInView: {
+					count?: number;
+					satellites?: SatelliteData[];
+				} | null,
+				satelliteCount: number | null,
+			) => {
+				const list = satellitesInView?.satellites;
+				if (!Array.isArray(list) || list.length === 0) {
 					return [];
 				}
 
-				const countValue = isValidNumber(count) ? count : 0;
+				const reportedCount = isValidNumber(satellitesInView?.count)
+					? (satellitesInView?.count as number)
+					: isValidNumber(satelliteCount)
+						? satelliteCount
+						: list.length;
 
 				// Conservative fast-packet cap for PGN 129540: 12 satellites keep
 				// the multi-frame payload well under the 223-byte canboat limit.
-				const maxSatellites = Math.min(satellites.length, 12);
+				const maxSatellites = Math.min(list.length, 12);
 				const satelliteData = new Array(maxSatellites);
 				for (let i = 0; i < maxSatellites; i++) {
-					const sat = satellites[i] as SatelliteData;
+					const sat = list[i] as SatelliteData;
 					satelliteData[i] = {
 						prn: sat.id ?? i + 1,
 						elevation: sat.elevation ?? 0,
@@ -152,39 +165,44 @@ export default function createGnssDataConversions(
 							sid: N2K_SID_ZERO,
 							rangeResidualMode: "Range residuals were used to calculate data",
 							// Mirror the maxSatellites cap so satsInView matches list length.
-							satsInView: Math.min(countValue, 12),
+							satsInView: Math.min(reportedCount, 12),
 							list: satelliteData,
 						},
 					},
 				];
-			}) as ConversionCallback<[number | null, SatelliteData[] | null]>,
+			}) as ConversionCallback<
+				[{ count?: number; satellites?: SatelliteData[] } | null, number | null]
+			>,
 			tests: [
 				{
 					input: [
-						8,
-						[
-							{
-								id: 1,
-								elevation: 0.7854,
-								azimuth: 1.5708,
-								SNR: 40,
-								used: true,
-							},
-							{
-								id: 2,
-								elevation: 0.5236,
-								azimuth: Math.PI,
-								SNR: 35,
-								used: true,
-							},
-							{
-								id: 3,
-								elevation: 1.0472,
-								azimuth: 4.7124,
-								SNR: 42,
-								used: false,
-							},
-						],
+						{
+							count: 8,
+							satellites: [
+								{
+									id: 1,
+									elevation: 0.7854,
+									azimuth: 1.5708,
+									SNR: 40,
+									used: true,
+								},
+								{
+									id: 2,
+									elevation: 0.5236,
+									azimuth: Math.PI,
+									SNR: 35,
+									used: true,
+								},
+								{
+									id: 3,
+									elevation: 1.0472,
+									azimuth: 4.7124,
+									SNR: 42,
+									used: false,
+								},
+							],
+						},
+						null,
 					],
 					expected: [
 						{

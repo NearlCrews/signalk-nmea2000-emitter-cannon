@@ -11,8 +11,17 @@ const TRANSMISSION_TIMEOUTS = [
 	DEFAULT_DATA_TIMEOUT_MS,
 	DEFAULT_DATA_TIMEOUT_MS,
 	DEFAULT_DATA_TIMEOUT_MS,
-	DEFAULT_DATA_TIMEOUT_MS,
 ];
+
+// Map the canonical SK propulsion.<id>.transmission.gear enum directly to
+// the canboat TRANSMISSION_GEAR LOOKUP labels. SK values are lowercase
+// ("forward"/"neutral"/"reverse"); the spec also defines "fault".
+const SK_GEAR_TO_N2K: Record<string, string> = {
+	forward: "Forward",
+	neutral: "Neutral",
+	reverse: "Reverse",
+	fault: "Fault",
+};
 
 export default function createTransmissionParametersConversion(): ConversionModule {
 	return {
@@ -20,22 +29,25 @@ export default function createTransmissionParametersConversion(): ConversionModu
 		optionKey: "TRANSMISSION_PARAMETERS",
 		category: "engine",
 		presets: ["engine-set"],
+		// Read gear from the canonical propulsion.<id>.transmission.gear enum
+		// (Forward / Neutral / Reverse / Fault), not from the sign of the
+		// gearRatio: the discreteStatus1/2 leaves used previously are not in
+		// the v1 schema.
 		keys: [
+			"propulsion.main.transmission.gear",
 			"propulsion.main.transmission.gearRatio",
 			"propulsion.main.transmission.oilPressure",
 			"propulsion.main.transmission.oilTemperature",
-			"propulsion.main.transmission.discreteStatus1",
-			"propulsion.main.transmission.discreteStatus2",
 		],
 		timeouts: TRANSMISSION_TIMEOUTS,
 		callback: (
+			gear: unknown,
 			gearRatio: unknown,
 			oilPressure: unknown,
 			oilTemperature: unknown,
-			discreteStatus1: unknown,
-			_discreteStatus2: unknown,
 		): N2KMessage[] => {
 			if (
+				typeof gear !== "string" &&
 				!isValidNumber(gearRatio) &&
 				!isValidNumber(oilPressure) &&
 				!isValidNumber(oilTemperature)
@@ -44,10 +56,8 @@ export default function createTransmissionParametersConversion(): ConversionModu
 			}
 
 			let transmissionGear: string | undefined;
-			if (isValidNumber(gearRatio)) {
-				if (gearRatio > 0) transmissionGear = "Forward";
-				else if (gearRatio < 0) transmissionGear = "Reverse";
-				else transmissionGear = "Neutral";
+			if (typeof gear === "string") {
+				transmissionGear = SK_GEAR_TO_N2K[gear.toLowerCase()];
 			}
 
 			return [
@@ -60,14 +70,14 @@ export default function createTransmissionParametersConversion(): ConversionModu
 						transmissionGear,
 						oilPressure: toValidNumber(oilPressure) ?? undefined,
 						oilTemperature: toValidNumber(oilTemperature) ?? undefined,
-						discreteStatus1: toValidNumber(discreteStatus1) ?? 0,
+						discreteStatus1: 0,
 					},
 				},
 			];
 		},
 		tests: [
 			{
-				input: [2.5, 345000, 353.15, 0, 0],
+				input: ["forward", 2.5, 345000, 353.15],
 				expected: [
 					{
 						prio: N2K_DEFAULT_PRIORITY,
@@ -84,7 +94,7 @@ export default function createTransmissionParametersConversion(): ConversionModu
 				],
 			},
 			{
-				input: [-1.5, 320000, 343.15, 1, 0],
+				input: ["reverse", -1.5, 320000, 343.15],
 				expected: [
 					{
 						prio: N2K_DEFAULT_PRIORITY,
@@ -95,13 +105,13 @@ export default function createTransmissionParametersConversion(): ConversionModu
 							transmissionGear: "Reverse",
 							oilPressure: 320000,
 							oilTemperature: 343.1,
-							discreteStatus1: 1,
+							discreteStatus1: 0,
 						},
 					},
 				],
 			},
 			{
-				input: [0, 310000, 333.15, 0, 0],
+				input: ["neutral", 0, 310000, 333.15],
 				expected: [
 					{
 						prio: N2K_DEFAULT_PRIORITY,

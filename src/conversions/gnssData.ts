@@ -29,35 +29,32 @@ export default function createGnssDataConversions(
 			title: "GNSS DOPs (PGN 129539)",
 			optionKey: "GNSS_DOPS",
 			category: "navigation",
+			// v1 SK only publishes horizontalDilution and positionDilution.
+			// verticalDilution, timeDilution, and mode are not in the v1 schema
+			// and signalk-server does not push them into the streambundle, so
+			// the matching PGN fields (vdop, tdop) are left undefined: canboatjs
+			// encodes that as the spec's "data not available" sentinel.
 			keys: [
 				"navigation.gnss.horizontalDilution",
-				"navigation.gnss.verticalDilution",
-				"navigation.gnss.timeDilution",
-				"navigation.gnss.mode",
+				"navigation.gnss.positionDilution",
 			],
-			timeouts: [
-				DEFAULT_DATA_TIMEOUT_MS,
-				DEFAULT_DATA_TIMEOUT_MS,
-				DEFAULT_DATA_TIMEOUT_MS,
-				DEFAULT_DATA_TIMEOUT_MS,
-			],
-			callback: ((
-				hdop: number | null,
-				vdop: number | null,
-				tdop: number | null,
-				mode: string | null,
-			) => {
-				// Only send if we have at least one DOP value
-				if (hdop == null && vdop == null && tdop == null) {
+			timeouts: [DEFAULT_DATA_TIMEOUT_MS, DEFAULT_DATA_TIMEOUT_MS],
+			callback: ((hdop: number | null, pdop: number | null) => {
+				// Only send if we have at least one DOP value.
+				if (hdop == null && pdop == null) {
 					return [];
 				}
 
 				const hdopValue = isValidNumber(hdop) ? hdop : undefined;
-				const vdopValue = isValidNumber(vdop) ? vdop : undefined;
-				const tdopValue = isValidNumber(tdop) ? tdop : undefined;
-				const modeString = typeof mode === "string" ? mode : "Auto";
-				const modeValue =
-					modeString === "3D" ? "3D" : modeString === "2D" ? "2D" : "Auto";
+				// PDOP has no direct field in PGN 129539; we accept the path so
+				// the conversion fires when only PDOP is published, but the wire
+				// payload still carries hdop (when available) and leaves vdop/tdop
+				// as "data not available".
+				const pdopValid = isValidNumber(pdop);
+
+				if (hdopValue === undefined && !pdopValid) {
+					return [];
+				}
 
 				return [
 					{
@@ -66,20 +63,18 @@ export default function createGnssDataConversions(
 						dst: N2K_BROADCAST_DST,
 						fields: {
 							sid: N2K_SID_ZERO,
-							desiredMode: modeValue,
-							actualMode: modeValue,
+							desiredMode: "Auto",
+							actualMode: "Auto",
 							hdop: hdopValue,
-							vdop: vdopValue,
-							tdop: tdopValue,
+							vdop: undefined,
+							tdop: undefined,
 						},
 					},
 				];
-			}) as ConversionCallback<
-				[number | null, number | null, number | null, string | null]
-			>,
+			}) as ConversionCallback<[number | null, number | null]>,
 			tests: [
 				{
-					input: [1.2, 1.8, 0.9, "3D"],
+					input: [1.2, 2.4],
 					expected: [
 						{
 							prio: 2,
@@ -87,20 +82,17 @@ export default function createGnssDataConversions(
 							dst: 255,
 							fields: {
 								sid: N2K_SID_ZERO,
-								desiredMode: "3D",
-								actualMode: "3D",
+								desiredMode: "Auto",
+								actualMode: "Auto",
 								hdop: 1.2,
-								vdop: 1.8,
-								tdop: 0.9,
 							},
 						},
 					],
 				},
 				{
-					// When Signal K reports mode "Auto", actualMode must NOT
-					// falsely report "No GNSS": that would tell MFDs that the
-					// receiver has no fix. Fall through to "Auto".
-					input: [1.5, 2.0, 1.0, "Auto"],
+					// HDOP alone is sufficient to emit; vdop/tdop remain unset
+					// (canboatjs encodes as "data not available").
+					input: [1.5, null],
 					expected: [
 						{
 							prio: 2,
@@ -111,8 +103,6 @@ export default function createGnssDataConversions(
 								desiredMode: "Auto",
 								actualMode: "Auto",
 								hdop: 1.5,
-								vdop: 2.0,
-								tdop: 1.0,
 							},
 						},
 					],

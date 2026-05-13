@@ -10,12 +10,8 @@ import type {
 
 const API_PREFIX = "/plugins/signalk-nmea2000-emitter-cannon/api";
 
-// UNAUTHORIZED is added defensively for future use even though the route
-// handlers never emit it: the admin middleware installed above intercepts
-// unauthenticated requests before they reach a handler.
 const HTTP_STATUS = {
 	BAD_REQUEST: 400,
-	UNAUTHORIZED: 401,
 } as const;
 
 /**

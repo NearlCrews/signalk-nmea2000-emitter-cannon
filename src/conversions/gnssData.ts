@@ -40,18 +40,16 @@ export default function createGnssDataConversions(
 			],
 			timeouts: [DEFAULT_DATA_TIMEOUT_MS, DEFAULT_DATA_TIMEOUT_MS],
 			callback: ((hdop: number | null, pdop: number | null) => {
-				// Only send if we have at least one DOP value.
-				if (hdop == null && pdop == null) {
-					return [];
-				}
-
 				const hdopValue = isValidNumber(hdop) ? hdop : undefined;
-				// PDOP has no direct field in PGN 129539; we accept the path so
-				// the conversion fires when only PDOP is published, but the wire
-				// payload still carries hdop (when available) and leaves vdop/tdop
-				// as "data not available".
+				// PDOP has no direct field in PGN 129539; we still subscribe so a
+				// PDOP-only publisher triggers the conversion, but the wire payload
+				// carries only hdop (when available); vdop/tdop stay undefined and
+				// canboatjs encodes them as the spec's "data not available" sentinel.
 				const pdopValid = isValidNumber(pdop);
 
+				// Skip emission when neither DOP is usable. Single guard replaces
+				// an earlier double-check; the prior "both null" early-return was
+				// redundant with this combined hdopValue/pdopValid test.
 				if (hdopValue === undefined && !pdopValid) {
 					return [];
 				}
@@ -107,6 +105,23 @@ export default function createGnssDataConversions(
 						},
 					],
 				},
+				{
+					// PDOP-only: the conversion fires (the subscription matched
+					// positionDilution) and emits a frame with hdop omitted.
+					input: [null, 2.5],
+					expected: [
+						{
+							prio: 2,
+							pgn: 129539,
+							dst: 255,
+							fields: {
+								sid: N2K_SID_ZERO,
+								desiredMode: "Auto",
+								actualMode: "Auto",
+							},
+						},
+					],
+				},
 			],
 		},
 
@@ -134,8 +149,9 @@ export default function createGnssDataConversions(
 					return [];
 				}
 
-				const reportedCount = isValidNumber(satellitesInView?.count)
-					? (satellitesInView?.count as number)
+				const compositeCount = satellitesInView?.count;
+				const reportedCount = isValidNumber(compositeCount)
+					? compositeCount
 					: isValidNumber(satelliteCount)
 						? satelliteCount
 						: list.length;

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { StatusSnapshot } from "../../api/types.js";
+import { errMessage } from "../../utils/errorUtils.js";
 import { PLUGIN_API_BASE } from "../api-base";
 
 const URL = `${PLUGIN_API_BASE}/status`;
@@ -26,7 +27,7 @@ export function useStatus(): {
 					setError(null);
 				}
 			} catch (e) {
-				if (!cancelled.current) setError(String(e));
+				if (!cancelled.current) setError(errMessage(e));
 			}
 		}
 

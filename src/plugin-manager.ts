@@ -1,6 +1,6 @@
 import type { Context, NormalizedDelta, Path } from "@signalk/server-api";
 import { debounceTime, Subject } from "rxjs";
-import { metaFor, validateExtrasMetaKeys } from "./api/extras-meta.js";
+import { findOrphanExtrasMetaKeys, metaFor } from "./api/extras-meta.js";
 import type { ConversionMetadata } from "./api/types.js";
 import { migrateLegacyConfig } from "./config/migrate.js";
 import {
@@ -186,7 +186,9 @@ export class PluginManager {
 		// optionKeys. A drift here breaks the per-card editor in the panel
 		// without breaking runtime emission, so log via app.debug rather than
 		// failing loud at startup.
-		validateExtrasMetaKeys(this.app, this.conversions);
+		for (const orphan of findOrphanExtrasMetaKeys(this.conversions)) {
+			this.app.debug(`extras-meta has entry for unknown optionKey '${orphan}'`);
+		}
 
 		// Wait for NMEA 2000 output to be available before emitting. start()
 		// owns the add/remove of this listener (the constructor only captures

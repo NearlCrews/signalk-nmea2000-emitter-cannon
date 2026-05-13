@@ -7,6 +7,7 @@ import type {
 } from "../api/types.js";
 import { Categories } from "../config/enums";
 import type { ConversionCategory } from "../config/enums.js";
+import { errMessage } from "../utils/errorUtils.js";
 import { PLUGIN_API_BASE } from "./api-base";
 import CategoryTabs from "./components/CategoryTabs";
 import ConversionCard from "./components/ConversionCard";
@@ -49,7 +50,7 @@ export default function PluginConfigurationPanel({
 				setMetaError(null);
 			})
 			.catch((e) => {
-				setMetaError(String(e));
+				setMetaError(errMessage(e));
 			});
 	}, []);
 

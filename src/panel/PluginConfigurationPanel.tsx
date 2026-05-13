@@ -21,6 +21,7 @@ import { S } from "./styles";
 
 interface Props {
 	configuration: unknown;
+	/** Fire-and-forget; returns void. Do not await. The next `configuration` prop reflects the saved state. */
 	save: (configuration: unknown) => void;
 }
 

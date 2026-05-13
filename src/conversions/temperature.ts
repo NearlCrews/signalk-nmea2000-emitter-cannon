@@ -165,6 +165,9 @@ export const temperatures: TemperatureInfo[] = [
 		option: "APPARENTWINDCHILL",
 	},
 	{
+		// environment.outside.theoreticalWindChillTemperature is in the v1
+		// SK schema but rarely published in practice. Most providers only
+		// emit apparentWindChillTemperature. Kept for spec completeness.
 		n2kSource: "Theoretical Wind Chill Temperature",
 		source: "environment.outside.theoreticalWindChillTemperature",
 		instance: 109,

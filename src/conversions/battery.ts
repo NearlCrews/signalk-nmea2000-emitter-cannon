@@ -50,7 +50,6 @@ export default function createBatteryConversion(
 		"capacity.remaining",
 		"capacity.actual",
 		"capacity.stateOfHealth",
-		"voltage.ripple",
 	];
 
 	return {
@@ -93,12 +92,10 @@ export default function createBatteryConversion(
 						capacityRemaining: number | null,
 						capacityActual: number | null,
 						stateOfHealth: number | null,
-						ripple: number | null,
 					) => {
 						const validVoltage = toValidNumber(voltage);
 						const validCurrent = toValidNumber(current);
 						const validTemperature = toValidNumber(temperature);
-						const validRipple = toValidNumber(ripple);
 						const validStateOfCharge = toValidNumber(stateOfCharge);
 						const validTimeRemaining = toValidNumber(timeRemaining);
 						const validStateOfHealth = toValidNumber(stateOfHealth);
@@ -168,9 +165,11 @@ export default function createBatteryConversion(
 						if (
 							validStateOfCharge !== null ||
 							resolvedTimeRemaining !== null ||
-							validStateOfHealth !== null ||
-							validRipple !== null
+							validStateOfHealth !== null
 						) {
+							// rippleVoltage stays out of the wire payload: there is no
+							// canonical Signal K source for ripple voltage, so canboatjs
+							// encodes the omission as the spec's "data not available".
 							res.push({
 								prio: N2K_DEFAULT_PRIORITY,
 								pgn: 127506,
@@ -187,7 +186,6 @@ export default function createBatteryConversion(
 											? validStateOfHealth * PERCENT_SCALE
 											: undefined,
 									timeRemaining: resolvedTimeRemaining ?? undefined,
-									rippleVoltage: validRipple ?? undefined,
 								},
 							});
 						}
@@ -198,7 +196,7 @@ export default function createBatteryConversion(
 					tests: [
 						// Explicit timeRemaining provided
 						{
-							input: [12.5, 23.1, 290.15, 0.93, 12340, 378000, null, 0.6, 12.0],
+							input: [12.5, 23.1, 290.15, 0.93, 12340, 378000, null, 0.6],
 							expected: [
 								{
 									prio: 2,
@@ -221,14 +219,13 @@ export default function createBatteryConversion(
 										stateOfCharge: 93,
 										stateOfHealth: 60,
 										timeRemaining: "03:26:00",
-										rippleVoltage: 12,
 									},
 								},
 							],
 						},
 						// Derived timeRemaining from remaining C and positive discharge current
 						{
-							input: [13.63, 20, 293.5, 1.0, null, 378000, null, null, null],
+							input: [13.63, 20, 293.5, 1.0, null, 378000, null, null],
 							expected: [
 								{
 									prio: 2,
@@ -256,7 +253,7 @@ export default function createBatteryConversion(
 						},
 						// Derived timeRemaining with negative-discharge convention (current = -20 A)
 						{
-							input: [13.63, -20, 293.5, 1.0, null, 378000, null, null, null],
+							input: [13.63, -20, 293.5, 1.0, null, 378000, null, null],
 							expected: [
 								{
 									prio: 2,
@@ -284,7 +281,7 @@ export default function createBatteryConversion(
 						},
 						// Low current (below threshold): omit timeRemaining field (no meaningful value)
 						{
-							input: [13.26, 0, 292.9, 0.99, null, 376056, 378000, null, null],
+							input: [13.26, 0, 292.9, 0.99, null, 376056, 378000, null],
 							expected: [
 								{
 									prio: 2,

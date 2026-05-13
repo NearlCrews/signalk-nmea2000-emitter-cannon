@@ -77,6 +77,19 @@ const BUCKET_PREFIX = {
 	PROCESS: "process",
 } as const;
 
+/**
+ * Per-conversion runtime state assembled in getStatusSnapshot() and tracked
+ * incrementally as emits and errors happen. Indexed by parent optionKey:
+ * sub-conversions (BATTERY[0], BATTERY[1], ...) aggregate under the bare
+ * parent key (BATTERY), which is exactly what the panel renders per card.
+ */
+interface PerConversionState {
+	enabled: boolean;
+	emitCount: number;
+	lastEmitAt?: number;
+	latestError?: { message: string; emittedAt: number };
+}
+
 // Not idempotent on a reused instance: stop() clears this.conversions and
 // removes the constructor-installed listener, so a subsequent start() on the
 // same instance is a no-op. index.ts always discards the instance after stop()
@@ -134,37 +147,34 @@ export class PluginManager {
 			lastEmittedAt?: number;
 		}
 	> = new Map();
-	/**
-	 * Secondary index: most recent emitted error per parent optionKey. Updated
-	 * synchronously from throttledError() at the bucket-write site so
-	 * getStatusSnapshot() can look up the latest error in O(1) instead of
-	 * scanning every entry in `errorBuckets` for each conversion (the
-	 * pre-cleanup behaviour was O(conversions * buckets) per /api/status hit).
-	 *
-	 * Indexed by parent optionKey: sub-conversion buckets like
-	 * `callback:BATTERY[0]:stream` aggregate under `BATTERY`. Cleared in
-	 * start() and stop() alongside the other status-bookkeeping state.
-	 */
-	private latestErrorByParent: Map<
-		string,
-		{ message: string; emittedAt: number }
-	> = new Map();
 	private static readonly ERROR_THROTTLE_S = 60;
 	private static readonly ERROR_THROTTLE_MS =
 		PluginManager.ERROR_THROTTLE_S * 1000;
 	/**
-	 * Set of optionKeys that were enabled during the most recent start(). Kept
-	 * in parallel with `lastEnabledCount` so getStatusSnapshot() can mark each
-	 * conversion as enabled/disabled without re-running the start() sweep.
+	 * Single per-conversion state record indexed by parent optionKey. Replaces
+	 * four earlier Maps (emitCounts, lastEmitAt, lastEnabledKeys, and the
+	 * latestErrorByParent secondary index) that all walked the same key space.
+	 *
+	 * Sub-conversion buckets like `BATTERY[0]` and per-source error keys like
+	 * `callback:BATTERY[0]:stream` aggregate under the bare parent optionKey
+	 * (BATTERY), which is what the panel displays per card. Entries are
+	 * lazily created by recordEmit() and throttledError() and pre-seeded for
+	 * every enabled conversion in start() so the snapshot's `enabled` flag is
+	 * O(1).
+	 *
+	 * Cleared at start() and stop() boundaries alongside errorBuckets.
 	 */
-	private lastEnabledKeys: Set<string> | null = null;
-	/**
-	 * Per-conversion emit counters and timestamps for status reporting. Updated
-	 * via recordEmit() in the per-message emit path: one Map.set per emit.
-	 */
-	private emitCounts: Map<string, number> = new Map();
-	private lastEmitAt: Map<string, number> = new Map();
+	private perConversion: Map<string, PerConversionState> = new Map();
 	private startTime = Date.now();
+
+	private getPerConversionState(key: string): PerConversionState {
+		let entry = this.perConversion.get(key);
+		if (entry === undefined) {
+			entry = { enabled: false, emitCount: 0 };
+			this.perConversion.set(key, entry);
+		}
+		return entry;
+	}
 
 	constructor(app: SignalKApp, plugin: SignalKPlugin) {
 		this.app = app;
@@ -239,8 +249,8 @@ export class PluginManager {
 	 * error appends a suppressed-count summary. Keeps a misbehaving callback
 	 * from flooding the server log on every delta.
 	 *
-	 * Also updates latestErrorByParent so getStatusSnapshot() can surface the
-	 * most recent error per parent optionKey in O(1).
+	 * Also updates perConversion[parent].latestError so getStatusSnapshot()
+	 * can surface the most recent error per parent optionKey in O(1).
 	 */
 	private throttledError(key: string, message: string): void {
 		const now = Date.now();
@@ -260,7 +270,10 @@ export class PluginManager {
 			});
 			const parent = this.parentKeyFromBucketKey(key);
 			if (parent !== undefined) {
-				this.latestErrorByParent.set(parent, { message, emittedAt: now });
+				this.getPerConversionState(parent).latestError = {
+					message,
+					emittedAt: now,
+				};
 			}
 			return;
 		}
@@ -295,7 +308,7 @@ export class PluginManager {
 		try {
 			this.stopped = false;
 			this.errorBuckets.clear();
-			this.latestErrorByParent.clear();
+			this.perConversion.clear();
 			// Re-attach the nmea2000OutAvailable listener every start: stop()
 			// removes it, and start() may run multiple times across a single
 			// plugin instance (disable -> enable from the admin UI). Removing
@@ -346,14 +359,13 @@ export class PluginManager {
 			);
 
 			let enabledCount = 0;
-			const enabledKeys = new Set<string>();
 			for (const conv of this.conversions) {
 				const convOptions = options.conversions[conv.optionKey];
 				const isEnabled =
 					isConversionOptions(convOptions) && convOptions.enabled === true;
 				if (!isEnabled) continue;
 				enabledCount++;
-				enabledKeys.add(conv.optionKey);
+				this.getPerConversionState(conv.optionKey).enabled = true;
 
 				this.app.debug(`Enabling: ${this.moduleLabel(conv)}`);
 
@@ -411,7 +423,6 @@ export class PluginManager {
 			}
 
 			this.lastEnabledCount = enabledCount;
-			this.lastEnabledKeys = enabledKeys;
 			if (enabledCount === 0) {
 				this.app.setPluginStatus(
 					"No conversions enabled. Enable at least one in plugin settings.",
@@ -509,11 +520,8 @@ export class PluginManager {
 		// reports an accurate enabled count and does not inherit suppressed
 		// errors from the prior cycle.
 		this.lastEnabledCount = 0;
-		this.lastEnabledKeys = null;
-		safe("clear emitCounts", () => this.emitCounts.clear());
-		safe("clear lastEmitAt", () => this.lastEmitAt.clear());
+		safe("clear perConversion", () => this.perConversion.clear());
 		safe("clear errorBuckets", () => this.errorBuckets.clear());
-		safe("clear latestErrorByParent", () => this.latestErrorByParent.clear());
 
 		// Wipe ExponentialSmoother state across plugin restarts.
 		safe("clearAllSmoothers", () => clearAllSmoothers());
@@ -860,7 +868,8 @@ export class PluginManager {
 
 	/**
 	 * Per-message hook called immediately after the `nmea2000JsonOut` emit.
-	 * One Map.set per emit; no other allocations on the parent-key path.
+	 * One Map.get+set per emit; the state object is mutated in place so the
+	 * counter/timestamp update is two field writes, no additional allocation.
 	 *
 	 * Sub-conversion keys arrive here as `PARENT[idx]` (e.g. `BATTERY[0]`,
 	 * `BATTERY[1]`); the bracket suffix is stripped so all sub-conversions of
@@ -876,8 +885,9 @@ export class PluginManager {
 	private recordEmit(key: string): void {
 		const bracket = key.indexOf("[");
 		const parent = bracket === -1 ? key : key.substring(0, bracket);
-		this.emitCounts.set(parent, (this.emitCounts.get(parent) ?? 0) + 1);
-		this.lastEmitAt.set(parent, Date.now());
+		const entry = this.getPerConversionState(parent);
+		entry.emitCount++;
+		entry.lastEmitAt = Date.now();
 	}
 
 	/**
@@ -887,29 +897,27 @@ export class PluginManager {
 	 */
 	public getStatusSnapshot(): import("./api/types.js").StatusSnapshot {
 		const now = Date.now();
-		const enabledKeys = this.lastEnabledKeys ?? new Set<string>();
 		const perConversion: import("./api/types.js").PerConversionStatus[] =
 			this.conversions.map((c) => {
-				const lastEmitAt = this.lastEmitAt.get(c.optionKey);
-				// latestErrorByParent is the O(1) secondary index over
-				// errorBuckets, maintained by throttledError() at the bucket-
-				// write site. Sub-conversions (BATTERY[0], BATTERY[1], ...) and
-				// per-source variants (stream/delta/subscription/timer/resend)
-				// all aggregate under the parent optionKey, which is exactly
-				// what the panel displays per card.
-				const latest = this.latestErrorByParent.get(c.optionKey);
+				// All four pieces of per-conversion state (enabled, emit counter,
+				// last-emit timestamp, latest error) live in one record indexed
+				// by parent optionKey. Sub-conversions (BATTERY[0], BATTERY[1],
+				// ...) and per-source error keys (stream/delta/subscription/
+				// timer/resend) aggregate under the bare parent key, which is
+				// exactly what the panel displays per card.
+				const state = this.perConversion.get(c.optionKey);
 				const entry: import("./api/types.js").PerConversionStatus = {
 					key: c.optionKey,
 					title: c.title,
-					enabled: enabledKeys.has(c.optionKey),
-					emitCount: this.emitCounts.get(c.optionKey) ?? 0,
+					enabled: state?.enabled ?? false,
+					emitCount: state?.emitCount ?? 0,
 				};
-				if (lastEmitAt !== undefined) {
-					entry.lastEmitMs = now - lastEmitAt;
+				if (state?.lastEmitAt !== undefined) {
+					entry.lastEmitMs = now - state.lastEmitAt;
 				}
-				if (latest !== undefined) {
-					entry.lastErrorMessage = latest.message;
-					entry.lastErrorAgeMs = now - latest.emittedAt;
+				if (state?.latestError !== undefined) {
+					entry.lastErrorMessage = state.latestError.message;
+					entry.lastErrorAgeMs = now - state.latestError.emittedAt;
 				}
 				return entry;
 			});

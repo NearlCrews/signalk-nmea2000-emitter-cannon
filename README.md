@@ -76,7 +76,7 @@ See [CHANGELOG.md](CHANGELOG.md) for the full list.
 
 ## Installation
 
-Prerequisites: Node.js 22.12+, Signal K server 2.20+, and a supported NMEA 2000 gateway (e.g. Actisense NGT-1, Yacht Devices YDNR-02) connected so emitted messages reach the bus.
+Prerequisites: Node.js 22.12+, Signal K server **2.27.0+** (older versions ship an admin UI that cannot load the federated React config panel introduced in v1.5.4; conversions still run, but the plugin's settings page will not), and a supported NMEA 2000 gateway (e.g. Actisense NGT-1, Yacht Devices YDNR-02) connected so emitted messages reach the bus.
 
 ### Via Signal K AppStore
 
@@ -526,8 +526,8 @@ Expected. The yellow bar in the Signal K admin dashboard's **Plugins activity** 
 
 ## Compatibility
 
-- **Signal K Server**: 2.20.0+
-- **`@signalk/server-admin-ui`**: 2.27.0+ (bundled with signalk-server >= 2.x; required for the federated React panel)
+- **Signal K Server**: 2.27.0+ (the v1.5.4 federated React config panel requires admin UI 2.27+; conversions run on older servers but the settings page does not load)
+- **`@signalk/server-admin-ui`**: 2.27.0+ (bundled with signalk-server 2.27+; required for the federated React panel)
 - **Node.js**: 22.12+
 - **CanboatJS**: 3.13.0+
 - **`@signalk/server-api`**: 2.10.2+

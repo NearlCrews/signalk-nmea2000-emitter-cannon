@@ -11,6 +11,7 @@ type Action =
 	| { type: "setSource"; key: string; path: string; source: string }
 	| { type: "setExtras"; key: string; extras: Record<string, unknown> }
 	| { type: "setGlobalResend"; ms: number }
+	| { type: "setAdvisor"; advisor: Config["advisor"] }
 	| { type: "applyPreset"; preset: PresetTag; meta: ConversionMetadata[] }
 	| { type: "discard"; config: Config };
 
@@ -46,6 +47,8 @@ function reducer(state: Config, action: Action): Config {
 			return action.config;
 		case "setGlobalResend":
 			return { ...state, globalResendInterval: action.ms };
+		case "setAdvisor":
+			return { ...state, advisor: action.advisor };
 		case "setEnabled": {
 			const { state: s, entry } = withEntry(state, action.key);
 			return {
@@ -133,4 +136,12 @@ export function useConfig(initial: unknown): {
 		setSavedState(state);
 	}, [state]);
 	return { state, savedState, dispatch, markSaved };
+}
+
+// Test-only: exercises the setAdvisor reducer case without a React render.
+export function __advisorReducerForTest(
+	state: Config,
+	advisor: Config["advisor"],
+): Config {
+	return reducer(state, { type: "setAdvisor", advisor });
 }

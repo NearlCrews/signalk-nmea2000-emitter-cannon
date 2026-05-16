@@ -319,3 +319,9 @@ S.btnRejectActive = {
 	background: "#991b1b",
 	color: "#fff",
 };
+S.advisorSubhead = {
+	fontSize: 13,
+	fontWeight: 600,
+	color: "#333",
+	margin: "12px 0 4px",
+};

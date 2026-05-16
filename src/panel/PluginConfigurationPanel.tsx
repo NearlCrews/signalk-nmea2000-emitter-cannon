@@ -105,7 +105,10 @@ export default function PluginConfigurationPanel({
 		<div className="skn-panel" style={S.root}>
 			<style>{FOCUS_STYLE}</style>
 			<StatusDashboard status={status} />
-			<AdvisorPanel />
+			<AdvisorPanel
+				advisor={state.advisor}
+				onChangeAdvisor={(advisor) => dispatch({ type: "setAdvisor", advisor })}
+			/>
 			{error ? (
 				<div role="alert" style={S.errorBanner}>
 					<span>Status: {error}. The next poll will retry automatically.</span>

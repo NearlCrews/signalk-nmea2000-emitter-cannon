@@ -1,5 +1,6 @@
 import { Value } from "@sinclair/typebox/value";
 import { describe, expect, it } from "vitest";
+import { DEFAULT_ADVISOR_CONFIG } from "../config/enums.js";
 import { RootConfig } from "../config/schema.js";
 
 describe("advisor config block", () => {
@@ -34,5 +35,14 @@ describe("advisor config block", () => {
 			},
 		};
 		expect(Value.Check(RootConfig, Value.Default(RootConfig, cfg))).toBe(true);
+	});
+});
+
+describe("DEFAULT_ADVISOR_CONFIG", () => {
+	it("matches the schema-materialized advisor defaults", () => {
+		const filled = Value.Default(RootConfig, { conversions: {} }) as {
+			advisor: unknown;
+		};
+		expect(DEFAULT_ADVISOR_CONFIG).toEqual(filled.advisor);
 	});
 });

@@ -1,16 +1,25 @@
 import type * as React from "react";
 import { useState } from "react";
 import type { ApplyDecision } from "../../../advisor/types.js";
+import type { Config } from "../../../config/schema.js";
 import { useAdvisor } from "../../hooks/useAdvisor.js";
 import { S } from "../../styles";
+import AdvisorSettings from "./AdvisorSettings.js";
 import ReviewResultView from "./ReviewResultView.js";
 
+interface Props {
+	advisor: Config["advisor"];
+	onChangeAdvisor: (next: NonNullable<Config["advisor"]>) => void;
+}
+
 /**
- * Collapsible "Config Advisor" section. Phase 1: a Review now button, the
- * result, and per-item Approve/Reject. Settings rows (OpenRouter, QuestDB,
- * schedule) arrive in later phases.
+ * Collapsible "Config Advisor" section: the settings form, a Review now
+ * button, the result, and per-item Approve/Reject.
  */
-export default function AdvisorPanel(): React.ReactElement {
+export default function AdvisorPanel({
+	advisor,
+	onChangeAdvisor,
+}: Props): React.ReactElement {
 	const [open, setOpen] = useState(false);
 	const { state, review, apply } = useAdvisor();
 	const [decisions, setDecisions] = useState<Record<string, boolean>>({});
@@ -39,6 +48,7 @@ export default function AdvisorPanel(): React.ReactElement {
 			</button>
 			{open && (
 				<div style={S.advisorBody}>
+					<AdvisorSettings value={advisor} onChange={onChangeAdvisor} />
 					<p style={S.advisorIntro}>
 						Reviews the Signal K paths your boat publishes and recommends which
 						conversions to enable. Enables apply automatically; anything that

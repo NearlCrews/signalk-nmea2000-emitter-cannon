@@ -30,13 +30,50 @@ export const Conversion = Type.Composite([
 	}),
 ]);
 
+// Each nested object carries its own `default: {}` so Value.Default
+// recurses into it: an absent advisor block materializes as `{}`, then
+// each child object materializes, then the leaf per-field defaults fill.
+const AdvisorConfig = Type.Object({
+	enabled: Type.Boolean({ default: false }),
+	openRouter: Type.Object(
+		{
+			enabled: Type.Boolean({ default: false }),
+			apiKey: Type.String({ default: "" }),
+			model: Type.String({ default: "anthropic/claude-haiku-4.5" }),
+			maxCallsPerDay: Type.Integer({ default: 25, minimum: 0 }),
+		},
+		{ default: {} },
+	),
+	questdb: Type.Object(
+		{
+			enabled: Type.Boolean({ default: false }),
+			url: Type.String({ default: "http://localhost:9000" }),
+			lookbackDays: Type.Integer({ default: 7, minimum: 1 }),
+		},
+		{ default: {} },
+	),
+	schedule: Type.Object(
+		{
+			periodic: Type.Boolean({ default: false }),
+			intervalDays: Type.Integer({ default: 7, minimum: 1 }),
+		},
+		{ default: {} },
+	),
+});
+
 export const RootConfig = Type.Object({
 	globalResendInterval: Type.Integer({
 		default: DEFAULT_GLOBAL_RESEND_SECONDS,
 		minimum: 0,
 	}),
 	conversions: Type.Record(Type.String(), Conversion, { default: {} }),
+	// Type.Optional with a `default: {}` so Value.Default materializes an
+	// absent advisor block; the per-field defaults then fill the inside.
+	advisor: Type.Optional(
+		Type.Object({ ...AdvisorConfig.properties }, { default: {} }),
+	),
 });
 
 export type Config = Static<typeof RootConfig>;
 export type ConversionConfig = Static<typeof Conversion>;
+export type AdvisorConfigType = Static<typeof AdvisorConfig>;

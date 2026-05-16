@@ -1,4 +1,3 @@
-// src/advisor/inventory.ts
 import {
 	enumerateActivePaths,
 	enumerateSourcesForPath,

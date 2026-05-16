@@ -1,8 +1,9 @@
-// src/panel/hooks/useAdvisor.ts
 import { useCallback, useState } from "react";
 import type { ApplyDecision, ReviewResult } from "../../advisor/types.js";
+import { errMessage } from "../../utils/errorUtils.js";
+import { PLUGIN_API_BASE } from "../api-base";
 
-const BASE = "/plugins/signalk-nmea2000-emitter-cannon/api/advisor";
+const BASE = `${PLUGIN_API_BASE}/advisor`;
 
 interface AdvisorState {
 	result: ReviewResult | null;
@@ -30,7 +31,7 @@ export function useAdvisor(): {
 			const body = (await res.json()) as { result: ReviewResult };
 			setState({ result: body.result, loading: false, error: null });
 		} catch (err) {
-			setState((s) => ({ ...s, loading: false, error: String(err) }));
+			setState((s) => ({ ...s, loading: false, error: errMessage(err) }));
 		}
 	}, []);
 
@@ -44,7 +45,7 @@ export function useAdvisor(): {
 			});
 			if (!res.ok) throw new Error(`HTTP ${res.status}`);
 		} catch (err) {
-			setState((s) => ({ ...s, error: String(err) }));
+			setState((s) => ({ ...s, error: errMessage(err) }));
 		} finally {
 			setState((s) => ({ ...s, loading: false }));
 		}

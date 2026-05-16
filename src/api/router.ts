@@ -2,6 +2,7 @@ import type { IRouter, Request, Response } from "express";
 import type { Advisor } from "../advisor/advisor.js";
 import type { PluginManager } from "../plugin-manager.js";
 import type { SignalKApp } from "../types/index.js";
+import { errMessage } from "../utils/errorUtils.js";
 import { enumerateActivePaths, enumerateSourcesForPath } from "./discovery.js";
 import type {
 	AdvisorApplyRequest,
@@ -100,61 +101,64 @@ export function createApiRouter(
 			res.json(body);
 		});
 
-		router.post("/api/advisor/review", async (_req: Request, res: Response) => {
-			const advisor = getAdvisor();
-			if (!advisor) {
-				res
-					.status(HTTP_STATUS.SERVICE_UNAVAILABLE)
-					.json({ error: "advisor unavailable" });
-				return;
-			}
-			try {
+		// Every advisor route shares the same envelope: 503 when no advisor is
+		// wired, and any thrown error coerced to a 503. advisorRoute factors
+		// that out so each handler is just its happy path.
+		const advisorRoute =
+			(
+				handler: (
+					advisor: Advisor,
+					req: Request,
+					res: Response,
+				) => Promise<void> | void,
+			) =>
+			async (req: Request, res: Response): Promise<void> => {
+				const advisor = getAdvisor();
+				if (!advisor) {
+					res
+						.status(HTTP_STATUS.SERVICE_UNAVAILABLE)
+						.json({ error: "advisor unavailable" });
+					return;
+				}
+				try {
+					await handler(advisor, req, res);
+				} catch (err) {
+					app.error(`advisor request failed: ${errMessage(err)}`);
+					res
+						.status(HTTP_STATUS.SERVICE_UNAVAILABLE)
+						.json({ error: "request failed" });
+				}
+			};
+
+		router.post(
+			"/api/advisor/review",
+			advisorRoute(async (advisor, _req, res) => {
 				res.json({ result: await advisor.runReview() });
-			} catch (err) {
-				app.error(`advisor review failed: ${String(err)}`);
-				res
-					.status(HTTP_STATUS.SERVICE_UNAVAILABLE)
-					.json({ error: "review failed" });
-			}
-		});
+			}),
+		);
 
-		router.get("/api/advisor/pending", (_req: Request, res: Response) => {
-			const advisor = getAdvisor();
-			if (!advisor) {
-				res
-					.status(HTTP_STATUS.SERVICE_UNAVAILABLE)
-					.json({ error: "advisor unavailable" });
-				return;
-			}
-			res.json({
-				result: {
-					ranAt: "",
-					autoApplied: [],
-					pending: advisor.getPending(),
-					notes: [],
-				},
-			});
-		});
+		router.get(
+			"/api/advisor/pending",
+			advisorRoute((advisor, _req, res) => {
+				res.json({
+					result: {
+						ranAt: "",
+						autoApplied: [],
+						pending: advisor.getPending(),
+						notes: [],
+					},
+				});
+			}),
+		);
 
-		router.post("/api/advisor/apply", async (req: Request, res: Response) => {
-			const advisor = getAdvisor();
-			if (!advisor) {
-				res
-					.status(HTTP_STATUS.SERVICE_UNAVAILABLE)
-					.json({ error: "advisor unavailable" });
-				return;
-			}
-			const body = req.body as Partial<AdvisorApplyRequest>;
-			const decisions = Array.isArray(body.decisions) ? body.decisions : [];
-			try {
+		router.post(
+			"/api/advisor/apply",
+			advisorRoute(async (advisor, req, res) => {
+				const body = (req.body ?? {}) as Partial<AdvisorApplyRequest>;
+				const decisions = Array.isArray(body.decisions) ? body.decisions : [];
 				await advisor.applyReview(decisions);
 				res.json({ applied: decisions.filter((d) => d.approved).length });
-			} catch (err) {
-				app.error(`advisor apply failed: ${String(err)}`);
-				res
-					.status(HTTP_STATUS.SERVICE_UNAVAILABLE)
-					.json({ error: "apply failed" });
-			}
-		});
+			}),
+		);
 	};
 }

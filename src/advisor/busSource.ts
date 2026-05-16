@@ -1,5 +1,3 @@
-// src/advisor/busSource.ts
-
 // canboatjs labels NMEA 2000 sources as "<bus>.<address>" where the bus id
 // commonly contains "can" and the address is numeric, e.g. "can0.123" or
 // "n2k-on-ve.can-socket.45". The plugin's own AIS echo guard uses the bare

@@ -59,11 +59,22 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 	// conversions to enable. It outlives PluginManager restarts: getMetadata
 	// reads through the `pluginManager` closure so it always sees the current
 	// instance (or an empty catalog before the first start).
+	//
+	// readPluginOptions returns the full options envelope
+	// (`{ enabled, configuration, enableLogging, enableDebug }`); the plugin
+	// config lives under `.configuration`. savePluginOptions takes the bare
+	// config and re-wraps it as `.configuration`, so writeConfig passes the
+	// unwrapped object straight through.
 	const advisor = new Advisor({
 		buildInventory: () => buildLiveInventory(app),
 		getMetadata: () =>
 			pluginManager ? pluginManager.getConversionMetadata() : [],
-		readConfig: () => app.readPluginOptions() as Record<string, unknown>,
+		readConfig: () => {
+			const envelope = app.readPluginOptions() as {
+				configuration?: Record<string, unknown>;
+			};
+			return envelope.configuration ?? {};
+		},
 		writeConfig: (config) => {
 			app.savePluginOptions(config, (err) => {
 				if (err) app.error(`advisor config save failed: ${errMessage(err)}`);
@@ -71,9 +82,6 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 		},
 	});
 
-	// Closure form: the router always sees the current PluginManager instance.
-	// PluginManager is recreated on every start/stop cycle, so a direct
-	// reference would go stale after the first restart.
 	plugin.registerWithRouter = createApiRouter(
 		app,
 		() => pluginManager,

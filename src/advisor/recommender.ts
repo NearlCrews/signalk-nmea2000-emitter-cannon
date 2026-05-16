@@ -1,4 +1,3 @@
-// src/advisor/recommender.ts
 import type { ConversionMetadata } from "../api/types.js";
 import type { ConversionConfig } from "../config/schema.js";
 import { isN2KSource } from "./busSource.js";

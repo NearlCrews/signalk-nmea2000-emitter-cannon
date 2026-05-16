@@ -1,9 +1,10 @@
-// src/panel/components/advisor/ReviewResultView.tsx
 import type * as React from "react";
 import type { ReviewResult } from "../../../advisor/types.js";
+import { S } from "../../styles";
 
 interface Props {
 	result: ReviewResult;
+	decisions: Record<string, boolean>;
 	onApprove: (optionKey: string) => void;
 	onReject: (optionKey: string) => void;
 }
@@ -11,56 +12,72 @@ interface Props {
 /** Renders one ReviewResult: the auto-applied list and the pending list. */
 export default function ReviewResultView({
 	result,
+	decisions,
 	onApprove,
 	onReject,
 }: Props): React.ReactElement {
+	const empty = result.autoApplied.length === 0 && result.pending.length === 0;
+
 	return (
 		<div>
-			<div
-				style={{
-					background: "#e8f5e9",
-					padding: 8,
-					borderRadius: 4,
-					marginBottom: 8,
-				}}
-			>
-				<strong>Auto-applied ({result.autoApplied.length})</strong>
-				<ul>
-					{result.autoApplied.map((r) => (
-						<li key={r.optionKey} title={r.reason}>
-							Enabled {r.optionKey}
-						</li>
-					))}
-				</ul>
-			</div>
-			<div style={{ background: "#fff8e1", padding: 8, borderRadius: 4 }}>
-				<strong>Needs your approval ({result.pending.length})</strong>
-				{result.pending.map((r) => (
-					<div
-						key={r.optionKey}
-						style={{
-							borderTop: "1px solid #e0d8b0",
-							paddingTop: 6,
-							marginTop: 6,
-						}}
-					>
-						<div>
-							<strong>
-								{r.action === "disable" ? "Disable" : r.action} {r.optionKey}
-							</strong>{" "}
-							<button type="button" onClick={() => onApprove(r.optionKey)}>
-								Approve
-							</button>{" "}
-							<button type="button" onClick={() => onReject(r.optionKey)}>
-								Reject
-							</button>
-						</div>
-						<div style={{ fontSize: "90%", opacity: 0.8 }}>{r.reason}</div>
-					</div>
-				))}
-			</div>
+			{result.autoApplied.length > 0 && (
+				<div style={S.advisorAutoBlock}>
+					<span style={S.advisorBlockTitle}>
+						Auto-applied ({result.autoApplied.length})
+					</span>
+					<ul style={S.advisorList}>
+						{result.autoApplied.map((r) => (
+							<li key={r.optionKey} title={r.reason}>
+								Enabled {r.optionKey}
+							</li>
+						))}
+					</ul>
+				</div>
+			)}
+			{result.pending.length > 0 && (
+				<div style={S.advisorPendingBlock}>
+					<span style={S.advisorBlockTitle}>
+						Needs your approval ({result.pending.length})
+					</span>
+					{result.pending.map((r) => {
+						const choice = decisions[r.optionKey];
+						return (
+							<div key={r.optionKey} style={S.advisorRow}>
+								<div style={S.advisorRowHead}>
+									<span style={S.advisorRowKey}>
+										{r.action === "disable" ? "Disable" : r.action}{" "}
+										{r.optionKey}
+									</span>
+									<button
+										type="button"
+										style={choice === true ? S.btnApproveActive : S.btnApprove}
+										aria-pressed={choice === true}
+										onClick={() => onApprove(r.optionKey)}
+									>
+										Approve
+									</button>
+									<button
+										type="button"
+										style={choice === false ? S.btnRejectActive : S.btnReject}
+										aria-pressed={choice === false}
+										onClick={() => onReject(r.optionKey)}
+									>
+										Reject
+									</button>
+								</div>
+								<div style={S.advisorReason}>{r.reason}</div>
+							</div>
+						);
+					})}
+				</div>
+			)}
+			{empty && (
+				<div style={S.advisorNote}>
+					No changes recommended. Every live path is already handled.
+				</div>
+			)}
 			{result.notes.map((n) => (
-				<div key={n} style={{ fontSize: "90%", opacity: 0.7, marginTop: 6 }}>
+				<div key={n} style={S.advisorNote}>
 					{n}
 				</div>
 			))}

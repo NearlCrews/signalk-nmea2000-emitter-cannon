@@ -1,8 +1,8 @@
-// src/panel/components/advisor/AdvisorPanel.tsx
 import type * as React from "react";
 import { useState } from "react";
 import type { ApplyDecision } from "../../../advisor/types.js";
 import { useAdvisor } from "../../hooks/useAdvisor.js";
+import { S } from "../../styles";
 import ReviewResultView from "./ReviewResultView.js";
 
 /**
@@ -27,59 +27,46 @@ export default function AdvisorPanel(): React.ReactElement {
 	};
 
 	return (
-		<section
-			style={{
-				border: "1px solid #ccc",
-				borderRadius: 4,
-				margin: "12px 0",
-				padding: 8,
-			}}
-		>
+		<section style={S.card}>
 			<button
 				type="button"
+				style={S.advisorToggle}
+				aria-expanded={open}
 				onClick={() => setOpen((o) => !o)}
-				style={{
-					background: "none",
-					border: "none",
-					font: "inherit",
-					cursor: "pointer",
-					fontWeight: "bold",
-				}}
 			>
-				{open ? "v" : ">"} Config Advisor
+				<span style={S.advisorCaret}>{open ? "▾" : "▸"}</span>
+				Config Advisor
 			</button>
 			{open && (
-				<div style={{ marginTop: 8 }}>
-					<p style={{ fontSize: "90%", opacity: 0.8 }}>
+				<div style={S.advisorBody}>
+					<p style={S.advisorIntro}>
 						Reviews the Signal K paths your boat publishes and recommends which
 						conversions to enable. Enables apply automatically; anything that
 						disables a conversion waits for your approval.
 					</p>
 					<button
 						type="button"
+						style={S.btnPrimary}
 						onClick={() => void review()}
 						disabled={state.loading}
 					>
 						{state.loading ? "Reviewing..." : "Review now"}
 					</button>
 					{state.error && (
-						<div role="alert" style={{ color: "#b00", marginTop: 6 }}>
-							{state.error}
+						<div role="alert" style={S.errorBanner}>
+							<span>{state.error}</span>
 						</div>
 					)}
 					{state.result && (
-						<div style={{ marginTop: 8 }}>
+						<div style={S.advisorBody}>
 							<ReviewResultView
 								result={state.result}
+								decisions={decisions}
 								onApprove={(k) => decide(k, true)}
 								onReject={(k) => decide(k, false)}
 							/>
 							{state.result.pending.length > 0 && (
-								<button
-									type="button"
-									onClick={applyAll}
-									style={{ marginTop: 8 }}
-								>
+								<button type="button" style={S.btnSecondary} onClick={applyAll}>
 									Apply approved
 								</button>
 							)}

@@ -230,3 +230,92 @@ S.chip = {
 	fontWeight: 500,
 	cursor: "pointer",
 };
+
+// Config Advisor section. The section reuses S.card; these cover the
+// collapsible header, the auto-applied / pending result blocks, and the
+// per-item approve/reject controls, all on the existing panel palette.
+S.advisorToggle = {
+	display: "flex",
+	alignItems: "center",
+	gap: 8,
+	width: "100%",
+	background: "none",
+	border: "none",
+	padding: 0,
+	fontSize: 14,
+	fontWeight: 600,
+	color: "#333",
+	cursor: "pointer",
+	textAlign: "left",
+};
+S.advisorCaret = { color: "#9ca3af", fontSize: 11 };
+S.advisorBody = { marginTop: 10 };
+S.advisorIntro = {
+	fontSize: 12,
+	color: "#555",
+	lineHeight: 1.45,
+	margin: "0 0 10px",
+};
+S.advisorAutoBlock = {
+	background: "#ecfdf5",
+	border: "1px solid #a7f3d0",
+	borderRadius: 8,
+	padding: "10px 12px",
+	marginBottom: 8,
+};
+S.advisorPendingBlock = {
+	background: "#fffbeb",
+	border: "1px solid #fde68a",
+	borderRadius: 8,
+	padding: "10px 12px",
+	marginBottom: 8,
+};
+S.advisorBlockTitle = { fontWeight: 600, fontSize: 13, color: "#333" };
+S.advisorList = { margin: "6px 0 0", paddingLeft: 18, fontSize: 13 };
+S.advisorRow = {
+	borderTop: "1px solid #fde68a",
+	paddingTop: 8,
+	marginTop: 8,
+};
+S.advisorRowHead = {
+	display: "flex",
+	alignItems: "center",
+	gap: 8,
+	flexWrap: "wrap",
+};
+S.advisorRowKey = { fontWeight: 600, fontSize: 13, flex: 1 };
+S.advisorReason = {
+	fontSize: 12,
+	color: "#555",
+	lineHeight: 1.45,
+	marginTop: 4,
+};
+S.advisorNote = { fontSize: 12, color: "#777", marginTop: 6 };
+S.btnApprove = {
+	padding: "3px 10px",
+	borderRadius: 6,
+	fontSize: 12,
+	cursor: "pointer",
+	background: "#fff",
+	color: "#065f46",
+	border: "1px solid #6ee7b7",
+};
+S.btnApproveActive = {
+	...S.btnApprove,
+	background: "#065f46",
+	color: "#fff",
+};
+S.btnReject = {
+	padding: "3px 10px",
+	borderRadius: 6,
+	fontSize: 12,
+	cursor: "pointer",
+	background: "#fff",
+	color: "#991b1b",
+	border: "1px solid #fca5a5",
+};
+S.btnRejectActive = {
+	...S.btnReject,
+	background: "#991b1b",
+	color: "#fff",
+};

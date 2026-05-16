@@ -1,6 +1,6 @@
-# Contributing to Signal K NMEA2000 Emitter Cannon
+# Contributing to Signal K NMEA 2000 Emitter Cannon
 
-Thank you for your interest in contributing to Signal K NMEA2000 Emitter Cannon! This document provides guidelines and instructions for contributing to the project.
+Thank you for your interest in contributing to Signal K NMEA 2000 Emitter Cannon! This document provides guidelines and instructions for contributing to the project.
 
 ## Code of Conduct
 
@@ -219,4 +219,4 @@ This project builds upon [signalk-to-nmea2000](https://github.com/SignalK/signal
 
 ---
 
-Thank you for contributing to Signal K NMEA2000 Emitter Cannon! 🚢
+Thank you for contributing to Signal K NMEA 2000 Emitter Cannon! 🚢

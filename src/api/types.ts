@@ -41,6 +41,15 @@ export type ExtrasMeta =
 	| ({ type: "field" } & ExtrasFieldSpec)
 	| { type: "fields"; fields: ExtrasFieldSpec[] };
 
+// Set when a conversion's PGN has been superseded by a more modern NMEA 2000
+// PGN. `supersededBy` names the modern PGN to prefer; `note` explains the
+// deprecation. Purely informational: a legacy PGN often stays enabled for
+// older MFDs that read only the old frame.
+export interface ConversionLifecycle {
+	supersededBy: string;
+	note: string;
+}
+
 export interface ConversionMetadata {
 	key: string;
 	title: string;
@@ -65,6 +74,8 @@ export interface ConversionMetadata {
 		garmin: "consumes" | "ignores" | "partial";
 		note?: string;
 	};
+	// Drives the "Legacy" badge on the card. See ConversionLifecycle.
+	legacy?: ConversionLifecycle;
 }
 
 export interface ConversionsResponse {

@@ -134,13 +134,34 @@ S.cardPurpose = {
 	lineHeight: 1.45,
 	margin: "2px 0 6px",
 };
-S.cardCompatibility = {
+// Shared shape for the small inline card badges (compatibility, legacy).
+// Each badge spreads this and adds its own colors and modifiers.
+const badgeBase: CSSProperties = {
 	display: "inline-block",
 	fontSize: 11,
 	padding: "1px 6px",
 	borderRadius: 4,
+};
+S.cardCompatibility = {
+	...badgeBase,
 	marginLeft: 8,
 	fontWeight: 500,
+};
+S.cardLegacy = {
+	...badgeBase,
+	marginLeft: 8,
+	fontWeight: 500,
+	background: "#ede9fe",
+	color: "#5b21b6",
+	border: "1px solid #c4b5fd",
+	cursor: "help",
+};
+// Applied to each PGN number inside the card title so the existing
+// "(PGN NNNNN)" text is itself the per-PGN tooltip target.
+S.pgnHover = {
+	cursor: "help",
+	textDecoration: "underline dotted",
+	textUnderlineOffset: 2,
 };
 S.helpHint = {
 	fontSize: 12,

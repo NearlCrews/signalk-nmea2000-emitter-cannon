@@ -1,10 +1,13 @@
 import type * as React from "react";
+import { Fragment } from "react";
+import { pgnSummaryFor } from "../../api/pgnSummaries.js";
 import type {
 	ConversionMetadata,
 	PerConversionStatus,
 } from "../../api/types.js";
 import type { ConversionConfig } from "../../config/schema.js";
 import { pathToPropName } from "../../utils/pathUtils";
+import { splitPgnTitle } from "../../utils/pgnUtils.js";
 import { S } from "../styles";
 import ExtrasEditor from "./ExtrasEditor";
 import SourceField from "./SourceField";
@@ -52,6 +55,27 @@ const COMPATIBILITY_STYLES: Record<
 	},
 };
 
+// Render the title with each PGN number wrapped as an individual hover
+// target. Falls back to the raw title when it has no "(PGN[s] ...)" run.
+function renderCardTitle(title: string): React.ReactNode {
+	const parts = splitPgnTitle(title);
+	if (!parts) return title;
+	return (
+		<>
+			{parts.prefix}
+			{parts.pgns.map((p, i) => (
+				<Fragment key={p}>
+					{i > 0 ? ", " : null}
+					<span style={S.pgnHover} title={pgnSummaryFor(p)}>
+						{p}
+					</span>
+				</Fragment>
+			))}
+			{parts.suffix}
+		</>
+	);
+}
+
 export default function ConversionCard(props: Props): React.ReactElement {
 	const cfg = props.config ?? EMPTY_CFG;
 	const compatibility = props.meta.compatibility;
@@ -69,7 +93,7 @@ export default function ConversionCard(props: Props): React.ReactElement {
 					onChange={(e) => props.onSetEnabled(e.target.checked)}
 					aria-label={`Enable ${props.meta.title}`}
 				/>
-				<h3 style={S.cardTitle}>{props.meta.title}</h3>
+				<h3 style={S.cardTitle}>{renderCardTitle(props.meta.title)}</h3>
 				{compatStyle ? (
 					<span
 						style={{
@@ -81,6 +105,14 @@ export default function ConversionCard(props: Props): React.ReactElement {
 						title={compatibility?.note}
 					>
 						{compatStyle.label}
+					</span>
+				) : null}
+				{props.meta.legacy ? (
+					<span
+						style={S.cardLegacy}
+						title={`${props.meta.legacy.note} Superseded by ${props.meta.legacy.supersededBy}.`}
+					>
+						Legacy
 					</span>
 				) : null}
 				{props.status?.emitCount ? (

@@ -1,4 +1,4 @@
-# NMEA2000 Emitter Cannon
+# NMEA 2000 Emitter Cannon
 
 [![npm version](https://img.shields.io/npm/v/signalk-nmea2000-emitter-cannon.svg)](https://www.npmjs.com/package/signalk-nmea2000-emitter-cannon)
 [![npm downloads](https://img.shields.io/npm/dm/signalk-nmea2000-emitter-cannon.svg)](https://www.npmjs.com/package/signalk-nmea2000-emitter-cannon)
@@ -9,7 +9,13 @@ A Signal K plugin that converts Signal K deltas into NMEA 2000 messages. 45 conv
 
 > Built on the foundation of [`signalk-to-nmea2000`](https://github.com/SignalK/signalk-to-nmea2000) by Scott Bender and the Signal K community.
 
-## What's new in 1.5.5
+## What's new in 1.5.6
+
+- **"NMEA 2000" brand spacing.** The plugin display name and all user-facing text now use "NMEA 2000" with a space, matching NMEA's branding. The npm package id and the Signal K event names are unchanged.
+- **Admin panel: "Legacy" badge.** A conversion whose PGN is superseded by a modern one (PGN 130310, 130311, 130312) now shows a "Legacy" badge with a hover note explaining the modern replacement. Informational only: keep legacy PGNs enabled for older MFDs that read just the old frame.
+- **Admin panel: per-PGN tooltips.** Hovering a PGN number in a conversion card's title shows a one-line plain-language summary of what that message carries.
+
+### What's new in 1.5.5
 
 - **PGN 126464 (Transmit/Receive PGN List) is now actually delivered.** The conversion was triggered off a non-canonical Signal K path that no provider emits, so it never ran and Garmin chartplotters fell back to passive PGN-by-PGN discovery. It is now a 300 s timer; the advertised transmit list is derived at load from every conversion's title, so it can no longer drift out of sync.
 - **PGN 126993 (Heartbeat) added to the advertised transmit list.** Without it Garmin chartplotters age the plugin out of their Network panel after ~30 s, the likely cause of the "device appears briefly then disappears" pattern.
@@ -23,7 +29,7 @@ A Signal K plugin that converts Signal K deltas into NMEA 2000 messages. 45 conv
 - **Notification ping-pong loop fixed.** signalk-server's built-in notifications API was bouncing our enriched (alertId-injected) deltas back through the subscription pipeline, where the plugin re-processed them and re-emitted, locking into a ~48 Hz round-trip per active alert. The plugin now publishes the assigned alertId to Signal K exactly once per path (on first allocation) and treats subsequent bounces as no-ops.
 - **Per-alert emit throttle.** The conversion callback fires for every `notifications.*` delta on the vessel, not just for the alert the delta carries. Some setups flood the namespace at 60+ Hz with `state="normal"` updates, which used to multiply into ~100 PGN/s on the bus for a single active alert. PGN 126983 / 126985 are now rate-limited per alert: emit immediately on state / ack / silence / message change, otherwise rebroadcast at most once per second (matching the NMEA 2000 transmission cadence for PGN 126983). Bus traffic drops from ~100 PGN/s to 2 PGN/s per active alert.
 - **`$source: notifications.*` no longer shows `.XX` suffix.** When the plugin re-emits a notification to publish the assigned alertId, the delta now sets `$source` directly so signalk-schema's `getSourceId()` fallback (which appends the literal string `.XX` when no `canName` / `src` / `talker` is present) is skipped.
-- **Display name simplified** to "NMEA2000 Emitter Cannon" in `Plugin.name`, `package.json` `displayName`, and README references. The npm package id stays `signalk-nmea2000-emitter-cannon`.
+- **Display name simplified** to "NMEA 2000 Emitter Cannon" in `Plugin.name`, `package.json` `displayName`, and README references. The npm package id stays `signalk-nmea2000-emitter-cannon`.
 
 ### What's new in 1.5.3
 
@@ -79,7 +85,7 @@ See [CHANGELOG.md](CHANGELOG.md) for the full list.
 - **Source filtering** per conversion: pick a specific `$source` label or accept any
 - **Resend timers** per conversion plus a global default, so MFDs that expect periodic re-broadcast still see the data when the underlying source is quiet
 - **Single ESM bundle** via esbuild (as of v1.5.4, ~464 KB); the only runtime dependency is RxJS (`@signalk/server-api` is type-only)
-- **Embedded canboatjs round-trip tests** on every conversion module (as of v1.5.5, 56 tests across 9 files)
+- **Embedded canboatjs round-trip tests** on every conversion module (as of v1.5.6, 57 tests across 9 files)
 - **`$source: 'NMEA2000'` echo-guard** on AIS conversions to avoid re-emitting received AIS deltas back onto the bus
 - **Apache 2.0**, pure ESM, Node 22.12+
 
@@ -110,7 +116,7 @@ ln -s "$(pwd)" ~/.signalk/node_modules/signalk-nmea2000-emitter-cannon
 
 ## Configuration
 
-In the Signal K admin UI, open Server, then Plugin Config, find "NMEA2000 Emitter Cannon", and enable the plugin. The plugin ships a React-based config panel that the Signal K admin loads via webpack 5 Module Federation (the `signalk-plugin-configurator` keyword in `package.json` opts the plugin into the federated panel surface).
+In the Signal K admin UI, open Server, then Plugin Config, find "NMEA 2000 Emitter Cannon", and enable the plugin. The plugin ships a React-based config panel that the Signal K admin loads via webpack 5 Module Federation (the `signalk-plugin-configurator` keyword in `package.json` opts the plugin into the federated panel surface).
 
 The panel has four areas:
 
@@ -295,7 +301,7 @@ Signal K deltas (any plugin or device) --> Signal K server bus
                                                 |
                                           app.emit("nmea2000JsonOut", { prio, pgn, dst, fields })
                                                 |
-                                          Signal K NMEA2000 provider (e.g. canbus-canboatjs)
+                                          Signal K NMEA 2000 provider (e.g. canbus-canboatjs)
                                                 |
                                           NMEA 2000 bus --> Garmin / Raymarine / B&G displays
 ```
@@ -380,7 +386,7 @@ src/
 │   ├── depth.ts          # Depth conversion
 │   ├── battery.ts        # Battery status conversion
 │   └── ...               # 42 more conversions
-└── test/                 # Vitest test suites (56 tests, 9 files)
+└── test/                 # Vitest test suites (57 tests, 9 files)
     ├── index.test.ts        # All conversion-module test cases (round-trip via canboatjs)
     ├── api.test.ts          # /api/* router endpoints + admin auth
     ├── discovery.test.ts    # Path / source enumeration
@@ -521,7 +527,7 @@ Signal K reloads plugin configuration when you save it, but some changes (for ex
 
 ### Plugin won't start
 
-- Check the Signal K log for `NMEA2000 Emitter Cannon` errors.
+- Check the Signal K log for `NMEA 2000 Emitter Cannon` errors.
 - A common cause is the NMEA 2000 output channel not being initialized: the plugin waits for the `nmea2000OutAvailable` event before emitting messages, so confirm your NMEA 2000 gateway is connected and Signal K has registered an output provider.
 
 ### AIS appears to not filter own vessel
@@ -557,7 +563,7 @@ Expected. The yellow bar in the Signal K admin dashboard's **Plugins activity** 
 - RxJS 7.8 (only runtime dependency that ships in the bundle)
 - esbuild 0.28 for bundling
 - Biome 2.4 for linting / formatting
-- Vitest 4.1 for testing (as of v1.5.5, 56 tests across 9 files with canboatjs round-trip validation)
+- Vitest 4.1 for testing (as of v1.5.6, 57 tests across 9 files with canboatjs round-trip validation)
 - Husky + lint-staged for pre-commit hooks
 
 ## License

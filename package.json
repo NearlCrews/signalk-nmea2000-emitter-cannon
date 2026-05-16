@@ -1,6 +1,6 @@
 {
 	"name": "signalk-nmea2000-emitter-cannon",
-	"version": "1.5.5",
+	"version": "1.5.6",
 	"description": "Signal K server plugin to convert Signal K to NMEA 2000 with Garmin PGN specification alignment and canboatjs framework compatibility",
 	"main": "dist/index.js",
 	"type": "module",
@@ -44,7 +44,7 @@
 	"signalk-plugin-enabled-by-default": false,
 	"signalk": {
 		"appIcon": "./assets/icons/icon-192.png",
-		"displayName": "NMEA2000 Emitter Cannon"
+		"displayName": "NMEA 2000 Emitter Cannon"
 	},
 	"author": {
 		"name": "Nearl Crews",

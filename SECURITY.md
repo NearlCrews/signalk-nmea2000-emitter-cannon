@@ -11,7 +11,7 @@ We actively support the following versions with security updates:
 
 ## Reporting a Vulnerability
 
-We take the security of Signal K NMEA2000 Emitter Cannon seriously. If you discover a security vulnerability, please follow these guidelines:
+We take the security of Signal K NMEA 2000 Emitter Cannon seriously. If you discover a security vulnerability, please follow these guidelines:
 
 ### How to Report
 
@@ -116,4 +116,4 @@ For security concerns, please contact:
 - Issues: https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/issues
 - Security: Use GitHub Security Advisory feature
 
-Thank you for helping keep Signal K NMEA2000 Emitter Cannon secure!
+Thank you for helping keep Signal K NMEA 2000 Emitter Cannon secure!

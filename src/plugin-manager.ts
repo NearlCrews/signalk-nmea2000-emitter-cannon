@@ -4,6 +4,7 @@ import {
 	compatibilityFor,
 	descriptionFor,
 	findOrphanExtrasMetaKeys,
+	lifecycleFor,
 	metaFor,
 	purposeFor,
 } from "./api/extras-meta.js";
@@ -959,6 +960,10 @@ export class PluginManager {
 			const compatibility = compatibilityFor(c.optionKey);
 			if (compatibility !== undefined) {
 				entry.compatibility = compatibility;
+			}
+			const legacy = lifecycleFor(c.optionKey);
+			if (legacy !== undefined) {
+				entry.legacy = legacy;
 			}
 			return entry;
 		});

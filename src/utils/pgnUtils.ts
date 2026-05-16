@@ -25,3 +25,34 @@ export function extractPgnsFromTitle(title: string): string[] {
 		.map((s) => s.trim())
 		.filter(Boolean);
 }
+
+// Captures a title as the text before the PGN run, the comma-separated PGN
+// numbers, and the text after. Lets the panel wrap each PGN number as its
+// own hover target without reconstructing the title (which would otherwise
+// re-derive the "PGN" vs "PGNs" word and could drift from the original).
+const PGN_TITLE_PARTS_REGEX = /^(.*\(PGNs?\s+)([\d,\s]+)(\).*)$/;
+
+export interface SplitTitle {
+	prefix: string;
+	pgns: string[];
+	suffix: string;
+}
+
+/**
+ * Split a conversion title around its PGN run. Returns null when the title
+ * has no "(PGN[s] ...)" run, in which case callers render the title as-is.
+ */
+export function splitPgnTitle(title: string): SplitTitle | null {
+	const m = title.match(PGN_TITLE_PARTS_REGEX);
+	if (!m || m[1] === undefined || m[2] === undefined || m[3] === undefined) {
+		return null;
+	}
+	return {
+		prefix: m[1],
+		pgns: m[2]
+			.split(",")
+			.map((s) => s.trim())
+			.filter(Boolean),
+		suffix: m[3],
+	};
+}

@@ -1,5 +1,19 @@
 ## Change Log
 
+### v1.5.6 (2026/05/15) - Admin panel polish and NMEA 2000 brand spacing
+
+**Brand: "NMEA 2000" is now spelled with a space everywhere.**
+
+The plugin display name, description, README, and contributor docs used the no-space "NMEA2000" form in user-facing text. Every such string is now "NMEA 2000" to match NMEA's own branding. The npm package id (`signalk-nmea2000-emitter-cannon`) and the Signal K event identifiers (`nmea2000OutAvailable`, `nmea2000JsonOut`) are unchanged: those are protocol and identifier strings, not display text.
+
+**Admin panel: "Legacy" badge on superseded-PGN conversions.**
+
+A conversion whose PGN has a more modern replacement now carries a "Legacy" badge with a hover note naming the modern PGN. This covers PGN 130310 (Sea Temperature) and PGN 130311 (Environmental Parameters), both flagged obsolete in the NMEA 2000 spec, and PGN 130312 (Temperature), superseded by the extended-range PGN 130316. The badge is informational: a legacy PGN often stays enabled for older MFDs that read only the old frame.
+
+**Admin panel: per-PGN hover tooltips.**
+
+Each PGN number in a conversion card's title is now individually hoverable and shows a one-line plain-language summary of what that message carries, verified against canboat's PGN definitions. A build-time test guards against a conversion introducing a PGN with no summary. Test count is now 57.
+
 ### v1.5.5 (2026/05/15) - Garmin recognition and PGN 126464 correctness
 
 **Bug fix: PGN 126464 (Transmit/Receive PGN List) is now actually delivered.**
@@ -829,12 +843,12 @@ This release improves contributor experience and aligns with open source best pr
 
 ---
 
-### v1.0.0 (2025/10/11) - Initial Release as Signal K NMEA2000 Emitter Cannon
+### v1.0.0 (2025/10/11) - Initial Release as Signal K NMEA 2000 Emitter Cannon
 
 **Project Renamed**: Formerly known as sk-n2k-emitter, now released as signalk-nmea2000-emitter-cannon v1.0.0
 
 **About This Release**:
-This is a mature Signal K NMEA2000 plugin with 92% Garmin PGN coverage, built on the foundation of the original [signalk-to-nmea2000](https://github.com/SignalK/signalk-to-nmea2000) project by Scott Bender and the Signal K community. This enhanced version represents a complete modernization with TypeScript conversion, expanded PGN support, and production-ready reliability.
+This is a mature Signal K NMEA 2000 plugin with 92% Garmin PGN coverage, built on the foundation of the original [signalk-to-nmea2000](https://github.com/SignalK/signalk-to-nmea2000) project by Scott Bender and the Signal K community. This enhanced version represents a complete modernization with TypeScript conversion, expanded PGN support, and production-ready reliability.
 
 ---
 

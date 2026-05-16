@@ -1,5 +1,5 @@
 import type { ConversionModule } from "../types/index.js";
-import type { ExtrasMeta } from "./types.js";
+import type { ConversionLifecycle, ExtrasMeta } from "./types.js";
 
 const EXTRAS_BY_OPTION_KEY: Record<string, ExtrasMeta> = {
 	BATTERY: { type: "batteryMapping", minRows: 0 },
@@ -107,6 +107,42 @@ export function compatibilityFor(
 	return CONVERSION_COMPATIBILITY[optionKey];
 }
 
+// Per-optionKey legacy-PGN metadata. PGN 130312 (the TEMPERATURE_* keys) is
+// handled by prefix in lifecycleFor, not listed here, because it spans many
+// per-source optionKeys.
+export const CONVERSION_LIFECYCLE: Record<string, ConversionLifecycle> = {
+	// PGN 130310: canboat marks this "Environmental Parameters (obsolete)".
+	SEA_TEMP: {
+		supersededBy: "PGN 130316 (water temperature) and PGN 130314 (pressure)",
+		note: "PGN 130310 is obsolete in the NMEA 2000 spec and should no longer be generated. Enable only for older MFDs that read this combined frame and not the modern split PGNs.",
+	},
+	// PGN 130311: canboat notes it "should no longer be generated".
+	ENVIRONMENT_PARAMETERS: {
+		supersededBy: "PGN 130314 (Actual Pressure)",
+		note: "PGN 130311 is deprecated in the NMEA 2000 spec in favour of the dedicated PGNs 130312 to 130316. Enable only for older MFDs that read this frame.",
+	},
+};
+
+// PGN 130312 is a softer legacy case than 130310/130311: canboat does not
+// flag it obsolete, but PGN 130316 (Temperature, Extended Range) supersedes
+// it with wider range and resolution. Both are emitted by default.
+const TEMPERATURE_LEGACY: ConversionLifecycle = {
+	supersededBy: "PGN 130316 (the TEMPERATURE2_* conversions)",
+	note: "PGN 130312 is superseded by the extended-range PGN 130316. Both are emitted by default; disable this only if every MFD on the bus reads 130316.",
+};
+
+export function lifecycleFor(
+	optionKey: string,
+): ConversionLifecycle | undefined {
+	// TEMPERATURE_* keys emit the legacy PGN 130312. TEMPERATURE2_* keys emit
+	// the modern PGN 130316 and must not match: startsWith("TEMPERATURE_")
+	// already excludes them because "TEMPERATURE2_" differs at the "2".
+	if (optionKey.startsWith("TEMPERATURE_")) {
+		return TEMPERATURE_LEGACY;
+	}
+	return CONVERSION_LIFECYCLE[optionKey];
+}
+
 // Temperature instance editor: applies to every TEMPERATURE_* / TEMPERATURE2_* key.
 const TEMPERATURE_INSTANCE_META: ExtrasMeta = {
 	type: "field",
@@ -124,10 +160,13 @@ export function metaFor(conversion: ConversionModule): ExtrasMeta {
 }
 
 /**
- * Pure sanity check: every key in EXTRAS_BY_OPTION_KEY and
- * CONVERSION_DESCRIPTIONS must match a loaded conversion's optionKey. Returns
- * the list of orphaned keys for the caller to log via whatever channel it
- * prefers (debug, error, test harness).
+ * Pure sanity check: every literal optionKey used by the per-conversion
+ * metadata maps (EXTRAS_BY_OPTION_KEY, CONVERSION_DESCRIPTIONS,
+ * CONVERSION_PURPOSES, CONVERSION_COMPATIBILITY, CONVERSION_LIFECYCLE) must
+ * match a loaded conversion's optionKey. Returns the list of orphaned keys
+ * for the caller to log via whatever channel it prefers (debug, error, test
+ * harness). Prefix-matched entries (TEMPERATURE_*) are intentionally not
+ * checked here.
  */
 export function findOrphanExtrasMetaKeys(
 	loaded: readonly ConversionModule[],
@@ -138,6 +177,7 @@ export function findOrphanExtrasMetaKeys(
 		...Object.keys(CONVERSION_DESCRIPTIONS),
 		...Object.keys(CONVERSION_PURPOSES),
 		...Object.keys(CONVERSION_COMPATIBILITY),
+		...Object.keys(CONVERSION_LIFECYCLE),
 	]);
 	return [...checked].filter((key) => !loadedKeys.has(key));
 }

@@ -1,5 +1,6 @@
 import { FromPgn, pgnToActisenseSerialFormat } from "@canboat/canboatjs";
 import { beforeEach, describe, expect, it } from "vitest";
+import { PGN_SUMMARIES } from "../api/pgnSummaries.js";
 import { RootConfig } from "../config/schema.js";
 import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import { createConversionModules } from "../conversions/index.js";
@@ -10,6 +11,7 @@ import type {
 } from "../types/index.js";
 import { cleanN2KMessage, validateN2KMessage } from "../utils/messageUtils.js";
 import { isDefined } from "../utils/pathUtils.js";
+import { extractPgnsFromTitle } from "../utils/pgnUtils.js";
 import { validateN2KMessageStrict } from "./strictValidation.js";
 
 /**
@@ -81,6 +83,22 @@ describe("Conversion modules", () => {
 		// a test failure rather than a silent drop. Update this constant
 		// intentionally when adding or removing modules.
 		expect(conversions.length).toBe(74);
+	});
+
+	it("has a PGN summary for every emitted PGN", () => {
+		// The admin panel renders a hover tooltip per PGN chip from
+		// PGN_SUMMARIES. meta.pgns is derived from conversion titles, so a
+		// new conversion can introduce a PGN with no summary: this guards
+		// against that drift, mirroring findOrphanExtrasMetaKeys.
+		const missing = new Set<string>();
+		for (const conversion of conversions) {
+			for (const pgn of extractPgnsFromTitle(conversion.title)) {
+				if (PGN_SUMMARIES[Number(pgn)] === undefined) {
+					missing.add(pgn);
+				}
+			}
+		}
+		expect([...missing]).toEqual([]);
 	});
 
 	it("should have tests for every conversion", () => {

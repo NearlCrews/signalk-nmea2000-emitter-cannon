@@ -1,5 +1,21 @@
 ## Change Log
 
+<a id="v160"></a>
+
+### v1.6.0 (2026/05/16) - Config Advisor
+
+**New feature: the Config Advisor.**
+
+A new optional subsystem (`src/advisor/`) reviews the Signal K paths the vessel publishes and recommends which conversions to enable, so an operator no longer has to know which Signal K path maps to which PGN. It is dormant unless turned on and adds no work to the emit hot path.
+
+A deterministic recommender matches observed paths to conversions by each module's declared `keys`. Source-based bus detection skips a path whose `$source` is already an NMEA 2000 device, so the advisor never recommends a conversion that would echo bus data back onto the bus. The trust model is hybrid: a confident enable is auto-applied, while anything that disables a conversion is parked for explicit approval in the panel.
+
+Optional inputs extend the review. With QuestDB enabled, the advisor queries history (the `signalk`, `signalk_str`, and `signalk_position` tables) so paths that are not live right now are still considered, within a configurable look-back window. With an OpenRouter API key, each recommendation's explanation is rewritten into plain language via a strict JSON-schema structured-output call, bounded by a per-day budget; the recommender still owns which conversions are recommended. Every optional path degrades safely: a disabled or unreachable QuestDB, or any OpenRouter failure (no key, quota, network error, malformed response), falls back to the deterministic result plus a non-fatal note.
+
+A new collapsible "Config Advisor" panel section carries a settings sub-panel (master toggle, OpenRouter, QuestDB, scheduled review, every control with inline help), a "Review now" button, and the review result with per-item Approve/Reject. An optional periodic scheduler re-runs the review on a configurable interval. New admin-gated endpoints: `POST /api/advisor/review`, `POST /api/advisor/apply`, `GET /api/advisor/pending`, `GET /api/advisor/questdb-test`, `POST /api/advisor/test-key`.
+
+The whole feature is zero-new-dependency (the QuestDB and OpenRouter clients use the Node 22 global `fetch`). Test suite is now 105 tests across 13 files. The design spec and four phase plans live under `docs/superpowers/`.
+
 <a id="v157"></a>
 
 ### v1.5.7 (2026/05/16) - Notification crash fix and string-field clamping

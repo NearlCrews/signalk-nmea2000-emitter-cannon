@@ -208,6 +208,18 @@ Source discovery: `enumerateSourcesForPath` uses `app.getSelfPath(path)` because
 
 `PluginManager.recordEmit` aggregates per-conversion emit counters by stripping the `[N]` suffix used for sub-conversion bucket keys, so totals are reported under the parent `optionKey`. The `/api/status` snapshot walks all source-type bucket suffixes (delta, stream, subscription, timer) and matches both parent and sub-conversion key forms so a flaky sub-conversion still surfaces as an error indicator on the parent card.
 
+## Config Advisor (`src/advisor/`)
+
+Optional subsystem (added v1.6.0) that reviews observed Signal K paths and recommends which conversions to enable. It is dormant unless `advisor.enabled` is set and adds no work to the emit hot path. Design spec and the four phase plans are under `docs/superpowers/`.
+
+- `recommender.ts` is the deterministic core: it matches inventory paths to conversions by each module's declared `keys`. Pure, no app, no network. It owns the `action` (`enable` / `disable` / `keep`); the LLM never changes it.
+- `busSource.ts` `isN2KSource(label)` flags a `$source` already on the NMEA 2000 bus (trailing `.<digits>` or the bare `NMEA2000` echo-guard label). It errs toward classifying a source as N2K: a false positive only suppresses a recommendation, a false negative would recommend a conversion that echoes bus data.
+- `inventory.ts` builds the live `PathInventory` (reusing `discovery.ts`) and `mergeHistoric` folds in QuestDB history.
+- `questdb.ts` / `openrouter.ts` are zero-dependency HTTP clients (Node 22 global `fetch`). QuestDB and OpenRouter are both optional; every failure falls back to the deterministic result plus a `ReviewResult` note, never a throw.
+- `advisor.ts` `Advisor` orchestrates via an injected `AdvisorDeps` seam (testable without `SignalKApp`). `runReview` auto-applies confident enables and parks disables for approval; `applyReview` applies approved decisions.
+- `schedule.ts` `AdvisorScheduler` drives the optional periodic review; `index.ts` reconfigures it on every `startPlugin`.
+- The advisor writes config via `app.savePluginOptions` then calls `startPlugin` to reload, because `savePluginOptions` only writes the file. `readPluginOptions` returns the full options envelope, so the advisor's `readConfig` unwraps `.configuration`.
+
 ## Common Pitfalls
 
 1. **optionKey identity**: Each conversion module's `optionKey` is the key under `conversions: Record<string, ConversionConfig>` in the persisted config. It must be unique across modules and stable across releases (renaming silently strands users' saved settings). The TypeBox schema accepts any string key, so no separate registry entry is required.

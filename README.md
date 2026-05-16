@@ -13,17 +13,18 @@ plugins such as [`signalk-virtual-weather-sensors`](https://github.com/NearlCrew
 > Built on the foundation of [`signalk-to-nmea2000`](https://github.com/SignalK/signalk-to-nmea2000)
 > by Scott Bender and the Signal K community.
 
-## What's New in v1.5.7
+## What's New in v1.6.0
 
-v1.5.7 fixes two notification bugs. An over-long notification message could
-overflow the canboatjs 500-byte encoder buffer and crash signalk-server on
-every 1 Hz rebroadcast; alert text and the relayed AIS and route string fields
-are now clamped so no value can overflow. The `nominal` notification state, a
-valid "no alert" state that was previously emitted as a spurious "Caution"
-alert and Raymarine alarm, is now treated like `normal` and clears the alert.
+v1.6.0 adds the **Config Advisor**: an optional tool that reviews the Signal K
+paths your boat publishes and recommends which conversions to enable, so you
+do not have to know which path maps to which PGN. It works offline with
+built-in rules, can pull QuestDB history to catch gear that is not live right
+now, and, when an OpenRouter API key is supplied, explains each recommendation
+in plain language. Enables apply automatically; anything that would disable a
+conversion waits for your approval, and the review can run on a schedule.
 
-See the [v1.5.7 changelog entry](CHANGELOG.md#v157) and the
-[v1.5.7 release](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/releases/tag/v1.5.7).
+See the [v1.6.0 changelog entry](CHANGELOG.md#v160) and the
+[v1.6.0 release](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/releases/tag/v1.6.0).
 [Full release history](CHANGELOG.md).
 
 ## Features
@@ -40,8 +41,12 @@ See the [v1.5.7 changelog entry](CHANGELOG.md#v157) and the
   accept any
 - **Resend timers** per conversion plus a global default, so MFDs that expect
   periodic re-broadcast still see the data when the underlying source is quiet
+- **Config Advisor** (optional): reviews the Signal K paths your boat
+  publishes and recommends which conversions to enable, with optional QuestDB
+  history and OpenRouter-powered plain-language explanations
 - **Single ESM bundle** via esbuild; the only runtime dependency is RxJS
-- **Embedded canboatjs round-trip tests** on every conversion module (57 tests)
+- **Embedded canboatjs round-trip tests** on every conversion module, plus
+  advisor unit tests (105 tests across 13 files)
 - **`$source: 'NMEA2000'` echo-guard** on AIS conversions to avoid re-emitting
   received AIS deltas back onto the bus
 - **Apache 2.0**, pure ESM, Node 22.12+
@@ -80,16 +85,20 @@ ln -s "$(pwd)" ~/.signalk/node_modules/signalk-nmea2000-emitter-cannon
 In the Signal K admin UI, open **Server -> Plugin Config**, find "NMEA 2000
 Emitter Cannon", and enable the plugin. The plugin ships a React config panel
 that the Signal K admin loads via webpack 5 Module Federation. The panel has
-four areas:
+these areas:
 
 1. **Status dashboard**: NMEA 2000 output readiness, count of enabled vs total
    conversions, plus per-conversion emit counts and error badges.
-2. **Preset chips**: Basic Navigation, Engine Set, Full AIS, Environmental,
+2. **Config Advisor** (optional, collapsed by default): reviews the Signal K
+   paths your boat publishes and recommends which conversions to enable. Its
+   settings sub-panel covers OpenRouter, QuestDB history, and a periodic
+   review schedule, each control with inline help.
+3. **Preset chips**: Basic Navigation, Engine Set, Full AIS, Environmental,
    Raymarine. Click a chip to enable the tagged conversions in one action;
    presets are additive.
-3. **Global resend interval** (seconds): default cadence for every conversion
+4. **Global resend interval** (seconds): default cadence for every conversion
    whose own resend is 0. Default `5`.
-4. **Category tabs** (Navigation, Engine, Electrical, Tanks, Environment, AIS,
+5. **Category tabs** (Navigation, Engine, Electrical, Tanks, Environment, AIS,
    Comms, System), each showing per-conversion cards.
 
 Each conversion card exposes an **Enabled** toggle, a per-conversion **Resend**

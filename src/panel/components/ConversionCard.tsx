@@ -31,26 +31,28 @@ const EMPTY_CFG: ConversionConfig = {
 	extras: {},
 };
 
+// Compatibility badge colors reference theme tokens so the badge stays
+// readable in both light and dark host themes.
 const COMPATIBILITY_STYLES: Record<
 	"consumes" | "ignores" | "partial",
 	{ background: string; color: string; border: string; label: string }
 > = {
 	consumes: {
-		background: "#dcfce7",
-		color: "#166534",
-		border: "1px solid #86efac",
+		background: "var(--skn-success-bg)",
+		color: "var(--skn-success-fg)",
+		border: "1px solid var(--skn-success-border)",
 		label: "Garmin: displays",
 	},
 	partial: {
-		background: "#fef3c7",
-		color: "#78350f",
-		border: "1px solid #fbbf24",
+		background: "var(--skn-warn-bg)",
+		color: "var(--skn-warn-fg)",
+		border: "1px solid var(--skn-warn-border)",
 		label: "Garmin: partial",
 	},
 	ignores: {
-		background: "#f3f4f6",
-		color: "#374151",
-		border: "1px solid #d1d5db",
+		background: "var(--skn-surface-raised)",
+		color: "var(--skn-text-muted)",
+		border: "1px solid var(--skn-border)",
 		label: "Garmin: ignores",
 	},
 };
@@ -120,10 +122,12 @@ export default function ConversionCard(props: Props): React.ReactElement {
 				) : null}
 				{props.status?.lastErrorMessage ? (
 					<span
+						role="img"
+						aria-label={`Error: ${props.status.lastErrorMessage}`}
 						title={props.status.lastErrorMessage}
-						style={{ color: "#ef4444", fontSize: 12 }}
+						style={S.errorMark}
 					>
-						!
+						⚠
 					</span>
 				) : null}
 			</div>
@@ -131,21 +135,9 @@ export default function ConversionCard(props: Props): React.ReactElement {
 				<p style={S.cardPurpose}>{props.meta.purpose}</p>
 			) : null}
 			{props.meta.description ? (
-				<div
-					role="note"
-					style={{
-						background: "#fef3c7",
-						border: "1px solid #fbbf24",
-						borderRadius: 4,
-						color: "#78350f",
-						fontSize: 12,
-						lineHeight: 1.45,
-						margin: "4px 0 6px",
-						padding: "6px 8px",
-					}}
-				>
-					<span style={S.notePrefix} aria-hidden="true">
-						⚠ Note:
+				<div role="note" style={S.note}>
+					<span style={S.notePrefix}>
+						<span aria-hidden="true">⚠</span> Note:
 					</span>
 					{props.meta.description}
 				</div>

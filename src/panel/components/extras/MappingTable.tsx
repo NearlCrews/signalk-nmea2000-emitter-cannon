@@ -76,16 +76,12 @@ interface Props<T> {
 export default function MappingTable<T>(props: Props<T>): React.ReactElement {
 	return (
 		<div style={{ marginTop: 8 }}>
-			<div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
-				{props.title}
-			</div>
+			<div style={S.tableTitle}>{props.title}</div>
 			{props.helpText ? <div style={S.helpHint}>{props.helpText}</div> : null}
-			<div style={{ overflowX: "auto" }}>
-				<table
-					style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}
-				>
+			<div style={S.tableWrap}>
+				<table style={S.table}>
 					<thead>
-						<tr style={{ textAlign: "left", color: "#666" }}>
+						<tr style={S.tableHeadRow}>
 							{props.columns.map((c) => (
 								<th
 									key={c.header}
@@ -117,10 +113,10 @@ export default function MappingTable<T>(props: Props<T>): React.ReactElement {
 										)}
 									</td>
 								))}
-								<td>
+								<td style={{ padding: 6 }}>
 									<button
 										type="button"
-										style={S.btnDestructive}
+										style={S.btnDestructiveSm}
 										onClick={() =>
 											props.onChange(props.rows.filter((_, j) => j !== i))
 										}

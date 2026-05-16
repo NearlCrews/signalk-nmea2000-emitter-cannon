@@ -9,8 +9,8 @@ export default function StatusDashboard({
 }): React.ReactElement {
 	if (!status) {
 		return (
-			<div style={S.statusBar}>
-				<span style={{ ...S.dot, ...S.dotOff }} />
+			<div style={S.statusBar} role="status">
+				<span style={{ ...S.dot, ...S.dotOff }} aria-hidden="true" />
 				<span>Loading status...</span>
 			</div>
 		);
@@ -19,9 +19,10 @@ export default function StatusDashboard({
 	const dot = ready ? S.dotOk : S.dotWait;
 	const errors = status.perConversion.filter((c) => c.lastErrorMessage).length;
 	return (
-		<div style={S.statusBar}>
+		<div style={S.statusBar} role="status">
 			<span
 				style={{ ...S.dot, ...dot }}
+				aria-hidden="true"
 				title={ready ? "NMEA 2000 ready" : "Waiting for NMEA 2000 output"}
 			/>
 			<span>

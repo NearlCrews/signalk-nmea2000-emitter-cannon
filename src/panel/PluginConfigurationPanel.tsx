@@ -19,19 +19,7 @@ import StatusDashboard from "./components/StatusDashboard";
 import { useConfig } from "./hooks/useConfig";
 import { useSources } from "./hooks/useSources";
 import { useStatus } from "./hooks/useStatus";
-import { S } from "./styles";
-
-// Inline styles cannot express :focus-visible, so a small <style> block
-// gives form controls inside the federated panel a consistent focus ring
-// regardless of the host admin theme.
-const FOCUS_STYLE = `
-.skn-panel input:focus-visible,
-.skn-panel select:focus-visible,
-.skn-panel button:focus-visible {
-	outline: 2px solid #3b82f6;
-	outline-offset: 1px;
-}
-`;
+import { S, THEME_STYLE } from "./styles";
 
 interface Props {
 	configuration: unknown;
@@ -109,7 +97,7 @@ export default function PluginConfigurationPanel({
 
 	return (
 		<div className="skn-panel" style={S.root}>
-			<style>{FOCUS_STYLE}</style>
+			<style>{THEME_STYLE}</style>
 			<StatusDashboard status={status} />
 			<AdvisorPanel
 				advisor={state.advisor}
@@ -131,7 +119,9 @@ export default function PluginConfigurationPanel({
 				</div>
 			) : null}
 			{metaLoading && meta.length === 0 && !metaError ? (
-				<p style={{ color: "#666", fontSize: 13 }}>Loading conversions…</p>
+				<p role="status" style={S.loadingText}>
+					Loading conversions...
+				</p>
 			) : null}
 			<PresetChips
 				onApply={(p) => dispatch({ type: "applyPreset", preset: p, meta })}
@@ -141,26 +131,37 @@ export default function PluginConfigurationPanel({
 				onChange={(ms) => dispatch({ type: "setGlobalResend", ms })}
 			/>
 			<CategoryTabs active={tab} onChange={setTab} countsByCategory={counts} />
-			{visible.map((m) => (
-				<ConversionCard
-					key={m.key}
-					meta={m}
-					config={state.conversions[m.key]}
-					status={statusByKey.get(m.key)}
-					sourcesFor={sourcesFor}
-					ensureLoaded={ensureLoaded}
-					onSetEnabled={(e) =>
-						dispatch({ type: "setEnabled", key: m.key, enabled: e })
-					}
-					onSetResend={(ms) => dispatch({ type: "setResend", key: m.key, ms })}
-					onSetSource={(path, source) =>
-						dispatch({ type: "setSource", key: m.key, path, source })
-					}
-					onSetExtras={(extras) =>
-						dispatch({ type: "setExtras", key: m.key, extras })
-					}
-				/>
-			))}
+			<div
+				role="tabpanel"
+				id={`skn-panel-${tab}`}
+				aria-labelledby={`skn-tab-${tab}`}
+			>
+				{visible.length === 0 && !metaLoading ? (
+					<p style={S.loadingText}>No conversions in this category.</p>
+				) : null}
+				{visible.map((m) => (
+					<ConversionCard
+						key={m.key}
+						meta={m}
+						config={state.conversions[m.key]}
+						status={statusByKey.get(m.key)}
+						sourcesFor={sourcesFor}
+						ensureLoaded={ensureLoaded}
+						onSetEnabled={(e) =>
+							dispatch({ type: "setEnabled", key: m.key, enabled: e })
+						}
+						onSetResend={(ms) =>
+							dispatch({ type: "setResend", key: m.key, ms })
+						}
+						onSetSource={(path, source) =>
+							dispatch({ type: "setSource", key: m.key, path, source })
+						}
+						onSetExtras={(extras) =>
+							dispatch({ type: "setExtras", key: m.key, extras })
+						}
+					/>
+				))}
+			</div>
 			<FooterBar
 				dirty={dirty}
 				justSavedAt={justSavedAt}

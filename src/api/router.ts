@@ -167,5 +167,12 @@ export function createApiRouter(
 				res.json(await advisor.testQuestDB());
 			}),
 		);
+
+		router.post(
+			"/api/advisor/test-key",
+			advisorRoute(async (advisor, _req, res) => {
+				res.json(await advisor.testKey());
+			}),
+		);
 	};
 }

@@ -24,6 +24,16 @@ export interface AdvisorDeps {
 	fetchHistoric?: (url: string, lookbackDays: number) => Promise<HistoricPaths>;
 	/** Optional QuestDB reachability probe for the connectivity endpoint. */
 	probeQuestDB?: (url: string) => Promise<boolean>;
+	/** Optional OpenRouter rationale enrichment. Absent skips OpenRouter. */
+	enrichReasons?: (
+		openRouter: { apiKey: string; model: string },
+		recs: Recommendation[],
+	) => Promise<{ reasons: Map<string, string>; note?: string }>;
+	/** Optional OpenRouter key validation for the test-key endpoint. */
+	testKeyFn?: (openRouter: {
+		apiKey: string;
+		model: string;
+	}) => Promise<boolean>;
 }
 
 type ConversionMap = Record<string, ConversionConfig>;
@@ -64,6 +74,26 @@ export class Advisor {
 			currentConfig: conversions,
 		});
 
+		const openRouter = this.openRouterConfig(config);
+		if (openRouter && this.deps.enrichReasons) {
+			try {
+				const { reasons, note } = await this.deps.enrichReasons(
+					openRouter,
+					recs,
+				);
+				for (const r of recs) {
+					const enriched = reasons.get(r.optionKey);
+					if (enriched) r.reason = enriched;
+				}
+				if (note) notes.push(note);
+			} catch (err) {
+				const detail = err instanceof Error ? err.message : String(err);
+				notes.push(
+					`OpenRouter enrichment unavailable (${detail}); using built-in explanations.`,
+				);
+			}
+		}
+
 		const autoApplied = recs.filter((r) => r.action === "enable");
 		const pending = recs.filter((r) => r.action === "disable");
 		this.lastPending = pending;
@@ -95,6 +125,17 @@ export class Advisor {
 		const questdb = this.questdbConfig(this.deps.readConfig());
 		if (!questdb || !this.deps.probeQuestDB) return { ok: false };
 		return { ok: await this.deps.probeQuestDB(questdb.url) };
+	}
+
+	/** Validate the configured OpenRouter key. */
+	async testKey(): Promise<{ ok: boolean }> {
+		const openRouter = this.openRouterConfig(this.deps.readConfig());
+		if (!openRouter || !this.deps.testKeyFn) return { ok: false };
+		try {
+			return { ok: await this.deps.testKeyFn(openRouter) };
+		} catch {
+			return { ok: false };
+		}
 	}
 
 	/**
@@ -137,6 +178,19 @@ export class Advisor {
 			return null;
 		}
 		return { enabled: enabled === true, url, lookbackDays };
+	}
+
+	private openRouterConfig(
+		config: Record<string, unknown>,
+	): { apiKey: string; model: string } | null {
+		const advisor = config.advisor;
+		if (!advisor || typeof advisor !== "object") return null;
+		const o = (advisor as { openRouter?: unknown }).openRouter;
+		if (!o || typeof o !== "object") return null;
+		const { enabled, apiKey, model } = o as Record<string, unknown>;
+		if (enabled !== true) return null;
+		if (typeof apiKey !== "string" || apiKey.trim() === "") return null;
+		return { apiKey, model: typeof model === "string" ? model : "" };
 	}
 
 	private entryOf(map: ConversionMap, key: string): ConversionConfig {

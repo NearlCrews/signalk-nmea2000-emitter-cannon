@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { Advisor, type AdvisorDeps } from "../advisor/advisor.js";
+import { BudgetTracker } from "../advisor/budget.js";
 import { isN2KSource } from "../advisor/busSource.js";
 import { buildLiveInventory, mergeHistoric } from "../advisor/inventory.js";
+import { enrichRationales, OpenRouterClient } from "../advisor/openrouter.js";
 import { fetchHistoricPaths, QuestDBClient } from "../advisor/questdb.js";
 import { recommend } from "../advisor/recommender.js";
 import type { ConversionMetadata } from "../api/types.js";
@@ -405,5 +407,170 @@ describe("Advisor.runReview with QuestDB", () => {
 		});
 		const result = await new Advisor(deps).runReview();
 		expect(result.notes.some((n) => n.includes("QuestDB"))).toBe(true);
+	});
+});
+
+describe("BudgetTracker", () => {
+	it("allows calls up to the daily cap", () => {
+		const b = new BudgetTracker(2, () => new Date("2026-05-16T00:00:00Z"));
+		expect(b.canSpend()).toBe(true);
+		b.recordCall();
+		b.recordCall();
+		expect(b.canSpend()).toBe(false);
+	});
+
+	it("resets the count on a new UTC day", () => {
+		let day = "2026-05-16";
+		const b = new BudgetTracker(1, () => new Date(`${day}T12:00:00Z`));
+		b.recordCall();
+		expect(b.canSpend()).toBe(false);
+		day = "2026-05-17";
+		expect(b.canSpend()).toBe(true);
+	});
+
+	it("a zero cap blocks every call", () => {
+		const b = new BudgetTracker(0, () => new Date("2026-05-16T00:00:00Z"));
+		expect(b.canSpend()).toBe(false);
+	});
+});
+
+describe("OpenRouterClient", () => {
+	function fetchReturning(status: number, body: unknown): typeof fetch {
+		return (async () =>
+			({
+				ok: status >= 200 && status < 300,
+				status,
+				headers: new Headers(),
+				json: async () => body,
+			}) as Response) as typeof fetch;
+	}
+
+	const cfg = {
+		apiKey: "k",
+		model: "m",
+		baseUrl: "https://openrouter.ai/api/v1",
+	};
+
+	it("returns the message content on a 200", async () => {
+		const client = new OpenRouterClient(
+			cfg,
+			fetchReturning(200, {
+				choices: [{ message: { content: '{"ok":true}' } }],
+			}),
+		);
+		const text = await client.complete({ system: "s", user: "u" });
+		expect(text).toBe('{"ok":true}');
+	});
+
+	it("throws a terminal error on 401 without retrying", async () => {
+		let calls = 0;
+		const counting = (async () => {
+			calls += 1;
+			return {
+				ok: false,
+				status: 401,
+				headers: new Headers(),
+				json: async () => ({ error: { message: "bad key" } }),
+			} as Response;
+		}) as typeof fetch;
+		const client = new OpenRouterClient(cfg, counting);
+		await expect(client.complete({ system: "s", user: "u" })).rejects.toThrow();
+		expect(calls).toBe(1);
+	});
+});
+
+describe("enrichRationales", () => {
+	const recs = [
+		{
+			optionKey: "DEPTH",
+			action: "enable" as const,
+			currentlyEnabled: false,
+			matchedPaths: ["navigation.depth.belowTransducer"],
+			confidence: "high" as const,
+			origin: "live" as const,
+			reason: "deterministic reason",
+		},
+	];
+
+	it("maps a returned rationale onto its optionKey", async () => {
+		const client = {
+			complete: async () =>
+				JSON.stringify({
+					rationales: [{ optionKey: "DEPTH", reason: "clear reason" }],
+				}),
+		};
+		const out = await enrichRationales(client, recs);
+		expect(out.get("DEPTH")).toBe("clear reason");
+	});
+
+	it("drops an optionKey the model invented", async () => {
+		const client = {
+			complete: async () =>
+				JSON.stringify({
+					rationales: [{ optionKey: "MADE_UP", reason: "x" }],
+				}),
+		};
+		const out = await enrichRationales(client, recs);
+		expect(out.size).toBe(0);
+	});
+
+	it("returns an empty map on malformed JSON", async () => {
+		const client = { complete: async () => "not json" };
+		const out = await enrichRationales(client, recs);
+		expect(out.size).toBe(0);
+	});
+});
+
+describe("Advisor.runReview with OpenRouter", () => {
+	function openRouterDeps(
+		overrides: Partial<AdvisorDeps> = {},
+	): ReturnType<typeof advisorDeps> {
+		return advisorDeps({
+			readConfig: () => ({
+				conversions: {},
+				advisor: {
+					...DEFAULT_ADVISOR_CONFIG,
+					openRouter: {
+						...DEFAULT_ADVISOR_CONFIG.openRouter,
+						enabled: true,
+						apiKey: "k",
+					},
+				},
+			}),
+			...overrides,
+		});
+	}
+
+	it("overwrites reasons with enriched text", async () => {
+		const deps = openRouterDeps({
+			enrichReasons: async () => ({
+				reasons: new Map([["DEPTH", "enriched reason"]]),
+			}),
+		});
+		const result = await new Advisor(deps).runReview();
+		expect(result.autoApplied[0]?.reason).toBe("enriched reason");
+	});
+
+	it("notes an OpenRouter failure and keeps deterministic reasons", async () => {
+		const deps = openRouterDeps({
+			enrichReasons: async () => {
+				throw new Error("HTTP 402");
+			},
+		});
+		const result = await new Advisor(deps).runReview();
+		expect(result.notes.some((n) => n.includes("OpenRouter"))).toBe(true);
+		expect(result.autoApplied[0]?.reason).toContain("DEPTH");
+	});
+
+	it("skips OpenRouter when no key is set", async () => {
+		let called = false;
+		const deps = advisorDeps({
+			enrichReasons: async () => {
+				called = true;
+				return { reasons: new Map() };
+			},
+		});
+		await new Advisor(deps).runReview();
+		expect(called).toBe(false);
 	});
 });

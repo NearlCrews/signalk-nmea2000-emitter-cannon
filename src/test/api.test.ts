@@ -278,6 +278,30 @@ describe("API router", () => {
 		expect(res.body.ok).toBe(true);
 	});
 
+	it("POST /api/advisor/test-key reports key validity", async () => {
+		const advisor = {
+			runReview: async () => ({
+				ranAt: "",
+				autoApplied: [],
+				pending: [],
+				notes: [],
+			}),
+			getPending: () => [],
+			applyReview: async () => {},
+			testKey: async () => ({ ok: true }),
+		};
+		const ex = mountRouterWithAdvisor(
+			fakeApp,
+			() => null,
+			() => advisor,
+		);
+		const res = await request(ex).post(
+			"/plugins/signalk-nmea2000-emitter-cannon/api/advisor/test-key",
+		);
+		expect(res.status).toBe(200);
+		expect(res.body.ok).toBe(true);
+	});
+
 	it("advisor endpoints 503 when no advisor is wired", async () => {
 		const ex = mountRouterWithAdvisor(
 			fakeApp,

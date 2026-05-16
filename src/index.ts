@@ -1,6 +1,8 @@
 import pkg from "../package.json" with { type: "json" };
 import { Advisor } from "./advisor/advisor.js";
+import { BudgetTracker } from "./advisor/budget.js";
 import { buildLiveInventory } from "./advisor/inventory.js";
+import { enrichRationales, OpenRouterClient } from "./advisor/openrouter.js";
 import { fetchHistoricPaths, QuestDBClient } from "./advisor/questdb.js";
 import { createApiRouter } from "./api/router.js";
 import { RootConfig } from "./config/schema.js";
@@ -66,6 +68,21 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 	// config lives under `.configuration`. savePluginOptions takes the bare
 	// config and re-wraps it as `.configuration`, so writeConfig passes the
 	// unwrapped object straight through.
+	// Bounds OpenRouter spend across reviews for this plugin run. The per-day
+	// cap is read from config at call time, so the tracker ceiling is
+	// effectively unlimited and the enrichReasons call site enforces the
+	// configured maxCallsPerDay.
+	const advisorBudget = new BudgetTracker(Number.MAX_SAFE_INTEGER);
+	const openRouterClient = (o: {
+		apiKey: string;
+		model: string;
+	}): OpenRouterClient =>
+		new OpenRouterClient({
+			apiKey: o.apiKey,
+			model: o.model || "anthropic/claude-haiku-4.5",
+			baseUrl: "https://openrouter.ai/api/v1",
+		});
+
 	const advisor = new Advisor({
 		buildInventory: () => buildLiveInventory(app),
 		getMetadata: () =>
@@ -95,6 +112,33 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 		fetchHistoric: (url, lookbackDays) =>
 			fetchHistoricPaths(new QuestDBClient({ url }), lookbackDays),
 		probeQuestDB: (url) => new QuestDBClient({ url }).probe(),
+		enrichReasons: async (openRouter, recs) => {
+			const cap =
+				(
+					app.readPluginOptions() as {
+						configuration?: {
+							advisor?: { openRouter?: { maxCallsPerDay?: number } };
+						};
+					}
+				).configuration?.advisor?.openRouter?.maxCallsPerDay ?? 0;
+			if (advisorBudget.callsToday() >= cap) {
+				return {
+					reasons: new Map(),
+					note: "OpenRouter daily call budget reached; using built-in explanations.",
+				};
+			}
+			advisorBudget.recordCall();
+			return {
+				reasons: await enrichRationales(openRouterClient(openRouter), recs),
+			};
+		},
+		testKeyFn: async (openRouter) => {
+			await openRouterClient(openRouter).complete({
+				system: "ping",
+				user: "ping",
+			});
+			return true;
+		},
 	});
 
 	plugin.registerWithRouter = createApiRouter(

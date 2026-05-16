@@ -216,7 +216,7 @@ Optional subsystem (added v1.6.0) that reviews observed Signal K paths and recom
 - `busSource.ts` `isN2KSource(label)` flags a `$source` already on the NMEA 2000 bus (trailing `.<digits>` or the bare `NMEA2000` echo-guard label). It errs toward classifying a source as N2K: a false positive only suppresses a recommendation, a false negative would recommend a conversion that echoes bus data.
 - `inventory.ts` builds the live `PathInventory` (reusing `discovery.ts`) and `mergeHistoric` folds in QuestDB history.
 - `questdb.ts` / `openrouter.ts` are zero-dependency HTTP clients (Node 22 global `fetch`). QuestDB and OpenRouter are both optional; every failure falls back to the deterministic result plus a `ReviewResult` note, never a throw.
-- `advisor.ts` `Advisor` orchestrates via an injected `AdvisorDeps` seam (testable without `SignalKApp`). `runReview` auto-applies confident enables and parks disables for approval; `applyReview` applies approved decisions.
+- `advisor.ts` `Advisor` orchestrates via an injected `AdvisorDeps` seam (testable without `SignalKApp`). When `advisor.autoApply` is true (the default) `runReview` auto-applies confident enables and parks disables for approval; when false, enables are parked too. `applyReview` applies each approved decision in the direction its `action` names.
 - `schedule.ts` `AdvisorScheduler` drives the optional periodic review; `index.ts` reconfigures it on every `startPlugin`.
 - The advisor writes config via `app.savePluginOptions` then calls `startPlugin` to reload, because `savePluginOptions` only writes the file. `readPluginOptions` returns the full options envelope, so the advisor's `readConfig` unwraps `.configuration`.
 

@@ -1,5 +1,25 @@
 ## Change Log
 
+<a id="v161"></a>
+
+### v1.6.1 (2026/05/16) - Dark mode, collapsible panels, and advisor refinements
+
+**The admin panel now supports the Signal K admin's dark theme.**
+
+The configuration panel previously hardcoded light-mode colors, so it rendered unreadable when the Signal K admin UI was in dark mode. Every color is now a `--skn-*` design token with explicit light and dark values, deliberately not derived from the host's page-background variable. The category tabs also became a proper keyboard-navigable WAI-ARIA tablist.
+
+**Bug fix: a config file with nested `configuration` envelopes no longer strands settings.**
+
+A historical save bug could wrap the saved options under repeated `configuration` keys, burying top-level settings such as the global resend interval so the panel showed a default instead of the saved value. Config load now flattens any envelope nesting, recovering the real values, and the panel writes a clean flat config on the next save.
+
+**The PGN list is now organized into collapsible sections.**
+
+Each category tab splits its conversions into a Modern and a Legacy section. The Modern section is expanded by default and Legacy collapsed; an empty section is hidden. Every conversion card is itself collapsible, collapsed by default even when enabled, so the list stays scannable: a collapsed card shows its enable checkbox, title, PGN, compatibility and Legacy badges, and live status, and expands to reveal the resend, source, and extras settings.
+
+**The Config Advisor gained an auto-apply toggle.**
+
+A new "Apply recommended enables automatically" setting controls review behavior. With it on (the default) a review enables recommended conversions immediately; with it off, those enables wait for approval alongside disables. The advisor's Save button moved to the bottom of the panel with explicit save feedback, auto-applied recommendations now show their explanation as visible text rather than only a tooltip, and the OpenRouter help text was corrected to state that the recommendation logic is rule-based and OpenRouter only rewrites explanations. Test suite is now 113 tests across 13 files.
+
 <a id="v160"></a>
 
 ### v1.6.0 (2026/05/16) - Config Advisor

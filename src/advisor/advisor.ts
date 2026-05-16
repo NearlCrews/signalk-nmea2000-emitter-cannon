@@ -96,8 +96,11 @@ export class Advisor {
 			}
 		}
 
-		const autoApplied = recs.filter((r) => r.action === "enable");
-		const pending = recs.filter((r) => r.action === "disable");
+		const autoApply = this.autoApplyFlag(config);
+		const enables = recs.filter((r) => r.action === "enable");
+		const disables = recs.filter((r) => r.action === "disable");
+		const autoApplied = autoApply ? enables : [];
+		const pending = autoApply ? disables : [...enables, ...disables];
 		this.lastPending = pending;
 
 		if (autoApplied.length > 0) {
@@ -153,11 +156,12 @@ export class Advisor {
 	/**
 	 * Apply approved decisions; rejected decisions are left untouched.
 	 *
-	 * Phase 1 pending recommendations are always disables: runReview routes
-	 * every `enable` into autoApplied and only `disable` into pending. So an
-	 * approved decision means "disable this conversion". Deriving the action
-	 * here rather than from an in-memory `lastPending` keeps applyReview
-	 * correct even if the plugin restarts between review and apply.
+	 * Each decision carries the recommended `action` it approves, so an enable
+	 * sets `enabled: true` and a disable sets `enabled: false`. Carrying the
+	 * action in the decision (rather than reading an in-memory `lastPending`)
+	 * keeps applyReview correct even if the plugin restarts between review and
+	 * apply. An absent action is treated as "disable" for backward
+	 * compatibility with the autoApply-on flow, whose pending list is disables.
 	 */
 	async applyReview(decisions: ApplyDecision[]): Promise<void> {
 		const approved = decisions.filter((d) => d.approved);
@@ -167,7 +171,7 @@ export class Advisor {
 		for (const d of approved) {
 			conversions[d.optionKey] = {
 				...this.entryOf(conversions, d.optionKey),
-				enabled: false,
+				enabled: d.action === "enable",
 			};
 		}
 		this.deps.writeConfig({ ...config, conversions });
@@ -176,6 +180,13 @@ export class Advisor {
 	private conversionsOf(config: Record<string, unknown>): ConversionMap {
 		const c = config.conversions;
 		return c && typeof c === "object" ? (c as ConversionMap) : {};
+	}
+
+	/** The advisor.autoApply flag; defaults to true when unset. */
+	private autoApplyFlag(config: Record<string, unknown>): boolean {
+		const advisor = config.advisor;
+		if (!advisor || typeof advisor !== "object") return true;
+		return (advisor as { autoApply?: unknown }).autoApply !== false;
 	}
 
 	private questdbConfig(

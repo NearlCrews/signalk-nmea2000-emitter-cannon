@@ -38,6 +38,9 @@ export const Conversion = Type.Composite([
 const AdvisorConfig = Type.Object(
 	{
 		enabled: Type.Boolean({ default: false }),
+		// When true, a review enables recommended conversions immediately.
+		// When false, those enables are parked as pending like disables.
+		autoApply: Type.Boolean({ default: true }),
 		openRouter: Type.Object(
 			{
 				enabled: Type.Boolean({ default: false }),

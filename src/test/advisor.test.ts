@@ -201,6 +201,16 @@ describe("Advisor.runReview", () => {
 		expect(result.pending.map((r) => r.optionKey)).toEqual(["GPS"]);
 		expect(result.autoApplied).toEqual([]);
 	});
+
+	it("parks enables as pending and writes nothing when autoApply is off", async () => {
+		const deps = advisorDeps({
+			readConfig: () => ({ advisor: { autoApply: false }, conversions: {} }),
+		});
+		const result = await new Advisor(deps).runReview();
+		expect(result.autoApplied).toEqual([]);
+		expect(result.pending.map((r) => r.optionKey)).toEqual(["DEPTH"]);
+		expect(deps.getSaved()).toBeNull();
+	});
 });
 
 describe("Advisor.applyReview", () => {
@@ -222,6 +232,23 @@ describe("Advisor.applyReview", () => {
 		};
 		expect(saved.conversions.GPS.enabled).toBe(false);
 		expect(saved.conversions.AIS.enabled).toBe(true);
+	});
+
+	it("applies an approved enable when the decision carries action enable", async () => {
+		const deps = advisorDeps({
+			readConfig: () => ({
+				conversions: {
+					DEPTH: { enabled: false, resend: 0, sources: {}, extras: {} },
+				},
+			}),
+		});
+		await new Advisor(deps).applyReview([
+			{ optionKey: "DEPTH", approved: true, action: "enable" },
+		]);
+		const saved = deps.getSaved() as {
+			conversions: Record<string, { enabled: boolean }>;
+		};
+		expect(saved.conversions.DEPTH.enabled).toBe(true);
 	});
 });
 

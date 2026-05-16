@@ -4,6 +4,8 @@ import type { ApplyDecision } from "../../../advisor/types.js";
 import type { Config } from "../../../config/schema.js";
 import { useAdvisor } from "../../hooks/useAdvisor.js";
 import { S } from "../../styles";
+import DisclosureCaret from "../DisclosureCaret.js";
+import SaveStatus from "../SaveStatus.js";
 import AdvisorSettings from "./AdvisorSettings.js";
 import ReviewResultView from "./ReviewResultView.js";
 
@@ -12,6 +14,8 @@ interface Props {
 	onChangeAdvisor: (next: NonNullable<Config["advisor"]>) => void;
 	dirty: boolean;
 	onSave: () => void;
+	/** Epoch ms of the last successful save, or null. Drives the Saved pill. */
+	justSavedAt: number | null;
 }
 
 /**
@@ -23,6 +27,7 @@ export default function AdvisorPanel({
 	onChangeAdvisor,
 	dirty,
 	onSave,
+	justSavedAt,
 }: Props): React.ReactElement {
 	const [open, setOpen] = useState(false);
 	const { state, review, apply } = useAdvisor();
@@ -33,9 +38,14 @@ export default function AdvisorPanel({
 	};
 
 	const applyAll = (): void => {
-		const list: ApplyDecision[] = Object.entries(decisions).map(
-			([optionKey, approved]) => ({ optionKey, approved }),
-		);
+		// Iterate the pending list, not `decisions`: an untouched pending item
+		// must still be sent (as approved: false). applyReview sets enabled from
+		// each decision's action, so carry it; pending is only enable/disable.
+		const list: ApplyDecision[] = (state.result?.pending ?? []).map((r) => ({
+			optionKey: r.optionKey,
+			approved: decisions[r.optionKey] ?? false,
+			action: r.action === "enable" ? "enable" : "disable",
+		}));
 		void apply(list);
 	};
 
@@ -47,27 +57,17 @@ export default function AdvisorPanel({
 				aria-expanded={open}
 				onClick={() => setOpen((o) => !o)}
 			>
-				<span style={S.advisorCaret}>{open ? "▾" : "▸"}</span>
+				<DisclosureCaret expanded={open} />
 				Config Advisor
 			</button>
 			{open && (
 				<div style={S.advisorBody}>
 					<AdvisorSettings value={advisor} onChange={onChangeAdvisor} />
-					<div style={S.fieldRow}>
-						<button
-							type="button"
-							style={S.btnPrimary}
-							onClick={onSave}
-							disabled={!dirty}
-						>
-							Save
-						</button>
-						{dirty ? <span style={S.dirty}>Unsaved changes</span> : null}
-					</div>
 					<p style={S.advisorIntro}>
 						Reviews the Signal K paths your boat publishes and recommends which
-						conversions to enable. Enables apply automatically; anything that
-						disables a conversion waits for your approval.
+						conversions to enable or disable. Recommended enables apply
+						automatically unless you turn that off above; disables always wait
+						for your approval.
 					</p>
 					<button
 						type="button"
@@ -97,6 +97,17 @@ export default function AdvisorPanel({
 							)}
 						</div>
 					)}
+					<div style={S.advisorSaveRow}>
+						<button
+							type="button"
+							style={S.btnPrimary}
+							onClick={onSave}
+							disabled={!dirty}
+						>
+							Save
+						</button>
+						<SaveStatus dirty={dirty} justSavedAt={justSavedAt} />
+					</div>
 				</div>
 			)}
 		</section>

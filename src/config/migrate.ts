@@ -1,48 +1,80 @@
 import { DEFAULT_GLOBAL_RESEND_SECONDS } from "../constants.js";
 import type { Config, ConversionConfig } from "./schema.js";
 
+/**
+ * Unwrap accidental `configuration` envelope nesting.
+ *
+ * Signal K stores plugin options as `{ enabled, configuration, ... }`. A
+ * historical save bug stored that whole envelope back under `configuration`,
+ * so every save nested the previous copy one level deeper and stranded
+ * top-level scalars (notably `globalResendInterval`) at the innermost layer.
+ *
+ * The outermost copy is the most recent save, so its keys win; deeper layers
+ * only fill keys the newer ones never carried up. The envelope-only keys
+ * `configuration` and `enabled` are dropped. The `seen` set guards against a
+ * self-referential `configuration` cycle.
+ */
+function flattenConfigEnvelope(raw: unknown): Record<string, unknown> {
+	const chain: Record<string, unknown>[] = [];
+	const seen = new Set<unknown>();
+	let cur: unknown = raw;
+	while (cur && typeof cur === "object" && !seen.has(cur)) {
+		seen.add(cur);
+		const layer = cur as Record<string, unknown>;
+		chain.push(layer);
+		cur = layer.configuration;
+	}
+	const merged: Record<string, unknown> = {};
+	// Deepest layer first so the shallower, newer layers overwrite it.
+	for (const layer of chain.reverse()) {
+		for (const [k, v] of Object.entries(layer)) {
+			if (k === "configuration" || k === "enabled") continue;
+			if (v !== undefined) merged[k] = v;
+		}
+	}
+	return merged;
+}
+
 export function migrateLegacyConfig(raw: unknown): Config {
+	const flat = flattenConfigEnvelope(raw);
 	let migrated: Config;
 
-	if (
-		raw &&
-		typeof raw === "object" &&
-		"conversions" in raw &&
-		typeof (raw as { conversions: unknown }).conversions === "object" &&
-		(raw as { conversions: unknown }).conversions !== null
-	) {
-		migrated = raw as Config;
+	if (flat.conversions && typeof flat.conversions === "object") {
+		migrated = flat as unknown as Config;
 	} else {
 		const conversions: Record<string, ConversionConfig> = {};
 		let globalResendInterval: number = DEFAULT_GLOBAL_RESEND_SECONDS;
 
-		if (raw && typeof raw === "object") {
-			for (const [key, value] of Object.entries(
-				raw as Record<string, unknown>,
-			)) {
-				if (key === "globalResendInterval") {
-					if (typeof value === "number") globalResendInterval = value;
-					continue;
-				}
-				if (!value || typeof value !== "object") continue;
-				const entry = value as Record<string, unknown>;
-				const sources: Record<string, string> = {};
-				const extras: Record<string, unknown> = {};
-				for (const [k, v] of Object.entries(entry)) {
-					if (k === "enabled" || k === "resend") continue;
-					if (typeof v === "string") sources[k] = v;
-					else extras[k] = v;
-				}
-				conversions[key] = {
-					enabled: typeof entry.enabled === "boolean" ? entry.enabled : false,
-					resend: typeof entry.resend === "number" ? entry.resend : 0,
-					sources,
-					extras,
-				};
+		for (const [key, value] of Object.entries(flat)) {
+			if (key === "globalResendInterval") {
+				if (typeof value === "number") globalResendInterval = value;
+				continue;
 			}
+			if (!value || typeof value !== "object") continue;
+			const entry = value as Record<string, unknown>;
+			const sources: Record<string, string> = {};
+			const extras: Record<string, unknown> = {};
+			for (const [k, v] of Object.entries(entry)) {
+				if (k === "enabled" || k === "resend") continue;
+				if (typeof v === "string") sources[k] = v;
+				else extras[k] = v;
+			}
+			conversions[key] = {
+				enabled: typeof entry.enabled === "boolean" ? entry.enabled : false,
+				resend: typeof entry.resend === "number" ? entry.resend : 0,
+				sources,
+				extras,
+			};
 		}
 
 		migrated = { globalResendInterval, conversions };
+	}
+
+	// The envelope-flatten path can land on a config whose layers never
+	// carried a top-level globalResendInterval. Default it so the panel's
+	// number input stays controlled.
+	if (typeof migrated.globalResendInterval !== "number") {
+		migrated.globalResendInterval = DEFAULT_GLOBAL_RESEND_SECONDS;
 	}
 
 	// Second pass: per-conversion extras-shape migrations. Runs against both

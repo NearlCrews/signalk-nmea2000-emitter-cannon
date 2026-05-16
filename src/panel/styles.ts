@@ -6,26 +6,29 @@ import type { CSSProperties } from "react";
 // flips between light and dark via `data-bs-theme` on a host element. Inline
 // styles cannot read that theme, so every color here references a `--skn-*`
 // CSS custom property instead of a hex literal. THEME_STYLE (below) defines
-// those properties once on `.skn-panel`, deriving from Bootstrap's own
-// `--bs-*` variables where possible, and overrides the panel-specific accents
-// for dark mode. Components stay theme-agnostic: they read tokens, the theme
-// layer redefines them. A new hex literal in a component is a defect.
+// those properties once on `.skn-panel` with explicit light values, then
+// overrides them for dark mode. Surfaces are deliberately NOT derived from
+// the host's `--bs-body-bg`: the admin's body background is page-gray, so a
+// card that inherits it loses its white fill and blends into the page.
+// Components stay theme-agnostic: they read tokens, the theme layer redefines
+// them. A new hex literal in a component is a defect.
 
 // Injected once by PluginConfigurationPanel. Covers the token contract, the
 // dark-mode overrides, and the :focus-visible ring (inline styles cannot
 // express pseudo-classes).
 export const THEME_STYLE = `
 .skn-panel {
-	/* Surfaces and text: inherit the host Bootstrap theme so the panel
-	   tracks light/dark automatically. */
-	--skn-bg: var(--bs-body-bg, #e4e5e6);
-	--skn-surface: var(--bs-body-bg, #ffffff);
-	--skn-surface-muted: var(--bs-tertiary-bg, #f8f9fa);
-	--skn-surface-raised: var(--bs-secondary-bg, #f3f4f6);
-	--skn-border: var(--bs-border-color, #e0e0e0);
-	--skn-text: var(--bs-body-color, #333333);
-	--skn-text-muted: var(--bs-secondary-color, #6b7785);
-	--skn-text-faint: var(--bs-tertiary-color, #8a96a3);
+	/* Surfaces and text: explicit light-mode values. Cards must read white
+	   so they stand out from the admin's gray page background. The dark
+	   block below replaces every one of these. */
+	--skn-bg: #e4e5e6;
+	--skn-surface: #ffffff;
+	--skn-surface-muted: #f8f9fa;
+	--skn-surface-raised: #f3f4f6;
+	--skn-border: #e0e0e0;
+	--skn-text: #333333;
+	--skn-text-muted: #555555;
+	--skn-text-faint: #888888;
 	/* Accents. Light defaults; the dark block below brightens them. */
 	--skn-accent: #3b82f6;
 	--skn-accent-text: #ffffff;
@@ -51,6 +54,14 @@ export const THEME_STYLE = `
 }
 [data-bs-theme="dark"] .skn-panel,
 .dark-mode .skn-panel {
+	--skn-bg: #1b1c22;
+	--skn-surface: #262833;
+	--skn-surface-muted: #20212b;
+	--skn-surface-raised: #30323f;
+	--skn-border: #3a3c4a;
+	--skn-text: #e6e7ea;
+	--skn-text-muted: #a3a9b5;
+	--skn-text-faint: #7c8290;
 	--skn-accent: #4c93ff;
 	--skn-ok: #2dd4a0;
 	--skn-wait: #fbbf24;
@@ -156,7 +167,7 @@ S.cardHeader = {
 	display: "flex",
 	alignItems: "center",
 	gap: 12,
-	marginBottom: 8,
+	marginBottom: 0,
 	flexWrap: "wrap",
 };
 S.checkbox = { width: 16, height: 16, flexShrink: 0, cursor: "pointer" };
@@ -285,7 +296,7 @@ S.note = {
 	color: "var(--skn-warn-fg)",
 	fontSize: 12,
 	lineHeight: 1.45,
-	margin: "4px 0 6px",
+	margin: "8px 0 6px",
 	padding: "6px 8px",
 };
 S.errorMark = { color: "var(--skn-danger-fg)", fontSize: 14, fontWeight: 700 };
@@ -370,8 +381,17 @@ S.advisorToggle = {
 	cursor: "pointer",
 	textAlign: "left",
 };
-S.advisorCaret = { color: "var(--skn-text-faint)", fontSize: 11 };
 S.advisorBody = { marginTop: 10 };
+// The advisor's Save control: button on top, save status stacked beneath it.
+S.advisorSaveRow = {
+	display: "flex",
+	flexDirection: "column",
+	alignItems: "flex-start",
+	gap: 8,
+	marginTop: 16,
+	borderTop: "1px solid var(--skn-border)",
+	paddingTop: 12,
+};
 S.advisorIntro = {
 	fontSize: 12,
 	color: "var(--skn-text-muted)",
@@ -465,3 +485,49 @@ S.tableTitle = {
 	marginBottom: 4,
 	color: "var(--skn-text)",
 };
+// Collapsible Modern / Legacy section: a disclosure header and a body of
+// conversion cards.
+S.section = { marginBottom: 10 };
+S.sectionHeader = {
+	display: "flex",
+	alignItems: "center",
+	gap: 8,
+	width: "100%",
+	padding: "10px 12px",
+	background: "var(--skn-surface-muted)",
+	border: "1px solid var(--skn-border)",
+	borderRadius: 8,
+	cursor: "pointer",
+	fontSize: 13,
+	fontWeight: 600,
+	color: "var(--skn-text)",
+	textAlign: "left",
+};
+// Shared by every disclosure control.
+S.disclosureCaret = {
+	color: "var(--skn-text-faint)",
+	fontSize: 11,
+	flexShrink: 0,
+};
+S.sectionCount = {
+	fontWeight: 400,
+	fontSize: 12,
+	color: "var(--skn-text-muted)",
+};
+S.sectionBody = { marginTop: 8 };
+// Collapsible conversion card: the chevron + title form a disclosure button;
+// the checkbox and badges sit outside it so they stay independently usable.
+S.cardDisclosure = {
+	display: "flex",
+	alignItems: "center",
+	gap: 8,
+	flex: 1,
+	minWidth: 180,
+	padding: 0,
+	background: "transparent",
+	border: "none",
+	cursor: "pointer",
+	font: "inherit",
+	textAlign: "left",
+};
+S.cardBody = { marginTop: 8 };

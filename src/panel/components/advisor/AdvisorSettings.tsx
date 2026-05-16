@@ -54,11 +54,28 @@ export default function AdvisorSettings({
 				button below always works regardless of this toggle.
 			</p>
 
+			<div style={S.fieldRow}>
+				<input
+					type="checkbox"
+					style={S.checkbox}
+					checked={cfg.autoApply}
+					onChange={(e) => patch({ autoApply: e.target.checked })}
+					aria-label="Apply recommended enables automatically"
+				/>
+				<span style={S.label}>Apply recommended enables automatically</span>
+			</div>
+			<p style={S.helpHint}>
+				When on, a review enables recommended conversions for you right away.
+				When off, those enables wait for your approval. Recommendations that
+				disable a conversion always wait for your approval.
+			</p>
+
 			<div style={S.advisorSubhead}>OpenRouter (optional)</div>
 			<p style={S.helpHint}>
-				The advisor works without OpenRouter using built-in rules. Adding an
-				OpenRouter key lets it explain each recommendation in plain language and
-				reason about unfamiliar paths.
+				The advisor decides what to recommend with built-in rules, with or
+				without OpenRouter. Adding an OpenRouter key only rewrites each
+				recommendation's explanation in plainer language; it does not change
+				what is recommended.
 			</p>
 			<div style={S.fieldRow}>
 				<input

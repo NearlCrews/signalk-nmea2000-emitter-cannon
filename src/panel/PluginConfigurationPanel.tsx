@@ -11,6 +11,7 @@ import { errMessage } from "../utils/errorUtils.js";
 import { PLUGIN_API_BASE } from "./api-base";
 import AdvisorPanel from "./components/advisor/AdvisorPanel";
 import CategoryTabs from "./components/CategoryTabs";
+import CollapsibleSection from "./components/CollapsibleSection";
 import ConversionCard from "./components/ConversionCard";
 import FooterBar from "./components/FooterBar";
 import GlobalSettings from "./components/GlobalSettings";
@@ -39,6 +40,20 @@ export default function PluginConfigurationPanel({
 	const [metaLoading, setMetaLoading] = useState(true);
 	const [tab, setTab] = useState<ConversionCategory>("navigation");
 	const [justSavedAt, setJustSavedAt] = useState<number | null>(null);
+	// Disclosure state, persisted across tab switches within the session. An
+	// absent key falls back to a default (sections to their `defaultExpanded`,
+	// cards to collapsed). Sections are keyed `category:group`.
+	const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+	const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>(
+		{},
+	);
+
+	const toggleSection = (key: string): void => {
+		setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+	};
+	const toggleCard = (key: string): void => {
+		setExpandedCards((prev) => ({ ...prev, [key]: !prev[key] }));
+	};
 
 	const loadMeta = useCallback(() => {
 		setMetaLoading(true);
@@ -82,7 +97,6 @@ export default function PluginConfigurationPanel({
 		setJustSavedAt(Date.now());
 	};
 
-	const visible = meta.filter((m) => m.category === tab);
 	const counts = useMemo(() => {
 		const c = {} as Record<ConversionCategory, number>;
 		for (const cat of Categories) c[cat] = 0;
@@ -95,6 +109,50 @@ export default function PluginConfigurationPanel({
 		return m;
 	}, [status]);
 
+	// The active category split into a Modern section (expanded by default)
+	// and a Legacy section (collapsed).
+	const sections = useMemo(() => {
+		const inTab = meta.filter((m) => m.category === tab);
+		return [
+			{
+				group: "modern" as const,
+				title: "Modern",
+				defaultExpanded: true,
+				list: inTab.filter((m) => !m.legacy),
+			},
+			{
+				group: "legacy" as const,
+				title: "Legacy",
+				defaultExpanded: false,
+				list: inTab.filter((m) => m.legacy),
+			},
+		];
+	}, [meta, tab]);
+	const hasConversions = sections.some((s) => s.list.length > 0);
+
+	const renderCard = (m: ConversionMetadata): React.ReactElement => (
+		<ConversionCard
+			key={m.key}
+			meta={m}
+			config={state.conversions[m.key]}
+			status={statusByKey.get(m.key)}
+			expanded={expandedCards[m.key] ?? false}
+			onToggleExpanded={() => toggleCard(m.key)}
+			sourcesFor={sourcesFor}
+			ensureLoaded={ensureLoaded}
+			onSetEnabled={(e) =>
+				dispatch({ type: "setEnabled", key: m.key, enabled: e })
+			}
+			onSetResend={(ms) => dispatch({ type: "setResend", key: m.key, ms })}
+			onSetSource={(path, source) =>
+				dispatch({ type: "setSource", key: m.key, path, source })
+			}
+			onSetExtras={(extras) =>
+				dispatch({ type: "setExtras", key: m.key, extras })
+			}
+		/>
+	);
+
 	return (
 		<div className="skn-panel" style={S.root}>
 			<style>{THEME_STYLE}</style>
@@ -104,6 +162,7 @@ export default function PluginConfigurationPanel({
 				onChangeAdvisor={(advisor) => dispatch({ type: "setAdvisor", advisor })}
 				dirty={dirty}
 				onSave={handleSave}
+				justSavedAt={justSavedAt}
 			/>
 			{error ? (
 				<div role="alert" style={S.errorBanner}>
@@ -136,31 +195,29 @@ export default function PluginConfigurationPanel({
 				id={`skn-panel-${tab}`}
 				aria-labelledby={`skn-tab-${tab}`}
 			>
-				{visible.length === 0 && !metaLoading ? (
+				{!hasConversions && !metaLoading ? (
 					<p style={S.loadingText}>No conversions in this category.</p>
 				) : null}
-				{visible.map((m) => (
-					<ConversionCard
-						key={m.key}
-						meta={m}
-						config={state.conversions[m.key]}
-						status={statusByKey.get(m.key)}
-						sourcesFor={sourcesFor}
-						ensureLoaded={ensureLoaded}
-						onSetEnabled={(e) =>
-							dispatch({ type: "setEnabled", key: m.key, enabled: e })
-						}
-						onSetResend={(ms) =>
-							dispatch({ type: "setResend", key: m.key, ms })
-						}
-						onSetSource={(path, source) =>
-							dispatch({ type: "setSource", key: m.key, path, source })
-						}
-						onSetExtras={(extras) =>
-							dispatch({ type: "setExtras", key: m.key, extras })
-						}
-					/>
-				))}
+				{sections.map((s) => {
+					if (s.list.length === 0) return null;
+					const sectionKey = `${tab}:${s.group}`;
+					return (
+						<CollapsibleSection
+							key={s.group}
+							id={`skn-section-${tab}-${s.group}`}
+							title={s.title}
+							count={s.list.length}
+							enabledCount={s.list.reduce(
+								(n, m) => n + (state.conversions[m.key]?.enabled ? 1 : 0),
+								0,
+							)}
+							expanded={openSections[sectionKey] ?? s.defaultExpanded}
+							onToggle={() => toggleSection(sectionKey)}
+						>
+							{s.list.map(renderCard)}
+						</CollapsibleSection>
+					);
+				})}
 			</div>
 			<FooterBar
 				dirty={dirty}

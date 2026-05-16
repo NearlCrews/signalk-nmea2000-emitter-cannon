@@ -27,8 +27,9 @@ export default function ReviewResultView({
 					</span>
 					<ul style={S.advisorList}>
 						{result.autoApplied.map((r) => (
-							<li key={r.optionKey} title={r.reason}>
+							<li key={r.optionKey}>
 								Enabled {r.optionKey}
+								<div style={S.advisorReason}>{r.reason}</div>
 							</li>
 						))}
 					</ul>
@@ -45,8 +46,7 @@ export default function ReviewResultView({
 							<div key={r.optionKey} style={S.advisorRow}>
 								<div style={S.advisorRowHead}>
 									<span style={S.advisorRowKey}>
-										{r.action === "disable" ? "Disable" : r.action}{" "}
-										{r.optionKey}
+										{r.action === "enable" ? "Enable" : "Disable"} {r.optionKey}
 									</span>
 									<button
 										type="button"

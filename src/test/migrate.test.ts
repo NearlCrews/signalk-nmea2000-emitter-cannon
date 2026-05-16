@@ -11,7 +11,7 @@ describe("migrateLegacyConfig", () => {
 				WIND: { enabled: true, resend: 0, sources: {}, extras: {} },
 			},
 		};
-		expect(migrateLegacyConfig(already)).toBe(already);
+		expect(migrateLegacyConfig(already)).toEqual(already);
 	});
 
 	it("preserves globalResendInterval at the root", () => {
@@ -83,6 +83,63 @@ describe("migrateLegacyConfig", () => {
 	it("returns an empty Config for null/undefined input", () => {
 		expect(migrateLegacyConfig(null).conversions).toEqual({});
 		expect(migrateLegacyConfig(undefined).conversions).toEqual({});
+	});
+
+	describe("nested configuration envelope recovery", () => {
+		it("recovers globalResendInterval stranded inside a nested envelope", () => {
+			const corrupt = {
+				enabled: true,
+				conversions: {
+					WIND: { enabled: true, resend: 0, sources: {}, extras: {} },
+				},
+				configuration: {
+					enabled: true,
+					conversions: {
+						WIND: { enabled: true, resend: 0, sources: {}, extras: {} },
+					},
+					configuration: {
+						globalResendInterval: 2,
+						conversions: {
+							GPS: { enabled: true, resend: 0, sources: {}, extras: {} },
+						},
+					},
+				},
+			};
+			const out = migrateLegacyConfig(corrupt);
+			expect(out.globalResendInterval).toBe(2);
+		});
+
+		it("keeps the outermost (newest) conversions when a layer is nested", () => {
+			const corrupt = {
+				conversions: {
+					WIND: { enabled: true, resend: 0, sources: {}, extras: {} },
+				},
+				configuration: {
+					globalResendInterval: 2,
+					conversions: {
+						GPS: { enabled: true, resend: 0, sources: {}, extras: {} },
+					},
+				},
+			};
+			const out = migrateLegacyConfig(corrupt);
+			expect(Object.keys(out.conversions)).toEqual(["WIND"]);
+		});
+
+		it("drops the envelope-only configuration and enabled keys", () => {
+			const corrupt = {
+				enabled: true,
+				conversions: {
+					WIND: { enabled: true, resend: 0, sources: {}, extras: {} },
+				},
+				configuration: {
+					globalResendInterval: 2,
+					conversions: {},
+				},
+			};
+			const out = migrateLegacyConfig(corrupt) as Record<string, unknown>;
+			expect("configuration" in out).toBe(false);
+			expect("enabled" in out).toBe(false);
+		});
 	});
 
 	describe("ENGINE_STATIC v1.5.4 -> v1.5.5 extras migration", () => {

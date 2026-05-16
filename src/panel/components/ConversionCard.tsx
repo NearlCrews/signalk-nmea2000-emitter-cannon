@@ -9,6 +9,7 @@ import type { ConversionConfig } from "../../config/schema.js";
 import { pathToPropName } from "../../utils/pathUtils";
 import { splitPgnTitle } from "../../utils/pgnUtils.js";
 import { S } from "../styles";
+import DisclosureCaret from "./DisclosureCaret";
 import ExtrasEditor from "./ExtrasEditor";
 import SourceField from "./SourceField";
 
@@ -16,6 +17,8 @@ interface Props {
 	meta: ConversionMetadata;
 	config: ConversionConfig | undefined;
 	status: PerConversionStatus | undefined;
+	expanded: boolean;
+	onToggleExpanded: () => void;
 	onSetEnabled: (next: boolean) => void;
 	onSetResend: (ms: number) => void;
 	onSetSource: (path: string, source: string) => void;
@@ -85,6 +88,8 @@ export default function ConversionCard(props: Props): React.ReactElement {
 		? COMPATIBILITY_STYLES[compatibility.garmin]
 		: null;
 
+	const bodyId = `skn-card-${props.meta.key}`;
+
 	return (
 		<div style={S.card}>
 			<div style={S.cardHeader}>
@@ -95,7 +100,16 @@ export default function ConversionCard(props: Props): React.ReactElement {
 					onChange={(e) => props.onSetEnabled(e.target.checked)}
 					aria-label={`Enable ${props.meta.title}`}
 				/>
-				<h3 style={S.cardTitle}>{renderCardTitle(props.meta.title)}</h3>
+				<button
+					type="button"
+					style={S.cardDisclosure}
+					aria-expanded={props.expanded}
+					aria-controls={bodyId}
+					onClick={props.onToggleExpanded}
+				>
+					<DisclosureCaret expanded={props.expanded} />
+					<h3 style={S.cardTitle}>{renderCardTitle(props.meta.title)}</h3>
+				</button>
 				{compatStyle ? (
 					<span
 						style={{
@@ -131,9 +145,6 @@ export default function ConversionCard(props: Props): React.ReactElement {
 					</span>
 				) : null}
 			</div>
-			{props.meta.purpose ? (
-				<p style={S.cardPurpose}>{props.meta.purpose}</p>
-			) : null}
 			{props.meta.description ? (
 				<div role="note" style={S.note}>
 					<span style={S.notePrefix}>
@@ -142,43 +153,50 @@ export default function ConversionCard(props: Props): React.ReactElement {
 					{props.meta.description}
 				</div>
 			) : null}
-			{cfg.enabled ? (
-				<>
-					<div style={S.fieldRow}>
-						<span style={S.label}>Resend (seconds, 0 = global)</span>
-						<input
-							type="number"
-							min={0}
-							style={S.input}
-							value={cfg.resend}
-							onChange={(e) =>
-								props.onSetResend(Math.max(0, Number(e.target.value) | 0))
-							}
-							aria-label={`Resend interval seconds for ${props.meta.title}`}
-						/>
-					</div>
-					{props.meta.paths.map((p) => (
-						<SourceField
-							key={p}
-							path={p}
-							// Read both the panel's native dotted-SK-path key and the
-							// dotless propName legacy form: migrateLegacyConfig stores
-							// underscored legacy keys verbatim, so for users coming
-							// from older configs the dotless propName form (via
-							// pathToPropName) is the path of last resort before the
-							// field reads empty.
-							value={cfg.sources[p] ?? cfg.sources[pathToPropName(p)] ?? ""}
-							onChange={(s) => props.onSetSource(p, s)}
-							sourcesFor={props.sourcesFor}
-							ensureLoaded={props.ensureLoaded}
-						/>
-					))}
-					<ExtrasEditor
-						meta={props.meta.extras}
-						value={cfg.extras}
-						onChange={(e) => props.onSetExtras(e)}
-					/>
-				</>
+			{props.expanded ? (
+				<div id={bodyId} style={S.cardBody}>
+					{props.meta.purpose ? (
+						<p style={S.cardPurpose}>{props.meta.purpose}</p>
+					) : null}
+					{cfg.enabled ? (
+						<>
+							<div style={S.fieldRow}>
+								<span style={S.label}>Resend (seconds, 0 = global)</span>
+								<input
+									type="number"
+									min={0}
+									style={S.input}
+									value={cfg.resend}
+									onChange={(e) =>
+										props.onSetResend(Math.max(0, Number(e.target.value) | 0))
+									}
+									aria-label={`Resend interval seconds for ${props.meta.title}`}
+								/>
+							</div>
+							{props.meta.paths.map((p) => (
+								<SourceField
+									key={p}
+									path={p}
+									// Read both the panel's native dotted-SK-path key and
+									// the dotless propName legacy form: migrateLegacyConfig
+									// stores underscored legacy keys verbatim, so for users
+									// coming from older configs the dotless propName form
+									// (via pathToPropName) is the path of last resort before
+									// the field reads empty.
+									value={cfg.sources[p] ?? cfg.sources[pathToPropName(p)] ?? ""}
+									onChange={(s) => props.onSetSource(p, s)}
+									sourcesFor={props.sourcesFor}
+									ensureLoaded={props.ensureLoaded}
+								/>
+							))}
+							<ExtrasEditor
+								meta={props.meta.extras}
+								value={cfg.extras}
+								onChange={(e) => props.onSetExtras(e)}
+							/>
+						</>
+					) : null}
+				</div>
 			) : null}
 		</div>
 	);

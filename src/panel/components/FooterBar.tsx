@@ -1,5 +1,6 @@
 import type * as React from "react";
 import { S } from "../styles";
+import SaveStatus from "./SaveStatus";
 
 interface Props {
 	dirty: boolean;
@@ -34,12 +35,7 @@ export default function FooterBar({
 			>
 				Discard
 			</button>
-			{dirty ? <span style={S.dirty}>Unsaved changes</span> : null}
-			{justSavedAt && !dirty ? (
-				<span role="status" style={S.savedPill}>
-					Saved
-				</span>
-			) : null}
+			<SaveStatus dirty={dirty} justSavedAt={justSavedAt ?? null} />
 		</div>
 	);
 }

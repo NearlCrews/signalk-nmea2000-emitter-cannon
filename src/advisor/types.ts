@@ -23,10 +23,13 @@ export interface HistoricStats {
 /** Historic stats keyed by Signal K path. */
 export type HistoricPaths = Map<string, HistoricStats>;
 
+/** What a review recommends doing with a conversion. */
+export type AdvisorAction = "enable" | "disable" | "keep";
+
 /** A single recommendation about one conversion. */
 export interface Recommendation {
 	optionKey: string;
-	action: "enable" | "disable" | "keep";
+	action: AdvisorAction;
 	currentlyEnabled: boolean;
 	matchedPaths: string[];
 	confidence: "high" | "low";
@@ -49,4 +52,10 @@ export interface ReviewResult {
 export interface ApplyDecision {
 	optionKey: string;
 	approved: boolean;
+	/**
+	 * The recommended action this decision approves. Carried in the request so
+	 * applyReview does not depend on in-memory state surviving a restart.
+	 * Absent is treated as "disable" for backward compatibility.
+	 */
+	action?: "enable" | "disable";
 }

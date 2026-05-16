@@ -13,18 +13,19 @@ plugins such as [`signalk-virtual-weather-sensors`](https://github.com/NearlCrew
 > Built on the foundation of [`signalk-to-nmea2000`](https://github.com/SignalK/signalk-to-nmea2000)
 > by Scott Bender and the Signal K community.
 
-## What's New in v1.6.0
+## What's New in v1.6.1
 
-v1.6.0 adds the **Config Advisor**: an optional tool that reviews the Signal K
-paths your boat publishes and recommends which conversions to enable, so you
-do not have to know which path maps to which PGN. It works offline with
-built-in rules, can pull QuestDB history to catch gear that is not live right
-now, and, when an OpenRouter API key is supplied, explains each recommendation
-in plain language. Enables apply automatically; anything that would disable a
-conversion waits for your approval, and the review can run on a schedule.
+v1.6.1 makes the admin panel readable in the Signal K admin's dark theme by
+moving every color onto light and dark design tokens, and reorganizes the PGN
+list into collapsible Modern and Legacy sections with each conversion card
+itself collapsible so the list stays scannable. A historical bug that nested
+the saved config under repeated `configuration` keys, stranding settings such
+as the global resend interval, is now flattened on load. The Config Advisor
+gains an auto-apply toggle, surfaces auto-applied explanations as visible text,
+and moves its Save button to the bottom of the panel with clear save feedback.
 
-See the [v1.6.0 changelog entry](CHANGELOG.md#v160) and the
-[v1.6.0 release](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/releases/tag/v1.6.0).
+See the [v1.6.1 changelog entry](CHANGELOG.md#v161) and the
+[v1.6.1 release](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/releases/tag/v1.6.1).
 [Full release history](CHANGELOG.md).
 
 ## Features

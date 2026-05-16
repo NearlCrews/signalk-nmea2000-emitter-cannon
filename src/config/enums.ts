@@ -29,6 +29,7 @@ export type PresetTag = (typeof PresetTags)[number];
 // asserts this stays in lockstep with the schema.
 export const DEFAULT_ADVISOR_CONFIG = {
 	enabled: false,
+	autoApply: true,
 	openRouter: {
 		enabled: false,
 		apiKey: "",

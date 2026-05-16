@@ -64,3 +64,6 @@ tmp/
 
 # npm pack tarball
 *.tgz
+
+# Superpowers brainstorming companion
+.superpowers/

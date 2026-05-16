@@ -1,3 +1,4 @@
+import type { ApplyDecision, ReviewResult } from "../advisor/types.js";
 import type { ConversionCategory, PresetTag } from "../config/enums.js";
 
 export interface StatusSnapshot {
@@ -88,4 +89,19 @@ export interface PathsResponse {
 
 export interface SourcesResponse {
 	sources: string[];
+}
+
+/** Body of `POST /api/advisor/review` and `GET /api/advisor/pending`. */
+export interface AdvisorReviewResponse {
+	result: ReviewResult;
+}
+
+/** Request body of `POST /api/advisor/apply`. */
+export interface AdvisorApplyRequest {
+	decisions: ApplyDecision[];
+}
+
+/** Body of `POST /api/advisor/apply`. */
+export interface AdvisorApplyResponse {
+	applied: number;
 }

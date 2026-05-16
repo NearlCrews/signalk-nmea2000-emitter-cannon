@@ -21,7 +21,20 @@ function mountRouter(
 ): express.Express {
 	const expressApp = express();
 	const router: IRouter = express.Router();
-	createApiRouter(app, getPm)(router);
+	createApiRouter(app, getPm, () => null)(router);
+	expressApp.use("/plugins/signalk-nmea2000-emitter-cannon", router);
+	return expressApp;
+}
+
+function mountRouterWithAdvisor(
+	app: SignalKApp,
+	getPm: () => PluginManager | null,
+	getAdvisor: () => unknown,
+): express.Express {
+	const expressApp = express();
+	expressApp.use(express.json());
+	const router: IRouter = express.Router();
+	createApiRouter(app, getPm, getAdvisor as never)(router);
 	expressApp.use("/plugins/signalk-nmea2000-emitter-cannon", router);
 	return expressApp;
 }
@@ -179,5 +192,77 @@ describe("API router", () => {
 			localApp as unknown as { error: ReturnType<typeof vi.fn> }
 		).error.mock.calls[0];
 		expect(firstCall?.[0]).toMatch(/addAdminMiddleware unavailable/);
+	});
+
+	it("POST /api/advisor/review returns the review result", async () => {
+		const advisor = {
+			runReview: async () => ({
+				ranAt: "2026-05-16T10:00:00Z",
+				autoApplied: [
+					{
+						optionKey: "DEPTH",
+						action: "enable",
+						currentlyEnabled: false,
+						matchedPaths: ["navigation.depth.belowTransducer"],
+						confidence: "high",
+						origin: "live",
+						reason: "x",
+					},
+				],
+				pending: [],
+				notes: [],
+			}),
+			getPending: () => [],
+			applyReview: async () => {},
+		};
+		const ex = mountRouterWithAdvisor(
+			fakeApp,
+			() => null,
+			() => advisor,
+		);
+		const res = await request(ex).post(
+			"/plugins/signalk-nmea2000-emitter-cannon/api/advisor/review",
+		);
+		expect(res.status).toBe(200);
+		expect(res.body.result.autoApplied[0].optionKey).toBe("DEPTH");
+	});
+
+	it("POST /api/advisor/apply forwards decisions and returns the count", async () => {
+		const calls: unknown[] = [];
+		const advisor = {
+			runReview: async () => ({
+				ranAt: "",
+				autoApplied: [],
+				pending: [],
+				notes: [],
+			}),
+			getPending: () => [],
+			applyReview: async (d: unknown[]) => {
+				calls.push(d);
+			},
+		};
+		const ex = mountRouterWithAdvisor(
+			fakeApp,
+			() => null,
+			() => advisor,
+		);
+		const res = await request(ex)
+			.post("/plugins/signalk-nmea2000-emitter-cannon/api/advisor/apply")
+			.send({ decisions: [{ optionKey: "GPS", approved: true }] });
+		expect(res.status).toBe(200);
+		expect(res.body.applied).toBe(1);
+		expect(calls).toHaveLength(1);
+	});
+
+	it("advisor endpoints 503 when no advisor is wired", async () => {
+		const ex = mountRouterWithAdvisor(
+			fakeApp,
+			() => null,
+			() => null,
+		);
+		const res = await request(ex).get(
+			"/plugins/signalk-nmea2000-emitter-cannon/api/advisor/pending",
+		);
+		expect(res.status).toBe(503);
 	});
 });

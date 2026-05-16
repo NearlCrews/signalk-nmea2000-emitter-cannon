@@ -1,4 +1,6 @@
 import pkg from "../package.json" with { type: "json" };
+import { Advisor } from "./advisor/advisor.js";
+import { buildLiveInventory } from "./advisor/inventory.js";
 import { createApiRouter } from "./api/router.js";
 import { RootConfig } from "./config/schema.js";
 import { PluginManager } from "./plugin-manager.js";
@@ -53,10 +55,30 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 		getModuleVersion: () => PLUGIN_VERSION,
 	};
 
+	// The Config Advisor reviews live Signal K paths and recommends which
+	// conversions to enable. It outlives PluginManager restarts: getMetadata
+	// reads through the `pluginManager` closure so it always sees the current
+	// instance (or an empty catalog before the first start).
+	const advisor = new Advisor({
+		buildInventory: () => buildLiveInventory(app),
+		getMetadata: () =>
+			pluginManager ? pluginManager.getConversionMetadata() : [],
+		readConfig: () => app.readPluginOptions() as Record<string, unknown>,
+		writeConfig: (config) => {
+			app.savePluginOptions(config, (err) => {
+				if (err) app.error(`advisor config save failed: ${errMessage(err)}`);
+			});
+		},
+	});
+
 	// Closure form: the router always sees the current PluginManager instance.
 	// PluginManager is recreated on every start/stop cycle, so a direct
 	// reference would go stale after the first restart.
-	plugin.registerWithRouter = createApiRouter(app, () => pluginManager);
+	plugin.registerWithRouter = createApiRouter(
+		app,
+		() => pluginManager,
+		() => advisor,
+	);
 
 	function startPlugin(
 		options: unknown,

@@ -1,8 +1,10 @@
 import type { IRouter, Request, Response } from "express";
+import type { Advisor } from "../advisor/advisor.js";
 import type { PluginManager } from "../plugin-manager.js";
 import type { SignalKApp } from "../types/index.js";
 import { enumerateActivePaths, enumerateSourcesForPath } from "./discovery.js";
 import type {
+	AdvisorApplyRequest,
 	ConversionsResponse,
 	PathsResponse,
 	SourcesResponse,
@@ -12,6 +14,7 @@ const API_PREFIX = "/plugins/signalk-nmea2000-emitter-cannon/api";
 
 const HTTP_STATUS = {
 	BAD_REQUEST: 400,
+	SERVICE_UNAVAILABLE: 503,
 } as const;
 
 /**
@@ -28,6 +31,7 @@ const HTTP_STATUS = {
 export function createApiRouter(
 	app: SignalKApp,
 	getManager: () => PluginManager | null,
+	getAdvisor: () => Advisor | null,
 ): (router: IRouter) => void {
 	return (router) => {
 		// Spec requires admin-gated routes. The optional-chain check below
@@ -94,6 +98,63 @@ export function createApiRouter(
 				sources: enumerateSourcesForPath(app, path),
 			};
 			res.json(body);
+		});
+
+		router.post("/api/advisor/review", async (_req: Request, res: Response) => {
+			const advisor = getAdvisor();
+			if (!advisor) {
+				res
+					.status(HTTP_STATUS.SERVICE_UNAVAILABLE)
+					.json({ error: "advisor unavailable" });
+				return;
+			}
+			try {
+				res.json({ result: await advisor.runReview() });
+			} catch (err) {
+				app.error(`advisor review failed: ${String(err)}`);
+				res
+					.status(HTTP_STATUS.SERVICE_UNAVAILABLE)
+					.json({ error: "review failed" });
+			}
+		});
+
+		router.get("/api/advisor/pending", (_req: Request, res: Response) => {
+			const advisor = getAdvisor();
+			if (!advisor) {
+				res
+					.status(HTTP_STATUS.SERVICE_UNAVAILABLE)
+					.json({ error: "advisor unavailable" });
+				return;
+			}
+			res.json({
+				result: {
+					ranAt: "",
+					autoApplied: [],
+					pending: advisor.getPending(),
+					notes: [],
+				},
+			});
+		});
+
+		router.post("/api/advisor/apply", async (req: Request, res: Response) => {
+			const advisor = getAdvisor();
+			if (!advisor) {
+				res
+					.status(HTTP_STATUS.SERVICE_UNAVAILABLE)
+					.json({ error: "advisor unavailable" });
+				return;
+			}
+			const body = req.body as Partial<AdvisorApplyRequest>;
+			const decisions = Array.isArray(body.decisions) ? body.decisions : [];
+			try {
+				await advisor.applyReview(decisions);
+				res.json({ applied: decisions.filter((d) => d.approved).length });
+			} catch (err) {
+				app.error(`advisor apply failed: ${String(err)}`);
+				res
+					.status(HTTP_STATUS.SERVICE_UNAVAILABLE)
+					.json({ error: "apply failed" });
+			}
 		});
 	};
 }

@@ -9,6 +9,7 @@ import { Categories } from "../config/enums";
 import type { ConversionCategory } from "../config/enums.js";
 import { errMessage } from "../utils/errorUtils.js";
 import { PLUGIN_API_BASE } from "./api-base";
+import AdvisorPanel from "./components/advisor/AdvisorPanel";
 import CategoryTabs from "./components/CategoryTabs";
 import ConversionCard from "./components/ConversionCard";
 import FooterBar from "./components/FooterBar";
@@ -104,6 +105,7 @@ export default function PluginConfigurationPanel({
 		<div className="skn-panel" style={S.root}>
 			<style>{FOCUS_STYLE}</style>
 			<StatusDashboard status={status} />
+			<AdvisorPanel />
 			{error ? (
 				<div role="alert" style={S.errorBanner}>
 					<span>Status: {error}. The next poll will retry automatically.</span>

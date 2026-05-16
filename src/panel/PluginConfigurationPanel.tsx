@@ -88,6 +88,12 @@ export default function PluginConfigurationPanel({
 	// JSON.stringify compare that ran on every render.
 	const dirty = state !== savedState;
 
+	const handleSave = (): void => {
+		save(state);
+		markSaved();
+		setJustSavedAt(Date.now());
+	};
+
 	const visible = meta.filter((m) => m.category === tab);
 	const counts = useMemo(() => {
 		const c = {} as Record<ConversionCategory, number>;
@@ -108,6 +114,8 @@ export default function PluginConfigurationPanel({
 			<AdvisorPanel
 				advisor={state.advisor}
 				onChangeAdvisor={(advisor) => dispatch({ type: "setAdvisor", advisor })}
+				dirty={dirty}
+				onSave={handleSave}
 			/>
 			{error ? (
 				<div role="alert" style={S.errorBanner}>
@@ -156,11 +164,7 @@ export default function PluginConfigurationPanel({
 			<FooterBar
 				dirty={dirty}
 				justSavedAt={justSavedAt}
-				onSave={() => {
-					save(state);
-					markSaved();
-					setJustSavedAt(Date.now());
-				}}
+				onSave={handleSave}
 				onDiscard={() => dispatch({ type: "discard", config: savedState })}
 			/>
 		</div>

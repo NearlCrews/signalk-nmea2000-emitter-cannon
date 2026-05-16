@@ -91,6 +91,7 @@ S.tabActive = {
 };
 S.footer = {
 	display: "flex",
+	alignItems: "center",
 	gap: 8,
 	padding: "12px 0",
 	borderTop: "1px solid #e0e0e0",
@@ -174,12 +175,16 @@ S.notePrefix = {
 	marginRight: 4,
 };
 S.savedPill = {
+	display: "inline-flex",
+	alignItems: "center",
+	justifyContent: "center",
 	fontSize: 12,
+	lineHeight: 1,
 	color: "#065f46",
 	background: "#d1fae5",
 	border: "1px solid #6ee7b7",
 	borderRadius: 999,
-	padding: "2px 10px",
+	padding: "5px 12px",
 	marginLeft: 8,
 };
 S.errorBanner = {

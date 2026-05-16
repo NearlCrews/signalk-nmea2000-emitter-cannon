@@ -10,6 +10,8 @@ import ReviewResultView from "./ReviewResultView.js";
 interface Props {
 	advisor: Config["advisor"];
 	onChangeAdvisor: (next: NonNullable<Config["advisor"]>) => void;
+	dirty: boolean;
+	onSave: () => void;
 }
 
 /**
@@ -19,6 +21,8 @@ interface Props {
 export default function AdvisorPanel({
 	advisor,
 	onChangeAdvisor,
+	dirty,
+	onSave,
 }: Props): React.ReactElement {
 	const [open, setOpen] = useState(false);
 	const { state, review, apply } = useAdvisor();
@@ -49,6 +53,17 @@ export default function AdvisorPanel({
 			{open && (
 				<div style={S.advisorBody}>
 					<AdvisorSettings value={advisor} onChange={onChangeAdvisor} />
+					<div style={S.fieldRow}>
+						<button
+							type="button"
+							style={S.btnPrimary}
+							onClick={onSave}
+							disabled={!dirty}
+						>
+							Save
+						</button>
+						{dirty ? <span style={S.dirty}>Unsaved changes</span> : null}
+					</div>
 					<p style={S.advisorIntro}>
 						Reviews the Signal K paths your boat publishes and recommends which
 						conversions to enable. Enables apply automatically; anything that

@@ -11,12 +11,18 @@ describe("isN2KSource", () => {
 		expect(isN2KSource("can0.123")).toBe(true);
 		expect(isN2KSource("n2k-on-ve.can-socket.45")).toBe(true);
 	});
+	it("flags N2K sources whose connection id does not contain 'can'", () => {
+		expect(isN2KSource("ttyUSB0.115")).toBe(true);
+		expect(isN2KSource("actisense.15")).toBe(true);
+		expect(isN2KSource("n2k-1.42")).toBe(true);
+	});
 	it("flags the plugin's own echo guard label", () => {
 		expect(isN2KSource("NMEA2000")).toBe(true);
 	});
 	it("treats non-N2K sources as native", () => {
 		expect(isN2KSource("gps1")).toBe(false);
 		expect(isN2KSource("signalk-virtual-weather-sensors")).toBe(false);
+		expect(isN2KSource("ttyUSB0.GP")).toBe(false);
 		expect(isN2KSource("")).toBe(false);
 	});
 });
@@ -73,7 +79,7 @@ describe("recommend", () => {
 				{
 					path: "navigation.depth.belowTransducer",
 					live: true,
-					liveSources: ["depth.0"],
+					liveSources: ["depthSounder"],
 				},
 			],
 			metadata: [meta("DEPTH", ["navigation.depth.belowTransducer"])],
@@ -104,7 +110,7 @@ describe("recommend", () => {
 				{
 					path: "navigation.depth.belowTransducer",
 					live: true,
-					liveSources: ["depth.0"],
+					liveSources: ["depthSounder"],
 				},
 			],
 			metadata: [meta("DEPTH", ["navigation.depth.belowTransducer"])],
@@ -121,7 +127,7 @@ describe("recommend", () => {
 				{
 					path: "navigation.depth.belowTransducer",
 					live: true,
-					liveSources: ["depth.0"],
+					liveSources: ["depthSounder"],
 				},
 			],
 			metadata: [
@@ -145,7 +151,7 @@ function advisorDeps(overrides: Partial<AdvisorDeps> = {}): TestDeps {
 			{
 				path: "navigation.depth.belowTransducer",
 				live: true,
-				liveSources: ["depth.0"],
+				liveSources: ["depthSounder"],
 			},
 		],
 		getMetadata: () => [meta("DEPTH", ["navigation.depth.belowTransducer"])],

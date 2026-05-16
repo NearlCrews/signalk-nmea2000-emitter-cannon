@@ -77,7 +77,15 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 		},
 		writeConfig: (config) => {
 			app.savePluginOptions(config, (err) => {
-				if (err) app.error(`advisor config save failed: ${errMessage(err)}`);
+				if (err) {
+					app.error(`advisor config save failed: ${errMessage(err)}`);
+					return;
+				}
+				// savePluginOptions only writes the file; the running
+				// PluginManager still holds the previous config. Restart it so
+				// an advisor change takes effect immediately rather than on the
+				// next manual restart.
+				startPlugin(config);
 			});
 		},
 	});

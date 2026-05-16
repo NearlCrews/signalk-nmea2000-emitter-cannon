@@ -6,6 +6,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **Never push without explicit ok.** Local commits and tags are fine; do not run `git push`, `git push --tags`, `npm publish`, `npm run release`, `gh pr create`, or `gh pr edit` until the user explicitly says to push. Workflows that naturally end in a push stop one step short and wait for the go-ahead.
 
+## Documentation layout
+
+Docs are organized by audience so the repo root stays clean (the root is the first impression on both npm and GitHub). Keep this layout:
+
+- **Root**: `README.md`, `CHANGELOG.md`, `LICENSE`, `CLAUDE.md`, and tooling files only (`package.json`, `biome.json`, `tsconfig*.json`, `vitest.config.ts`, `webpack.config.cjs`). Do not add other docs to the root.
+- **`.github/`**: `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md` (GitHub auto-surfaces these from `.github/` exactly as from root), plus issue/PR templates and workflows. Files here reach the root with `../`.
+- **`docs/`**: user and contributor reference: `pgn-reference.md`, `troubleshooting.md`, `development.md`.
+- **`docs/decisions/`**: design-decision and spike memos (dated, e.g. the React config panel design/plan).
+- **`docs/maintainers/`**: release and QA docs (`releasing.md`).
+
+`README.md` is the npm package page (npm renders only `README.md`): keep it a landing page, not a reference manual. Identity and value first, then features, requirements, install, config, then a Documentation links section and meta sections. Deep reference lives in `docs/` and is linked. After moving any markdown file, re-verify every relative link (subdirectory files reach the root with `../`).
+
+The `package.json` `description` is the npm subtitle and search snippet: keep it tight and free of low-signal filler.
+
+### Release notes rule
+
+`README.md` has a single **What's New in vX.Y.Z** section, placed right after the intro paragraph and before Features. It carries ONLY the most recent release and is overwritten on every release (never an accumulating list). Its body is a 2-4 sentence prose summary sourced from the new `CHANGELOG.md` entry's lead paragraph, ending with links to the CHANGELOG version anchor and the GitHub release tag. Overwriting this section is a step in the release checklist at `docs/maintainers/releasing.md`.
+
 ## Project Overview
 
 Signal K NMEA 2000 Emitter Cannon is a TypeScript Signal K server plugin that converts Signal K marine navigation data to NMEA 2000 format. It supports 45 conversion modules emitting 53 data PGNs (plus 5 bus-layer PGNs announced in the transmit list) with Garmin compatibility.

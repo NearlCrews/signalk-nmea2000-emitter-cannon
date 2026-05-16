@@ -4,10 +4,10 @@
 
 We actively support the following versions with security updates:
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 1.4.x   | :white_check_mark: |
-| < 1.4   | :x:                |
+| Version | Supported |
+| ------- | --------- |
+| 1.5.x   | Yes       |
+| < 1.5   | No        |
 
 ## Reporting a Vulnerability
 

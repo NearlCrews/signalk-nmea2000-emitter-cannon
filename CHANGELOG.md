@@ -1,5 +1,7 @@
 ## Change Log
 
+<a id="v157"></a>
+
 ### v1.5.7 (2026/05/16) - Notification crash fix and string-field clamping
 
 **Bug fix: an over-long notification message no longer crashes signalk-server.**

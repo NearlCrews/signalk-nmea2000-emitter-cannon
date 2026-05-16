@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { Advisor, type AdvisorDeps } from "../advisor/advisor.js";
 import { isN2KSource } from "../advisor/busSource.js";
 import { buildLiveInventory } from "../advisor/inventory.js";
 import { recommend } from "../advisor/recommender.js";
@@ -130,5 +131,82 @@ describe("recommend", () => {
 			currentConfig: {},
 		});
 		expect(recs).toEqual([]);
+	});
+});
+
+interface TestDeps extends AdvisorDeps {
+	getSaved: () => Record<string, unknown> | null;
+}
+
+function advisorDeps(overrides: Partial<AdvisorDeps> = {}): TestDeps {
+	let saved: Record<string, unknown> | null = null;
+	const base: AdvisorDeps = {
+		buildInventory: () => [
+			{
+				path: "navigation.depth.belowTransducer",
+				live: true,
+				liveSources: ["depth.0"],
+			},
+		],
+		getMetadata: () => [meta("DEPTH", ["navigation.depth.belowTransducer"])],
+		readConfig: () => ({ conversions: {} }),
+		writeConfig: (cfg) => {
+			saved = cfg;
+		},
+		now: () => new Date("2026-05-16T10:00:00Z"),
+		...overrides,
+	};
+	return { ...base, getSaved: () => saved };
+}
+
+describe("Advisor.runReview", () => {
+	it("auto-applies a confident enable and writes config", async () => {
+		const deps = advisorDeps();
+		const result = await new Advisor(deps).runReview();
+		expect(result.autoApplied.map((r) => r.optionKey)).toEqual(["DEPTH"]);
+		expect(result.pending).toEqual([]);
+		const saved = deps.getSaved() as {
+			conversions: Record<string, { enabled: boolean }>;
+		};
+		expect(saved.conversions.DEPTH.enabled).toBe(true);
+	});
+
+	it("parks a disable as pending and does not write it", async () => {
+		const deps = advisorDeps({
+			buildInventory: () => [
+				{ path: "navigation.position", live: true, liveSources: ["can0.9"] },
+			],
+			getMetadata: () => [meta("GPS", ["navigation.position"])],
+			readConfig: () => ({
+				conversions: {
+					GPS: { enabled: true, resend: 0, sources: {}, extras: {} },
+				},
+			}),
+		});
+		const result = await new Advisor(deps).runReview();
+		expect(result.pending.map((r) => r.optionKey)).toEqual(["GPS"]);
+		expect(result.autoApplied).toEqual([]);
+	});
+});
+
+describe("Advisor.applyReview", () => {
+	it("applies approved disables and ignores rejected ones", async () => {
+		const deps = advisorDeps({
+			readConfig: () => ({
+				conversions: {
+					GPS: { enabled: true, resend: 0, sources: {}, extras: {} },
+					AIS: { enabled: true, resend: 0, sources: {}, extras: {} },
+				},
+			}),
+		});
+		await new Advisor(deps).applyReview([
+			{ optionKey: "GPS", approved: true },
+			{ optionKey: "AIS", approved: false },
+		]);
+		const saved = deps.getSaved() as {
+			conversions: Record<string, { enabled: boolean }>;
+		};
+		expect(saved.conversions.GPS.enabled).toBe(false);
+		expect(saved.conversions.AIS.enabled).toBe(true);
 	});
 });

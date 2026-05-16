@@ -34,6 +34,8 @@ export interface AdvisorDeps {
 		apiKey: string;
 		model: string;
 	}) => Promise<boolean>;
+	/** Optional OpenRouter model-list fetch for the panel's autocomplete. */
+	listModelsFn?: () => Promise<string[]>;
 }
 
 type ConversionMap = Record<string, ConversionConfig>;
@@ -135,6 +137,16 @@ export class Advisor {
 			return { ok: await this.deps.testKeyFn(openRouter) };
 		} catch {
 			return { ok: false };
+		}
+	}
+
+	/** The OpenRouter model ids for the panel's autocomplete; empty on error. */
+	async listModels(): Promise<{ models: string[] }> {
+		if (!this.deps.listModelsFn) return { models: [] };
+		try {
+			return { models: await this.deps.listModelsFn() };
+		} catch {
+			return { models: [] };
 		}
 	}
 

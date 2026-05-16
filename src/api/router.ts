@@ -174,5 +174,12 @@ export function createApiRouter(
 				res.json(await advisor.testKey());
 			}),
 		);
+
+		router.get(
+			"/api/advisor/models",
+			advisorRoute(async (advisor, _req, res) => {
+				res.json(await advisor.listModels());
+			}),
+		);
 	};
 }

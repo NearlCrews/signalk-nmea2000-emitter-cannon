@@ -126,6 +126,24 @@ export class OpenRouterClient {
 	}
 }
 
+/**
+ * The sorted list of model ids OpenRouter currently serves, from the public
+ * `/models` endpoint (no API key required). Used to populate the model-field
+ * autocomplete in the panel. Throws on a non-OK response.
+ */
+export async function fetchOpenRouterModels(
+	baseUrl: string,
+	fetchImpl: typeof fetch = fetch,
+): Promise<string[]> {
+	const res = await fetchImpl(`${baseUrl}/models`);
+	if (!res.ok) throw new Error(`HTTP ${res.status}`);
+	const body = (await res.json()) as { data?: { id?: unknown }[] };
+	return (body.data ?? [])
+		.map((m) => m.id)
+		.filter((id): id is string => typeof id === "string")
+		.sort();
+}
+
 /** Minimal surface enrichRationales needs, so tests can pass a fake. */
 export interface Completer {
 	complete(args: CompleteArgs): Promise<string>;

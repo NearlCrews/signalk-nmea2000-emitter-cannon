@@ -3,7 +3,11 @@ import { Advisor, type AdvisorDeps } from "../advisor/advisor.js";
 import { BudgetTracker } from "../advisor/budget.js";
 import { isN2KSource } from "../advisor/busSource.js";
 import { buildLiveInventory, mergeHistoric } from "../advisor/inventory.js";
-import { enrichRationales, OpenRouterClient } from "../advisor/openrouter.js";
+import {
+	enrichRationales,
+	fetchOpenRouterModels,
+	OpenRouterClient,
+} from "../advisor/openrouter.js";
 import { fetchHistoricPaths, QuestDBClient } from "../advisor/questdb.js";
 import { recommend } from "../advisor/recommender.js";
 import type { ConversionMetadata } from "../api/types.js";
@@ -518,6 +522,36 @@ describe("enrichRationales", () => {
 		const client = { complete: async () => "not json" };
 		const out = await enrichRationales(client, recs);
 		expect(out.size).toBe(0);
+	});
+});
+
+describe("fetchOpenRouterModels", () => {
+	it("returns sorted model ids from the /models response", async () => {
+		const fetchImpl = (async () =>
+			({
+				ok: true,
+				status: 200,
+				json: async () => ({
+					data: [{ id: "openai/gpt-4o" }, { id: "anthropic/claude-haiku-4.5" }],
+				}),
+			}) as Response) as typeof fetch;
+		const models = await fetchOpenRouterModels(
+			"https://openrouter.ai/api/v1",
+			fetchImpl,
+		);
+		expect(models).toEqual(["anthropic/claude-haiku-4.5", "openai/gpt-4o"]);
+	});
+
+	it("throws on a non-OK response", async () => {
+		const fetchImpl = (async () =>
+			({
+				ok: false,
+				status: 502,
+				json: async () => ({}),
+			}) as Response) as typeof fetch;
+		await expect(
+			fetchOpenRouterModels("https://openrouter.ai/api/v1", fetchImpl),
+		).rejects.toThrow("HTTP 502");
 	});
 });
 

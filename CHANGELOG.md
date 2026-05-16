@@ -14,7 +14,11 @@ Optional inputs extend the review. With QuestDB enabled, the advisor queries his
 
 A new collapsible "Config Advisor" panel section carries a settings sub-panel (master toggle, OpenRouter, QuestDB, scheduled review, every control with inline help), a "Review now" button, and the review result with per-item Approve/Reject. An optional periodic scheduler re-runs the review on a configurable interval. New admin-gated endpoints: `POST /api/advisor/review`, `POST /api/advisor/apply`, `GET /api/advisor/pending`, `GET /api/advisor/questdb-test`, `POST /api/advisor/test-key`.
 
-The whole feature is zero-new-dependency (the QuestDB and OpenRouter clients use the Node 22 global `fetch`). Test suite is now 105 tests across 13 files. The design spec and four phase plans live under `docs/superpowers/`.
+The whole feature is zero-new-dependency (the QuestDB and OpenRouter clients use the Node 22 global `fetch`). The design spec and four phase plans live under `docs/superpowers/`.
+
+**New conversion: `WIND_WEATHER_APPARENT` (PGN 130306).**
+
+An opt-in conversion bridges the synthetic apparent wind that `signalk-virtual-weather-sensors` publishes on its producer namespace (`environment.weather.windSpeedApparent` / `windAngleApparent`). That plugin deliberately keeps this value off the canonical `environment.wind.*` leaves a real anemometer owns, so the conversion is disabled by default and carries a warning; enable it only on a vessel with no real masthead anemometer. The advisor's OpenRouter model field also gained autocomplete sourced from the OpenRouter `/models` endpoint. Test suite is now 108 tests across 13 files.
 
 <a id="v157"></a>
 

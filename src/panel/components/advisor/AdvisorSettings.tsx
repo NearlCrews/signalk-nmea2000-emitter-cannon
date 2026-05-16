@@ -1,6 +1,7 @@
 import type * as React from "react";
 import { DEFAULT_ADVISOR_CONFIG } from "../../../config/enums.js";
 import type { Config } from "../../../config/schema.js";
+import { useOpenRouterModels } from "../../hooks/useOpenRouterModels.js";
 import { S } from "../../styles";
 
 type AdvisorCfg = NonNullable<Config["advisor"]>;
@@ -21,10 +22,20 @@ export default function AdvisorSettings({
 	onChange,
 }: Props): React.ReactElement {
 	const cfg: AdvisorCfg = value ?? DEFAULT_ADVISOR_CONFIG;
+	const { models, modelsState, loadModels } = useOpenRouterModels();
 
 	const patch = (part: Partial<AdvisorCfg>): void => {
 		onChange({ ...cfg, ...part });
 	};
+
+	const modelsHint =
+		modelsState === "loading"
+			? "Loading the model list..."
+			: modelsState === "error"
+				? "Could not load the model list; type the model slug manually."
+				: modelsState === "ready"
+					? `${models.length} models available (autocomplete)`
+					: "Focus the field to load the model list for autocomplete.";
 
 	return (
 		<div>
@@ -82,14 +93,24 @@ export default function AdvisorSettings({
 				<span style={S.label}>Model</span>
 				<input
 					type="text"
+					list="advisor-or-models"
 					style={S.input}
 					value={cfg.openRouter.model}
 					onChange={(e) =>
 						patch({ openRouter: { ...cfg.openRouter, model: e.target.value } })
 					}
+					onFocus={() => {
+						if (modelsState === "idle") void loadModels();
+					}}
 					aria-label="OpenRouter model"
 				/>
+				<datalist id="advisor-or-models">
+					{models.map((m) => (
+						<option key={m} value={m} />
+					))}
+				</datalist>
 			</div>
+			<p style={S.helpHint}>{modelsHint}</p>
 			<div style={S.fieldRow}>
 				<span style={S.label}>Max OpenRouter calls per day</span>
 				<input

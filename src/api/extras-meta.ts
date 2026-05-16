@@ -38,6 +38,8 @@ const EXTRAS_BY_OPTION_KEY: Record<string, ExtrasMeta> = {
 export const CONVERSION_DESCRIPTIONS: Record<string, string> = {
 	AIS_SAFETY_MESSAGE:
 		"Do not enable unless this vessel has a licensed AIS transceiver whose MMSI matches the value broadcast on the bus. Software-only emission of AIS safety messages violates ITU-R M.1371 and may breach licence terms (e.g. US FCC ship station rules). Use Notifications (PGN 126985) for non-AIS alerts.",
+	WIND_WEATHER_APPARENT:
+		"Bridges the synthetic apparent wind from signalk-virtual-weather-sensors (forecast wind plus vessel motion) to PGN 130306. Leave disabled if a real masthead anemometer feeds apparent wind: emitting both puts competing values on the bus.",
 };
 
 export function descriptionFor(optionKey: string): string | undefined {

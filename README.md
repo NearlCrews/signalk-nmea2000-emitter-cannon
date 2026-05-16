@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/github/license/NearlCrews/signalk-nmea2000-emitter-cannon.svg)](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/blob/main/LICENSE)
 [![CI](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/actions/workflows/ci.yml/badge.svg)](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/actions/workflows/ci.yml)
 
-A Signal K plugin that converts Signal K deltas into NMEA 2000 messages. 45
+A Signal K plugin that converts Signal K deltas into NMEA 2000 messages. 46
 conversion modules covering 53 data PGNs, aligned with Garmin ECHOMAP / GPSMAP
 / GMI specifications and the canboatjs encoder. Pairs well with sensor-side
 plugins such as [`signalk-virtual-weather-sensors`](https://github.com/NearlCrews/signalk-virtual-weather-sensors).
@@ -29,7 +29,7 @@ See the [v1.6.0 changelog entry](CHANGELOG.md#v160) and the
 
 ## Features
 
-- **45 conversion modules emitting 53 data PGNs**, plus 5 bus-layer PGNs
+- **46 conversion modules emitting 53 data PGNs**, plus 5 bus-layer PGNs
   (59392, 59904, 60928, 126993, 126996) advertised in the 126464 transmit list
 - **Garmin-aligned** PGN priorities, SID fields, temperature-source enum
   values, and wind/bearing reference enums verified against the Garmin ECHOMAP
@@ -46,7 +46,7 @@ See the [v1.6.0 changelog entry](CHANGELOG.md#v160) and the
   history and OpenRouter-powered plain-language explanations
 - **Single ESM bundle** via esbuild; the only runtime dependency is RxJS
 - **Embedded canboatjs round-trip tests** on every conversion module, plus
-  advisor unit tests (105 tests across 13 files)
+  advisor unit tests (108 tests across 13 files)
 - **`$source: 'NMEA2000'` echo-guard** on AIS conversions to avoid re-emitting
   received AIS deltas back onto the bus
 - **Apache 2.0**, pure ESM, Node 22.12+

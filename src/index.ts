@@ -2,7 +2,11 @@ import pkg from "../package.json" with { type: "json" };
 import { Advisor } from "./advisor/advisor.js";
 import { BudgetTracker } from "./advisor/budget.js";
 import { buildLiveInventory } from "./advisor/inventory.js";
-import { enrichRationales, OpenRouterClient } from "./advisor/openrouter.js";
+import {
+	enrichRationales,
+	fetchOpenRouterModels,
+	OpenRouterClient,
+} from "./advisor/openrouter.js";
 import { fetchHistoricPaths, QuestDBClient } from "./advisor/questdb.js";
 import { AdvisorScheduler } from "./advisor/schedule.js";
 import { createApiRouter } from "./api/router.js";
@@ -140,6 +144,7 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 			});
 			return true;
 		},
+		listModelsFn: () => fetchOpenRouterModels("https://openrouter.ai/api/v1"),
 	});
 
 	// Drives the optional periodic review. Reconfigured on every startPlugin

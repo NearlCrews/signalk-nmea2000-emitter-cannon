@@ -26,7 +26,7 @@ The `package.json` `description` is the npm subtitle and search snippet: keep it
 
 ## Project Overview
 
-Signal K NMEA 2000 Emitter Cannon is a TypeScript Signal K server plugin that converts Signal K marine navigation data to NMEA 2000 format. It supports 45 conversion modules emitting 53 data PGNs (plus 5 bus-layer PGNs announced in the transmit list) with Garmin compatibility.
+Signal K NMEA 2000 Emitter Cannon is a TypeScript Signal K server plugin that converts Signal K marine navigation data to NMEA 2000 format. It supports 46 conversion modules emitting 53 data PGNs (plus 5 bus-layer PGNs announced in the transmit list) with Garmin compatibility.
 
 ## Common Commands
 
@@ -49,7 +49,7 @@ npm run check          # Full Biome check
 - `src/plugin-manager.ts` - Core lifecycle manager that loads conversions, sets up Signal K subscriptions, handles resend timers
 
 ### Conversion Module Pattern
-All 45 modules in `src/conversions/` follow this factory pattern:
+All 46 modules in `src/conversions/` follow this factory pattern:
 
 ```typescript
 export default function createXxxConversion(app: SignalKApp): ConversionModule<T> {
@@ -87,7 +87,7 @@ The registry `src/conversions/index.ts` imports all factories and exports `creat
 ## Testing
 
 Tests live in `src/test/` across 9 files (`index.test.ts`, `api.test.ts`, `discovery.test.ts`, `lifecycle.test.ts`, `migrate.test.ts`, `pathUtils.test.ts`, `smoothing.test.ts`, `status.test.ts`, `temperature.test.ts`). The conversion-module test cases live embedded in each module's `tests` array, run by `src/test/index.test.ts`. The full suite (57 tests):
-1. Loads all 45 conversion modules
+1. Loads all 46 conversion modules
 2. Validates each module has test cases
 3. Runs embedded tests against CanboatJS encoder/decoder
 

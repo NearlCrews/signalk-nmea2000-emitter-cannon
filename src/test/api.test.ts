@@ -302,6 +302,30 @@ describe("API router", () => {
 		expect(res.body.ok).toBe(true);
 	});
 
+	it("GET /api/advisor/models returns the model list", async () => {
+		const advisor = {
+			runReview: async () => ({
+				ranAt: "",
+				autoApplied: [],
+				pending: [],
+				notes: [],
+			}),
+			getPending: () => [],
+			applyReview: async () => {},
+			listModels: async () => ({ models: ["anthropic/claude-haiku-4.5"] }),
+		};
+		const ex = mountRouterWithAdvisor(
+			fakeApp,
+			() => null,
+			() => advisor,
+		);
+		const res = await request(ex).get(
+			"/plugins/signalk-nmea2000-emitter-cannon/api/advisor/models",
+		);
+		expect(res.status).toBe(200);
+		expect(res.body.models).toContain("anthropic/claude-haiku-4.5");
+	});
+
 	it("advisor endpoints 503 when no advisor is wired", async () => {
 		const ex = mountRouterWithAdvisor(
 			fakeApp,

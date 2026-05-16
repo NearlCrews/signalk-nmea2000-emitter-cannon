@@ -4,6 +4,7 @@ import { BudgetTracker } from "./advisor/budget.js";
 import { buildLiveInventory } from "./advisor/inventory.js";
 import { enrichRationales, OpenRouterClient } from "./advisor/openrouter.js";
 import { fetchHistoricPaths, QuestDBClient } from "./advisor/questdb.js";
+import { AdvisorScheduler } from "./advisor/schedule.js";
 import { createApiRouter } from "./api/router.js";
 import { RootConfig } from "./config/schema.js";
 import { PluginManager } from "./plugin-manager.js";
@@ -141,6 +142,10 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 		},
 	});
 
+	// Drives the optional periodic review. Reconfigured on every startPlugin
+	// from the advisor.schedule config, cleared on stopPlugin.
+	const advisorScheduler = new AdvisorScheduler(() => advisor.runReview());
+
 	plugin.registerWithRouter = createApiRouter(
 		app,
 		() => pluginManager,
@@ -162,6 +167,17 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 		try {
 			pluginManager = new PluginManager(app, plugin, () => nmea2000Ready);
 			pluginManager.start(options);
+			const schedule = (
+				options as {
+					advisor?: {
+						schedule?: { periodic?: unknown; intervalDays?: unknown };
+					};
+				}
+			).advisor?.schedule;
+			advisorScheduler.configure(
+				schedule?.periodic === true,
+				typeof schedule?.intervalDays === "number" ? schedule.intervalDays : 7,
+			);
 		} catch (error) {
 			const msg = errMessage(error);
 			app.error(`Failed to start plugin: ${msg}`);
@@ -174,6 +190,7 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 	}
 
 	function stopPlugin(): void {
+		advisorScheduler.stop();
 		if (pluginManager) {
 			pluginManager.stop();
 			pluginManager = null;

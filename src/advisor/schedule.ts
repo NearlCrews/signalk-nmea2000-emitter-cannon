@@ -1,0 +1,43 @@
+const DAY_MS = 24 * 60 * 60 * 1000;
+// setInterval's delay is a signed 32-bit int of milliseconds (~24.8 days).
+// A larger value overflows and fires almost immediately, so the interval is
+// capped here. A review every 24 days is well beyond any practical need.
+const MAX_INTERVAL_DAYS = 24;
+
+/**
+ * Drives the advisor's optional periodic review. A single setInterval is
+ * (re)armed by `configure` and cleared by `stop`. Callback errors are
+ * swallowed so one failing review does not stop the schedule.
+ */
+export class AdvisorScheduler {
+	private timer: ReturnType<typeof setInterval> | null = null;
+
+	constructor(private readonly run: () => Promise<unknown>) {}
+
+	/**
+	 * Arm or disarm the periodic review. Always clears any existing timer
+	 * first, so it is safe to call on every plugin start with fresh config.
+	 */
+	configure(periodic: boolean, intervalDays: number): void {
+		this.stop();
+		if (!periodic) return;
+		const days = Math.min(
+			Math.max(1, Math.trunc(intervalDays)),
+			MAX_INTERVAL_DAYS,
+		);
+		this.timer = setInterval(() => {
+			void this.run().catch(() => {
+				// A failing review must not stop the schedule; runReview
+				// surfaces its own problems through the ReviewResult notes.
+			});
+		}, days * DAY_MS);
+	}
+
+	/** Clear the periodic review timer, if any. */
+	stop(): void {
+		if (this.timer !== null) {
+			clearInterval(this.timer);
+			this.timer = null;
+		}
+	}
+}

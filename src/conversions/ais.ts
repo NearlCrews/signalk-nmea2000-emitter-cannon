@@ -6,8 +6,13 @@ import type {
 	SignalKApp,
 	SignalKPlugin,
 } from "../types/index.js";
-import { parseMmsi } from "../utils/aisUtils.js";
-import { isValidNumber } from "../utils/validation.js";
+import {
+	AIS_CALLSIGN_CHARS,
+	AIS_DESTINATION_CHARS,
+	AIS_NAME_CHARS,
+	parseMmsi,
+} from "../utils/aisUtils.js";
+import { clampString, isValidNumber } from "../utils/validation.js";
 
 // AIS Message 1 spec value for "Not defined". canboat NAV_STATUS lookup
 // stops at 14, but the AIS bitfield is 4 bits and 15 is the spec default
@@ -462,6 +467,54 @@ export default function createAisConversion(
 				],
 				expected: [],
 			},
+			{
+				// Regression: AIS strings relayed from other vessels are
+				// unbounded. PGN 129794 name/callsign/destination are fixed-width
+				// STRING_FIX fields; an over-long value overflows the field (and
+				// the encode buffer). Clamp to the AIS spec widths.
+				input: [
+					{
+						context: "vessels.urn:mrn:imo:mmsi:367301250",
+						updates: [
+							{
+								values: [
+									{ path: "", value: { mmsi: "367301250" } },
+									{
+										path: "",
+										value: { name: "VERY LONG VESSEL NAME EXCEEDS LIMIT" },
+									},
+									{
+										path: "communication.callsignVhf",
+										value: "CALLSIGN1234567",
+									},
+									{
+										path: "navigation.destination.commonName",
+										value: "BALTIMORE INNER HARBOR EAST",
+									},
+								],
+							},
+						],
+					},
+				],
+				expected: [
+					{
+						prio: 2,
+						pgn: 129794,
+						dst: 255,
+						fields: {
+							messageId: "Static and voyage related data",
+							userId: 367301250,
+							callsign: "CALLSIG",
+							name: "VERY LONG VESSEL NAM",
+							destination: "BALTIMORE INNER HARB",
+							aisVersionIndicator: "ITU-R M.1371-1",
+							dte: "Available",
+							reserved: 1,
+							aisTransceiverInformation: "Channel A VDL reception",
+						},
+					},
+				],
+			},
 		],
 	};
 }
@@ -526,15 +579,15 @@ function generateStatic(
 		fields: {
 			messageId: "Static and voyage related data",
 			userId: mmsiNumber,
-			callsign: callsign,
-			name: name,
+			callsign: clampString(callsign, AIS_CALLSIGN_CHARS),
+			name: clampString(name, AIS_NAME_CHARS),
 			typeOfShip: type,
 			length: length,
 			beam: beam,
 			positionReferenceFromStarboard: fromStarboard,
 			positionReferenceFromBow: fromBow,
 			draft: draft,
-			destination: dest,
+			destination: clampString(dest, AIS_DESTINATION_CHARS),
 			aisVersionIndicator: "ITU-R M.1371-1",
 			dte: "Available",
 			aisTransceiverInformation: "Channel A VDL reception",

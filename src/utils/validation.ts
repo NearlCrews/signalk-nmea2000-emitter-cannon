@@ -13,3 +13,16 @@ export function toValidNumber(value: unknown): number | null {
 export function normalizeAngle(angle: number): number {
 	return ((angle % TWO_PI) + TWO_PI) % TWO_PI;
 }
+
+// Truncates a string so it cannot overflow a fixed-width or length-prefixed
+// NMEA 2000 string field. canboatjs encodes every PGN into a 500-byte buffer
+// and throws past it; that throw is re-raised uncatchably by signalk-server's
+// safeApply, so an unclamped field can crash the host process. maxChars counts
+// JS code units: marine string fields are ASCII, so this matches byte width.
+export function clampString(
+	value: string | undefined,
+	maxChars: number,
+): string | undefined {
+	if (value === undefined || value.length <= maxChars) return value;
+	return value.slice(0, maxChars);
+}

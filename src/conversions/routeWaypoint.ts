@@ -4,10 +4,12 @@ import {
 	SLOW_DATA_TIMEOUT_MS,
 } from "../constants.js";
 import type { ConversionModule, N2KMessage } from "../types/index.js";
-import { isValidNumber } from "../utils/validation.js";
+import { clampString, isValidNumber } from "../utils/validation.js";
 import {
 	DEFAULT_ROUTE_NAME,
+	MAX_ROUTE_NAME_CHARS,
 	MAX_RPS_WAYPOINTS,
+	MAX_WP_NAME_CHARS,
 	mapValidWaypoints,
 	type Position,
 } from "./routeTypes.js";
@@ -42,7 +44,7 @@ export default function createRouteWaypointConversion(): ConversionModule {
 
 			const list = mapValidWaypoints(waypoints, MAX_RPS_WAYPOINTS, (wp, i) => ({
 				wpId: wp.id ?? i,
-				wpName: wp.name || `WP${i}`,
+				wpName: clampString(wp.name || `WP${i}`, MAX_WP_NAME_CHARS),
 				wpLatitude: wp.position?.latitude,
 				wpLongitude: wp.position?.longitude,
 			}));
@@ -72,7 +74,7 @@ export default function createRouteWaypointConversion(): ConversionModule {
 						routeId: 1,
 						navigationDirectionInRoute: "Forward",
 						supplementaryRouteWpDataAvailable: list.length > 0 ? "On" : "Off",
-						routeName: routeNameString,
+						routeName: clampString(routeNameString, MAX_ROUTE_NAME_CHARS),
 						list,
 					},
 				},
@@ -121,6 +123,45 @@ export default function createRouteWaypointConversion(): ConversionModule {
 									wpName: "WP002",
 									wpLatitude: 39.3504,
 									wpLongitude: -76.5422,
+								},
+							],
+						},
+					},
+				],
+			},
+			{
+				// Regression: an over-long route name or waypoint name must be
+				// clamped before reaching the STRING_LAU fields of PGN 129285.
+				input: [
+					{ latitude: 39.2904, longitude: -76.6122 },
+					"R".repeat(40),
+					[
+						{
+							id: 1,
+							name: "W".repeat(25),
+							position: { latitude: 39.2904, longitude: -76.6122 },
+						},
+					],
+				],
+				expected: [
+					{
+						prio: 2,
+						pgn: 129285,
+						dst: 255,
+						fields: {
+							startRps: 0,
+							nitems: 1,
+							databaseId: 1,
+							routeId: 1,
+							navigationDirectionInRoute: "Forward",
+							supplementaryRouteWpDataAvailable: "On",
+							routeName: "R".repeat(32),
+							list: [
+								{
+									wpId: 1,
+									wpName: "W".repeat(16),
+									wpLatitude: 39.2904,
+									wpLongitude: -76.6122,
 								},
 							],
 						},

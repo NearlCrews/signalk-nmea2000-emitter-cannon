@@ -1,5 +1,15 @@
 ## Change Log
 
+### v1.5.7 (2026/05/16) - Notification crash fix and string-field clamping
+
+**Bug fix: an over-long notification message no longer crashes signalk-server.**
+
+A Signal K notification with a long `message` (for example a multi-sentence analyzer report) was placed verbatim into PGN 126985's text field. canboatjs encodes every PGN into a fixed 500-byte buffer and throws if a field writes past it, and signalk-server re-raises that throw as an uncatchable process-level exception, so a single over-long alert could take the whole server down on every 1 Hz rebroadcast. Alert text is now clamped, and the AIS (PGN 129794, 129040) and route (PGN 129285, 130074) string fields are clamped the same way so no relayed value can overflow the encoder.
+
+**Bug fix: `nominal` notifications are no longer emitted as alarms.**
+
+`nominal` is a valid Signal K notification state meaning "no alert", but it was unhandled: the notification conversion emitted it as a "Caution" alert and the Raymarine alarm conversion (PGN 65288) encoded it as an active alarm condition. Both now treat `nominal` like `normal`, clearing the alert and emitting no PGN.
+
 ### v1.5.6 (2026/05/15) - Admin panel polish and NMEA 2000 brand spacing
 
 **Brand: "NMEA 2000" is now spelled with a space everywhere.**

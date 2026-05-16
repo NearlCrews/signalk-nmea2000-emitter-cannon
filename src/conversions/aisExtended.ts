@@ -9,8 +9,12 @@ import type {
 	SignalKApp,
 	SignalKPlugin,
 } from "../types/index.js";
-import { parseMmsi } from "../utils/aisUtils.js";
-import { isValidNumber } from "../utils/validation.js";
+import {
+	AIS_NAME_CHARS,
+	AIS_SAFETY_TEXT_CHARS,
+	parseMmsi,
+} from "../utils/aisUtils.js";
+import { clampString, isValidNumber } from "../utils/validation.js";
 
 interface Position {
 	latitude?: number;
@@ -245,7 +249,7 @@ export default function createAisExtendedConversions(
 							positionReferenceFromBow: isValidNumber(fromBow)
 								? fromBow
 								: undefined,
-							name: selfName(),
+							name: clampString(selfName(), AIS_NAME_CHARS),
 							dte: "Available",
 							aisMode: "Assigned",
 						},
@@ -459,7 +463,10 @@ export default function createAisExtendedConversions(
 							sourceId: mmsi,
 							reserved: 1,
 							aisTransceiverInformation: "Channel A VDL reception",
-							safetyRelatedText: safetyMessage.substring(0, 161),
+							safetyRelatedText: clampString(
+								safetyMessage,
+								AIS_SAFETY_TEXT_CHARS,
+							),
 						},
 					},
 				];

@@ -1,6 +1,11 @@
 import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import type { ConversionModule, N2KMessage } from "../types/index.js";
-import { MAX_WP_LIST_WAYPOINTS, mapValidWaypoints } from "./routeTypes.js";
+import { clampString } from "../utils/validation.js";
+import {
+	MAX_WP_LIST_WAYPOINTS,
+	MAX_WP_NAME_CHARS,
+	mapValidWaypoints,
+} from "./routeTypes.js";
 
 export default function createRouteWpListConversion(): ConversionModule {
 	return {
@@ -30,7 +35,7 @@ export default function createRouteWpListConversion(): ConversionModule {
 				MAX_WP_LIST_WAYPOINTS,
 				(wp, index) => ({
 					wpId: wp.id ?? index + 1,
-					wpName: wp.name || `WP${index + 1}`,
+					wpName: clampString(wp.name || `WP${index + 1}`, MAX_WP_NAME_CHARS),
 					wpLatitude: wp.position?.latitude,
 					wpLongitude: wp.position?.longitude,
 				}),
@@ -104,6 +109,43 @@ export default function createRouteWpListConversion(): ConversionModule {
 									wpName: "DEST",
 									wpLatitude: 39.3504,
 									wpLongitude: -76.5422,
+								},
+							],
+						},
+					},
+				],
+			},
+			{
+				// Regression: an over-long waypoint name must be clamped before
+				// reaching the STRING_LAU field of PGN 130074.
+				input: [
+					[
+						{
+							id: 1,
+							name: "W".repeat(30),
+							position: { latitude: 39.0458, longitude: -76.6413 },
+						},
+					],
+					"Some Route",
+					false,
+				],
+				expected: [
+					{
+						prio: 2,
+						pgn: 130074,
+						dst: 255,
+						fields: {
+							databaseId: 1,
+							nitems: 1,
+							numberOfValidWpsInTheWpList: 1,
+							reserved: 0,
+							startWpId: 0,
+							list: [
+								{
+									wpId: 1,
+									wpName: "W".repeat(16),
+									wpLatitude: 39.0458,
+									wpLongitude: -76.6413,
 								},
 							],
 						},

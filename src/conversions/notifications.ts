@@ -15,7 +15,9 @@ import type {
 	SignalKApp,
 } from "../types/index.js";
 import { isDebugEnabled } from "../utils/debugUtils.js";
+import { isClearState } from "../utils/notificationUtils.js";
 import { matchPathPrefix } from "../utils/pathUtils.js";
+import { clampString } from "../utils/validation.js";
 
 interface AlertValue {
 	state: string;
@@ -74,6 +76,11 @@ const MAX_ALERT_ID = 65531;
 // realistic load (each alarm contributes 2 PGN entries) with safe headroom.
 const MAX_TRACKED_PATHS = 256;
 const MAX_PGN_ENTRIES = 256;
+
+// PGN 126985 alertTextDescription is a STRING_LAU field; 200 chars keeps the
+// fast-packet PGN within a single 32-frame set. See clampString for why an
+// unclamped field is fatal to the host process.
+const MAX_ALERT_TEXT_CHARS = 200;
 
 // Object param to prevent a transposition trap: the two boolean fields are
 // semantically distinct (one is "acked", the other "still audible") but a
@@ -141,7 +148,7 @@ function buildAlertPgns({
 			fields: {
 				...common,
 				languageId: "English (US)",
-				alertTextDescription: value.message,
+				alertTextDescription: clampString(value.message, MAX_ALERT_TEXT_CHARS),
 			},
 		},
 		{
@@ -326,7 +333,7 @@ export default function createNotificationsConversion(
 			const category = categoryForPath(update.path);
 			const type = alertTypes[value.state] ?? DEFAULT_ALERT_TYPE;
 			const priority = alertPriorities[value.state] ?? DEFAULT_ALERT_PRIORITY;
-			if (alertTypes[value.state] === undefined && value.state !== "normal") {
+			if (alertTypes[value.state] === undefined && !isClearState(value.state)) {
 				app.debug(
 					`Unknown notification state "${value.state}" on ${update.path}; emitting as Caution`,
 				);
@@ -336,7 +343,7 @@ export default function createNotificationsConversion(
 				const alertId = value.alertId;
 				app.debug(`Using existing alertId ${alertId} for ${update.path}`);
 
-				if (value.state === "normal") {
+				if (isClearState(value.state)) {
 					releaseAlertId(alertId);
 					return buildEmitList();
 				}
@@ -382,8 +389,8 @@ export default function createNotificationsConversion(
 			}
 
 			// notificationApi bounce-backs strip our alertId, so a release
-			// can land here on path #2 with state="normal".
-			if (value.state === "normal") {
+			// can land here on path #2 with a clear state.
+			if (isClearState(value.state)) {
 				releaseAlertId(alertId);
 				return buildEmitList();
 			}
@@ -494,6 +501,99 @@ export default function createNotificationsConversion(
 							triggerCondition: "Auto",
 							thresholdStatus: "Threshold Exceeded",
 							alertPriority: 4,
+							alertState: "Acknowledged",
+						},
+					},
+				],
+			},
+			{
+				// Regression: "nominal" is a valid non-alert Signal K state. It
+				// must be suppressed (release + no PGN), not emitted as a
+				// Caution alert the way an unknown state would be.
+				input: [
+					{
+						context: "vessels.urn:mrn:imo:mmsi:367301250",
+						updates: [
+							{
+								values: [
+									{
+										path: "notifications.openrouter-companion.engine.report",
+										value: {
+											state: "nominal",
+											message: "All engine parameters within normal range.",
+										},
+									},
+								],
+							},
+						],
+					},
+				],
+				expected: [],
+			},
+			{
+				// Regression: an over-long message is clamped before it reaches
+				// PGN 126985's STRING_LAU field (see MAX_ALERT_TEXT_CHARS).
+				input: [
+					{
+						context: "vessels.urn:mrn:imo:mmsi:367301250",
+						updates: [
+							{
+								values: [
+									{
+										path: "notifications.environment.inside.refrigerator.temperature",
+										value: {
+											state: "alarm",
+											message: "T".repeat(250),
+											alertId: 7,
+										},
+									},
+								],
+							},
+						],
+					},
+				],
+				expected: [
+					{
+						prio: 2,
+						pgn: 126985,
+						dst: 255,
+						fields: {
+							alertType: "Alarm",
+							alertCategory: "Technical",
+							alertSystem: 5,
+							alertSubSystem: 0,
+							alertId: 7,
+							dataSourceNetworkIdName: 0,
+							dataSourceInstance: 0,
+							dataSourceIndexSource: 0,
+							alertOccurrenceNumber: 0,
+							languageId: "English (US)",
+							alertTextDescription: "T".repeat(200),
+						},
+					},
+					{
+						prio: 2,
+						pgn: 126983,
+						dst: 255,
+						fields: {
+							alertType: "Alarm",
+							alertCategory: "Technical",
+							alertSystem: 5,
+							alertSubSystem: 0,
+							alertId: 7,
+							dataSourceNetworkIdName: 0,
+							dataSourceInstance: 0,
+							dataSourceIndexSource: 0,
+							alertOccurrenceNumber: 0,
+							temporarySilenceStatus: "No",
+							acknowledgeStatus: "Yes",
+							escalationStatus: "No",
+							temporarySilenceSupport: "Yes",
+							acknowledgeSupport: "Yes",
+							escalationSupport: "No",
+							triggerCondition: "Auto",
+							thresholdStatus: "Threshold Exceeded",
+							alertPriority: 2,
 							alertState: "Acknowledged",
 						},
 					},

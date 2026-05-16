@@ -4,6 +4,7 @@ import {
 	VESSELS_SELF_CONTEXT,
 } from "../constants.js";
 import type { ConversionModule, N2KMessage } from "../types/index.js";
+import { isClearState } from "../utils/notificationUtils.js";
 import { matchPathPrefix } from "../utils/pathUtils.js";
 
 interface AlarmValue {
@@ -51,7 +52,7 @@ const SUBSCRIBED_KEYS: ReadonlyArray<string> = ALARM_ID_BY_PATH_PREFIX.map(
 );
 
 function alarmStatus(state: string, hasSound: boolean): string | undefined {
-	if (state === "normal") {
+	if (isClearState(state)) {
 		return hasSound ? "Alarm condition not met" : undefined;
 	}
 	return hasSound
@@ -171,6 +172,26 @@ export default function createRaymarineAlarmsConversion(): ConversionModule {
 						},
 					},
 				],
+			},
+			{
+				// Regression: "nominal" is a non-alert Signal K state. It must
+				// clear the alarm, not be encoded as an active alarm condition.
+				input: [
+					{
+						context: "vessels.urn:mrn:imo:mmsi:367301250",
+						updates: [
+							{
+								values: [
+									{
+										path: "notifications.navigation.anchor",
+										value: { state: "nominal" },
+									},
+								],
+							},
+						],
+					},
+				],
+				expected: [],
 			},
 		],
 	};

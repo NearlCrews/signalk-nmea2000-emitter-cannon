@@ -21,6 +21,11 @@ export const MAX_RPS_WAYPOINTS = 8;
 // PGN 130074 (Route WP List) carries up to 16 waypoints per frame.
 export const MAX_WP_LIST_WAYPOINTS = 16;
 
+// Waypoint and route names are STRING_LAU fields. 16 chars keeps a full
+// 16-waypoint PGN 130074 under the encoder buffer limit; see clampString.
+export const MAX_WP_NAME_CHARS = 16;
+export const MAX_ROUTE_NAME_CHARS = 32;
+
 // Filters waypoints with valid latitude/longitude and projects each via the
 // transform; out-of-range entries are dropped.
 export function mapValidWaypoints<T>(

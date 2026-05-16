@@ -57,17 +57,18 @@ The registry `src/conversions/index.ts` imports all factories and exports `creat
 - `src/utils/pathUtils.ts` - `pathToPropName()` for config keys, `isDefined()` type guard, `matchPathPrefix<T>(path, table)` first-prefix-match lookup used by `notifications.ts` (alertCategory routing) and `raymarineAlarms.ts` (alarmId mapping)
 - `src/utils/dateUtils.ts` - NMEA 2000 date/time conversions (`toN2KDate`, `toN2KTime`, `toN2KDateTime`)
 - `src/utils/errorUtils.ts` - `errMessage(err)` coercion helper for `unknown`-typed thrown values
-- `src/utils/validation.ts` - Input validation (`isValidNumber`, `toValidNumber` - rejects NaN/Infinity), `normalizeAngle()`
+- `src/utils/validation.ts` - Input validation (`isValidNumber`, `toValidNumber` - rejects NaN/Infinity), `normalizeAngle()`, `clampString()` (truncates a value so it cannot overflow an NMEA 2000 string field)
+- `src/utils/notificationUtils.ts` - `isClearState(state)`: true for the non-alert Signal K states (`normal`, `nominal`); shared by `notifications.ts` and `raymarineAlarms.ts`
 - `src/utils/smoothing.ts` - `ExponentialSmoother` class for sensor data smoothing
 - `src/constants.ts` - Standard N2K values (`N2K_DEFAULT_PRIORITY`, `N2K_BROADCAST_DST`, `N2K_DEFAULT_SID`, `N2K_SID_ZERO`, `N2K_DEFAULT_INSTANCE`, `DEFAULT_DATA_TIMEOUT_MS`, `VESSELS_SELF_CONTEXT`, `STREAM_DEBOUNCE_MS`)
-- `src/conversions/routeTypes.ts` - Shared `Position`/`Waypoint` interfaces, `DEFAULT_ROUTE_NAME`, and per-PGN waypoint capacity constants (`MAX_RPS_WAYPOINTS`, `MAX_WP_LIST_WAYPOINTS`)
+- `src/conversions/routeTypes.ts` - Shared `Position`/`Waypoint` interfaces, `DEFAULT_ROUTE_NAME`, per-PGN waypoint capacity constants (`MAX_RPS_WAYPOINTS`, `MAX_WP_LIST_WAYPOINTS`), and name-length caps (`MAX_WP_NAME_CHARS`, `MAX_ROUTE_NAME_CHARS`)
 
 ### Configuration Schema
 `src/config/schema.ts` defines the TypeBox `RootConfig` schema. `Plugin.schema` returns the TypeBox value directly (it IS a valid JSON Schema literal at runtime). Adding a new conversion does NOT require new schema entries because `Conversion` already accepts a `Record<string, ConversionConfig>` with `enabled`, `resend`, `sources`, and `extras` per key. Per-conversion identity comes from each module's `category` and optional `presets` metadata.
 
 ## Testing
 
-Tests live in `src/test/` across 9 files (`index.test.ts`, `api.test.ts`, `discovery.test.ts`, `lifecycle.test.ts`, `migrate.test.ts`, `pathUtils.test.ts`, `smoothing.test.ts`, `status.test.ts`, `temperature.test.ts`). The conversion-module test cases live embedded in each module's `tests` array, run by `src/test/index.test.ts`. The full suite (52 tests):
+Tests live in `src/test/` across 9 files (`index.test.ts`, `api.test.ts`, `discovery.test.ts`, `lifecycle.test.ts`, `migrate.test.ts`, `pathUtils.test.ts`, `smoothing.test.ts`, `status.test.ts`, `temperature.test.ts`). The conversion-module test cases live embedded in each module's `tests` array, run by `src/test/index.test.ts`. The full suite (57 tests):
 1. Loads all 45 conversion modules
 2. Validates each module has test cases
 3. Runs embedded tests against CanboatJS encoder/decoder
@@ -155,9 +156,11 @@ Spread (not mutation): conversion modules are loaded once in the PluginManager c
 
 `alertPriority` maps from Signal K state per IEC 62923: `emergency=1, alarm=2, warn=3, alert=4`. Lower number is higher priority.
 
-Unknown Signal K states fall through to "Caution" / priority 4 with a debug log, so a misspelled state in an upstream provider still produces a valid PGN.
+The non-alert states `normal` and `nominal` (`isClearState`) release any existing alert and emit no PGN. Genuinely unknown states (a misspelling in an upstream provider) fall through to "Caution" / priority 4 with a debug log, so they still produce a valid PGN.
 
-`alertId` is a 16-bit unsigned NMEA 2000 field; the allocator caps at `MAX_ALERT_ID = 65531` (one below the spec max so the canboat encoder never sees the "data not available" sentinel) but in practice the active set is bounded by `MAX_TRACKED_PATHS = 256` (one entry in `ids` per active path, released on `state: "normal"` or LRU eviction).
+`alertTextDescription` (PGN 126985, a STRING_LAU field) is clamped to `MAX_ALERT_TEXT_CHARS = 200`. An unbounded message overflows the canboatjs 500-byte `toPgn` buffer; the resulting throw is re-raised by signalk-server's `safeApply` on a bare `setTimeout`, so no plugin try/catch can intercept it and the host process dies. The overflow has to be prevented before the emit; clamping the field is the cheapest way (a general pre-emit PGN size guard would be the broader alternative).
+
+`alertId` is a 16-bit unsigned NMEA 2000 field; the allocator caps at `MAX_ALERT_ID = 65531` (one below the spec max so the canboat encoder never sees the "data not available" sentinel) but in practice the active set is bounded by `MAX_TRACKED_PATHS = 256` (one entry in `ids` per active path, released on a clear state or LRU eviction).
 
 PGN 126984 (Alert Response, inbound) is NOT handled. Acknowledgements from an MFD do not flow back into Signal K. Closing this round-trip requires an inbound NMEA 2000 hook that the typed `@signalk/server-api` does not currently expose: needs a separate design pass.
 

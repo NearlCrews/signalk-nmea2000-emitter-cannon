@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { Advisor, type AdvisorDeps } from "../advisor/advisor.js";
 import { isN2KSource } from "../advisor/busSource.js";
-import { buildLiveInventory } from "../advisor/inventory.js";
+import { buildLiveInventory, mergeHistoric } from "../advisor/inventory.js";
+import { fetchHistoricPaths, QuestDBClient } from "../advisor/questdb.js";
 import { recommend } from "../advisor/recommender.js";
 import type { ConversionMetadata } from "../api/types.js";
+import { DEFAULT_ADVISOR_CONFIG } from "../config/enums.js";
 import type { SignalKApp } from "../types/index.js";
 
 describe("isN2KSource", () => {
@@ -214,5 +216,194 @@ describe("Advisor.applyReview", () => {
 		};
 		expect(saved.conversions.GPS.enabled).toBe(false);
 		expect(saved.conversions.AIS.enabled).toBe(true);
+	});
+});
+
+describe("QuestDBClient", () => {
+	function fakeFetch(status: number, body: unknown): typeof fetch {
+		return (async () =>
+			({
+				ok: status >= 200 && status < 300,
+				status,
+				json: async () => body,
+			}) as Response) as typeof fetch;
+	}
+
+	it("probe returns true on a well-formed response", async () => {
+		const c = new QuestDBClient(
+			{ url: "http://h:9000" },
+			fakeFetch(200, { dataset: [[1]] }),
+		);
+		expect(await c.probe()).toBe(true);
+	});
+
+	it("probe returns false on a non-OK response", async () => {
+		const c = new QuestDBClient({ url: "http://h:9000" }, fakeFetch(503, {}));
+		expect(await c.probe()).toBe(false);
+	});
+
+	it("probe returns false when fetch throws", async () => {
+		const throwing = (async () => {
+			throw new Error("ECONNREFUSED");
+		}) as typeof fetch;
+		const c = new QuestDBClient({ url: "http://h:9000" }, throwing);
+		expect(await c.probe()).toBe(false);
+	});
+
+	it("query returns columns and dataset", async () => {
+		const c = new QuestDBClient(
+			{ url: "http://h:9000" },
+			fakeFetch(200, {
+				columns: [{ name: "path", type: "SYMBOL" }],
+				dataset: [["navigation.speedThroughWater"]],
+			}),
+		);
+		const r = await c.query("SELECT 1");
+		expect(r.dataset).toEqual([["navigation.speedThroughWater"]]);
+	});
+
+	it("query throws on a non-OK response", async () => {
+		const c = new QuestDBClient({ url: "http://h:9000" }, fakeFetch(400, {}));
+		await expect(c.query("bad")).rejects.toThrow("HTTP 400");
+	});
+});
+
+describe("fetchHistoricPaths", () => {
+	it("merges signalk, signalk_str, and signalk_position rows", async () => {
+		const responses: Record<string, unknown> = {
+			signalk: {
+				columns: [],
+				dataset: [
+					["navigation.speedThroughWater", 1200, "2026-05-16T09:00:00.000000Z"],
+				],
+			},
+			signalk_str: {
+				columns: [],
+				dataset: [
+					["navigation.gnss.methodQuality", 30, "2026-05-16T08:00:00.000000Z"],
+				],
+			},
+			signalk_position: {
+				columns: [],
+				dataset: [[900, "2026-05-16T09:30:00.000000Z"]],
+			},
+		};
+		const fetchImpl = (async (url: string) => {
+			const table = url.includes("signalk_position")
+				? "signalk_position"
+				: url.includes("signalk_str")
+					? "signalk_str"
+					: "signalk";
+			return {
+				ok: true,
+				status: 200,
+				json: async () => responses[table],
+			} as Response;
+		}) as typeof fetch;
+
+		const client = new QuestDBClient({ url: "http://h:9000" }, fetchImpl);
+		const paths = await fetchHistoricPaths(client, 7);
+		expect(paths.get("navigation.speedThroughWater")?.samples).toBe(1200);
+		expect(paths.get("navigation.gnss.methodQuality")?.samples).toBe(30);
+		expect(paths.get("navigation.position")?.samples).toBe(900);
+	});
+
+	it("omits navigation.position when signalk_position has no rows", async () => {
+		const fetchImpl = (async (url: string) => ({
+			ok: true,
+			status: 200,
+			json: async () =>
+				url.includes("signalk_position")
+					? { dataset: [[0, null]] }
+					: { dataset: [] },
+		})) as typeof fetch;
+		const client = new QuestDBClient({ url: "http://h:9000" }, fetchImpl);
+		const paths = await fetchHistoricPaths(client, 7);
+		expect(paths.has("navigation.position")).toBe(false);
+	});
+});
+
+describe("mergeHistoric", () => {
+	it("annotates a live path and adds a historic-only path", () => {
+		const live = [
+			{
+				path: "environment.wind.speedApparent",
+				live: true,
+				liveSources: ["wind.5"],
+			},
+		];
+		const historic = new Map([
+			["environment.wind.speedApparent", { samples: 100, lastSeen: "t1" }],
+			["navigation.speedThroughWater", { samples: 50, lastSeen: "t2" }],
+		]);
+		const merged = mergeHistoric(live, historic);
+		const wind = merged.find(
+			(e) => e.path === "environment.wind.speedApparent",
+		);
+		expect(wind?.historic?.samples).toBe(100);
+		const stw = merged.find((e) => e.path === "navigation.speedThroughWater");
+		expect(stw?.live).toBe(false);
+		expect(stw?.liveSources).toEqual([]);
+		expect(stw?.historic?.samples).toBe(50);
+	});
+});
+
+describe("recommend with historic paths", () => {
+	it("marks a historic-only match as low-confidence historic origin", () => {
+		const recs = recommend({
+			inventory: [
+				{
+					path: "navigation.speedThroughWater",
+					live: false,
+					liveSources: [],
+					historic: { samples: 50, lastSeen: "t" },
+				},
+			],
+			metadata: [meta("SPEED", ["navigation.speedThroughWater"])],
+			currentConfig: {},
+		});
+		const speed = recs.find((r) => r.optionKey === "SPEED");
+		expect(speed?.action).toBe("enable");
+		expect(speed?.origin).toBe("historic");
+		expect(speed?.confidence).toBe("low");
+	});
+});
+
+describe("Advisor.runReview with QuestDB", () => {
+	it("merges historic paths when questdb is enabled", async () => {
+		const deps = advisorDeps({
+			buildInventory: () => [],
+			getMetadata: () => [meta("SPEED", ["navigation.speedThroughWater"])],
+			readConfig: () => ({
+				conversions: {},
+				advisor: {
+					...DEFAULT_ADVISOR_CONFIG,
+					questdb: { enabled: true, url: "http://h:9000", lookbackDays: 7 },
+				},
+			}),
+			fetchHistoric: async () =>
+				new Map([
+					["navigation.speedThroughWater", { samples: 9, lastSeen: "t" }],
+				]),
+		});
+		const result = await new Advisor(deps).runReview();
+		expect(result.autoApplied.map((r) => r.optionKey)).toEqual(["SPEED"]);
+	});
+
+	it("notes a QuestDB failure and continues live-only", async () => {
+		const deps = advisorDeps({
+			readConfig: () => ({
+				conversions: {},
+				advisor: {
+					...DEFAULT_ADVISOR_CONFIG,
+					questdb: { enabled: true, url: "http://h:9000", lookbackDays: 7 },
+				},
+			}),
+			fetchHistoric: async () => {
+				throw new Error("ECONNREFUSED");
+			},
+		});
+		const result = await new Advisor(deps).runReview();
+		expect(result.notes.some((n) => n.includes("QuestDB"))).toBe(true);
 	});
 });

@@ -254,6 +254,30 @@ describe("API router", () => {
 		expect(calls).toHaveLength(1);
 	});
 
+	it("GET /api/advisor/questdb-test reports reachability", async () => {
+		const advisor = {
+			runReview: async () => ({
+				ranAt: "",
+				autoApplied: [],
+				pending: [],
+				notes: [],
+			}),
+			getPending: () => [],
+			applyReview: async () => {},
+			testQuestDB: async () => ({ ok: true }),
+		};
+		const ex = mountRouterWithAdvisor(
+			fakeApp,
+			() => null,
+			() => advisor,
+		);
+		const res = await request(ex).get(
+			"/plugins/signalk-nmea2000-emitter-cannon/api/advisor/questdb-test",
+		);
+		expect(res.status).toBe(200);
+		expect(res.body.ok).toBe(true);
+	});
+
 	it("advisor endpoints 503 when no advisor is wired", async () => {
 		const ex = mountRouterWithAdvisor(
 			fakeApp,

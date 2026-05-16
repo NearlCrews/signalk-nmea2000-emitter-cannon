@@ -26,6 +26,11 @@ export function recommend(input: RecommendInput): Recommendation[] {
 		if (matched.length === 0) continue;
 
 		const enabled = currentConfig[conv.key]?.enabled ?? false;
+		// A match backed by at least one live path is high-confidence; a match
+		// seen only in QuestDB history is low-confidence historic origin.
+		const anyLive = matched.some((p) => byPath.get(p)?.live === true);
+		const origin: Recommendation["origin"] = anyLive ? "live" : "historic";
+		const confidence: Recommendation["confidence"] = anyLive ? "high" : "low";
 		// "On the bus" when every matched path's every live source is an N2K
 		// device. A path with one native source makes the data native.
 		const allBusOrigin = matched.every((p) => {
@@ -39,8 +44,8 @@ export function recommend(input: RecommendInput): Recommendation[] {
 				action: enabled ? "disable" : "keep",
 				currentlyEnabled: enabled,
 				matchedPaths: matched,
-				confidence: "high",
-				origin: "live",
+				confidence,
+				origin,
 				reason: enabled
 					? `${conv.title}: ${matched.join(", ")} is already published from the NMEA 2000 bus; emitting it would echo.`
 					: `${conv.title}: data already on the bus, left disabled.`,
@@ -53,8 +58,8 @@ export function recommend(input: RecommendInput): Recommendation[] {
 			action: enabled ? "keep" : "enable",
 			currentlyEnabled: enabled,
 			matchedPaths: matched,
-			confidence: "high",
-			origin: "live",
+			confidence,
+			origin,
 			reason: enabled
 				? `${conv.title}: live and emitting, no change.`
 				: `${conv.title}: ${matched.join(", ")} is live from a non-N2K source; enabling sends it to the bus.`,

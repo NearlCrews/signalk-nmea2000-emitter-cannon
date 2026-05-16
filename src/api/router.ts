@@ -160,5 +160,12 @@ export function createApiRouter(
 				res.json({ applied: decisions.filter((d) => d.approved).length });
 			}),
 		);
+
+		router.get(
+			"/api/advisor/questdb-test",
+			advisorRoute(async (advisor, _req, res) => {
+				res.json(await advisor.testQuestDB());
+			}),
+		);
 	};
 }

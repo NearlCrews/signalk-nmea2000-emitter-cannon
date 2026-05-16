@@ -1,6 +1,7 @@
 import pkg from "../package.json" with { type: "json" };
 import { Advisor } from "./advisor/advisor.js";
 import { buildLiveInventory } from "./advisor/inventory.js";
+import { fetchHistoricPaths, QuestDBClient } from "./advisor/questdb.js";
 import { createApiRouter } from "./api/router.js";
 import { RootConfig } from "./config/schema.js";
 import { PluginManager } from "./plugin-manager.js";
@@ -88,6 +89,12 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 				startPlugin(config);
 			});
 		},
+		// A fresh QuestDBClient per call is fine: a review is user-triggered
+		// or on a multi-day timer, never a hot path, and the client is
+		// stateless.
+		fetchHistoric: (url, lookbackDays) =>
+			fetchHistoricPaths(new QuestDBClient({ url }), lookbackDays),
+		probeQuestDB: (url) => new QuestDBClient({ url }).probe(),
 	});
 
 	plugin.registerWithRouter = createApiRouter(

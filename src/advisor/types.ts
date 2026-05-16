@@ -8,9 +8,20 @@ export interface PathInventoryEntry {
 	live: boolean;
 	/** `$source` labels publishing this path live. Empty when not live. */
 	liveSources: string[];
+	/** QuestDB history for this path, present only when QuestDB was queried. */
+	historic?: HistoricStats;
 }
 
 export type PathInventory = PathInventoryEntry[];
+
+/** QuestDB history stats for one path within the look-back window. */
+export interface HistoricStats {
+	samples: number;
+	lastSeen: string;
+}
+
+/** Historic stats keyed by Signal K path. */
+export type HistoricPaths = Map<string, HistoricStats>;
 
 /** A single recommendation about one conversion. */
 export interface Recommendation {
@@ -19,7 +30,7 @@ export interface Recommendation {
 	currentlyEnabled: boolean;
 	matchedPaths: string[];
 	confidence: "high" | "low";
-	origin: "live" | "none";
+	origin: "live" | "historic" | "none";
 	reason: string;
 }
 

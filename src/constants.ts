@@ -18,8 +18,18 @@ export const SLOW_DATA_TIMEOUT_MS = 60000;
 // silently dropping mid-run while the original SK value remains valid.
 export const STATIC_DATA_TIMEOUT_MS = 60 * 60 * 1000;
 export const DEFAULT_GLOBAL_RESEND_SECONDS = 5;
+// Emit cadence for "static" PGNs (PGN 127498 engine identity). 60s keeps the
+// value present on the bus for MFDs that drop entries after a few minutes of
+// silence; pairs with STATIC_DATA_TIMEOUT_MS above.
+export const STATIC_EMIT_INTERVAL_MS = 60000;
 export const VESSELS_SELF_CONTEXT = "vessels.self";
 export const STREAM_DEBOUNCE_MS = 10;
+
+// Volume unit conversions used when emitting PGN 127489 (Engine Parameters
+// Dynamic) and PGN 127497 (Trip Parameters Engine). Signal K publishes fuel
+// volumes in m^3 and fuel rates in m^3/s; canboat expects litres and L/hour.
+export const M3_TO_L = 1000;
+export const M3PS_TO_LPH = 3600 * 1000;
 
 // Source/output dispatch keys. Centralised so the union types in plugin.ts
 // and the runtime dispatch in plugin-manager.ts stay in lockstep.

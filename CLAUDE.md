@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Signal K NMEA2000 Emitter Cannon is a TypeScript Signal K server plugin that converts Signal K marine navigation data to NMEA 2000 format. It supports 45 conversion modules emitting 53 data PGNs (plus 3 ISO PGNs announced in the transmit list) with Garmin compatibility.
+Signal K NMEA2000 Emitter Cannon is a TypeScript Signal K server plugin that converts Signal K marine navigation data to NMEA 2000 format. It supports 45 conversion modules emitting 53 data PGNs (plus 5 bus-layer PGNs announced in the transmit list) with Garmin compatibility.
 
 ## Common Commands
 
@@ -194,3 +194,5 @@ Source discovery: `enumerateSourcesForPath` uses `app.getSelfPath(path)` because
 2. **Subscription Path Types**: When using `subscriptionmanager.subscribe()`, paths must be cast to `Path` type.
 
 3. **Error Callback Types**: Subscription error callbacks receive `unknown`, not `Error`.
+
+4. **Heave (PGN 127252) and attitude (PGN 127257) are absent from Garmin's public Rx list**, but Garmin Reactor autopilots and B&G / Furuno autopilots still consume them over the bus (Garmin via the SteadyCast / 9-Axis sensor's internal channel, which is the standard public PGN under the hood). `attitude.ts` and `heave.ts` are not redundant: leave them enabled on installs with any of those autopilots even if a Garmin chartplotter is the only visible display.

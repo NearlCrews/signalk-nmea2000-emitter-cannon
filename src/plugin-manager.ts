@@ -1,6 +1,12 @@
 import type { Context, NormalizedDelta, Path } from "@signalk/server-api";
 import { debounceTime, Subject } from "rxjs";
-import { findOrphanExtrasMetaKeys, metaFor } from "./api/extras-meta.js";
+import {
+	compatibilityFor,
+	descriptionFor,
+	findOrphanExtrasMetaKeys,
+	metaFor,
+	purposeFor,
+} from "./api/extras-meta.js";
 import type { ConversionMetadata } from "./api/types.js";
 import { migrateLegacyConfig } from "./config/migrate.js";
 import {
@@ -28,6 +34,7 @@ import { isDebugEnabled } from "./utils/debugUtils.js";
 import { errMessage } from "./utils/errorUtils.js";
 import { formatN2KMessage, validateN2KMessage } from "./utils/messageUtils.js";
 import { isDefined, pathToPropName } from "./utils/pathUtils.js";
+import { extractPgnsFromTitle } from "./utils/pgnUtils.js";
 import { clearAllSmoothers } from "./utils/smoothing.js";
 
 function resolveKeys(
@@ -37,30 +44,6 @@ function resolveKeys(
 	if (keys === undefined) return [];
 	if (typeof keys === "function") return keys(options);
 	return keys;
-}
-
-// Hoisted to module scope so the regex is compiled once at load time rather
-// than per call. extractPgnsFromTitle is invoked once per conversion per
-// /api/conversions request, which is comparatively rare, but the literal is
-// also the file's only regex and keeping it next to the function would force
-// each call to recompile it under engines that do not cache anonymous
-// regex literals.
-const PGN_TITLE_REGEX = /PGNs?\s+([\d,\s]+)\)/;
-
-/**
- * Extract the PGN list out of a conversion title. Titles follow either
- * "Name (PGN 130306)" or "Name (PGNs 127506, 127508)". Returns the digit
- * strings; falls back to [] for titles that do not match the pattern so a
- * malformed or non-conforming title does not drop the conversion from the
- * metadata response.
- */
-function extractPgnsFromTitle(title: string): string[] {
-	const match = title.match(PGN_TITLE_REGEX);
-	if (!match || match[1] === undefined) return [];
-	return match[1]
-		.split(",")
-		.map((s) => s.trim())
-		.filter(Boolean);
 }
 
 // Throttle-bucket prefixes used by bucketKey() and the per-source label
@@ -955,15 +938,30 @@ export class PluginManager {
 	 * factories): the panel falls back to free-text in that case.
 	 */
 	public getConversionMetadata(): ConversionMetadata[] {
-		return this.conversions.map((c) => ({
-			key: c.optionKey,
-			title: c.title,
-			pgns: extractPgnsFromTitle(c.title),
-			category: c.category,
-			presets: c.presets ?? [],
-			paths: typeof c.keys === "function" ? [] : (c.keys ?? []),
-			extras: metaFor(c),
-		}));
+		return this.conversions.map((c) => {
+			const entry: ConversionMetadata = {
+				key: c.optionKey,
+				title: c.title,
+				pgns: extractPgnsFromTitle(c.title),
+				category: c.category,
+				presets: c.presets ?? [],
+				paths: typeof c.keys === "function" ? [] : (c.keys ?? []),
+				extras: metaFor(c),
+			};
+			const description = descriptionFor(c.optionKey);
+			if (description !== undefined) {
+				entry.description = description;
+			}
+			const purpose = purposeFor(c.optionKey);
+			if (purpose !== undefined) {
+				entry.purpose = purpose;
+			}
+			const compatibility = compatibilityFor(c.optionKey);
+			if (compatibility !== undefined) {
+				entry.compatibility = compatibility;
+			}
+			return entry;
+		});
 	}
 
 	private outputTypes: Record<string, OutputTypeProcessor> = {

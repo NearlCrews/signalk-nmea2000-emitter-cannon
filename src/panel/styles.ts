@@ -67,7 +67,6 @@ S.cardHeader = {
 	gap: 12,
 	marginBottom: 8,
 };
-S.cardTitle = { fontSize: 14, fontWeight: 600, flex: 1 };
 S.checkbox = { width: 16, height: 16 };
 S.cardMeta = { fontSize: 11, color: "#888" };
 S.tabs = {
@@ -114,7 +113,86 @@ S.btnSecondary = {
 	borderRadius: 6,
 	cursor: "pointer",
 };
+S.btnDestructive = {
+	padding: "8px 16px",
+	background: "#fff",
+	color: "#991b1b",
+	border: "1px solid #fca5a5",
+	borderRadius: 6,
+	cursor: "pointer",
+};
 S.dirty = { color: "#92400e", fontSize: 12, marginLeft: 8 };
+S.cardTitle = {
+	fontSize: 14,
+	fontWeight: 600,
+	flex: 1,
+	margin: 0,
+};
+S.cardPurpose = {
+	fontSize: 12,
+	color: "#555",
+	lineHeight: 1.45,
+	margin: "2px 0 6px",
+};
+S.cardCompatibility = {
+	display: "inline-block",
+	fontSize: 11,
+	padding: "1px 6px",
+	borderRadius: 4,
+	marginLeft: 8,
+	fontWeight: 500,
+};
+S.helpHint = {
+	fontSize: 12,
+	color: "#555",
+	lineHeight: 1.45,
+	margin: "2px 0 6px",
+};
+S.notePrefix = {
+	fontWeight: 600,
+	marginRight: 4,
+};
+S.savedPill = {
+	fontSize: 12,
+	color: "#065f46",
+	background: "#d1fae5",
+	border: "1px solid #6ee7b7",
+	borderRadius: 999,
+	padding: "2px 10px",
+	marginLeft: 8,
+};
+S.errorBanner = {
+	color: "#991b1b",
+	background: "#fef2f2",
+	border: "1px solid #fecaca",
+	borderRadius: 6,
+	padding: "8px 12px",
+	fontSize: 13,
+	margin: "8px 0",
+	display: "flex",
+	alignItems: "center",
+	gap: 12,
+};
+S.btnRetry = {
+	padding: "4px 10px",
+	background: "#fff",
+	color: "#991b1b",
+	border: "1px solid #fca5a5",
+	borderRadius: 6,
+	fontSize: 12,
+	cursor: "pointer",
+};
+S.visuallyHidden = {
+	position: "absolute",
+	width: 1,
+	height: 1,
+	padding: 0,
+	margin: -1,
+	overflow: "hidden",
+	clip: "rect(0,0,0,0)",
+	whiteSpace: "nowrap",
+	border: 0,
+};
 S.chipRow = {
 	display: "flex",
 	gap: 8,

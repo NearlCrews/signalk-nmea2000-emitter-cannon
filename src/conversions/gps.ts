@@ -44,6 +44,17 @@ export default function createGpsConversion(
 				return [];
 			}
 
+			// PGN 129025 latitude/longitude are Int32 scaled at 1e-7 degrees.
+			// Out-of-range upstream values (NMEA 0183 bridge glitches, dead
+			// reckoning) are silently dropped by Garmin chartplotters: drop the
+			// frame here so we never put nonsense on the wire.
+			if (
+				Math.abs(position.latitude) > 90 ||
+				Math.abs(position.longitude) > 180
+			) {
+				return [];
+			}
+
 			const res: N2KMessage[] = [
 				{
 					prio: N2K_DEFAULT_PRIORITY,
@@ -164,6 +175,14 @@ export default function createGpsConversion(
 						},
 					},
 				],
+			},
+			{
+				input: [{ longitude: 0, latitude: 999 }],
+				expected: [],
+			},
+			{
+				input: [{ longitude: -200, latitude: 0 }],
+				expected: [],
 			},
 		],
 	};

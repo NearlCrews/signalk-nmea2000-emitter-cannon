@@ -84,4 +84,98 @@ describe("migrateLegacyConfig", () => {
 		expect(migrateLegacyConfig(null).conversions).toEqual({});
 		expect(migrateLegacyConfig(undefined).conversions).toEqual({});
 	});
+
+	describe("ENGINE_STATIC v1.5.4 -> v1.5.5 extras migration", () => {
+		it("upgrades flat-scalar extras to a single-engine table", () => {
+			const legacy: Config = {
+				globalResendInterval: DEFAULT_GLOBAL_RESEND_SECONDS,
+				conversions: {
+					ENGINE_STATIC: {
+						enabled: true,
+						resend: 0,
+						sources: {},
+						extras: {
+							ratedEngineSpeed: 3600,
+							VIN: "ABC123456789",
+							softwareVersion: "v2.1.3",
+						},
+					},
+				},
+			};
+			const out = migrateLegacyConfig(legacy);
+			expect(out.conversions.ENGINE_STATIC?.extras).toEqual({
+				engines: [
+					{
+						signalkId: "0",
+						instanceId: 0,
+						ratedEngineSpeed: 3600,
+						VIN: "ABC123456789",
+						softwareVersion: "v2.1.3",
+					},
+				],
+			});
+		});
+
+		it("upgrades partial legacy extras without inventing missing fields", () => {
+			const out = migrateLegacyConfig({
+				globalResendInterval: DEFAULT_GLOBAL_RESEND_SECONDS,
+				conversions: {
+					ENGINE_STATIC: {
+						enabled: true,
+						resend: 0,
+						sources: {},
+						extras: { ratedEngineSpeed: 2800 },
+					},
+				},
+			});
+			expect(out.conversions.ENGINE_STATIC?.extras).toEqual({
+				engines: [
+					{
+						signalkId: "0",
+						instanceId: 0,
+						ratedEngineSpeed: 2800,
+					},
+				],
+			});
+		});
+
+		it("leaves an already-migrated engines table untouched", () => {
+			const next = {
+				engines: [
+					{
+						signalkId: "starboard",
+						instanceId: 1,
+						ratedEngineSpeed: 3600,
+					},
+				],
+			};
+			const out = migrateLegacyConfig({
+				globalResendInterval: DEFAULT_GLOBAL_RESEND_SECONDS,
+				conversions: {
+					ENGINE_STATIC: {
+						enabled: true,
+						resend: 0,
+						sources: {},
+						extras: next,
+					},
+				},
+			});
+			expect(out.conversions.ENGINE_STATIC?.extras).toEqual(next);
+		});
+
+		it("leaves empty extras untouched (no engine identity configured)", () => {
+			const out = migrateLegacyConfig({
+				globalResendInterval: DEFAULT_GLOBAL_RESEND_SECONDS,
+				conversions: {
+					ENGINE_STATIC: {
+						enabled: true,
+						resend: 0,
+						sources: {},
+						extras: {},
+					},
+				},
+			});
+			expect(out.conversions.ENGINE_STATIC?.extras).toEqual({});
+		});
+	});
 });

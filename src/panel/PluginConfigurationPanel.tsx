@@ -1,5 +1,5 @@
 import type * as React from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
 	ConversionMetadata,
 	ConversionsResponse,
@@ -20,6 +20,18 @@ import { useSources } from "./hooks/useSources";
 import { useStatus } from "./hooks/useStatus";
 import { S } from "./styles";
 
+// Inline styles cannot express :focus-visible, so a small <style> block
+// gives form controls inside the federated panel a consistent focus ring
+// regardless of the host admin theme.
+const FOCUS_STYLE = `
+.skn-panel input:focus-visible,
+.skn-panel select:focus-visible,
+.skn-panel button:focus-visible {
+	outline: 2px solid #3b82f6;
+	outline-offset: 1px;
+}
+`;
+
 interface Props {
 	configuration: unknown;
 	/** Fire-and-forget; returns void. Do not await. The next `configuration` prop reflects the saved state. */
@@ -35,9 +47,12 @@ export default function PluginConfigurationPanel({
 	const { sourcesFor, ensureLoaded } = useSources();
 	const [meta, setMeta] = useState<ConversionMetadata[]>([]);
 	const [metaError, setMetaError] = useState<string | null>(null);
+	const [metaLoading, setMetaLoading] = useState(true);
 	const [tab, setTab] = useState<ConversionCategory>("navigation");
+	const [justSavedAt, setJustSavedAt] = useState<number | null>(null);
 
-	useEffect(() => {
+	const loadMeta = useCallback(() => {
+		setMetaLoading(true);
 		fetch(`${PLUGIN_API_BASE}/conversions`, {
 			credentials: "same-origin",
 		})
@@ -51,8 +66,21 @@ export default function PluginConfigurationPanel({
 			})
 			.catch((e) => {
 				setMetaError(errMessage(e));
+			})
+			.finally(() => {
+				setMetaLoading(false);
 			});
 	}, []);
+
+	useEffect(() => {
+		loadMeta();
+	}, [loadMeta]);
+
+	useEffect(() => {
+		if (justSavedAt === null) return;
+		const t = setTimeout(() => setJustSavedAt(null), 2500);
+		return () => clearTimeout(t);
+	}, [justSavedAt]);
 
 	// Reducer cases always return a new object on change, so identity equality
 	// against the last-saved snapshot is a sound dirty check. Replaces a deep
@@ -73,15 +101,24 @@ export default function PluginConfigurationPanel({
 	}, [status]);
 
 	return (
-		<div style={S.root}>
+		<div className="skn-panel" style={S.root}>
+			<style>{FOCUS_STYLE}</style>
 			<StatusDashboard status={status} />
 			{error ? (
-				<p style={{ color: "crimson", fontSize: 12 }}>Status error: {error}</p>
+				<div role="alert" style={S.errorBanner}>
+					<span>Status: {error}. The next poll will retry automatically.</span>
+				</div>
 			) : null}
 			{metaError ? (
-				<p style={{ color: "crimson", fontSize: 12 }}>
-					Conversion catalog error: {metaError}
-				</p>
+				<div role="alert" style={S.errorBanner}>
+					<span>Conversion catalog failed to load: {metaError}.</span>
+					<button type="button" style={S.btnRetry} onClick={loadMeta}>
+						Retry
+					</button>
+				</div>
+			) : null}
+			{metaLoading && meta.length === 0 && !metaError ? (
+				<p style={{ color: "#666", fontSize: 13 }}>Loading conversions…</p>
 			) : null}
 			<PresetChips
 				onApply={(p) => dispatch({ type: "applyPreset", preset: p, meta })}
@@ -113,9 +150,11 @@ export default function PluginConfigurationPanel({
 			))}
 			<FooterBar
 				dirty={dirty}
+				justSavedAt={justSavedAt}
 				onSave={() => {
 					save(state);
 					markSaved();
+					setJustSavedAt(Date.now());
 				}}
 				onDiscard={() => dispatch({ type: "discard", config: savedState })}
 			/>

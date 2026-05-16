@@ -28,8 +28,36 @@ const EMPTY_CFG: ConversionConfig = {
 	extras: {},
 };
 
+const COMPATIBILITY_STYLES: Record<
+	"consumes" | "ignores" | "partial",
+	{ background: string; color: string; border: string; label: string }
+> = {
+	consumes: {
+		background: "#dcfce7",
+		color: "#166534",
+		border: "1px solid #86efac",
+		label: "Garmin: displays",
+	},
+	partial: {
+		background: "#fef3c7",
+		color: "#78350f",
+		border: "1px solid #fbbf24",
+		label: "Garmin: partial",
+	},
+	ignores: {
+		background: "#f3f4f6",
+		color: "#374151",
+		border: "1px solid #d1d5db",
+		label: "Garmin: ignores",
+	},
+};
+
 export default function ConversionCard(props: Props): React.ReactElement {
 	const cfg = props.config ?? EMPTY_CFG;
+	const compatibility = props.meta.compatibility;
+	const compatStyle = compatibility
+		? COMPATIBILITY_STYLES[compatibility.garmin]
+		: null;
 
 	return (
 		<div style={S.card}>
@@ -41,7 +69,20 @@ export default function ConversionCard(props: Props): React.ReactElement {
 					onChange={(e) => props.onSetEnabled(e.target.checked)}
 					aria-label={`Enable ${props.meta.title}`}
 				/>
-				<span style={S.cardTitle}>{props.meta.title}</span>
+				<h3 style={S.cardTitle}>{props.meta.title}</h3>
+				{compatStyle ? (
+					<span
+						style={{
+							...S.cardCompatibility,
+							background: compatStyle.background,
+							color: compatStyle.color,
+							border: compatStyle.border,
+						}}
+						title={compatibility?.note}
+					>
+						{compatStyle.label}
+					</span>
+				) : null}
 				{props.status?.emitCount ? (
 					<span style={S.cardMeta}>{props.status.emitCount} emits</span>
 				) : null}
@@ -54,6 +95,29 @@ export default function ConversionCard(props: Props): React.ReactElement {
 					</span>
 				) : null}
 			</div>
+			{props.meta.purpose ? (
+				<p style={S.cardPurpose}>{props.meta.purpose}</p>
+			) : null}
+			{props.meta.description ? (
+				<div
+					role="note"
+					style={{
+						background: "#fef3c7",
+						border: "1px solid #fbbf24",
+						borderRadius: 4,
+						color: "#78350f",
+						fontSize: 12,
+						lineHeight: 1.45,
+						margin: "4px 0 6px",
+						padding: "6px 8px",
+					}}
+				>
+					<span style={S.notePrefix} aria-hidden="true">
+						⚠ Note:
+					</span>
+					{props.meta.description}
+				</div>
+			) : null}
 			{cfg.enabled ? (
 				<>
 					<div style={S.fieldRow}>

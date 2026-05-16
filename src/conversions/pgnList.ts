@@ -1,75 +1,90 @@
 import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import type { ConversionModule, N2KMessage } from "../types/index.js";
 
-// Single source of truth for the PGN list advertised in PGN 126464.
-// Used both for the runtime message and for the embedded test expectation,
-// so they cannot drift apart.
-const TRANSMIT_PGNS: ReadonlyArray<number> = [
-	59392, 59904, 60928, 65288, 126464, 126720, 126983, 126985, 126992, 126996,
-	127245, 127250, 127251, 127252, 127257, 127258, 127488, 127489, 127493,
-	127498, 127505, 127506, 127508, 128000, 128259, 128267, 129025, 129026,
-	129029, 129038, 129039, 129040, 129041, 129283, 129284, 129285, 129291,
-	129301, 129302, 129539, 129540, 129794, 129798, 129799, 129802, 129808,
-	130074, 130306, 130310, 130311, 130312, 130313, 130314, 130576, 130577,
+// PGNs added to the transmit list independent of the registry's conversion-
+// title walk:
+//   59392 / 59904 / 60928: ISO transport (Acknowledgement, Request, Address
+//                          Claim). Owned by Signal K's NMEA 2000 stack.
+//   126464:                PGN List itself, this conversion's own PGN. The
+//                          registry walks data conversions before this factory
+//                          runs, so the title cannot self-advertise via the
+//                          derived list and we add it here.
+//   126993:                Heartbeat (canboatjs N2kDevice >= 2.5 auto-emits at
+//                          ~60 s nominal). Required so Garmin's network panel
+//                          does not age the device out after ~30 s.
+//   126996:                Product Information (canboatjs N2kDevice auto-emits
+//                          on address claim and on every ISO request).
+const ALWAYS_TX_PGNS: ReadonlyArray<number> = [
+	59392, 59904, 60928, 126464, 126993, 126996,
 ];
 
-const RECEIVE_PGNS: ReadonlyArray<number> = [59904, 126464];
+// 126464 itself is bidirectional (RX/TX), and we accept ISO Address Claim
+// (60928) and ISO Group Function (126208) so canboatjs's transport layer can
+// participate in J1939 address negotiation and remote rate-control commands.
+// 59904 ISO Request remains here because consumers may explicitly ask for
+// 126464 / 126993 / 126996; canboatjs auto-answers but the spec defines this
+// path as inbound for the device.
+const RECEIVE_PGNS: ReadonlyArray<number> = [59904, 60928, 126208, 126464];
 
-const pgnListMessages: N2KMessage[] = [
-	{
-		prio: N2K_DEFAULT_PRIORITY,
-		pgn: 126464,
-		dst: N2K_BROADCAST_DST,
-		fields: {
-			functionCode: "Transmit PGN list",
-			list: TRANSMIT_PGNS.map((pgn) => ({ pgn })),
-		},
-	},
-	{
-		prio: N2K_DEFAULT_PRIORITY,
-		pgn: 126464,
-		dst: N2K_BROADCAST_DST,
-		fields: {
-			functionCode: "Receive PGN list",
-			list: RECEIVE_PGNS.map((pgn) => ({ pgn })),
-		},
-	},
-];
+// 5 minutes. PGN 126464 carries identity metadata that N2K consumers (Garmin,
+// Maretron N2K-View) cache after address claim. Garmin solicits the list via
+// ISO Request (PGN 59904) at startup, which canboatjs auto-answers from its
+// own internal PGN table, so this timer is keepalive insurance for late-
+// joining device-list panels rather than the primary delivery path.
+const PGN_LIST_INTERVAL_MS = 300_000;
 
-export default function createPgnListConversion(): ConversionModule {
+/**
+ * Build the 126464 conversion. `dataTransmitPgns` is the title-derived list
+ * of every PGN the loaded conversion modules advertise (built by the registry
+ * before this factory runs); we union with ALWAYS_TX_PGNS for the PGNs that
+ * have no owning module (or, in 126464's case, cannot self-advertise via the
+ * walk) but still leave the device on the wire.
+ *
+ * The result is unique and sorted ascending so the wire bytes are
+ * deterministic (handy for the embedded round-trip test and for operators
+ * who eyeball the canboatjs debug log).
+ */
+export default function createPgnListConversion(
+	dataTransmitPgns: ReadonlyArray<number>,
+): ConversionModule {
+	const transmitPgns = Array.from(
+		new Set([...dataTransmitPgns, ...ALWAYS_TX_PGNS]),
+	).sort((a, b) => a - b);
+
+	const pgnListMessages: N2KMessage[] = [
+		{
+			prio: N2K_DEFAULT_PRIORITY,
+			pgn: 126464,
+			dst: N2K_BROADCAST_DST,
+			fields: {
+				functionCode: "Transmit PGN list",
+				list: transmitPgns.map((pgn) => ({ pgn })),
+			},
+		},
+		{
+			prio: N2K_DEFAULT_PRIORITY,
+			pgn: 126464,
+			dst: N2K_BROADCAST_DST,
+			fields: {
+				functionCode: "Receive PGN list",
+				list: RECEIVE_PGNS.map((pgn) => ({ pgn })),
+			},
+		},
+	];
+
 	return {
 		title: "PGN List (PGN 126464)",
 		optionKey: "PGN_LIST",
 		category: "system",
-		// communication.pgnListRequest is not part of the canonical Signal K
-		// v1 schema; it is a convention used by NMEA 2000-aware upstream
-		// providers (e.g. signalk-to-nmea2000) to trigger a transmit-list
-		// announcement. Requires such a provider.
-		keys: ["communication.pgnListRequest"],
-		callback: (_pgnListRequest: unknown): N2KMessage[] => pgnListMessages,
+		sourceType: "timer",
+		interval: PGN_LIST_INTERVAL_MS,
+		// Timer mapper invokes callback(app); we ignore it and publish the
+		// pre-built identity messages.
+		callback: (_app: unknown): N2KMessage[] => pgnListMessages,
 		tests: [
 			{
-				input: [true],
-				expected: [
-					{
-						prio: 2,
-						pgn: 126464,
-						dst: 255,
-						fields: {
-							functionCode: "Transmit PGN list",
-							list: TRANSMIT_PGNS.map((pgn) => ({ pgn })),
-						},
-					},
-					{
-						prio: 2,
-						pgn: 126464,
-						dst: 255,
-						fields: {
-							functionCode: "Receive PGN list",
-							list: RECEIVE_PGNS.map((pgn) => ({ pgn })),
-						},
-					},
-				],
+				input: [null],
+				expected: pgnListMessages,
 			},
 		],
 	};

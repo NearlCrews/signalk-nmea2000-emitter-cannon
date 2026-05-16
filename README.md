@@ -9,7 +9,16 @@ A Signal K plugin that converts Signal K deltas into NMEA 2000 messages. 45 conv
 
 > Built on the foundation of [`signalk-to-nmea2000`](https://github.com/SignalK/signalk-to-nmea2000) by Scott Bender and the Signal K community.
 
-## What's new in 1.5.4
+## What's new in 1.5.5
+
+- **PGN 126464 (Transmit/Receive PGN List) is now actually delivered.** The conversion was triggered off a non-canonical Signal K path that no provider emits, so it never ran and Garmin chartplotters fell back to passive PGN-by-PGN discovery. It is now a 300 s timer; the advertised transmit list is derived at load from every conversion's title, so it can no longer drift out of sync.
+- **PGN 126993 (Heartbeat) added to the advertised transmit list.** Without it Garmin chartplotters age the plugin out of their Network panel after ~30 s, the likely cause of the "device appears briefly then disappears" pattern.
+- **`productInfo` conversion removed.** It emitted a competing PGN 126996 against canboatjs's own auto-emit, causing device-info flapping on Garmin. canboatjs handles 126996 on every address claim and ISO request, so the plugin-side module was redundant.
+- **New conversion: PGN 127497 (Trip Parameters, Engine)** for per-engine trip fuel used and rate. PGN 127498 (Engine Static) was reworked to be per-engine, consistent with Engine Parameters and Engine Trip; a config migration normalizes older single-instance settings.
+- **Range validation** on GPS position (latitude +/-90, longitude +/-180) and depth (no negative below-transducer), so an out-of-range reading is dropped rather than encoded into a glitchy PGN.
+- **Admin panel**: Garmin compatibility badges per conversion, purpose text on engine/battery cards, inline help on the mapping editors, and an accessibility pass (real headings, focus ring, alert banners with Retry, "Saved" pill).
+
+### What's new in 1.5.4
 
 - **Notification ping-pong loop fixed.** signalk-server's built-in notifications API was bouncing our enriched (alertId-injected) deltas back through the subscription pipeline, where the plugin re-processed them and re-emitted, locking into a ~48 Hz round-trip per active alert. The plugin now publishes the assigned alertId to Signal K exactly once per path (on first allocation) and treats subsequent bounces as no-ops.
 - **Per-alert emit throttle.** The conversion callback fires for every `notifications.*` delta on the vessel, not just for the alert the delta carries. Some setups flood the namespace at 60+ Hz with `state="normal"` updates, which used to multiply into ~100 PGN/s on the bus for a single active alert. PGN 126983 / 126985 are now rate-limited per alert: emit immediately on state / ack / silence / message change, otherwise rebroadcast at most once per second (matching the NMEA 2000 transmission cadence for PGN 126983). Bus traffic drops from ~100 PGN/s to 2 PGN/s per active alert.
@@ -63,14 +72,14 @@ See [CHANGELOG.md](CHANGELOG.md) for the full list.
 
 ## Features
 
-- **45 conversion modules, 53 data PGNs** plus 3 ISO PGNs advertised in the 126464 transmit list
+- **45 conversion modules emitting 53 data PGNs**, plus 5 bus-layer PGNs (59392, 59904, 60928, 126993, 126996) advertised in the 126464 transmit list
 - **Garmin-aligned** PGN priorities, SID fields, temperature-source enum values, and wind/bearing reference enums verified against the Garmin ECHOMAP UHD2 6/7/9 sv Owner's Manual (April 2026 v13)
 - **Strict TypeScript** under every TS 6 strict flag (`strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `noImplicitOverride`, `noImplicitReturns`, `noFallthroughCasesInSwitch`)
 - **Reactive subscriptions** via RxJS 7.8 with debounced multi-key aggregation and per-key freshness timeouts
 - **Source filtering** per conversion: pick a specific `$source` label or accept any
 - **Resend timers** per conversion plus a global default, so MFDs that expect periodic re-broadcast still see the data when the underlying source is quiet
 - **Single ESM bundle** via esbuild (as of v1.5.4, ~464 KB); the only runtime dependency is RxJS (`@signalk/server-api` is type-only)
-- **Embedded canboatjs round-trip tests** on every conversion module (as of v1.5.4, 52 tests across 9 files)
+- **Embedded canboatjs round-trip tests** on every conversion module (as of v1.5.5, 56 tests across 9 files)
 - **`$source: 'NMEA2000'` echo-guard** on AIS conversions to avoid re-emitting received AIS deltas back onto the bus
 - **Apache 2.0**, pure ESM, Node 22.12+
 
@@ -202,7 +211,9 @@ All PGNs are aligned with Garmin specifications (corrected priorities, SID field
 | 129041 | AtoN (Aids to Navigation) | `ais.ts` |
 | 129794 | Static & Voyage Data | `ais.ts` |
 | 129798 | SAR Aircraft Position | `aisExtended.ts` |
-| 129802 | Safety Related Broadcast | `aisExtended.ts` |
+| 129802 | Safety Related Broadcast (regulated transmission, see note below) | `aisExtended.ts` |
+
+> **Note on PGN 129802 (AIS Safety Related Broadcast).** ITU-R M.1371 limits AIS safety broadcasts to vessels with a licensed AIS transceiver whose MMSI matches the one published on the bus. Some jurisdictions also require a ship station licence (e.g. FCC in the US). The `AIS_SAFETY_MESSAGE` conversion is disabled by default; confirm local rules permit transmit on AIS frequencies before enabling. The plugin also requires an upstream Signal K provider publishing `communication.ais.safetyMessage` and a self MMSI on the vessel before any PGN 129802 frame is emitted.
 
 ### Engine & Propulsion
 
@@ -211,7 +222,8 @@ All PGNs are aligned with Garmin specifications (corrected priorities, SID field
 | 127488 | Engine Parameters Rapid Update | `engineParameters.ts` |
 | 127489 | Engine Parameters Dynamic | `engineParameters.ts` |
 | 127493 | Transmission Parameters | `transmissionParameters.ts` |
-| 127498 | Engine Configuration/Static | `engineStatic.ts` |
+| 127497 | Engine Trip Parameters (fuel used, fuel rate average/economy/instantaneous) | `engineTrip.ts` |
+| 127498 | Engine Configuration (per-engine static identity: rated RPM, VIN, software version) | `engineStatic.ts` |
 | 130576 | Small Craft Status | `smallCraftStatus.ts` |
 
 ### Environmental
@@ -236,6 +248,8 @@ All PGNs are aligned with Garmin specifications (corrected priorities, SID field
 | 127506 | DC Detailed Status (state of charge) | `battery.ts`, `solar.ts` |
 | 127508 | Battery Status (voltage/current) | `battery.ts`, `solar.ts` |
 
+The `BATTERY` and `SOLAR` modules emit both PGN 127506 and PGN 127508 by design. Different consumers read different PGNs: Garmin chartplotters consume PGN 127508 (voltage / current / temperature) and ignore PGN 127506, while Victron Cerbo GX, Maretron N2K-View, Yacht Devices YDBM-01, and the Signal K data browser read PGN 127506 for state-of-charge, state-of-health, and time-remaining. Leave both enabled unless a downstream display reacts badly to one of them.
+
 ### Safety & Communications
 
 | PGN | Description | Module |
@@ -244,9 +258,10 @@ All PGNs are aligned with Garmin specifications (corrected priorities, SID field
 | 126983 | Alert | `notifications.ts` |
 | 126985 | Alert Text | `notifications.ts` |
 | 126992 | System Time | `systemTime.ts` |
-| 126996 | Product Information | `productInfo.ts` |
 | 129799 | Radio Frequency/Mode/Power | `radioFrequency.ts` |
-| 129808 | DSC Call Information | `dscCalls.ts` |
+| 129808 | DSC Call Information (re-emits decoded inbound DSC traffic to the bus) | `dscCalls.ts` |
+
+`dscCalls.ts` re-emits decoded inbound DSC traffic onto the NMEA 2000 bus; it does not synthesize distress calls. The conversion reads `communication.dsc.callType`, `communication.dsc.mmsi`, and `communication.dsc.nature` (published by DSC-aware upstream Signal K providers when a VHF radio reports an incoming DSC message) and forwards them as PGN 129808 so non-DSC-aware MFDs on the bus can display the alert.
 
 ### Vendor-Specific
 
@@ -255,15 +270,17 @@ All PGNs are aligned with Garmin specifications (corrected priorities, SID field
 | 65288 | Raymarine (Seatalk) Alarms | `raymarineAlarms.ts` |
 | 126720 | Raymarine Display Brightness | `raymarineBrightness.ts` |
 
-### ISO (announced in the transmit PGN list, not emitted by this plugin)
+### Bus-layer (announced in the transmit PGN list, not emitted by this plugin)
 
-These appear in PGN 126464's transmit list to advertise ISO support, but the plugin itself does not generate them: Signal K's NMEA 2000 stack handles ISO traffic at the bus layer.
+These appear in PGN 126464's transmit list, but the plugin itself does not generate them. The ISO entries are handled by Signal K's NMEA 2000 stack at the bus layer. PGN 126993 (Heartbeat, ~60 s nominal) and PGN 126996 (Product Information, on address claim and on every ISO request for product info) are auto-emitted by canboatjs's `N2kDevice`. Advertising 126993 is what keeps Garmin chartplotters from ageing the device out of their Network panel after about 30 s.
 
 | PGN | Description |
 |--------|-------------|
 | 59392 | ISO Acknowledgement |
 | 59904 | ISO Request |
 | 60928 | ISO Address Claim |
+| 126993 | Heartbeat (canboatjs auto-emit) |
+| 126996 | Product Information (canboatjs auto-emit) |
 
 ## Data Flow
 
@@ -363,7 +380,7 @@ src/
 │   ├── depth.ts          # Depth conversion
 │   ├── battery.ts        # Battery status conversion
 │   └── ...               # 42 more conversions
-└── test/                 # Vitest test suites (52 tests, 9 files)
+└── test/                 # Vitest test suites (56 tests, 9 files)
     ├── index.test.ts        # All conversion-module test cases (round-trip via canboatjs)
     ├── api.test.ts          # /api/* router endpoints + admin auth
     ├── discovery.test.ts    # Path / source enumeration
@@ -540,7 +557,7 @@ Expected. The yellow bar in the Signal K admin dashboard's **Plugins activity** 
 - RxJS 7.8 (only runtime dependency that ships in the bundle)
 - esbuild 0.28 for bundling
 - Biome 2.4 for linting / formatting
-- Vitest 4.1 for testing (as of v1.5.4, 52 tests across 9 files with canboatjs round-trip validation)
+- Vitest 4.1 for testing (as of v1.5.5, 56 tests across 9 files with canboatjs round-trip validation)
 - Husky + lint-staged for pre-commit hooks
 
 ## License

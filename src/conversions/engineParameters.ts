@@ -1,5 +1,6 @@
 import {
 	DEFAULT_DATA_TIMEOUT_MS,
+	M3PS_TO_LPH,
 	N2K_BROADCAST_DST,
 	N2K_DEFAULT_PRIORITY,
 	VESSELS_SELF_CONTEXT,
@@ -164,7 +165,7 @@ export default function createEngineParametersConversions(
 						const temperature = toValidNumber(temp);
 						const alternatorPotential = toValidNumber(altVolt);
 						const fuelRateConverted = isValidNumber(fuelRate)
-							? fuelRate * 3600 * 1000
+							? fuelRate * M3PS_TO_LPH
 							: null;
 						const totalEngineHours = toValidNumber(runTime);
 						const coolantPressure = toValidNumber(coolPres);

@@ -1,6 +1,9 @@
 import type * as React from "react";
 import { S } from "../../styles";
-import MappingTable from "./MappingTable";
+import MappingTable, {
+	instanceIdColumn,
+	signalkIdColumn,
+} from "./MappingTable";
 
 // signalkId is the final segment of the SK solar charger key (e.g. "0", "1",
 // "mppt-1") under electrical.solar.<id>, not the full SK path. Tank rows use
@@ -31,34 +34,15 @@ export default function SolarMappingEditor({
 			emptyRow={() => ({ signalkId: "", instanceId: 0, panelInstanceId: 0 })}
 			onChange={setRows}
 			columns={[
-				{
+				signalkIdColumn<Row>({
 					header: "Signal K charger id",
-					render: (r, set) => (
-						<input
-							type="text"
-							style={S.input}
-							value={r.signalkId}
-							placeholder="0, 1, mppt-1"
-							onChange={(e) => set({ ...r, signalkId: e.target.value })}
-							aria-label="Signal K solar charger id"
-						/>
-					),
-				},
-				{
+					placeholder: "0, 1, mppt-1",
+					ariaLabel: "Signal K solar charger id",
+				}),
+				instanceIdColumn<Row>({
 					header: "NMEA 2000 Charger Instance Id",
-					render: (r, set) => (
-						<input
-							type="number"
-							min={0}
-							style={S.input}
-							value={r.instanceId}
-							onChange={(e) =>
-								set({ ...r, instanceId: Number(e.target.value) | 0 })
-							}
-							aria-label="NMEA 2000 solar charger instance id"
-						/>
-					),
-				},
+					ariaLabel: "NMEA 2000 solar charger instance id",
+				}),
 				{
 					header: "NMEA 2000 Panel Instance Id",
 					render: (r, set) => (
@@ -68,7 +52,10 @@ export default function SolarMappingEditor({
 							style={S.input}
 							value={r.panelInstanceId}
 							onChange={(e) =>
-								set({ ...r, panelInstanceId: Number(e.target.value) | 0 })
+								set({
+									...r,
+									panelInstanceId: Math.max(0, Number(e.target.value) | 0),
+								})
 							}
 							aria-label="NMEA 2000 solar panel instance id"
 						/>

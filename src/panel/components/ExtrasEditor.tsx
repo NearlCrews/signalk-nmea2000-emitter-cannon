@@ -3,6 +3,7 @@ import type { ExtrasMeta } from "../../api/types.js";
 import BatteryMappingEditor from "./extras/BatteryMappingEditor";
 import BrightnessMappingEditor from "./extras/BrightnessMappingEditor";
 import EngineMappingEditor from "./extras/EngineMappingEditor";
+import EngineStaticMappingEditor from "./extras/EngineStaticMappingEditor";
 import ExhaustMappingEditor from "./extras/ExhaustMappingEditor";
 import FieldEditor from "./extras/FieldEditor";
 import SolarMappingEditor from "./extras/SolarMappingEditor";
@@ -26,6 +27,8 @@ export default function ExtrasEditor({
 			return <BatteryMappingEditor value={value} onChange={onChange} />;
 		case "engineMapping":
 			return <EngineMappingEditor value={value} onChange={onChange} />;
+		case "engineStaticMapping":
+			return <EngineStaticMappingEditor value={value} onChange={onChange} />;
 		case "tankMapping":
 			return <TankMappingEditor value={value} onChange={onChange} />;
 		case "solarMapping":

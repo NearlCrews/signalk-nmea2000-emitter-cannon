@@ -48,7 +48,12 @@ export default function createMagneticVarianceConversion(
 					dst: N2K_BROADCAST_DST,
 					fields: {
 						sid: N2K_SID_ZERO,
-						source: "WMM 2025",
+						// The plugin has no way to verify which magnetic model
+						// the Signal K provider used to compute the variation.
+						// "Automatic Calculation" (canboat MAGNETIC_VARIATION
+						// enum value 3) makes no model claim and matches the
+						// Garmin documented expectation.
+						source: "Automatic Calculation",
 						ageOfService: ageValue,
 						variation: magneticVariation,
 					},
@@ -66,7 +71,7 @@ export default function createMagneticVarianceConversion(
 						dst: 255,
 						fields: {
 							sid: 0,
-							source: "WMM 2025",
+							source: "Automatic Calculation",
 							variation: -0.0524,
 						},
 					},

@@ -1,6 +1,8 @@
 import type * as React from "react";
-import { S } from "../../styles";
-import MappingTable from "./MappingTable";
+import MappingTable, {
+	instanceIdColumn,
+	signalkIdColumn,
+} from "./MappingTable";
 
 // signalkId is the final segment of the SK propulsion key (e.g. "main",
 // "port", "starboard") under propulsion.<id>, not the full SK path. Tank
@@ -26,38 +28,20 @@ export default function EngineMappingEditor({
 	return (
 		<MappingTable<Row>
 			title="Engine Mapping"
+			helpText="Use the same Signal K engine id you set in Engine Static and Engine Trip (e.g. main, port, 0). Instance Id 0 is Single Engine or Dual Engine Port, 1 is Dual Engine Starboard."
 			rows={rows}
 			emptyRow={() => ({ signalkId: "", instanceId: 0 })}
 			onChange={setRows}
 			columns={[
-				{
+				signalkIdColumn<Row>({
 					header: "Signal K engine id",
-					render: (r, set) => (
-						<input
-							type="text"
-							style={S.input}
-							value={r.signalkId}
-							placeholder="main, port, starboard"
-							onChange={(e) => set({ ...r, signalkId: e.target.value })}
-							aria-label="Signal K engine id"
-						/>
-					),
-				},
-				{
+					placeholder: "main, port, starboard",
+					ariaLabel: "Signal K engine id",
+				}),
+				instanceIdColumn<Row>({
 					header: "NMEA 2000 Engine Instance Id",
-					render: (r, set) => (
-						<input
-							type="number"
-							min={0}
-							style={S.input}
-							value={r.instanceId}
-							onChange={(e) =>
-								set({ ...r, instanceId: Number(e.target.value) | 0 })
-							}
-							aria-label="NMEA 2000 engine instance id"
-						/>
-					),
-				},
+					ariaLabel: "NMEA 2000 engine instance id",
+				}),
 			]}
 		/>
 	);

@@ -5,12 +5,16 @@ interface Props {
 	dirty: boolean;
 	onSave: () => void;
 	onDiscard: () => void;
+	// Epoch ms of the last successful save, or null. The pill auto-clears
+	// from the parent ~2.5s after a save, so this is a simple render flag.
+	justSavedAt?: number | null;
 }
 
 export default function FooterBar({
 	dirty,
 	onSave,
 	onDiscard,
+	justSavedAt,
 }: Props): React.ReactElement {
 	return (
 		<div style={S.footer}>
@@ -31,6 +35,11 @@ export default function FooterBar({
 				Discard
 			</button>
 			{dirty ? <span style={S.dirty}>Unsaved changes</span> : null}
+			{justSavedAt && !dirty ? (
+				<span role="status" style={S.savedPill}>
+					Saved
+				</span>
+			) : null}
 		</div>
 	);
 }

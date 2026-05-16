@@ -23,6 +23,13 @@ export default function createDepthConversion(
 				return [];
 			}
 
+			// PGN 128267 `depth` is an unsigned u32 at 0.01m resolution.
+			// Negative input would wrap into garbage on the wire, so drop the
+			// frame instead of encoding nonsense.
+			if (belowTransducer < 0) {
+				return [];
+			}
+
 			const surfaceToTransducer = toValidNumber(
 				getSelfValue(app, "environment.depth.surfaceToTransducer"),
 			);
@@ -109,6 +116,10 @@ export default function createDepthConversion(
 						},
 					},
 				],
+			},
+			{
+				input: [-1],
+				expected: [],
 			},
 		],
 	};

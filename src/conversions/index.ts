@@ -6,6 +6,7 @@ import type {
 } from "../types/index.js";
 import { errMessage } from "../utils/errorUtils.js";
 import { isDefined } from "../utils/pathUtils.js";
+import { extractPgnsFromTitle } from "../utils/pgnUtils.js";
 
 // Import all conversion modules dynamically
 import createAisConversion from "./ais.js";
@@ -19,6 +20,7 @@ import createDirectionDataConversion from "./directionData.js";
 import createDscCallsConversion from "./dscCalls.js";
 import createEngineParametersConversion from "./engineParameters.js";
 import createEngineStaticConversion from "./engineStatic.js";
+import createEngineTripConversion from "./engineTrip.js";
 import createEnvironmentParametersConversion from "./environmentParameters.js";
 import createGnssDataConversion from "./gnssData.js";
 import createGpsConversion from "./gps.js";
@@ -31,7 +33,6 @@ import createNavigationDataConversion from "./navigationData.js";
 import createNotificationsConversion from "./notifications.js";
 import createPgnListConversion from "./pgnList.js";
 import createPressureConversion from "./pressure.js";
-import createProductInfoConversion from "./productInfo.js";
 import createRadioFrequencyConversion from "./radioFrequency.js";
 import createRateOfTurnConversion from "./rateOfTurn.js";
 import createRaymarineAlarmsConversion from "./raymarineAlarms.js";
@@ -54,11 +55,36 @@ import createWindConversion from "./wind.js";
 import createWindTrueGroundConversion from "./windTrueGround.js";
 import createWindTrueWaterConversion from "./windTrueWater.js";
 
+/**
+ * Run a conversion factory and normalize its return value to a flat array.
+ * Errors are caught and reported so a single bad factory cannot prevent
+ * other conversions from loading.
+ */
+function buildConversions(
+	factory: ConversionModuleFactory,
+	app: SignalKApp,
+	plugin: SignalKPlugin,
+): ConversionModule<unknown[]>[] {
+	try {
+		const moduleOrModules = factory(app, plugin);
+		const arr = Array.isArray(moduleOrModules)
+			? moduleOrModules
+			: [moduleOrModules];
+		return arr.filter(isDefined);
+	} catch (e) {
+		app.error(`Error loading conversion module: ${errMessage(e)}`);
+		return [];
+	}
+}
+
 export function createConversionModules(
 	app: SignalKApp,
 	plugin: SignalKPlugin,
 ): ConversionModule<unknown[]>[] {
-	const conversionFactories: ConversionModuleFactory[] = [
+	// Every conversion factory EXCEPT pgnList: pgnList needs the title-derived
+	// PGN list from these modules to build its 126464 transmit advertisement,
+	// so it must be constructed after the data conversions are loaded.
+	const dataConversionFactories: ConversionModuleFactory[] = [
 		createAisConversion,
 		createAisExtendedConversion,
 		createAttitudeConversion,
@@ -70,6 +96,7 @@ export function createConversionModules(
 		createDscCallsConversion,
 		createEngineParametersConversion,
 		createEngineStaticConversion,
+		createEngineTripConversion,
 		createEnvironmentParametersConversion,
 		createGnssDataConversion,
 		createGpsConversion,
@@ -80,9 +107,7 @@ export function createConversionModules(
 		createMagneticVarianceConversion,
 		createNavigationDataConversion,
 		createNotificationsConversion,
-		createPgnListConversion,
 		createPressureConversion,
-		createProductInfoConversion,
 		createRadioFrequencyConversion,
 		createRateOfTurnConversion,
 		createRaymarineAlarmsConversion,
@@ -106,17 +131,25 @@ export function createConversionModules(
 		createWindTrueWaterConversion,
 	];
 
-	return conversionFactories
-		.flatMap((factory) => {
-			try {
-				const moduleOrModules = factory(app, plugin);
-				return Array.isArray(moduleOrModules)
-					? moduleOrModules
-					: [moduleOrModules];
-			} catch (e) {
-				app.error(`Error loading conversion module: ${errMessage(e)}`);
-				return [];
-			}
-		})
-		.filter(isDefined);
+	const dataConversions = dataConversionFactories.flatMap((factory) =>
+		buildConversions(factory, app, plugin),
+	);
+
+	// Derive the transmit-PGN advertisement from the actual conversion titles
+	// so adding a new conversion auto-updates the 126464 message. ISO transport
+	// PGNs and canboatjs-auto-emit PGNs are unioned in by pgnList itself.
+	// pgnList's own title contributes PGN 126464 (self-advertisement is
+	// correct: the device transmits 126464 in response to ISO Requests and
+	// on its own timer).
+	const dataTransmitPgns: number[] = [];
+	for (const conv of dataConversions) {
+		for (const pgnStr of extractPgnsFromTitle(conv.title)) {
+			const pgn = Number(pgnStr);
+			if (Number.isFinite(pgn)) dataTransmitPgns.push(pgn);
+		}
+	}
+
+	const pgnList = createPgnListConversion(dataTransmitPgns);
+
+	return [...dataConversions, pgnList];
 }

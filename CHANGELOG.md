@@ -1,5 +1,51 @@
 ## Change Log
 
+### v1.5.5 (2026/05/15) - Garmin recognition and PGN 126464 correctness
+
+**Bug fix: PGN 126464 (Transmit/Receive PGN List) is now actually delivered.**
+
+The previous version triggered the conversion off `keys: ["communication.pgnListRequest"]`, a non-canonical Signal K path that no provider emits. The conversion was effectively dormant: Garmin's "Device Information" panel saw no transmit-list advertisement from the plugin, falling back to PGN-by-PGN passive discovery (which only populates as live data flows). Switched to a `sourceType: "timer"` with a 300 s interval. The first emission goes out within 5 minutes of plugin start, and ISO Request (PGN 59904) solicitations from chartplotters during address claim are handled by canboatjs's `N2kDevice` against its own internal PGN table.
+
+**Bug fix: PGN 126993 (Heartbeat) added to the advertised transmit list.**
+
+canboatjs's `N2kDevice` (>= 2.5) auto-emits PGN 126993 at the spec-recommended ~60 s nominal interval, but the plugin's hardcoded `TRANSMIT_PGNS` constant never listed it. Garmin chartplotters cross-check 126464 against received traffic and age devices out of their Network panel after about 30 s when no heartbeat is declared. This was the most likely cause of the "device shows briefly then disappears" failure pattern on Garmin installs (issue surface area: canboat/canboatjs#157).
+
+**Refactor: PGN 126464 transmit list is now derived at module load from every conversion's title.**
+
+Previously a hand-maintained 54-entry `TRANSMIT_PGNS` constant in `src/conversions/pgnList.ts`. Adding a new conversion required a second edit to keep the advertised list in sync, and the list silently drifted: PGNs 130316 (TEMPERATURE2_*) and 127497 (engine trip parameters, added in this release) were emitted on the wire but never declared. The list is now derived in `createConversionModules` by walking each module's `title` field through `extractPgnsFromTitle` (hoisted to a new `src/utils/pgnUtils.ts` so the registry and the plugin-manager can share it). Bus-layer PGNs that no conversion module owns are kept in a small `ALWAYS_TX_PGNS` constant inside `pgnList.ts` and unioned with the derived set: 59392 / 59904 / 60928 (ISO transport), 126464 (this conversion's own PGN, which the walk cannot self-advertise), 126993 (Heartbeat), 126996 (Product Information, canboatjs auto-emit).
+
+The on-wire receive list expands from `[59904, 126464]` to `[59904, 60928, 126208, 126464]`. canboatjs already handles 60928 (ISO Address Claim) and 126208 (Group Function) at the transport layer; declaring them in the receive list closes a cosmetic gap on Garmin's "device receives" panel.
+
+**Refactor: `productInfo.ts` conversion removed.**
+
+The module emitted a competing PGN 126996 with a non-matching serial number against canboatjs's own auto-emit, causing last-write-wins flapping on Garmin's device-info panel. canboatjs's `N2kDevice` emits PGN 126996 on every address claim and in response to every ISO request for product information, so the plugin-side module was redundant by design (verified at `node_modules/@canboat/canboatjs/dist/n2kDevice.js` lines 31, 94, 202, 237, 400). The `PRODUCT_INFO` `optionKey` is now unknown to the registry; saved `PRODUCT_INFO: { enabled: true }` entries in user configs load as a no-op (the typed config schema accepts arbitrary `Record<string, ConversionConfig>` keys and `plugin-manager.start()` simply skips keys with no matching module).
+
+**New conversion: PGN 127497 (Trip Parameters, Engine).**
+
+`src/conversions/engineTrip.ts` emits per-engine trip fuel used and trip fuel rate. It is a per-engine sub-conversion factory keyed off `propulsion.*.fuel.*`, matching the identity model used by Engine Parameters and Engine Static, so all three engine PGNs pair correctly by instance on an MFD.
+
+**Refactor: PGN 127498 (Engine Configuration / Static) is now per-engine.**
+
+`engineStatic.ts` was a single-instance module; it is now a per-engine sub-conversion factory consistent with Engine Parameters and Engine Trip. Rated engine speed, VIN, and software version are entered per engine in the plugin config (Signal K has no canonical source for them). A v1.5.4 to v1.5.5 config migration normalizes the old single-instance `engineStaticMapping` shape into the per-engine `engines` array.
+
+**Bug fix: range validation on GPS position and depth.**
+
+`gps.ts` now rejects latitude outside +/-90 and longitude outside +/-180; `depth.ts` rejects negative below-transducer depth. An out-of-range value is dropped rather than encoded into a PGN that an MFD would render as a glitch position or depth.
+
+**Change: magnetic variation source label.**
+
+`magneticVariance.ts` reports its PGN 127258 source as "Automatic Calculation" rather than a fixed model year, since the value is computed from Signal K's live `navigation.magneticVariation` rather than a bundled World Magnetic Model table.
+
+**Admin panel UI.**
+
+The federated config panel gained Garmin compatibility badges per conversion card (displays / partial / ignores), short purpose text on engine and battery cards, and inline help text on the mapping editors explaining how Signal K ids and NMEA 2000 instance numbers pair across the engine tables. Accessibility pass: real `h3` card headings, a consistent `:focus-visible` ring, `role="alert"` error banners with a Retry action, a transient "Saved" status pill, horizontal scroll on wide mapping tables, and proper `scope` on table headers.
+
+**Side effects**
+
+- Total conversion count (excluding pgnList itself) drops by 1 (productInfo) and gains 2 (engineTrip, the per-engine engineStatic split is identity-only), net +1.
+- 126464 is now emitted as a Fast Packet message every 300 s plus on every ISO Request from a peer.
+- 56 of 56 tests pass; typecheck and biome clean; both esbuild and webpack panel builds clean.
+
 ### v1.5.4 (2026/05/12) - Notifications ping-pong fix and bus-rate throttle
 
 **Bug fix: ping-pong loop with signalk-server's notifications API**

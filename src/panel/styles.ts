@@ -88,6 +88,16 @@ export const THEME_STYLE = `
 	outline: 2px solid var(--skn-accent);
 	outline-offset: 1px;
 }
+/* Buttons set their background as an inline style, which outranks the
+   browser's default disabled appearance, so a disabled button would still
+   look enabled. !important is required to override the inline style for the
+   disabled state. */
+.skn-panel button:disabled {
+	background: var(--skn-surface-raised) !important;
+	color: var(--skn-text-faint) !important;
+	border-color: var(--skn-border) !important;
+	cursor: not-allowed !important;
+}
 `;
 
 export const S: Record<string, CSSProperties> = {

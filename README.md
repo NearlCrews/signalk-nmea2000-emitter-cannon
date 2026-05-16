@@ -13,19 +13,16 @@ plugins such as [`signalk-virtual-weather-sensors`](https://github.com/NearlCrew
 > Built on the foundation of [`signalk-to-nmea2000`](https://github.com/SignalK/signalk-to-nmea2000)
 > by Scott Bender and the Signal K community.
 
-## What's New in v1.6.1
+## What's New in v1.6.2
 
-v1.6.1 makes the admin panel readable in the Signal K admin's dark theme by
-moving every color onto light and dark design tokens, and reorganizes the PGN
-list into collapsible Modern and Legacy sections with each conversion card
-itself collapsible so the list stays scannable. A historical bug that nested
-the saved config under repeated `configuration` keys, stranding settings such
-as the global resend interval, is now flattened on load. The Config Advisor
-gains an auto-apply toggle, surfaces auto-applied explanations as visible text,
-and moves its Save button to the bottom of the panel with clear save feedback.
+v1.6.2 fixes the admin panel's disabled buttons, which set their background as
+an inline style and so kept their full color even when disabled. Disabled
+buttons now grey out with a not-allowed cursor, so the Save controls give clear
+feedback: the button is visibly inert when there is nothing to save and visibly
+changes state right after a save.
 
-See the [v1.6.1 changelog entry](CHANGELOG.md#v161) and the
-[v1.6.1 release](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/releases/tag/v1.6.1).
+See the [v1.6.2 changelog entry](CHANGELOG.md#v162) and the
+[v1.6.2 release](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/releases/tag/v1.6.2).
 [Full release history](CHANGELOG.md).
 
 ## Features

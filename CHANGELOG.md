@@ -1,5 +1,13 @@
 ## Change Log
 
+<a id="v162"></a>
+
+### v1.6.2 (2026/05/16) - Disabled buttons look disabled
+
+**Bug fix: a disabled button now visibly greys out.**
+
+The admin panel's buttons set their background as an inline style, which outranks the browser's default disabled appearance, so a button disabled because there was nothing to do (Save with no unsaved changes, Discard, "Review now" while a review runs) still rendered fully colored. Disabled buttons now grey out with a not-allowed cursor. The Save controls give clear feedback as a result: the button is visibly inert when there is nothing to save, and visibly changes state right after a save.
+
 <a id="v161"></a>
 
 ### v1.6.1 (2026/05/16) - Dark mode, collapsible panels, and advisor refinements

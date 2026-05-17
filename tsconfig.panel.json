@@ -7,5 +7,10 @@
 		"moduleResolution": "Bundler",
 		"noEmit": true
 	},
-	"include": ["src/panel/**/*", "src/config/**/*", "src/api/types.ts"]
+	"include": [
+		"src/panel/**/*",
+		"src/config/**/*",
+		"src/api/types.ts",
+		"src/test/useConfig.test.ts"
+	]
 }

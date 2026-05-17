@@ -17,7 +17,7 @@
 		"noImplicitOverride": true,
 		"resolveJsonModule": true,
 		"isolatedModules": true,
-		"verbatimModuleSyntax": false,
+		"verbatimModuleSyntax": true,
 		"skipLibCheck": true,
 		"forceConsistentCasingInFileNames": true,
 		"declaration": true,
@@ -34,8 +34,5 @@
 		"src/panel/**/*",
 		"**/*.test.ts",
 		"**/*.spec.ts"
-	],
-	"ts-node": {
-		"esm": true
-	}
+	]
 }

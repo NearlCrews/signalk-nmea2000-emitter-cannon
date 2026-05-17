@@ -182,7 +182,7 @@ describe("Advisor.runReview", () => {
 		const saved = deps.getSaved() as {
 			conversions: Record<string, { enabled: boolean }>;
 		};
-		expect(saved.conversions.DEPTH.enabled).toBe(true);
+		expect(saved.conversions.DEPTH?.enabled).toBe(true);
 	});
 
 	it("parks a disable as pending and does not write it", async () => {
@@ -230,8 +230,8 @@ describe("Advisor.applyReview", () => {
 		const saved = deps.getSaved() as {
 			conversions: Record<string, { enabled: boolean }>;
 		};
-		expect(saved.conversions.GPS.enabled).toBe(false);
-		expect(saved.conversions.AIS.enabled).toBe(true);
+		expect(saved.conversions.GPS?.enabled).toBe(false);
+		expect(saved.conversions.AIS?.enabled).toBe(true);
 	});
 
 	it("applies an approved enable when the decision carries action enable", async () => {
@@ -248,7 +248,7 @@ describe("Advisor.applyReview", () => {
 		const saved = deps.getSaved() as {
 			conversions: Record<string, { enabled: boolean }>;
 		};
-		expect(saved.conversions.DEPTH.enabled).toBe(true);
+		expect(saved.conversions.DEPTH?.enabled).toBe(true);
 	});
 });
 

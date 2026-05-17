@@ -28,7 +28,7 @@ const mockApp: SignalKApp = {
 	getSelfPath: (path: string) => skSelfData[path],
 	getPath: (path: string) => skData[path],
 	debug: () => {}, // Silent during tests
-	error: (msg) => console.error(msg),
+	error: (msg: string) => console.error(msg),
 	emit: () => {},
 	streambundle: {
 		getSelfBus: () => {

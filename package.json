@@ -1,6 +1,6 @@
 {
 	"name": "signalk-nmea2000-emitter-cannon",
-	"version": "1.6.2",
+	"version": "1.6.3",
 	"description": "Signal K plugin that converts Signal K deltas to Garmin-aligned NMEA 2000 PGNs",
 	"main": "dist/index.js",
 	"type": "module",

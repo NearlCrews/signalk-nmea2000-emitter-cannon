@@ -1,5 +1,13 @@
 ## Change Log
 
+<a id="v163"></a>
+
+### v1.6.3 (2026/05/16) - Advisor reads nested configs correctly
+
+**Bug fix: the Config Advisor no longer wipes settings when the saved config is nested.**
+
+A historical save bug could wrap the plugin's saved options under repeated `configuration` keys. The admin panel already flattened that nesting on load, but the Config Advisor's own config read unwrapped only a single `.configuration` layer. On a config nested deeper than one level the advisor saw no `conversions`, so the recommender rebuilt the config from scratch, dropping every factory-module conversion that has no static path keys (Battery, Notifications, Engine, Tanks, Solar) along with all per-conversion source filters. The advisor now flattens the envelope through the same migration the panel uses, so it reads the real config regardless of nesting depth. Test suite is now 114 tests across 13 files.
+
 <a id="v162"></a>
 
 ### v1.6.2 (2026/05/16) - Disabled buttons look disabled

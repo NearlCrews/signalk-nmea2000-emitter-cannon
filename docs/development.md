@@ -17,7 +17,7 @@ npm install
 ## Build commands
 
 ```bash
-npm run build          # Production build (esbuild -> dist/index.js)
+npm run build          # Production build (esbuild plugin + webpack panel)
 npm run build:watch    # Development build with watch mode
 npm test               # Run all tests (Vitest)
 npm run test:ui        # Run tests with interactive UI
@@ -55,6 +55,7 @@ src/
 │   ├── router.ts         # Express router (status, conversions, paths, sources)
 │   ├── discovery.ts      # Path / source enumeration helpers
 │   ├── extras-meta.ts    # ExtrasMeta discriminator per optionKey
+│   ├── pgnSummaries.ts   # Per-PGN human-readable summary strings
 │   └── types.ts          # API response shapes
 ├── panel/                # Federated React config panel (webpack module federation)
 │   ├── index.tsx         # Federation entry; re-exports PluginConfigurationPanel

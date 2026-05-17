@@ -1,6 +1,6 @@
 # PGN Reference
 
-53 data PGNs across 45 conversion modules, plus 5 bus-layer PGNs advertised in
+53 data PGNs across 46 conversion modules, plus 5 bus-layer PGNs advertised in
 the 126464 transmit list. All PGNs are aligned with Garmin specifications
 (corrected priorities, SID fields, field names, reference enums).
 

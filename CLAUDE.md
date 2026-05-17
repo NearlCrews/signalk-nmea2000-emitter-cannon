@@ -96,7 +96,7 @@ Tests live in `src/test/` across 13 files (`advisor-config.test.ts`, `advisor.te
 ## Key Technical Details
 
 - **Runtime**: Node.js 22.12+, pure ESM modules
-- **Build**: esbuild bundles to single `dist/index.js` (currently ~466 KB)
+- **Build**: esbuild bundles to single `dist/index.js` (currently ~496 KB)
 - **Externals**: rxjs (only runtime dependency kept out of the bundle; @signalk/server-api is type-only)
 - **Reactivity**: RxJS for Signal K data subscriptions (Signal K server uses BaconJS internally)
 - **N2K Message Format**: CanboatJS format: `{ prio, pgn, dst, fields: {...} }`

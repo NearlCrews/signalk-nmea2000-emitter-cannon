@@ -76,29 +76,34 @@ src/
 │   ├── validation.ts     # Input validation (NaN/Infinity checks)
 │   ├── smoothing.ts      # Exponential smoothing for sensor data
 │   └── debugUtils.ts     # Debug-flag check
-├── conversions/          # 45 PGN conversion modules
+├── conversions/          # 46 PGN conversion modules
 │   ├── index.ts          # Module loader / registry
 │   ├── routeTypes.ts     # Shared Position/Waypoint types
 │   ├── wind.ts           # Wind data conversion
 │   ├── depth.ts          # Depth conversion
 │   ├── battery.ts        # Battery status conversion
-│   └── ...               # 42 more conversions
-└── test/                 # Vitest test suites (57 tests, 9 files)
-    ├── index.test.ts        # All conversion-module test cases (round-trip via canboatjs)
-    ├── api.test.ts          # /api/* router endpoints + admin auth
-    ├── discovery.test.ts    # Path / source enumeration
-    ├── lifecycle.test.ts    # Plugin start/stop/resend lifecycle
-    ├── migrate.test.ts      # v1.4.x legacy config migration
-    ├── pathUtils.test.ts    # pathToPropName collision regressions
-    ├── smoothing.test.ts    # ExponentialSmoother registry behavior
-    ├── status.test.ts       # PluginManager.getStatusSnapshot + getConversionMetadata
-    └── temperature.test.ts  # Temperature default-instance uniqueness
+│   └── ...               # 43 more conversions
+└── test/                 # Vitest test suites (114 tests, 13 files)
+    ├── index.test.ts          # All conversion-module test cases (round-trip via canboatjs)
+    ├── advisor.test.ts        # Config Advisor: recommender, inventory, QuestDB/OpenRouter, orchestrator
+    ├── advisor-config.test.ts # Advisor config defaults vs schema
+    ├── api.test.ts            # /api/* router endpoints + admin auth
+    ├── discovery.test.ts      # Path / source enumeration
+    ├── lifecycle.test.ts      # Plugin start/stop/resend lifecycle
+    ├── migrate.test.ts        # v1.4.x legacy config migration
+    ├── pathUtils.test.ts      # pathToPropName collision regressions
+    ├── schedule.test.ts       # AdvisorScheduler periodic-review timer
+    ├── smoothing.test.ts      # ExponentialSmoother registry behavior
+    ├── status.test.ts         # PluginManager.getStatusSnapshot + getConversionMetadata
+    ├── temperature.test.ts    # Temperature default-instance uniqueness
+    └── useConfig.test.ts      # Panel useConfig reducer (setAdvisor, preset apply)
 public/                   # Webpack module federation output (shipped via "files" array)
 ├── remoteEntry.js        # Federation entry script
 ├── main.mjs              # Panel main bundle
 └── *.mjs / *.LICENSE.txt # Federation chunks
 webpack.config.cjs        # ESM module federation build config
 tsconfig.panel.json       # Panel-specific TypeScript config (jsx: react-jsx)
+tsconfig.test.json        # TypeScript config for the src/test/ suite
 .github/
 └── workflows/
     ├── ci.yml            # GitHub Actions CI pipeline (lint, typecheck, test, build)
@@ -109,7 +114,11 @@ tsconfig.panel.json       # Panel-specific TypeScript config (jsx: react-jsx)
 
 All conversion modules include embedded test cases that validate correct PGN
 message format, CanboatJS encoding/decoding compatibility, Signal K data path
-mapping, and edge case handling. The full suite is 57 tests across 9 files.
+mapping, and edge case handling. The full suite is 114 tests across 13 files.
+
+`npm run typecheck` runs three `tsc` passes: the plugin runtime
+(`tsconfig.json`, which excludes test files), the React panel
+(`tsconfig.panel.json`), and the test suite (`tsconfig.test.json`).
 
 ```bash
 npm test               # Run all tests

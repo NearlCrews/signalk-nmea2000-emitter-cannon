@@ -86,10 +86,12 @@ The registry `src/conversions/index.ts` imports all factories and exports `creat
 
 ## Testing
 
-Tests live in `src/test/` across 9 files (`index.test.ts`, `api.test.ts`, `discovery.test.ts`, `lifecycle.test.ts`, `migrate.test.ts`, `pathUtils.test.ts`, `smoothing.test.ts`, `status.test.ts`, `temperature.test.ts`). The conversion-module test cases live embedded in each module's `tests` array, run by `src/test/index.test.ts`. The full suite (57 tests):
+Tests live in `src/test/` across 13 files (`advisor-config.test.ts`, `advisor.test.ts`, `api.test.ts`, `discovery.test.ts`, `index.test.ts`, `lifecycle.test.ts`, `migrate.test.ts`, `pathUtils.test.ts`, `schedule.test.ts`, `smoothing.test.ts`, `status.test.ts`, `temperature.test.ts`, `useConfig.test.ts`). The conversion-module test cases live embedded in each module's `tests` array, run by `src/test/index.test.ts`. The full suite (114 tests):
 1. Loads all 46 conversion modules
 2. Validates each module has test cases
 3. Runs embedded tests against CanboatJS encoder/decoder
+
+`npm run typecheck` runs three `tsc` passes: `tsconfig.json` (plugin runtime; excludes `**/*.test.ts`), `tsconfig.panel.json` (React panel, plus the panel-hook test `useConfig.test.ts` which needs the DOM/React lib), and `tsconfig.test.json` (the rest of the `src/test/` suite). The base config excludes test files, so they are type-checked only by the latter two configs.
 
 ## Key Technical Details
 

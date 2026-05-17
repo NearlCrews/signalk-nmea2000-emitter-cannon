@@ -10,19 +10,25 @@ import type {
 } from "../types/index.js";
 import { isValidNumber, normalizeAngle } from "../utils/validation.js";
 
-export function createWindTrueConversion(
+// Shared PGN 130306 (Wind Data) builder. Every wind-130306 module (apparent,
+// true-over-water, true-over-ground, weather-forecast apparent) differs only
+// in title, optionKey, the two source paths, the N2K `reference` label, and
+// the panel category, so they all delegate here.
+export function createWind130306Conversion(
 	_app: SignalKApp,
 	config: {
 		title: string;
 		optionKey: string;
 		keys: [string, string];
 		reference: string;
+		category?: ConversionModule["category"];
+		presets?: ConversionModule["presets"];
 	},
 ): ConversionModule {
-	return {
+	const module: ConversionModule = {
 		title: config.title,
 		optionKey: config.optionKey,
-		category: "navigation",
+		category: config.category ?? "navigation",
 		keys: config.keys,
 		callback: (angle: unknown, speed: unknown): N2KMessage[] => {
 			if (!isValidNumber(angle) && !isValidNumber(speed)) {
@@ -106,14 +112,22 @@ export function createWindTrueConversion(
 					},
 				],
 			},
+			{
+				input: [null, null],
+				expected: [],
+			},
 		],
 	};
+	if (config.presets) {
+		module.presets = config.presets;
+	}
+	return module;
 }
 
 export default function createWindTrueWaterConversion(
 	app: SignalKApp,
 ): ConversionModule {
-	return createWindTrueConversion(app, {
+	return createWind130306Conversion(app, {
 		title: "Wind True Over Water (PGN 130306)",
 		optionKey: "WIND_TRUE",
 		keys: ["environment.wind.angleTrueWater", "environment.wind.speedTrue"],

@@ -1,10 +1,10 @@
 import type { ConversionModule, SignalKApp } from "../types/index.js";
-import { createWindTrueConversion } from "./windTrueWater.js";
+import { createWind130306Conversion } from "./windTrueWater.js";
 
 export default function createWindTrueGroundConversion(
 	app: SignalKApp,
 ): ConversionModule {
-	return createWindTrueConversion(app, {
+	return createWind130306Conversion(app, {
 		title: "Wind True Over Ground (PGN 130306)",
 		optionKey: "WIND_TRUE_GROUND",
 		keys: [

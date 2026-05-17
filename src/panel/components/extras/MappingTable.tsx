@@ -1,5 +1,6 @@
 import type * as React from "react";
 import { S } from "../../styles";
+import NumberInput from "../NumberInput";
 
 export interface Column<T> {
 	header: string;
@@ -43,18 +44,11 @@ export function instanceIdColumn<R extends { instanceId: number }>(opts: {
 	return {
 		header: opts.header,
 		render: (r, onRow) => (
-			<input
-				type="number"
-				min={0}
-				style={S.input}
+			<NumberInput
 				value={r.instanceId}
-				onChange={(e) =>
-					onRow({
-						...r,
-						instanceId: Math.max(0, Number(e.target.value) | 0),
-					} as R)
-				}
-				aria-label={opts.ariaLabel}
+				onChange={(n) => onRow({ ...r, instanceId: n } as R)}
+				min={0}
+				ariaLabel={opts.ariaLabel}
 			/>
 		),
 	};

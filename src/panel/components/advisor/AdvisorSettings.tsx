@@ -3,6 +3,7 @@ import { DEFAULT_ADVISOR_CONFIG } from "../../../config/enums.js";
 import type { Config } from "../../../config/schema.js";
 import { useOpenRouterModels } from "../../hooks/useOpenRouterModels.js";
 import { S } from "../../styles";
+import NumberInput from "../NumberInput";
 
 type AdvisorCfg = NonNullable<Config["advisor"]>;
 
@@ -130,20 +131,15 @@ export default function AdvisorSettings({
 			<p style={S.helpHint}>{modelsHint}</p>
 			<div style={S.fieldRow}>
 				<span style={S.label}>Max OpenRouter calls per day</span>
-				<input
-					type="number"
-					min={0}
-					style={S.input}
+				<NumberInput
 					value={cfg.openRouter.maxCallsPerDay}
-					onChange={(e) =>
+					onChange={(n) =>
 						patch({
-							openRouter: {
-								...cfg.openRouter,
-								maxCallsPerDay: Math.max(0, Number(e.target.value) | 0),
-							},
+							openRouter: { ...cfg.openRouter, maxCallsPerDay: n },
 						})
 					}
-					aria-label="Max OpenRouter calls per day"
+					min={0}
+					ariaLabel="Max OpenRouter calls per day"
 				/>
 			</div>
 
@@ -178,20 +174,15 @@ export default function AdvisorSettings({
 			</div>
 			<div style={S.fieldRow}>
 				<span style={S.label}>History look-back (days)</span>
-				<input
-					type="number"
-					min={1}
-					style={S.input}
+				<NumberInput
 					value={cfg.questdb.lookbackDays}
-					onChange={(e) =>
+					onChange={(n) =>
 						patch({
-							questdb: {
-								...cfg.questdb,
-								lookbackDays: Math.max(1, Number(e.target.value) | 0),
-							},
+							questdb: { ...cfg.questdb, lookbackDays: n },
 						})
 					}
-					aria-label="History look-back in days"
+					min={1}
+					ariaLabel="History look-back in days"
 				/>
 			</div>
 			<p style={S.helpHint}>
@@ -220,20 +211,15 @@ export default function AdvisorSettings({
 			</div>
 			<div style={S.fieldRow}>
 				<span style={S.label}>Review every (days)</span>
-				<input
-					type="number"
-					min={1}
-					style={S.input}
+				<NumberInput
 					value={cfg.schedule.intervalDays}
-					onChange={(e) =>
+					onChange={(n) =>
 						patch({
-							schedule: {
-								...cfg.schedule,
-								intervalDays: Math.max(1, Number(e.target.value) | 0),
-							},
+							schedule: { ...cfg.schedule, intervalDays: n },
 						})
 					}
-					aria-label="Review interval in days"
+					min={1}
+					ariaLabel="Review interval in days"
 				/>
 			</div>
 		</div>

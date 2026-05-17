@@ -1,5 +1,6 @@
 import type * as React from "react";
 import { S } from "../styles";
+import NumberInput from "./NumberInput";
 
 interface Props {
 	value: number;
@@ -14,13 +15,11 @@ export default function GlobalSettings({
 		<div style={{ ...S.card, marginBottom: 16 }}>
 			<div style={S.fieldRow}>
 				<span style={S.label}>Global Resend Interval (seconds)</span>
-				<input
-					type="number"
-					min={0}
-					style={S.input}
+				<NumberInput
 					value={value}
-					onChange={(e) => onChange(Math.max(0, Number(e.target.value) | 0))}
-					aria-label="Global resend interval in seconds"
+					onChange={onChange}
+					min={0}
+					ariaLabel="Global resend interval in seconds"
 				/>
 			</div>
 		</div>

@@ -1,5 +1,5 @@
 import type * as React from "react";
-import { S } from "../../styles";
+import NumberInput from "../NumberInput";
 import MappingTable, {
 	instanceIdColumn,
 	signalkIdColumn,
@@ -46,18 +46,11 @@ export default function SolarMappingEditor({
 				{
 					header: "NMEA 2000 Panel Instance Id",
 					render: (r, set) => (
-						<input
-							type="number"
-							min={0}
-							style={S.input}
+						<NumberInput
 							value={r.panelInstanceId}
-							onChange={(e) =>
-								set({
-									...r,
-									panelInstanceId: Math.max(0, Number(e.target.value) | 0),
-								})
-							}
-							aria-label="NMEA 2000 solar panel instance id"
+							onChange={(n) => set({ ...r, panelInstanceId: n })}
+							min={0}
+							ariaLabel="NMEA 2000 solar panel instance id"
 						/>
 					),
 				},

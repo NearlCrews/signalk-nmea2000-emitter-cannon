@@ -1,6 +1,7 @@
 import type * as React from "react";
 import type { ExtrasFieldSpec, ExtrasMeta } from "../../../api/types.js";
 import { S } from "../../styles";
+import NumberInput from "../NumberInput";
 
 interface Props {
 	meta: Extract<ExtrasMeta, { type: "field" } | { type: "fields" }>;
@@ -32,12 +33,10 @@ function FieldRow({
 					aria-label={spec.label}
 				/>
 			) : spec.control === "number" ? (
-				<input
-					type="number"
-					style={S.input}
+				<NumberInput
 					value={Number(v) || 0}
-					onChange={(e) => update(Number(e.target.value))}
-					aria-label={spec.label}
+					onChange={update}
+					ariaLabel={spec.label}
 				/>
 			) : (
 				<input

@@ -1,5 +1,6 @@
 import type * as React from "react";
 import { S } from "../../styles";
+import NumberInput from "../NumberInput";
 import MappingTable from "./MappingTable";
 
 // signalkPath is the full SK path (e.g. "tanks.fuel.0") because the SK tank
@@ -45,15 +46,11 @@ export default function TankMappingEditor({
 				{
 					header: "NMEA 2000 Tank Instance Id",
 					render: (r, set) => (
-						<input
-							type="number"
-							min={0}
-							style={S.input}
+						<NumberInput
 							value={r.instanceId}
-							onChange={(e) =>
-								set({ ...r, instanceId: Number(e.target.value) | 0 })
-							}
-							aria-label="NMEA 2000 tank instance id"
+							onChange={(n) => set({ ...r, instanceId: n })}
+							min={0}
+							ariaLabel="NMEA 2000 tank instance id"
 						/>
 					),
 				},

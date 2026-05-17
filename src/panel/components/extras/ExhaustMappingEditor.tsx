@@ -1,5 +1,5 @@
 import type * as React from "react";
-import { S } from "../../styles";
+import NumberInput from "../NumberInput";
 import MappingTable, { signalkIdColumn } from "./MappingTable";
 
 // signalkId is the final segment of the SK propulsion key under propulsion.<id>
@@ -41,18 +41,11 @@ export default function ExhaustMappingEditor({
 				{
 					header: "NMEA 2000 Temperature Instance Id",
 					render: (r, set) => (
-						<input
-							type="number"
-							min={0}
-							style={S.input}
+						<NumberInput
 							value={r.tempInstanceId}
-							onChange={(e) =>
-								set({
-									...r,
-									tempInstanceId: Math.max(0, Number(e.target.value) | 0),
-								})
-							}
-							aria-label="NMEA 2000 exhaust temperature instance id"
+							onChange={(n) => set({ ...r, tempInstanceId: n })}
+							min={0}
+							ariaLabel="NMEA 2000 exhaust temperature instance id"
 						/>
 					),
 				},

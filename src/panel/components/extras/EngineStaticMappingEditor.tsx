@@ -1,5 +1,6 @@
 import type * as React from "react";
 import { S } from "../../styles";
+import NumberInput from "../NumberInput";
 import MappingTable, {
 	instanceIdColumn,
 	signalkIdColumn,
@@ -55,21 +56,13 @@ export default function EngineStaticMappingEditor({
 				{
 					header: "Rated Engine Speed (RPM)",
 					render: (r, set) => (
-						<input
-							type="number"
+						<NumberInput
+							value={r.ratedEngineSpeed}
+							onChange={(n) => set({ ...r, ratedEngineSpeed: n })}
 							min={0}
-							style={S.input}
-							value={r.ratedEngineSpeed ?? ""}
 							placeholder="3600"
-							onChange={(e) => {
-								const raw = e.target.value;
-								set({
-									...r,
-									ratedEngineSpeed:
-										raw === "" ? undefined : Math.max(0, Number(raw) | 0),
-								});
-							}}
-							aria-label="Rated engine speed in RPM"
+							allowEmpty
+							ariaLabel="Rated engine speed in RPM"
 						/>
 					),
 				},

@@ -11,6 +11,7 @@ import { splitPgnTitle } from "../../utils/pgnUtils.js";
 import { S } from "../styles";
 import DisclosureCaret from "./DisclosureCaret";
 import ExtrasEditor from "./ExtrasEditor";
+import NumberInput from "./NumberInput";
 import SourceField from "./SourceField";
 
 interface Props {
@@ -162,15 +163,11 @@ export default function ConversionCard(props: Props): React.ReactElement {
 						<>
 							<div style={S.fieldRow}>
 								<span style={S.label}>Resend (seconds, 0 = global)</span>
-								<input
-									type="number"
-									min={0}
-									style={S.input}
+								<NumberInput
 									value={cfg.resend}
-									onChange={(e) =>
-										props.onSetResend(Math.max(0, Number(e.target.value) | 0))
-									}
-									aria-label={`Resend interval seconds for ${props.meta.title}`}
+									onChange={props.onSetResend}
+									min={0}
+									ariaLabel={`Resend interval seconds for ${props.meta.title}`}
 								/>
 							</div>
 							{props.meta.paths.map((p) => (

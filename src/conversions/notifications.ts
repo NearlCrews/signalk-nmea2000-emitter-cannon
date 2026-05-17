@@ -7,6 +7,7 @@ import {
 import {
 	N2K_BROADCAST_DST,
 	N2K_DEFAULT_PRIORITY,
+	SOURCE_TYPE,
 	VESSELS_SELF_CONTEXT,
 } from "../constants.js";
 import type {
@@ -269,7 +270,7 @@ export default function createNotificationsConversion(
 		category: "comms",
 		keys: ["notifications.*"],
 		context: VESSELS_SELF_CONTEXT,
-		sourceType: "subscription",
+		sourceType: SOURCE_TYPE.SUBSCRIPTION,
 		onOptionsLoaded: (options) => {
 			const raw =
 				typeof options.excludePaths === "string" ? options.excludePaths : "";

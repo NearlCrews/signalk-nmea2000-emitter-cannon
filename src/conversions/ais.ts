@@ -1,4 +1,8 @@
-import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
+import {
+	N2K_BROADCAST_DST,
+	N2K_DEFAULT_PRIORITY,
+	SOURCE_TYPE,
+} from "../constants.js";
 import type {
 	ConversionCallback,
 	ConversionModule,
@@ -13,16 +17,12 @@ import {
 	parseMmsi,
 } from "../utils/aisUtils.js";
 import { clampString, isValidNumber } from "../utils/validation.js";
+import type { Position } from "./routeTypes.js";
 
 // AIS Message 1 spec value for "Not defined". canboat NAV_STATUS lookup
 // stops at 14, but the AIS bitfield is 4 bits and 15 is the spec default
 // for "navigation state unknown". canboatjs accepts the numeric value.
 const NAV_STATUS_NOT_DEFINED = 15;
-
-interface Position {
-	latitude?: number;
-	longitude?: number;
-}
 
 interface AisShipType {
 	id?: number;
@@ -131,7 +131,7 @@ export default function createAisConversion(
 
 	return {
 		title: "AIS (PGNs 129038, 129041, 129794)",
-		sourceType: "onDelta",
+		sourceType: SOURCE_TYPE.ON_DELTA,
 		optionKey: "AIS",
 		category: "ais",
 		presets: ["full-ais"],

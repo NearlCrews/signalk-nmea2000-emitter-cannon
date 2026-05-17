@@ -15,13 +15,12 @@ import {
 	parseMmsi,
 } from "../utils/aisUtils.js";
 import { clampString, isValidNumber } from "../utils/validation.js";
+import type { Position as GeoPosition } from "./routeTypes.js";
 
-interface Position {
-	latitude?: number;
-	longitude?: number;
-	// SK publishes altitude as a sub-field of the position value when
-	// available (e.g. for SAR aircraft); there is no canonical top-level
-	// navigation.altitude path.
+// SK publishes altitude as a sub-field of the position value when available
+// (e.g. for SAR aircraft); there is no canonical top-level navigation.altitude
+// path, so this extends the shared Position with an optional altitude.
+interface Position extends GeoPosition {
 	altitude?: number;
 }
 

@@ -1,4 +1,8 @@
-import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
+import {
+	N2K_BROADCAST_DST,
+	N2K_DEFAULT_PRIORITY,
+	SOURCE_TYPE,
+} from "../constants.js";
 import type {
 	ConversionModule,
 	N2KMessage,
@@ -11,7 +15,7 @@ export default function createSystemTimeConversion(
 ): ConversionModule {
 	return {
 		title: "System Time (PGN 126992)",
-		sourceType: "timer",
+		sourceType: SOURCE_TYPE.TIMER,
 		interval: 1000,
 		optionKey: "SYSTEM_TIME",
 		category: "system",

@@ -1,4 +1,8 @@
-import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
+import {
+	N2K_BROADCAST_DST,
+	N2K_DEFAULT_PRIORITY,
+	SOURCE_TYPE,
+} from "../constants.js";
 import type { ConversionModule, N2KMessage } from "../types/index.js";
 
 // PGNs added to the transmit list independent of the registry's conversion-
@@ -76,7 +80,7 @@ export default function createPgnListConversion(
 		title: "PGN List (PGN 126464)",
 		optionKey: "PGN_LIST",
 		category: "system",
-		sourceType: "timer",
+		sourceType: SOURCE_TYPE.TIMER,
 		interval: PGN_LIST_INTERVAL_MS,
 		// Timer mapper invokes callback(app); we ignore it and publish the
 		// pre-built identity messages.

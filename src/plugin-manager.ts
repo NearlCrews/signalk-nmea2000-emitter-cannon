@@ -633,7 +633,15 @@ export class PluginManager {
 			const args: unknown[] = [delta];
 			this.lastInputs.set(conversion, args);
 			const result = this.invokeCallback(conversion, args, BUCKET_PREFIX.DELTA);
-			if (result === undefined) return;
+			// registerDeltaInputHandler fires on every server-wide delta; the
+			// AIS callback returns [] for the overwhelming majority that are
+			// not AIS. Skip the processOutput promise chain for that no-op.
+			if (
+				result === undefined ||
+				(Array.isArray(result) && result.length === 0)
+			) {
+				return;
+			}
 			void this.processOutput(conversion, processingOptions, result);
 		});
 	}

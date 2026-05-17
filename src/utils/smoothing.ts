@@ -55,6 +55,8 @@ export function clearAllSmoothers(): void {
 	registeredSmoothers.clear();
 }
 
+// Test-only seam: lets smoothing.test.ts assert clearAllSmoothers() emptied
+// the registry. Not used by plugin runtime code.
 export function getRegisteredSmootherCount(): number {
 	return registeredSmoothers.size;
 }

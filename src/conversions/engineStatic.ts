@@ -1,6 +1,7 @@
 import {
 	N2K_BROADCAST_DST,
 	N2K_DEFAULT_PRIORITY,
+	SOURCE_TYPE,
 	STATIC_EMIT_INTERVAL_MS,
 } from "../constants.js";
 import type {
@@ -125,7 +126,7 @@ export default function createEngineStaticConversion(
 				// every 60 s timer tick.
 				const pgnMessages = buildPgn(engine);
 				return {
-					sourceType: "timer",
+					sourceType: SOURCE_TYPE.TIMER,
 					interval: STATIC_EMIT_INTERVAL_MS,
 					callback: (): N2KMessage[] => pgnMessages,
 					tests: [

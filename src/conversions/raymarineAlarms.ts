@@ -1,6 +1,7 @@
 import {
 	N2K_BROADCAST_DST,
 	N2K_DEFAULT_PRIORITY,
+	SOURCE_TYPE,
 	VESSELS_SELF_CONTEXT,
 } from "../constants.js";
 import type { ConversionModule, N2KMessage } from "../types/index.js";
@@ -73,7 +74,7 @@ export default function createRaymarineAlarmsConversion(): ConversionModule {
 		presets: ["raymarine"],
 		keys: [...SUBSCRIBED_KEYS],
 		context: VESSELS_SELF_CONTEXT,
-		sourceType: "subscription",
+		sourceType: SOURCE_TYPE.SUBSCRIPTION,
 		callback: (delta: unknown): N2KMessage[] => {
 			if (!delta || typeof delta !== "object") {
 				return [];

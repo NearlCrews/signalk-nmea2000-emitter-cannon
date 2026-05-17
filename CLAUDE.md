@@ -218,7 +218,7 @@ Optional subsystem (added v1.6.0) that reviews observed Signal K paths and recom
 - `questdb.ts` / `openrouter.ts` are zero-dependency HTTP clients (Node 22 global `fetch`). QuestDB and OpenRouter are both optional; every failure falls back to the deterministic result plus a `ReviewResult` note, never a throw.
 - `advisor.ts` `Advisor` orchestrates via an injected `AdvisorDeps` seam (testable without `SignalKApp`). When `advisor.autoApply` is true (the default) `runReview` auto-applies confident enables and parks disables for approval; when false, enables are parked too. `applyReview` applies each approved decision in the direction its `action` names.
 - `schedule.ts` `AdvisorScheduler` drives the optional periodic review; `index.ts` reconfigures it on every `startPlugin`.
-- The advisor writes config via `app.savePluginOptions` then calls `startPlugin` to reload, because `savePluginOptions` only writes the file. `readPluginOptions` returns the full options envelope, so the advisor's `readConfig` unwraps `.configuration`.
+- The advisor writes config via `app.savePluginOptions` then calls `startPlugin` to reload, because `savePluginOptions` only writes the file. `readPluginOptions` returns the full options envelope; the advisor's `readConfig` unwraps `.configuration` and runs it through `migrateLegacyConfig` so any `configuration`-envelope nesting is flattened. A single unwrap would leave a deeply nested config's `conversions` key buried, and the recommender would then rebuild from an apparently empty config, stranding every factory-module conversion.
 
 ## Common Pitfalls
 

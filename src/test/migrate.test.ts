@@ -140,6 +140,34 @@ describe("migrateLegacyConfig", () => {
 			expect("configuration" in out).toBe(false);
 			expect("enabled" in out).toBe(false);
 		});
+
+		it("recovers conversions buried under multiple pure-envelope layers", () => {
+			// The corruption that stranded the advisor: outer layers carry only
+			// the `configuration` envelope, so a single `.configuration` unwrap
+			// still leaves `conversions` buried. The advisor then read an empty
+			// config and the recommender rebuilt it from scratch, dropping every
+			// factory-module conversion (BATTERY, NOTIFICATIONS, ENGINE_*, ...).
+			const corrupt = {
+				configuration: {
+					configuration: {
+						configuration: {
+							globalResendInterval: 2,
+							conversions: {
+								BATTERY: {
+									enabled: true,
+									resend: 0,
+									sources: {},
+									extras: {},
+								},
+							},
+						},
+					},
+				},
+			};
+			const out = migrateLegacyConfig(corrupt);
+			expect(Object.keys(out.conversions)).toEqual(["BATTERY"]);
+			expect(out.conversions.BATTERY?.enabled).toBe(true);
+		});
 	});
 
 	describe("ENGINE_STATIC v1.5.4 -> v1.5.5 extras migration", () => {

@@ -10,6 +10,7 @@ import {
 import { fetchHistoricPaths, QuestDBClient } from "./advisor/questdb.js";
 import { AdvisorScheduler } from "./advisor/schedule.js";
 import { createApiRouter } from "./api/router.js";
+import { migrateLegacyConfig } from "./config/migrate.js";
 import { RootConfig } from "./config/schema.js";
 import { PluginManager } from "./plugin-manager.js";
 import type { SignalKApp, SignalKPlugin } from "./types/index.js";
@@ -70,9 +71,16 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 	//
 	// readPluginOptions returns the full options envelope
 	// (`{ enabled, configuration, enableLogging, enableDebug }`); the plugin
-	// config lives under `.configuration`. savePluginOptions takes the bare
-	// config and re-wraps it as `.configuration`, so writeConfig passes the
-	// unwrapped object straight through.
+	// config lives under `.configuration`. readConfig runs that through
+	// migrateLegacyConfig, which flattens the envelope. A historical save bug
+	// could nest the envelope several layers deep; a single `.configuration`
+	// unwrap would then leave the advisor with a config whose `conversions`
+	// key is still buried, which the recommender mistakes for an empty config
+	// and rebuilds from scratch, stranding every factory-module conversion
+	// (BATTERY, NOTIFICATIONS, ENGINE_*, TANKS, SOLAR). savePluginOptions
+	// re-wraps the bare config as `.configuration`, so writeConfig passes the
+	// flattened object straight through.
+
 	// Bounds OpenRouter spend across reviews for this plugin run. The per-day
 	// cap is read from config at call time, so the tracker ceiling is
 	// effectively unlimited and the enrichReasons call site enforces the
@@ -93,10 +101,8 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 		getMetadata: () =>
 			pluginManager ? pluginManager.getConversionMetadata() : [],
 		readConfig: () => {
-			const envelope = app.readPluginOptions() as {
-				configuration?: Record<string, unknown>;
-			};
-			return envelope.configuration ?? {};
+			const envelope = app.readPluginOptions() as { configuration?: unknown };
+			return migrateLegacyConfig(envelope.configuration ?? {});
 		},
 		writeConfig: (config) => {
 			app.savePluginOptions(config, (err) => {

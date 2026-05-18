@@ -81,11 +81,10 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 	// re-wraps the bare config as `.configuration`, so writeConfig passes the
 	// flattened object straight through.
 
-	// Bounds OpenRouter spend across reviews for this plugin run. The per-day
-	// cap is read from config at call time, so the tracker ceiling is
-	// effectively unlimited and the enrichReasons call site enforces the
-	// configured maxCallsPerDay.
-	const advisorBudget = new BudgetTracker(Number.MAX_SAFE_INTEGER);
+	// Counts OpenRouter calls per UTC day across reviews for this plugin run.
+	// The per-day cap is read from config at call time, so enrichReasons
+	// enforces the configured maxCallsPerDay against this count.
+	const advisorBudget = new BudgetTracker();
 	const openRouterClient = (o: {
 		apiKey: string;
 		model: string;
@@ -96,14 +95,16 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 			baseUrl: "https://openrouter.ai/api/v1",
 		});
 
+	const readConfig = () => {
+		const envelope = app.readPluginOptions() as { configuration?: unknown };
+		return migrateLegacyConfig(envelope.configuration ?? {});
+	};
+
 	const advisor = new Advisor({
 		buildInventory: () => buildLiveInventory(app),
 		getMetadata: () =>
 			pluginManager ? pluginManager.getConversionMetadata() : [],
-		readConfig: () => {
-			const envelope = app.readPluginOptions() as { configuration?: unknown };
-			return migrateLegacyConfig(envelope.configuration ?? {});
-		},
+		readConfig,
 		writeConfig: (config) => {
 			app.savePluginOptions(config, (err) => {
 				if (err) {
@@ -124,14 +125,7 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 			fetchHistoricPaths(new QuestDBClient({ url }), lookbackDays),
 		probeQuestDB: (url) => new QuestDBClient({ url }).probe(),
 		enrichReasons: async (openRouter, recs) => {
-			const cap =
-				(
-					app.readPluginOptions() as {
-						configuration?: {
-							advisor?: { openRouter?: { maxCallsPerDay?: number } };
-						};
-					}
-				).configuration?.advisor?.openRouter?.maxCallsPerDay ?? 0;
+			const cap = readConfig().advisor?.openRouter?.maxCallsPerDay ?? 0;
 			if (advisorBudget.callsToday() >= cap) {
 				return {
 					reasons: new Map(),

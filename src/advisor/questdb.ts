@@ -67,18 +67,25 @@ export async function fetchHistoricPaths(
 	const since = `dateadd('d', -${Math.trunc(lookbackDays)}, now())`;
 	const out: HistoricPaths = new Map();
 
-	for (const table of ["signalk", "signalk_str"]) {
-		const r = await client.query(
-			`SELECT path, count() samples, max(ts) last_seen FROM ${table} WHERE ts > ${since} GROUP BY path`,
-		);
+	// The three queries are independent; run them concurrently so a slow
+	// QuestDB does not serialize three round-trip timeouts.
+	const [numeric, str, pos] = await Promise.all([
+		client.query(
+			`SELECT path, count() samples, max(ts) last_seen FROM signalk WHERE ts > ${since} GROUP BY path`,
+		),
+		client.query(
+			`SELECT path, count() samples, max(ts) last_seen FROM signalk_str WHERE ts > ${since} GROUP BY path`,
+		),
+		client.query(
+			`SELECT count() samples, max(ts) last_seen FROM signalk_position WHERE ts > ${since}`,
+		),
+	]);
+
+	for (const r of [numeric, str]) {
 		for (const row of r.dataset) {
 			if (typeof row[0] === "string") out.set(row[0], toStats(row));
 		}
 	}
-
-	const pos = await client.query(
-		`SELECT count() samples, max(ts) last_seen FROM signalk_position WHERE ts > ${since}`,
-	);
 	const posRow = pos.dataset[0];
 	if (posRow && typeof posRow[0] === "number" && posRow[0] > 0) {
 		out.set("navigation.position", {

@@ -182,19 +182,26 @@ export class Advisor {
 		return c && typeof c === "object" ? (c as ConversionMap) : {};
 	}
 
+	/** The `advisor` config block as an object, or null when absent. */
+	private advisorSection(
+		config: Record<string, unknown>,
+	): Record<string, unknown> | null {
+		const advisor = config.advisor;
+		return advisor && typeof advisor === "object"
+			? (advisor as Record<string, unknown>)
+			: null;
+	}
+
 	/** The advisor.autoApply flag; defaults to true when unset. */
 	private autoApplyFlag(config: Record<string, unknown>): boolean {
-		const advisor = config.advisor;
-		if (!advisor || typeof advisor !== "object") return true;
-		return (advisor as { autoApply?: unknown }).autoApply !== false;
+		const advisor = this.advisorSection(config);
+		return advisor ? advisor.autoApply !== false : true;
 	}
 
 	private questdbConfig(
 		config: Record<string, unknown>,
 	): { enabled: boolean; url: string; lookbackDays: number } | null {
-		const advisor = config.advisor;
-		if (!advisor || typeof advisor !== "object") return null;
-		const q = (advisor as { questdb?: unknown }).questdb;
+		const q = this.advisorSection(config)?.questdb;
 		if (!q || typeof q !== "object") return null;
 		const { enabled, url, lookbackDays } = q as Record<string, unknown>;
 		if (typeof url !== "string" || typeof lookbackDays !== "number") {
@@ -206,9 +213,7 @@ export class Advisor {
 	private openRouterConfig(
 		config: Record<string, unknown>,
 	): { apiKey: string; model: string } | null {
-		const advisor = config.advisor;
-		if (!advisor || typeof advisor !== "object") return null;
-		const o = (advisor as { openRouter?: unknown }).openRouter;
+		const o = this.advisorSection(config)?.openRouter;
 		if (!o || typeof o !== "object") return null;
 		const { enabled, apiKey, model } = o as Record<string, unknown>;
 		if (enabled !== true) return null;

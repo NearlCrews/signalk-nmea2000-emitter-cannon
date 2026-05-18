@@ -442,26 +442,21 @@ describe("Advisor.runReview with QuestDB", () => {
 });
 
 describe("BudgetTracker", () => {
-	it("allows calls up to the daily cap", () => {
-		const b = new BudgetTracker(2, () => new Date("2026-05-16T00:00:00Z"));
-		expect(b.canSpend()).toBe(true);
+	it("counts recorded calls within a UTC day", () => {
+		const b = new BudgetTracker(() => new Date("2026-05-16T00:00:00Z"));
+		expect(b.callsToday()).toBe(0);
 		b.recordCall();
 		b.recordCall();
-		expect(b.canSpend()).toBe(false);
+		expect(b.callsToday()).toBe(2);
 	});
 
 	it("resets the count on a new UTC day", () => {
 		let day = "2026-05-16";
-		const b = new BudgetTracker(1, () => new Date(`${day}T12:00:00Z`));
+		const b = new BudgetTracker(() => new Date(`${day}T12:00:00Z`));
 		b.recordCall();
-		expect(b.canSpend()).toBe(false);
+		expect(b.callsToday()).toBe(1);
 		day = "2026-05-17";
-		expect(b.canSpend()).toBe(true);
-	});
-
-	it("a zero cap blocks every call", () => {
-		const b = new BudgetTracker(0, () => new Date("2026-05-16T00:00:00Z"));
-		expect(b.canSpend()).toBe(false);
+		expect(b.callsToday()).toBe(0);
 	});
 });
 

@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { StatusSnapshot } from "../../api/types.js";
 import { errMessage } from "../../utils/errorUtils.js";
-import { PLUGIN_API_BASE } from "../api-base";
+import { fetchJson } from "../api-base";
 
-const URL = `${PLUGIN_API_BASE}/status`;
 const POLL_MS = 3000;
 
 export function useStatus(): {
@@ -19,9 +18,7 @@ export function useStatus(): {
 
 		async function tick(): Promise<void> {
 			try {
-				const r = await fetch(URL, { credentials: "same-origin" });
-				if (!r.ok) throw new Error(`HTTP ${r.status}`);
-				const body = (await r.json()) as StatusSnapshot;
+				const body = await fetchJson<StatusSnapshot>("/status");
 				if (!cancelled.current) {
 					setStatus(body);
 					setError(null);

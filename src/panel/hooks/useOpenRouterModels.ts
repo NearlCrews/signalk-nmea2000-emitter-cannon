@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { PLUGIN_API_BASE } from "../api-base";
+import { fetchJson } from "../api-base";
 
 export type ModelsState = "idle" | "loading" | "ready" | "error";
 
@@ -19,9 +19,7 @@ export function useOpenRouterModels(): {
 	const loadModels = useCallback(async () => {
 		setModelsState("loading");
 		try {
-			const res = await fetch(`${PLUGIN_API_BASE}/advisor/models`);
-			if (!res.ok) throw new Error(`HTTP ${res.status}`);
-			const body = (await res.json()) as { models?: string[] };
+			const body = await fetchJson<{ models?: string[] }>("/advisor/models");
 			setModels(body.models ?? []);
 			setModelsState("ready");
 		} catch {

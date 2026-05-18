@@ -1,14 +1,8 @@
 import type * as React from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import type {
-	ConversionMetadata,
-	ConversionsResponse,
-	PerConversionStatus,
-} from "../api/types.js";
+import { useEffect, useMemo, useState } from "react";
+import type { ConversionMetadata, PerConversionStatus } from "../api/types.js";
 import { Categories } from "../config/enums";
 import type { ConversionCategory } from "../config/enums.js";
-import { errMessage } from "../utils/errorUtils.js";
-import { PLUGIN_API_BASE } from "./api-base";
 import AdvisorPanel from "./components/advisor/AdvisorPanel";
 import CategoryTabs from "./components/CategoryTabs";
 import CollapsibleSection from "./components/CollapsibleSection";
@@ -18,6 +12,7 @@ import GlobalSettings from "./components/GlobalSettings";
 import PresetChips from "./components/PresetChips";
 import StatusDashboard from "./components/StatusDashboard";
 import { useConfig } from "./hooks/useConfig";
+import { useMeta } from "./hooks/useMeta";
 import { useSources } from "./hooks/useSources";
 import { useStatus } from "./hooks/useStatus";
 import { S, THEME_STYLE } from "./styles";
@@ -35,9 +30,7 @@ export default function PluginConfigurationPanel({
 	const { status, error } = useStatus();
 	const { state, savedState, dispatch, markSaved } = useConfig(configuration);
 	const { sourcesFor, ensureLoaded } = useSources();
-	const [meta, setMeta] = useState<ConversionMetadata[]>([]);
-	const [metaError, setMetaError] = useState<string | null>(null);
-	const [metaLoading, setMetaLoading] = useState(true);
+	const { meta, metaError, metaLoading, reload: reloadMeta } = useMeta();
 	const [tab, setTab] = useState<ConversionCategory>("navigation");
 	const [justSavedAt, setJustSavedAt] = useState<number | null>(null);
 	// Disclosure state, persisted across tab switches within the session. An
@@ -54,31 +47,6 @@ export default function PluginConfigurationPanel({
 	const toggleCard = (key: string): void => {
 		setExpandedCards((prev) => ({ ...prev, [key]: !prev[key] }));
 	};
-
-	const loadMeta = useCallback(() => {
-		setMetaLoading(true);
-		fetch(`${PLUGIN_API_BASE}/conversions`, {
-			credentials: "same-origin",
-		})
-			.then(async (r) => {
-				if (!r.ok) throw new Error(`HTTP ${r.status}`);
-				return (await r.json()) as ConversionsResponse;
-			})
-			.then((d) => {
-				setMeta(d.conversions);
-				setMetaError(null);
-			})
-			.catch((e) => {
-				setMetaError(errMessage(e));
-			})
-			.finally(() => {
-				setMetaLoading(false);
-			});
-	}, []);
-
-	useEffect(() => {
-		loadMeta();
-	}, [loadMeta]);
 
 	useEffect(() => {
 		if (justSavedAt === null) return;
@@ -172,7 +140,7 @@ export default function PluginConfigurationPanel({
 			{metaError ? (
 				<div role="alert" style={S.errorBanner}>
 					<span>Conversion catalog failed to load: {metaError}.</span>
-					<button type="button" style={S.btnRetry} onClick={loadMeta}>
+					<button type="button" style={S.btnRetry} onClick={reloadMeta}>
 						Retry
 					</button>
 				</div>

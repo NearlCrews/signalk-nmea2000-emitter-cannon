@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import type { ApplyDecision, ReviewResult } from "../../advisor/types.js";
 import { errMessage } from "../../utils/errorUtils.js";
-import { PLUGIN_API_BASE } from "../api-base";
+import { fetchJson, PLUGIN_API_BASE } from "../api-base";
 
 const BASE = `${PLUGIN_API_BASE}/advisor`;
 
@@ -26,9 +26,10 @@ export function useAdvisor(): {
 	const review = useCallback(async () => {
 		setState((s) => ({ ...s, loading: true, error: null }));
 		try {
-			const res = await fetch(`${BASE}/review`, { method: "POST" });
-			if (!res.ok) throw new Error(`HTTP ${res.status}`);
-			const body = (await res.json()) as { result: ReviewResult };
+			const body = await fetchJson<{ result: ReviewResult }>(
+				"/advisor/review",
+				{ method: "POST" },
+			);
 			setState({ result: body.result, loading: false, error: null });
 		} catch (err) {
 			setState((s) => ({ ...s, loading: false, error: errMessage(err) }));

@@ -46,7 +46,7 @@ See the [v1.6.3 changelog entry](CHANGELOG.md#v163) and the
   history and OpenRouter-powered plain-language explanations
 - **Single ESM bundle** via esbuild; the only runtime dependency is RxJS
 - **Embedded canboatjs round-trip tests** on every conversion module, plus
-  advisor unit tests (114 tests across 13 files)
+  advisor unit tests (113 tests across 13 files)
 - **`$source: 'NMEA2000'` echo-guard** on AIS conversions to avoid re-emitting
   received AIS deltas back onto the bus
 - **Apache 2.0**, pure ESM, Node 22.12+

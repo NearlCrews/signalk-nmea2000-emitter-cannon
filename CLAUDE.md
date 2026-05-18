@@ -86,7 +86,7 @@ The registry `src/conversions/index.ts` imports all factories and exports `creat
 
 ## Testing
 
-Tests live in `src/test/` across 13 files (`advisor-config.test.ts`, `advisor.test.ts`, `api.test.ts`, `discovery.test.ts`, `index.test.ts`, `lifecycle.test.ts`, `migrate.test.ts`, `pathUtils.test.ts`, `schedule.test.ts`, `smoothing.test.ts`, `status.test.ts`, `temperature.test.ts`, `useConfig.test.ts`). The conversion-module test cases live embedded in each module's `tests` array, run by `src/test/index.test.ts`. The full suite (114 tests):
+Tests live in `src/test/` across 13 files (`advisor-config.test.ts`, `advisor.test.ts`, `api.test.ts`, `discovery.test.ts`, `index.test.ts`, `lifecycle.test.ts`, `migrate.test.ts`, `pathUtils.test.ts`, `schedule.test.ts`, `smoothing.test.ts`, `status.test.ts`, `temperature.test.ts`, `useConfig.test.ts`). The conversion-module test cases live embedded in each module's `tests` array, run by `src/test/index.test.ts`. The full suite (113 tests):
 1. Loads all 46 conversion modules
 2. Validates each module has test cases
 3. Runs embedded tests against CanboatJS encoder/decoder

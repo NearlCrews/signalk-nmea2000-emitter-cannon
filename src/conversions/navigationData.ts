@@ -7,6 +7,7 @@ import {
 import type { ConversionModule, N2KMessage } from "../types/index.js";
 import { toN2KDateTime } from "../utils/dateUtils.js";
 import { isValidNumber } from "../utils/validation.js";
+import type { Position } from "./routeTypes.js";
 
 // PGN 129284 uses a fixed sequence identifier per common implementations.
 const NAV_DATA_SID = 0x88;
@@ -17,10 +18,7 @@ const NAV_DATA_SID = 0x88;
 // visible across the full PGN window.
 
 interface DestinationPoint {
-	position?: {
-		latitude?: number;
-		longitude?: number;
-	};
+	position?: Position;
 }
 
 interface ActiveRoute {

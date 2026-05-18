@@ -8,7 +8,6 @@ import { errMessage } from "../utils/errorUtils.js";
 import { isDefined } from "../utils/pathUtils.js";
 import { extractPgnsFromTitle } from "../utils/pgnUtils.js";
 
-// Import all conversion modules dynamically
 import createAisConversion from "./ais.js";
 import createAisExtendedConversion from "./aisExtended.js";
 import createAttitudeConversion from "./attitude.js";

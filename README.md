@@ -13,18 +13,17 @@ plugins such as [`signalk-virtual-weather-sensors`](https://github.com/NearlCrew
 > Built on the foundation of [`signalk-to-nmea2000`](https://github.com/SignalK/signalk-to-nmea2000)
 > by Scott Bender and the Signal K community.
 
-## What's New in v1.6.3
+## What's New in v1.6.4
 
-v1.6.3 fixes a Config Advisor bug that could wipe saved settings. A historical
-save bug could nest the stored config under repeated `configuration` keys; the
-advisor's config read unwrapped only one layer, so on a deeper nesting it saw
-an empty config and the recommender rebuilt it from scratch, dropping the
-Battery, Notifications, Engine, Tanks, and Solar conversions along with every
-per-conversion source filter. The advisor now flattens the envelope through the
-same migration the admin panel already uses.
+v1.6.4 is a bug-fix release: a multi-agent audit found and fixed thirteen code
+and logic bugs. Two affected data on the wire: Water Depth (PGN 128267) encoded
+its transducer offset with the sign inverted, and the Raymarine alarms
+conversion crashed on a cleared notification so those alarms never cleared. The
+rest fix two plugin-restart memory leaks, a config-migration crash that blocked
+startup, and a range of smaller Config Advisor and admin-panel defects.
 
-See the [v1.6.3 changelog entry](CHANGELOG.md#v163) and the
-[v1.6.3 release](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/releases/tag/v1.6.3).
+See the [v1.6.4 changelog entry](CHANGELOG.md#v164) and the
+[v1.6.4 release](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/releases/tag/v1.6.4).
 [Full release history](CHANGELOG.md).
 
 ## Features

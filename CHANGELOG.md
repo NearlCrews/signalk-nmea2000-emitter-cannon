@@ -1,5 +1,13 @@
 ## Change Log
 
+<a id="v164"></a>
+
+### v1.6.4 (2026/05/19) - Thirteen bug fixes across conversions, lifecycle, and the panel
+
+**Bug-fix release: a multi-agent audit found and fixed thirteen code and logic bugs.**
+
+Two affected data on the wire. Water Depth (PGN 128267) encoded its transducer `offset` with the sign inverted on both the surface and keel branches, so a chartplotter computed depth below the surface or keel from the wrong datum. The Raymarine alarms conversion crashed its callback on a cleared notification (Signal K sends `value: null`), so those alarms never cleared and the failure flooded the log. The plugin lifecycle had two leaks: the delta input handler was re-registered on every restart with no way to unregister it, pinning every retired manager in memory, and a resend timer armed by an in-flight `processOutput` could survive a concurrent `stop()`. A nested config carrying an `ENGINE_STATIC` entry with no `extras` threw during migration and stopped the plugin from starting. The remaining fixes harden the Config Advisor (model-list fetch timeout, NaN review interval, QuestDB lookback validation, accurate recommendation text) and the admin panel: it now adopts a config the advisor wrote server-side, keeps a stale `$source` value selectable, and clears stale Approve/Reject choices between reviews. The GNSS satellites PGN now reports a satellite count that always matches the list it emits.
+
 <a id="v163"></a>
 
 ### v1.6.3 (2026/05/16) - Advisor reads nested configs correctly

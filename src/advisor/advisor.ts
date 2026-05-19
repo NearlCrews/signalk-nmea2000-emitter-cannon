@@ -1,5 +1,6 @@
 import type { ConversionMetadata } from "../api/types.js";
 import type { ConversionConfig } from "../config/schema.js";
+import { isValidNumber } from "../utils/validation.js";
 import { mergeHistoric } from "./inventory.js";
 import { recommend } from "./recommender.js";
 import type {
@@ -39,6 +40,12 @@ export interface AdvisorDeps {
 }
 
 type ConversionMap = Record<string, ConversionConfig>;
+
+// Matches the schema default for advisor.questdb.lookbackDays. Used when the
+// configured value is missing or not a positive number: fetchHistoricPaths
+// builds a SQL `dateadd` expression and a zero/negative/NaN value produces a
+// broken QuestDB query.
+const DEFAULT_LOOKBACK_DAYS = 7;
 
 export class Advisor {
 	private lastPending: Recommendation[] = [];
@@ -204,10 +211,12 @@ export class Advisor {
 		const q = this.advisorSection(config)?.questdb;
 		if (!q || typeof q !== "object") return null;
 		const { enabled, url, lookbackDays } = q as Record<string, unknown>;
-		if (typeof url !== "string" || typeof lookbackDays !== "number") {
-			return null;
-		}
-		return { enabled: enabled === true, url, lookbackDays };
+		if (typeof url !== "string") return null;
+		const days =
+			isValidNumber(lookbackDays) && lookbackDays > 0
+				? lookbackDays
+				: DEFAULT_LOOKBACK_DAYS;
+		return { enabled: enabled === true, url, lookbackDays: days };
 	}
 
 	private openRouterConfig(

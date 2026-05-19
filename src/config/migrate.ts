@@ -112,8 +112,12 @@ function migrateConversionExtras(config: Config): void {
  * instance=0, decoded by canboatjs as "Single Engine or Dual Engine Port").
  */
 function migrateEngineStaticExtras(
-	extras: Record<string, unknown>,
+	extras: Record<string, unknown> | undefined,
 ): Record<string, unknown> {
+	// A nested config can carry an ENGINE_STATIC entry with no `extras`: the
+	// early-return branch in migrateLegacyConfig passes the config through
+	// without backfilling it. Treat a missing or non-object value as empty.
+	if (!extras || typeof extras !== "object") return {};
 	if (Array.isArray(extras.engines)) return extras;
 
 	const ratedEngineSpeed =

@@ -106,6 +106,17 @@ export default function createRaymarineAlarmsConversion(): ConversionModule {
 			const path = update.path;
 			const value = update.value;
 
+			// Signal K emits cleared notifications as `value: null`. Without
+			// this guard, reading value.method / value.state below throws a
+			// TypeError and the alarm never clears.
+			if (
+				typeof path !== "string" ||
+				value === null ||
+				typeof value !== "object"
+			) {
+				return pgns;
+			}
+
 			if (path.includes("notifications.nmea")) {
 				return pgns;
 			}

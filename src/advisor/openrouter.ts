@@ -14,6 +14,7 @@ export interface CompleteArgs {
 }
 
 const TIMEOUT_MS = 20000;
+const MODELS_TIMEOUT_MS = 12000;
 const TERMINAL = new Set([400, 401, 402, 403]);
 const BACKOFF_MS = [500, 1500, 4000];
 
@@ -129,19 +130,27 @@ export class OpenRouterClient {
 /**
  * The sorted list of model ids OpenRouter currently serves, from the public
  * `/models` endpoint (no API key required). Used to populate the model-field
- * autocomplete in the panel. Throws on a non-OK response.
+ * autocomplete in the panel. Throws on a non-OK response, on a timeout, or
+ * on a network error: every failure is a caught error the caller turns into
+ * a graceful fallback.
  */
 export async function fetchOpenRouterModels(
 	baseUrl: string,
 	fetchImpl: typeof fetch = fetch,
 ): Promise<string[]> {
-	const res = await fetchImpl(`${baseUrl}/models`);
-	if (!res.ok) throw new Error(`HTTP ${res.status}`);
-	const body = (await res.json()) as { data?: { id?: unknown }[] };
-	return (body.data ?? [])
-		.map((m) => m.id)
-		.filter((id): id is string => typeof id === "string")
-		.sort();
+	const ctrl = new AbortController();
+	const timer = setTimeout(() => ctrl.abort(), MODELS_TIMEOUT_MS);
+	try {
+		const res = await fetchImpl(`${baseUrl}/models`, { signal: ctrl.signal });
+		if (!res.ok) throw new Error(`HTTP ${res.status}`);
+		const body = (await res.json()) as { data?: { id?: unknown }[] };
+		return (body.data ?? [])
+			.map((m) => m.id)
+			.filter((id): id is string => typeof id === "string")
+			.sort();
+	} finally {
+		clearTimeout(timer);
+	}
 }
 
 /** Minimal surface enrichRationales needs, so tests can pass a fake. */

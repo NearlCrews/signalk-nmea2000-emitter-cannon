@@ -133,8 +133,9 @@ export default function createGnssDataConversions(
 			// satellitesInView is a composite published as a single value at
 			// the parent path: { count, satellites: [...] }. signalk-server
 			// does not push child sub-paths into the streambundle, so we
-			// subscribe to the composite and the scalar satellites count
-			// (published separately) as a fallback.
+			// subscribe to the composite. The scalar satellites count is
+			// subscribed too so a count update re-triggers emission from the
+			// cached composite; on its own it carries no satellite detail.
 			keys: ["navigation.gnss.satellitesInView", "navigation.gnss.satellites"],
 			timeouts: [DEFAULT_DATA_TIMEOUT_MS, DEFAULT_DATA_TIMEOUT_MS],
 			callback: ((
@@ -142,19 +143,12 @@ export default function createGnssDataConversions(
 					count?: number;
 					satellites?: SatelliteData[];
 				} | null,
-				satelliteCount: number | null,
+				_satelliteCount: number | null,
 			) => {
 				const list = satellitesInView?.satellites;
 				if (!Array.isArray(list) || list.length === 0) {
 					return [];
 				}
-
-				const compositeCount = satellitesInView?.count;
-				const reportedCount = isValidNumber(compositeCount)
-					? compositeCount
-					: isValidNumber(satelliteCount)
-						? satelliteCount
-						: list.length;
 
 				// Conservative fast-packet cap for PGN 129540: 12 satellites keep
 				// the multi-frame payload well under the 223-byte canboat limit.
@@ -180,8 +174,11 @@ export default function createGnssDataConversions(
 						fields: {
 							sid: N2K_SID_ZERO,
 							rangeResidualMode: "Range residuals were used to calculate data",
-							// Mirror the maxSatellites cap so satsInView matches list length.
-							satsInView: Math.min(reportedCount, 12),
+							// satsInView is the count of emitted repeating-group
+							// entries. A provider's reported count can exceed the
+							// actual satellites array, so the encoded list length is
+							// authoritative and the field always matches it.
+							satsInView: maxSatellites,
 							list: satelliteData,
 						},
 					},
@@ -229,7 +226,9 @@ export default function createGnssDataConversions(
 								sid: N2K_SID_ZERO,
 								rangeResidualMode:
 									"Range residuals were used to calculate data",
-								satsInView: 8,
+								// satsInView tracks the emitted list length, not
+								// the provider's reported count.
+								satsInView: 3,
 								list: [
 									{
 										prn: 1,

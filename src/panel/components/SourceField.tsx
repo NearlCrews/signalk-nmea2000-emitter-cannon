@@ -35,6 +35,9 @@ export default function SourceField({
 					aria-label={`Source for ${path}`}
 				>
 					<option value="">(any)</option>
+					{value && !sources.includes(value) && (
+						<option value={value}>{value} (current)</option>
+					)}
 					{sources.map((s) => (
 						<option key={s} value={s}>
 							{s}

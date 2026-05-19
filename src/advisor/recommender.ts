@@ -62,7 +62,9 @@ export function recommend(input: RecommendInput): Recommendation[] {
 			origin,
 			reason: enabled
 				? `${conv.title}: live and emitting, no change.`
-				: `${conv.title}: ${matched.join(", ")} is live from a non-N2K source; enabling sends it to the bus.`,
+				: `${conv.title}: ${matched.join(", ")} ${
+						origin === "historic" ? "was seen in history" : "is live"
+					} from a non-N2K source; enabling sends it to the bus.`,
 		});
 	}
 

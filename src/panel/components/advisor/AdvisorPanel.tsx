@@ -33,6 +33,14 @@ export default function AdvisorPanel({
 	const { state, review, apply } = useAdvisor();
 	const [decisions, setDecisions] = useState<Record<string, boolean>>({});
 
+	const handleReview = (): void => {
+		// Drop any prior Approve/Reject choices: the new review's pending list
+		// can reuse an optionKey, and a stale decision would otherwise be sent
+		// by applyAll.
+		setDecisions({});
+		void review();
+	};
+
 	const decide = (optionKey: string, approved: boolean): void => {
 		setDecisions((d) => ({ ...d, [optionKey]: approved }));
 	};
@@ -72,7 +80,7 @@ export default function AdvisorPanel({
 					<button
 						type="button"
 						style={S.btnPrimary}
-						onClick={() => void review()}
+						onClick={handleReview}
 						disabled={state.loading}
 					>
 						{state.loading ? "Reviewing..." : "Review now"}

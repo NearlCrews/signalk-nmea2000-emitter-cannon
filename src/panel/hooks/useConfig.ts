@@ -1,5 +1,5 @@
 import type * as React from "react";
-import { useCallback, useReducer, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import type { ConversionMetadata } from "../../api/types.js";
 import type { PresetTag } from "../../config/enums.js";
 import { migrateLegacyConfig } from "../../config/migrate";
@@ -135,6 +135,20 @@ export function useConfig(initial: unknown): {
 	const markSaved = useCallback(() => {
 		setSavedState(state);
 	}, [state]);
+	const incoming = useMemo(() => migrateLegacyConfig(initial), [initial]);
+	// Adopt an externally changed `configuration` prop. The advisor writes
+	// config server-side (the "Review now" button, scheduled reviews), and the
+	// next prop reflects that saved state. Adopt it only when the panel has no
+	// unsaved edits (state === savedState), so an in-flight user edit is never
+	// discarded. The JSON.stringify deep compare is deliberate here: it runs
+	// only on a prop change while not dirty, never per keystroke, and `incoming`
+	// is a fresh object each render so identity equality cannot stand in.
+	useEffect(() => {
+		if (state !== savedState) return;
+		if (JSON.stringify(incoming) === JSON.stringify(savedState)) return;
+		setSavedState(incoming);
+		dispatch({ type: "discard", config: incoming });
+	}, [incoming, state, savedState]);
 	return { state, savedState, dispatch, markSaved };
 }
 

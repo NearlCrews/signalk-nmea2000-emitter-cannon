@@ -74,6 +74,18 @@ interface PerConversionState {
 	latestError?: { message: string; emittedAt: number };
 }
 
+/**
+ * Process-wide singleton wiring for the delta input handler. signalk-server's
+ * registerDeltaInputHandler (server-api 2.x) exposes no unregister API, so a
+ * handler installed on every start()/stop() cycle would leak forever, pinning
+ * each retired PluginManager in memory. Instead one handler is installed for
+ * the process lifetime and routes every delta to whichever PluginManager is
+ * currently active; retired instances drop out of the active slot and become
+ * collectable.
+ */
+let activeManager: PluginManager | null = null;
+let deltaHandlerRegistered = false;
+
 // Not idempotent on a reused instance: stop() clears this.conversions and
 // removes the constructor-installed listener, so a subsequent start() on the
 // same instance is a no-op. index.ts always discards the instance after stop()
@@ -83,6 +95,16 @@ export class PluginManager {
 	private conversions: ConversionModule[] = [];
 	private unsubscribes: Array<() => void> = [];
 	private timers: NodeJS.Timeout[] = [];
+	/**
+	 * Delta-source conversions wired by mapOnDelta in the current start().
+	 * The single process-wide delta input handler iterates this list on the
+	 * active manager, so each restart reuses one handler instead of leaking a
+	 * new one. Reset by stop().
+	 */
+	private deltaConversions: Array<{
+		conversion: ConversionModule;
+		options: ProcessingOptions;
+	}> = [];
 	private nmea2000Ready = false;
 	private globalResendInterval = DEFAULT_GLOBAL_RESEND_SECONDS;
 	/**
@@ -308,6 +330,9 @@ export class PluginManager {
 	start(rawOptions: unknown): void {
 		try {
 			this.stopped = false;
+			// Claim the process-wide delta-handler routing slot so the single
+			// registered handler dispatches deltas to this instance.
+			activeManager = this;
 			this.errorBuckets.clear();
 			this.perConversion.clear();
 			// Re-attach the nmea2000OutAvailable listener every start: stop()
@@ -337,9 +362,10 @@ export class PluginManager {
 			const migrated = migrateLegacyConfig(rawOptions);
 			const conversions: Record<string, ConversionOptions> = {};
 			for (const [key, value] of Object.entries(migrated.conversions)) {
-				// sources and extras are required `{}` defaults in schema.ts and
-				// migrateLegacyConfig backfills them, so the spread is safe
-				// without `?? {}` defensive guards.
+				// value.sources / value.extras can be undefined: the nested
+				// early-return branch in migrateLegacyConfig passes a config
+				// through without backfilling them. Spreading undefined is a
+				// no-op, so the spread stays safe without `?? {}` guards.
 				conversions[key] = {
 					enabled: value.enabled,
 					resend: value.resend,
@@ -504,6 +530,14 @@ export class PluginManager {
 		}
 		this.conversions = [];
 
+		// Drop delta-conversion wiring and release the process-wide delta
+		// routing slot if it still points at this instance, so the retired
+		// manager becomes collectable.
+		this.deltaConversions = [];
+		if (activeManager === this) {
+			activeManager = null;
+		}
+
 		// Remove the nmea2000OutAvailable listener the constructor registered.
 		// Without this, every restart leaks a listener plus the closure over
 		// this PluginManager instance.
@@ -582,6 +616,11 @@ export class PluginManager {
 				? options.resend
 				: this.globalResendInterval;
 
+		// processOutput is async: stop() may have run while it was mid-flight.
+		// Arming a resend timer now would push it to a this.timers array that
+		// nothing drains, leaking the interval and this PluginManager closure.
+		if (this.stopped) return;
+
 		if (effectiveResend > 0 && !conversion.resendTimer) {
 			conversion.resendTimer = setInterval(async () => {
 				try {
@@ -626,24 +665,46 @@ export class PluginManager {
 			return;
 		}
 
-		// next(delta) first so app.getPath() reflects the just-applied state.
-		this.app.registerDeltaInputHandler((delta, next) => {
-			next(delta);
-			if (this.stopped) return;
+		this.deltaConversions.push({ conversion, options: processingOptions });
+
+		// Install the process-wide delta input handler exactly once.
+		// registerDeltaInputHandler has no unregister API, so registering one
+		// per start()/stop() cycle would leak a handler (and the PluginManager
+		// it closes over) on every restart. The single handler routes each
+		// delta to whichever manager is currently active.
+		if (!deltaHandlerRegistered) {
+			deltaHandlerRegistered = true;
+			// next(delta) first so app.getPath() reflects the just-applied state.
+			this.app.registerDeltaInputHandler((delta, next) => {
+				next(delta);
+				activeManager?.dispatchDelta(delta);
+			});
+		}
+	}
+
+	/**
+	 * Fan a delta out to every delta-source conversion wired in the current
+	 * start(). Invoked only by the process-wide delta input handler, via the
+	 * active manager. The stopped check neutralises a delta that arrives after
+	 * stop() but before a new manager claims the active slot.
+	 */
+	private dispatchDelta(delta: unknown): void {
+		if (this.stopped) return;
+		for (const { conversion, options } of this.deltaConversions) {
 			const args: unknown[] = [delta];
 			this.lastInputs.set(conversion, args);
 			const result = this.invokeCallback(conversion, args, BUCKET_PREFIX.DELTA);
-			// registerDeltaInputHandler fires on every server-wide delta; the
-			// AIS callback returns [] for the overwhelming majority that are
-			// not AIS. Skip the processOutput promise chain for that no-op.
+			// The process-wide delta handler fires on every server-wide delta;
+			// the AIS callback returns [] for the overwhelming majority that
+			// are not AIS. Skip the processOutput promise chain for that no-op.
 			if (
 				result === undefined ||
 				(Array.isArray(result) && result.length === 0)
 			) {
-				return;
+				continue;
 			}
-			void this.processOutput(conversion, processingOptions, result);
-		});
+			void this.processOutput(conversion, options, result);
+		}
 	}
 
 	private mapRxJS(

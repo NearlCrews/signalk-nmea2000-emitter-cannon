@@ -37,14 +37,18 @@ export default function createDepthConversion(
 				getSelfValue(app, "environment.depth.transducerToKeel"),
 			);
 
-			// SK `surfaceToTransducer` is the positive distance from waterline
-			// down to the transducer. PGN 128267 `offset` is signed: negative
-			// = freeboard, positive = keel. Negate the surface measurement so
-			// the wire sign matches the canboat convention.
-			const offset =
-				surfaceToTransducer !== null
-					? -surfaceToTransducer
-					: (transducerToKeel ?? 0);
+			// PGN 128267 `offset` is the signed distance between the
+			// transducer and a reference: positive = distance to the surface,
+			// negative = distance to the keel. SK `surfaceToTransducer` is the
+			// positive distance down from the waterline, so it encodes as a
+			// positive offset. SK `transducerToKeel` is the positive distance
+			// down to the keel, so it encodes as a negative offset.
+			let offset = 0;
+			if (surfaceToTransducer !== null) {
+				offset = surfaceToTransducer;
+			} else if (transducerToKeel !== null) {
+				offset = -transducerToKeel;
+			}
 
 			return [
 				{
@@ -74,11 +78,7 @@ export default function createDepthConversion(
 						fields: {
 							sid: 87,
 							depth: 4.5,
-							// Signal K surfaceToTransducer is the positive distance
-							// from waterline down to the transducer. NMEA 2000
-							// PGN 128267 offset treats that case as negative
-							// (freeboard offset).
-							offset: -1,
+							offset: 1,
 						},
 					},
 				],
@@ -96,7 +96,7 @@ export default function createDepthConversion(
 						fields: {
 							sid: 87,
 							depth: 2.1,
-							offset: 3,
+							offset: -3,
 						},
 					},
 				],

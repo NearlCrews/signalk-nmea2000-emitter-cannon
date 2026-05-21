@@ -185,7 +185,13 @@ const SYSTEM_PROMPT =
 	"You explain marine NMEA 2000 plugin configuration recommendations to a " +
 	"boat owner. For each recommendation you are given, write one short, " +
 	"plain-language sentence explaining why it is recommended. Do not change " +
-	"which conversions are recommended. Reply only with the requested JSON.";
+	"which conversions are recommended. Reply only with the requested JSON. " +
+	"Background: some environment.* paths come from the companion plugin " +
+	"signalk-virtual-weather-sensors, which publishes AccuWeather marine " +
+	"forecast data (outside temperature, pressure, humidity, wind, " +
+	"visibility) rather than a physical sensor. That data is not on the " +
+	"NMEA 2000 bus, so converting those paths is what makes the forecast " +
+	"visible on chartplotters.";
 
 /**
  * Ask OpenRouter for a plainer one-line reason per recommendation. Returns a

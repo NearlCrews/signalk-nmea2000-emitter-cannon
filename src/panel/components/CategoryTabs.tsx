@@ -59,6 +59,7 @@ export default function CategoryTabs({
 						type="button"
 						role="tab"
 						id={`skn-tab-${c}`}
+						aria-controls={`skn-panel-${c}`}
 						aria-selected={isActive}
 						tabIndex={isActive ? 0 : -1}
 					>

@@ -42,10 +42,9 @@ export function useAdvisor(): {
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ decisions }),
 			});
-		} catch (err) {
-			setState((s) => ({ ...s, error: errMessage(err) }));
-		} finally {
 			setState((s) => ({ ...s, loading: false }));
+		} catch (err) {
+			setState((s) => ({ ...s, loading: false, error: errMessage(err) }));
 		}
 	}, []);
 

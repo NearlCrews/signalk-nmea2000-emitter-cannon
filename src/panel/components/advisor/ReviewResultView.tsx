@@ -76,8 +76,9 @@ export default function ReviewResultView({
 					No changes recommended. Every live path is already handled.
 				</div>
 			)}
-			{result.notes.map((n) => (
-				<div key={n} style={S.advisorNote}>
+			{result.notes.map((n, i) => (
+				// biome-ignore lint/suspicious/noArrayIndexKey: notes are render-only and never reordered, and two notes can be identical strings
+				<div key={`note-${i}`} style={S.advisorNote}>
 					{n}
 				</div>
 			))}

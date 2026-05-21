@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { PLUGIN_API_BASE } from "../api-base";
+import { fetchJson } from "../api-base";
 
 const CACHE_TTL_MS = 30_000;
 // Soft cap. The live path count is ~166 today so this header-room would
@@ -55,11 +55,9 @@ export function useSources(): {
 		if (inflight) return inflight;
 		const p = (async () => {
 			try {
-				const r = await fetch(
-					`${PLUGIN_API_BASE}/sources?path=${encodeURIComponent(path)}`,
-					{ credentials: "same-origin" },
+				const body = await fetchJson<{ sources: string[] }>(
+					`/sources?path=${encodeURIComponent(path)}`,
 				);
-				const body = (await r.json()) as { sources: string[] };
 				const prev = cache.current.get(path)?.sources;
 				// Delete first so re-inserting `path` lands at the tail of the
 				// insertion order: a refresh of an existing entry should not

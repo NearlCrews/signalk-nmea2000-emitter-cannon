@@ -18,6 +18,15 @@
   Compare the result to the filter value saved in the admin UI for that
   conversion.
 
+## The Environmental preset enables temperature, pressure and humidity but not wind
+
+The **Environmental** preset chip enables the temperature, pressure, humidity,
+and sea-temperature conversions, but not `WIND_TRUE_GROUND` (PGN 130306). A
+weather source such as `signalk-virtual-weather-sensors` publishes its wind on
+`environment.wind.speedOverGround` and `environment.wind.directionTrue`, which
+only `WIND_TRUE_GROUND` converts. After applying the Environmental preset,
+enable `WIND_TRUE_GROUND` by hand if you want forecast wind on the bus.
+
 ## Configuration changes don't take effect
 
 Signal K reloads plugin configuration when you save it, but some changes (for

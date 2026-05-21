@@ -243,6 +243,14 @@ export class PluginManager {
 		return suffix ? `${prefix}:${id}:${suffix}` : `${prefix}:${id}`;
 	}
 
+	// Throttle-bucket key for processToN2K emit errors, matching
+	// bucketKey(BUCKET_PREFIX.PROCESS, conversion) so a conversion that emits a
+	// bad PGN on every delta cannot flood the log. Built on the error path
+	// only; processToN2K receives an optionKey, not the ConversionModule.
+	private processBucketKey(optionKey: string | undefined): string {
+		return `${BUCKET_PREFIX.PROCESS}:${optionKey ?? "?"}`;
+	}
+
 	private runningStatus(count: number): string {
 		return `Running with ${count} conversions enabled`;
 	}
@@ -907,10 +915,6 @@ export class PluginManager {
 			return;
 		}
 
-		// processToN2K is on the emit hot path: a conversion that consistently
-		// produces a bad PGN must not log on every delta, so both error paths
-		// route through throttledError keyed by the conversion.
-		const errKey = `${BUCKET_PREFIX.PROCESS}:${optionKey ?? "?"}`;
 		try {
 			const validPgns = values.filter(isDefined);
 			const debugEnabled = isDebugEnabled(this.app);
@@ -931,7 +935,7 @@ export class PluginManager {
 					}
 				} catch (err) {
 					this.throttledError(
-						errKey,
+						this.processBucketKey(optionKey),
 						`Error writing PGN ${JSON.stringify(pgn)}: ${errMessage(err)}`,
 					);
 				}
@@ -940,7 +944,7 @@ export class PluginManager {
 			this.app.reportOutputMessages(emitted);
 		} catch (err) {
 			this.throttledError(
-				errKey,
+				this.processBucketKey(optionKey),
 				`Error processing N2K values: ${errMessage(err)}`,
 			);
 		}

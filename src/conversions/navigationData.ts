@@ -13,10 +13,8 @@ import type { Position } from "./routeTypes.js";
 // PGN 129284 uses a fixed sequence identifier per common implementations.
 const NAV_DATA_SID = 0x88;
 
-// A notifications.* value counts as an active alert unless it is absent or a
-// notification object in a clear state. A cleared notification object lingers
-// on the path until its timeout, so a bare presence check would keep the PGN
-// flag raised after the alert ended.
+// A cleared notification object lingers on the path until its timeout, so a
+// bare presence check would keep the PGN flag raised after the alert ended.
 function notificationActive(v: unknown): boolean {
 	if (v == null) return false;
 	if (typeof v === "object") {
@@ -25,11 +23,6 @@ function notificationActive(v: unknown): boolean {
 	}
 	return true;
 }
-
-// Notification freshness for arrival-circle / perpendicular-passed is
-// intentionally longer than data-path freshness (SLOW_DATA_TIMEOUT_MS = 60s
-// vs DEFAULT_DATA_TIMEOUT_MS = 10s) so a brief notification flicker remains
-// visible across the full PGN window.
 
 interface DestinationPoint {
 	position?: Position;
@@ -66,6 +59,9 @@ function createNavDataConversion(
 			"notifications.navigation.perpendicularPassed",
 			`${courseBranch}.activeRoute`,
 		],
+		// Arrival-circle and perpendicular-passed use a longer freshness window
+		// (SLOW_DATA_TIMEOUT_MS 60s vs DEFAULT_DATA_TIMEOUT_MS 10s) so a brief
+		// notification flicker stays visible across the full PGN window.
 		timeouts: [
 			DEFAULT_DATA_TIMEOUT_MS,
 			DEFAULT_DATA_TIMEOUT_MS,

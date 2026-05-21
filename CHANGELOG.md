@@ -1,5 +1,13 @@
 ## Change Log
 
+<a id="v165"></a>
+
+### v1.6.5 (2026/05/21) - Config panel loads on every Signal K 2.x server
+
+**Bug-fix release: the admin config panel works again on Signal K servers older than 2.27.0, plus a batch of audit and PGN-alignment fixes.**
+
+Since v1.5.4 the configuration panel shipped as an ESM Module Federation remote, which only the Signal K admin UI bundled with signalk-server 2.27.0 and newer can load; every older server showed a bare "Error loading component" with no settings page while the conversions still ran. The panel is now built as a classic container that loads on every signalk-server 2.x. A multi-agent audit fixed further defects: PGN 129284 kept its perpendicular-crossed and arrival-circle flags raised for up to a minute after a notification cleared; the NMEA 2000 emit path logged errors without the per-key throttle, so one bad PGN could flood the server log; and the Config Advisor consumed its OpenRouter daily budget on failed calls, sent its apply request without session credentials, and never retried a failed model-list fetch. Two conversions mis-encoded PGNs because they used enum strings absent from the canboat lookup tables: a "fault" transmission gear (PGN 127493) and several DSC call formats (PGN 129808). In the admin panel, expanding a disabled conversion card now shows its options so a source or resend can be set before enabling. The dev toolchain was updated to current releases; the test suite remains 113 tests across 13 files.
+
 <a id="v164"></a>
 
 ### v1.6.4 (2026/05/19) - Thirteen bug fixes across conversions, lifecycle, and the panel

@@ -53,9 +53,8 @@ See the [v1.6.4 changelog entry](CHANGELOG.md#v164) and the
 ## Requirements
 
 - Node.js 22.12+
-- Signal K server 2.27.0+ (older versions ship an admin UI that cannot load
-  the federated React config panel; conversions still run, but the settings
-  page will not)
+- Signal K server 2.x (any release whose admin UI supports plugin config
+  panels, which is every signalk-server 2.x)
 - A supported NMEA 2000 gateway (e.g. Actisense NGT-1, Yacht Devices YDNR-02)
   connected so emitted messages reach the bus
 
@@ -107,9 +106,8 @@ identifier to NMEA 2000 instance mapping (`BATTERY`, `ENGINE_PARAMETERS`,
 `EXHAUST_TEMPERATURE`, `TANKS`, `SOLAR`, `RAYMARINE_BRIGHTNESS`,
 `NOTIFICATIONS`, `TEMPERATURE_*`).
 
-The config panel requires `@signalk/server-admin-ui >= 2.27.0` (bundled with
-signalk-server 2.x). v1.4.x config payloads migrate transparently the first
-time the panel loads them.
+The config panel loads on any signalk-server 2.x admin UI. v1.4.x config
+payloads migrate transparently the first time the panel loads them.
 
 ## Documentation
 
@@ -123,9 +121,7 @@ time the panel loads them.
 
 ## Compatibility
 
-- **Signal K Server**: 2.27.0+ (the federated React config panel requires admin
-  UI 2.27+; conversions run on older servers but the settings page does not)
-- **`@signalk/server-admin-ui`**: 2.27.0+
+- **Signal K Server**: 2.x (the React config panel loads on every 2.x admin UI)
 - **Node.js**: 22.12+
 - **CanboatJS**: 3.13.0+
 - **`@signalk/server-api`**: 2.10.2+

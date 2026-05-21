@@ -31,7 +31,7 @@ Signal K NMEA 2000 Emitter Cannon is a TypeScript Signal K server plugin that co
 ## Common Commands
 
 ```bash
-npm run build          # Production build (esbuild → dist/index.js)
+npm run build          # Production build (esbuild → dist/index.mjs)
 npm run build:watch    # Development build with watch mode
 npm test               # Run all tests (Vitest)
 npm run test:ui        # Run tests with interactive UI
@@ -96,7 +96,7 @@ Tests live in `src/test/` across 13 files (`advisor-config.test.ts`, `advisor.te
 ## Key Technical Details
 
 - **Runtime**: Node.js 22.12+, pure ESM modules
-- **Build**: esbuild bundles to single `dist/index.js` (currently ~496 KB)
+- **Build**: esbuild bundles to single `dist/index.mjs` (currently ~510 KB)
 - **Externals**: rxjs (only runtime dependency kept out of the bundle; @signalk/server-api is type-only)
 - **Reactivity**: RxJS for Signal K data subscriptions (Signal K server uses BaconJS internally)
 - **N2K Message Format**: CanboatJS format: `{ prio, pgn, dst, fields: {...} }`
@@ -186,7 +186,7 @@ PGN 126984 (Alert Response, inbound) is NOT handled. Acknowledgements from an MF
 
 ## Admin UI: federated React panel
 
-As of v1.5.4 the plugin's admin config UI is a webpack 5 Module Federation remote built into `public/remoteEntry.js` plus chunked `public/*.mjs` from `src/panel/`. The Signal K admin loads it because `package.json` `keywords` include `signalk-plugin-configurator`. Component contract: default export `PluginConfigurationPanel({ configuration, save })`. `save` is fire-and-forget, returns void; the next `configuration` prop reflects the saved state.
+As of v1.5.4 the plugin's admin config UI is a webpack 5 Module Federation remote built into `public/remoteEntry.js` plus chunked `public/*.js` from `src/panel/`. The Signal K admin loads it because `package.json` `keywords` include `signalk-plugin-configurator`. Component contract: default export `PluginConfigurationPanel({ configuration, save })`. `save` is fire-and-forget, returns void; the next `configuration` prop reflects the saved state.
 
 Live data comes from an Express router mounted via `Plugin.registerWithRouter` under `/plugins/signalk-nmea2000-emitter-cannon/api/` with these endpoints: `/status`, `/conversions`, `/paths`, `/sources`. The router calls `app.securityStrategy.addAdminMiddleware` on the API prefix so unauthenticated requests are rejected. If the running server does not expose that hook, the router logs a warning and the endpoints stay open (compat fallback for older signalk-server builds).
 
@@ -194,10 +194,11 @@ Config shape: TypeBox at `src/config/schema.ts`. `Plugin.schema` returns the Typ
 
 Federation specifics:
 
-- `package.json` has `"type": "module"`, so the admin injects the remoteEntry script as `<script type="module">`. The webpack config uses ESM federation (`experiments.outputModule: true`, `output.module: true`, `library: { type: "module" }`, chunk filenames end `.mjs`).
+- The webpack config builds a classic (`var`-type) Module Federation container: `remoteEntry.js` assigns the container to the global `window[<safeName>]`. The Signal K admin UI's configurator loader looks the panel up by that global. `package.json` deliberately omits `"type": "module"` so the admin injects `remoteEntry.js` as a classic `<script>` (not `<script type="module">`): a classic script is what makes the bundle's top-level `var` land on `window`.
+- Do NOT switch the panel to an ESM federation container (`experiments.outputModule`, `output.module: true`, `library: { type: "module" }`) and do NOT add `"type": "module"` back to `package.json`. v1.5.4 through v1.6.4 shipped exactly that: an ESM container is only loadable by `@signalk/server-admin-ui >= 2.27.0` and failed with a bare "Error loading component" on every older admin UI (issue #8). The classic `var` container loads on all signalk-server 2.x admin UIs.
+- The plugin runtime bundle is `dist/index.mjs`. The explicit `.mjs` extension marks it as ESM for Node now that `package.json` has no `"type": "module"`.
 - Library name: `pkg.name.replace(/[-@/]/g, "_")` (the safe identifier form derived from the package name).
 - Shared singletons: `react` and `react-dom` at `^19`. Admin UI provides them; the panel bundles a fallback used only when no compatible singleton exists.
-- Minimum admin UI: `@signalk/server-admin-ui >= 2.27.0`.
 
 Adding a new conversion now requires:
 

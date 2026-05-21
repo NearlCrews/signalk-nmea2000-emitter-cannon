@@ -2,8 +2,7 @@
 	"name": "signalk-nmea2000-emitter-cannon",
 	"version": "1.6.4",
 	"description": "Signal K plugin that converts Signal K deltas to Garmin-aligned NMEA 2000 PGNs",
-	"main": "dist/index.js",
-	"type": "module",
+	"main": "dist/index.mjs",
 	"files": [
 		"dist/",
 		"public/",
@@ -14,9 +13,9 @@
 	],
 	"scripts": {
 		"build": "npm run clean && npm run build:plugin && npm run build:panel",
-		"build:plugin": "esbuild src/index.ts --bundle --platform=node --target=node22 --format=esm --outfile=dist/index.js --external:rxjs",
+		"build:plugin": "esbuild src/index.ts --bundle --platform=node --target=node22 --format=esm --outfile=dist/index.mjs --external:rxjs",
 		"build:panel": "webpack --config webpack.config.cjs",
-		"build:watch": "npm run clean && esbuild src/index.ts --bundle --platform=node --target=node22 --format=esm --sourcemap=linked --outfile=dist/index.js --external:rxjs --watch",
+		"build:watch": "npm run clean && npm run build:plugin -- --sourcemap=linked --watch",
 		"test": "vitest --run",
 		"test:ui": "vitest --ui",
 		"test:coverage": "vitest --coverage",

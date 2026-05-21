@@ -99,10 +99,10 @@ src/
     ├── temperature.test.ts    # Temperature default-instance uniqueness
     └── useConfig.test.ts      # Panel useConfig reducer (setAdvisor, preset apply)
 public/                   # Webpack module federation output (shipped via "files" array)
-├── remoteEntry.js        # Federation entry script
-├── main.mjs              # Panel main bundle
-└── *.mjs / *.LICENSE.txt # Federation chunks
-webpack.config.cjs        # ESM module federation build config
+├── remoteEntry.js        # Federation entry script (classic var-type container)
+├── main.js               # Panel main bundle
+└── *.js / *.LICENSE.txt  # Federation chunks
+webpack.config.cjs        # Classic module federation build config
 tsconfig.panel.json       # Panel-specific TypeScript config (jsx: react-jsx)
 tsconfig.test.json        # TypeScript config for the src/test/ suite
 .github/

@@ -7,13 +7,10 @@ const safeName = pkg.name.replace(/[-@/]/g, "_");
 module.exports = {
 	entry: "./src/panel/index.tsx",
 	mode: "production",
-	experiments: { outputModule: true },
 	output: {
 		path: path.resolve(__dirname, "public"),
-		filename: "[name].mjs",
-		chunkFilename: "[name].mjs",
-		module: true,
-		library: { type: "module" },
+		filename: "[name].js",
+		chunkFilename: "[name].js",
 		clean: false,
 	},
 	module: {
@@ -38,13 +35,17 @@ module.exports = {
 		// build (esbuild) accepts.
 		extensionAlias: {
 			".js": [".ts", ".tsx", ".js"],
-			".mjs": [".mts", ".mjs"],
 		},
 	},
 	plugins: [
 		new webpack.container.ModuleFederationPlugin({
 			name: safeName,
-			library: { type: "module" },
+			// Classic "var" container: remoteEntry.js assigns the panel to the
+			// global window[safeName], which is how the Signal K admin UI finds
+			// configurator panels. Do NOT switch to library.type "module" or add
+			// "type": "module" back to package.json: an ESM container loads only
+			// on admin UI 2.27.0+ and silently fails on every older host.
+			library: { type: "var", name: safeName },
 			filename: "remoteEntry.js",
 			exposes: {
 				"./PluginConfigurationPanel": "./src/panel/PluginConfigurationPanel",

@@ -118,7 +118,11 @@ export default function AdvisorSettings({
 						patch({ openRouter: { ...cfg.openRouter, model: e.target.value } })
 					}
 					onFocus={() => {
-						if (modelsState === "idle") void loadModels();
+						// Retry on "error" too, so a transient model-list fetch
+						// failure can be recovered by re-focusing the field.
+						if (modelsState === "idle" || modelsState === "error") {
+							void loadModels();
+						}
 					}}
 					aria-label="OpenRouter model"
 				/>

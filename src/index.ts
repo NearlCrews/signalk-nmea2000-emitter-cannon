@@ -132,10 +132,15 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 					note: "OpenRouter daily call budget reached; using built-in explanations.",
 				};
 			}
+			// Record the call only after enrichRationales resolves: a thrown
+			// OpenRouter failure must not consume the day's budget, otherwise an
+			// outage silently disables enrichment for the rest of the day.
+			const reasons = await enrichRationales(
+				openRouterClient(openRouter),
+				recs,
+			);
 			advisorBudget.recordCall();
-			return {
-				reasons: await enrichRationales(openRouterClient(openRouter), recs),
-			};
+			return { reasons };
 		},
 		testKeyFn: async (openRouter) => {
 			await openRouterClient(openRouter).complete({

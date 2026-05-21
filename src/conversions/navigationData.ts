@@ -6,11 +6,25 @@ import {
 } from "../constants.js";
 import type { ConversionModule, N2KMessage } from "../types/index.js";
 import { toN2KDateTime } from "../utils/dateUtils.js";
+import { isClearState } from "../utils/notificationUtils.js";
 import { isValidNumber } from "../utils/validation.js";
 import type { Position } from "./routeTypes.js";
 
 // PGN 129284 uses a fixed sequence identifier per common implementations.
 const NAV_DATA_SID = 0x88;
+
+// A notifications.* value counts as an active alert unless it is absent or a
+// notification object in a clear state. A cleared notification object lingers
+// on the path until its timeout, so a bare presence check would keep the PGN
+// flag raised after the alert ended.
+function notificationActive(v: unknown): boolean {
+	if (v == null) return false;
+	if (typeof v === "object") {
+		const state = (v as { state?: unknown }).state;
+		return typeof state !== "string" || !isClearState(state);
+	}
+	return true;
+}
 
 // Notification freshness for arrival-circle / perpendicular-passed is
 // intentionally longer than data-path freshness (SLOW_DATA_TIMEOUT_MS = 60s
@@ -102,8 +116,8 @@ function createNavDataConversion(
 						sid: NAV_DATA_SID,
 						distanceToWaypoint: distToDest,
 						courseBearingReference: "True",
-						perpendicularCrossed: pp != null ? "Yes" : "No",
-						arrivalCircleEntered: ace != null ? "Yes" : "No",
+						perpendicularCrossed: notificationActive(pp) ? "Yes" : "No",
+						arrivalCircleEntered: notificationActive(ace) ? "Yes" : "No",
 						calculationType,
 						etaTime,
 						etaDate,

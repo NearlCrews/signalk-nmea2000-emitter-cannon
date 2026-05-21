@@ -907,6 +907,10 @@ export class PluginManager {
 			return;
 		}
 
+		// processToN2K is on the emit hot path: a conversion that consistently
+		// produces a bad PGN must not log on every delta, so both error paths
+		// route through throttledError keyed by the conversion.
+		const errKey = `${BUCKET_PREFIX.PROCESS}:${optionKey ?? "?"}`;
 		try {
 			const validPgns = values.filter(isDefined);
 			const debugEnabled = isDebugEnabled(this.app);
@@ -924,7 +928,8 @@ export class PluginManager {
 						this.recordEmit(optionKey);
 					}
 				} catch (err) {
-					this.app.error(
+					this.throttledError(
+						errKey,
 						`Error writing PGN ${JSON.stringify(pgn)}: ${errMessage(err)}`,
 					);
 				}
@@ -932,7 +937,10 @@ export class PluginManager {
 
 			this.app.reportOutputMessages(validPgns.length);
 		} catch (err) {
-			this.app.error(`Error processing N2K values: ${errMessage(err)}`);
+			this.throttledError(
+				errKey,
+				`Error processing N2K values: ${errMessage(err)}`,
+			);
 		}
 	}
 

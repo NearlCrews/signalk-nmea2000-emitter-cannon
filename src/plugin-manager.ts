@@ -914,6 +914,7 @@ export class PluginManager {
 		try {
 			const validPgns = values.filter(isDefined);
 			const debugEnabled = isDebugEnabled(this.app);
+			let emitted = 0;
 
 			for (const pgn of validPgns) {
 				try {
@@ -924,6 +925,7 @@ export class PluginManager {
 						);
 					}
 					this.app.emit("nmea2000JsonOut", validatedPgn);
+					emitted++;
 					if (optionKey !== undefined) {
 						this.recordEmit(optionKey);
 					}
@@ -935,7 +937,7 @@ export class PluginManager {
 				}
 			}
 
-			this.app.reportOutputMessages(validPgns.length);
+			this.app.reportOutputMessages(emitted);
 		} catch (err) {
 			this.throttledError(
 				errKey,

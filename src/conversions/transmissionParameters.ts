@@ -10,17 +10,16 @@ const TRANSMISSION_TIMEOUTS = [
 	DEFAULT_DATA_TIMEOUT_MS,
 	DEFAULT_DATA_TIMEOUT_MS,
 	DEFAULT_DATA_TIMEOUT_MS,
-	DEFAULT_DATA_TIMEOUT_MS,
 ];
 
-// Map the canonical SK propulsion.<id>.transmission.gear enum directly to
-// the canboat TRANSMISSION_GEAR LOOKUP labels. SK values are lowercase
-// ("forward"/"neutral"/"reverse"); the spec also defines "fault".
+// Map the canonical SK propulsion.<id>.transmission.gear enum to the canboat
+// GEAR_STATUS LOOKUP labels. SK values are lowercase ("forward"/"neutral"/
+// "reverse"). GEAR_STATUS has no "fault" member, so a fault gear is left
+// unmapped and the transmissionGear field is omitted (data not available).
 const SK_GEAR_TO_N2K: Record<string, string> = {
 	forward: "Forward",
 	neutral: "Neutral",
 	reverse: "Reverse",
-	fault: "Fault",
 };
 
 export default function createTransmissionParametersConversion(): ConversionModule {
@@ -30,25 +29,21 @@ export default function createTransmissionParametersConversion(): ConversionModu
 		category: "engine",
 		presets: ["engine-set"],
 		// Read gear from the canonical propulsion.<id>.transmission.gear enum
-		// (Forward / Neutral / Reverse / Fault), not from the sign of the
-		// gearRatio: the discreteStatus1/2 leaves used previously are not in
-		// the v1 schema.
+		// (Forward / Neutral / Reverse): the discreteStatus1/2 leaves used
+		// previously are not in the v1 schema.
 		keys: [
 			"propulsion.main.transmission.gear",
-			"propulsion.main.transmission.gearRatio",
 			"propulsion.main.transmission.oilPressure",
 			"propulsion.main.transmission.oilTemperature",
 		],
 		timeouts: TRANSMISSION_TIMEOUTS,
 		callback: (
 			gear: unknown,
-			gearRatio: unknown,
 			oilPressure: unknown,
 			oilTemperature: unknown,
 		): N2KMessage[] => {
 			if (
 				typeof gear !== "string" &&
-				!isValidNumber(gearRatio) &&
 				!isValidNumber(oilPressure) &&
 				!isValidNumber(oilTemperature)
 			) {
@@ -77,7 +72,7 @@ export default function createTransmissionParametersConversion(): ConversionModu
 		},
 		tests: [
 			{
-				input: ["forward", 2.5, 345000, 353.15],
+				input: ["forward", 345000, 353.15],
 				expected: [
 					{
 						prio: N2K_DEFAULT_PRIORITY,
@@ -94,7 +89,7 @@ export default function createTransmissionParametersConversion(): ConversionModu
 				],
 			},
 			{
-				input: ["reverse", -1.5, 320000, 343.15],
+				input: ["reverse", 320000, 343.15],
 				expected: [
 					{
 						prio: N2K_DEFAULT_PRIORITY,
@@ -111,7 +106,7 @@ export default function createTransmissionParametersConversion(): ConversionModu
 				],
 			},
 			{
-				input: ["neutral", 0, 310000, 333.15],
+				input: ["neutral", 310000, 333.15],
 				expected: [
 					{
 						prio: N2K_DEFAULT_PRIORITY,

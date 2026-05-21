@@ -6,14 +6,15 @@ import type {
 } from "../types/index.js";
 import { parseMmsi } from "../utils/aisUtils.js";
 
-const callTypeMapping: Record<string, string> = {
+// communication.dsc.callType maps to PGN 129808 dscFormat, a DSC_FORMAT
+// LOOKUP value naming who the call addresses (not its priority). Only these
+// three callTypes imply a specific format; routine/urgency/safety/test
+// address an individual station, the default below. The call priority
+// (routine/safety/urgency/distress) is the separate dscCategory field.
+const callTypeToFormat: Record<string, string> = {
 	distress: "Distress",
-	urgency: "Urgency",
-	safety: "Safety",
-	routine: "Routine Individual",
-	group: "Group",
-	all_ships: "All Ships",
-	test: "Test",
+	group: "Common interest",
+	all_ships: "All ships",
 };
 
 const dscCategoryMapping: Record<string, string> = {
@@ -34,6 +35,7 @@ const distressMapping: Record<string, string> = {
 	abandoning: "Abandoning ship",
 	piracy: "Piracy",
 	man_overboard: "Man overboard",
+	epirb: "EPIRB emission",
 	undesignated: "Undesignated",
 };
 
@@ -72,7 +74,8 @@ export default function createDscCallsConversion(
 					pgn: 129808,
 					dst: N2K_BROADCAST_DST,
 					fields: {
-						dscFormat: callTypeMapping[callTypeString] || "Routine Individual",
+						dscFormat:
+							callTypeToFormat[callTypeString] ?? "Individual stations",
 						dscCategory: dscCategoryMapping[callTypeString] ?? "Routine",
 						dscMessageAddress: parseMmsi(mmsi),
 						natureOfDistress: distressMapping[natureString] ?? "Undesignated",

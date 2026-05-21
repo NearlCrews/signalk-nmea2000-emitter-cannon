@@ -41,7 +41,7 @@ export default function createRudderConversion(
 					fields: {
 						instance: 0,
 						directionOrder,
-						angleOrder: Math.abs(target ?? 0),
+						angleOrder: target !== null ? Math.abs(target) : undefined,
 						position: angle,
 					},
 				},
@@ -89,7 +89,6 @@ export default function createRudderConversion(
 						pgn: 127245,
 						dst: 255,
 						fields: {
-							angleOrder: 0,
 							directionOrder: "No Order",
 							instance: 0,
 							position: 0.0524,

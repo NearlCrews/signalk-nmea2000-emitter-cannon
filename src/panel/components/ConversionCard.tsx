@@ -159,40 +159,39 @@ export default function ConversionCard(props: Props): React.ReactElement {
 					{props.meta.purpose ? (
 						<p style={S.cardPurpose}>{props.meta.purpose}</p>
 					) : null}
-					{cfg.enabled ? (
-						<>
-							<div style={S.fieldRow}>
-								<span style={S.label}>Resend (seconds, 0 = global)</span>
-								<NumberInput
-									value={cfg.resend}
-									onChange={props.onSetResend}
-									min={0}
-									ariaLabel={`Resend interval seconds for ${props.meta.title}`}
-								/>
-							</div>
-							{props.meta.paths.map((p) => (
-								<SourceField
-									key={p}
-									path={p}
-									// Read both the panel's native dotted-SK-path key and
-									// the dotless propName legacy form: migrateLegacyConfig
-									// stores underscored legacy keys verbatim, so for users
-									// coming from older configs the dotless propName form
-									// (via pathToPropName) is the path of last resort before
-									// the field reads empty.
-									value={cfg.sources[p] ?? cfg.sources[pathToPropName(p)] ?? ""}
-									onChange={(s) => props.onSetSource(p, s)}
-									sourcesFor={props.sourcesFor}
-									ensureLoaded={props.ensureLoaded}
-								/>
-							))}
-							<ExtrasEditor
-								meta={props.meta.extras}
-								value={cfg.extras}
-								onChange={(e) => props.onSetExtras(e)}
-							/>
-						</>
-					) : null}
+					{/* Options stay visible whether or not the conversion is
+					    enabled, so a source or resend can be set up before the
+					    enable checkbox is ticked. */}
+					<div style={S.fieldRow}>
+						<span style={S.label}>Resend (seconds, 0 = global)</span>
+						<NumberInput
+							value={cfg.resend}
+							onChange={props.onSetResend}
+							min={0}
+							ariaLabel={`Resend interval seconds for ${props.meta.title}`}
+						/>
+					</div>
+					{props.meta.paths.map((p) => (
+						<SourceField
+							key={p}
+							path={p}
+							// Read both the panel's native dotted-SK-path key and
+							// the dotless propName legacy form: migrateLegacyConfig
+							// stores underscored legacy keys verbatim, so for users
+							// coming from older configs the dotless propName form
+							// (via pathToPropName) is the path of last resort before
+							// the field reads empty.
+							value={cfg.sources[p] ?? cfg.sources[pathToPropName(p)] ?? ""}
+							onChange={(s) => props.onSetSource(p, s)}
+							sourcesFor={props.sourcesFor}
+							ensureLoaded={props.ensureLoaded}
+						/>
+					))}
+					<ExtrasEditor
+						meta={props.meta.extras}
+						value={cfg.extras}
+						onChange={(e) => props.onSetExtras(e)}
+					/>
 				</div>
 			) : null}
 		</div>

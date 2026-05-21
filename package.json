@@ -106,7 +106,7 @@
 			"biome check --write"
 		],
 		"*.json": [
-			"biome format --write"
+			"biome format --write --no-errors-on-unmatched"
 		]
 	},
 	"overrides": {

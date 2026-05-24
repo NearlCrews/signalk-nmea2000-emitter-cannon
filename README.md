@@ -13,18 +13,17 @@ plugins such as [`signalk-virtual-weather-sensors`](https://github.com/NearlCrew
 > Built on the foundation of [`signalk-to-nmea2000`](https://github.com/SignalK/signalk-to-nmea2000)
 > by Scott Bender and the Signal K community.
 
-## What's New in v1.6.5
+## What's New in v1.6.6
 
-v1.6.5 is a bug-fix release. Since v1.5.4 the configuration panel only loaded on
-the Signal K admin UI bundled with signalk-server 2.27.0 and newer; it is now a
-classic Module Federation container that loads on every signalk-server 2.x. A
-multi-agent audit also fixed several Config Advisor defects, corrected two
-conversions that mis-encoded PGNs 127493 and 129808 with enum values absent from
-the canboat lookup tables, and made a disabled conversion card show its options
-when expanded.
+v1.6.6 is a bug-fix release. A follow-up multi-agent audit and code review
+extended the canboatjs buffer-overflow guard to PGN 129041 `atonName` and
+PGN 127498 `vin` / `softwareId`, hardened `clampString` against non-string
+input from upstream providers, tightened every admin-panel advisor response
+type so the router and the panel hooks share one contract, and removed dead
+code and stale doc text. No on-the-wire output changes for healthy inputs.
 
-See the [v1.6.5 changelog entry](CHANGELOG.md#v165) and the
-[v1.6.5 release](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/releases/tag/v1.6.5).
+See the [v1.6.6 changelog entry](CHANGELOG.md#v166) and the
+[v1.6.6 release](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/releases/tag/v1.6.6).
 [Full release history](CHANGELOG.md).
 
 ## Features

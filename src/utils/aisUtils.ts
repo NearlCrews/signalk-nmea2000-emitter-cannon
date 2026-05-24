@@ -18,3 +18,8 @@ export const AIS_NAME_CHARS = 20;
 export const AIS_CALLSIGN_CHARS = 7;
 export const AIS_DESTINATION_CHARS = 20;
 export const AIS_SAFETY_TEXT_CHARS = 161;
+// PGN 129041 AtoN Name is a STRING_LAU but canboatjs's toPgn writer hardcodes
+// an 18-character cap for this specific field. Clamping in the plugin to the
+// same value keeps our pre-encode width authoritative and means we never feed
+// the encoder a value it would silently truncate.
+export const ATON_NAME_CHARS = 18;

@@ -14,6 +14,7 @@ import {
 	AIS_CALLSIGN_CHARS,
 	AIS_DESTINATION_CHARS,
 	AIS_NAME_CHARS,
+	ATON_NAME_CHARS,
 	parseMmsi,
 } from "../utils/aisUtils.js";
 import { clampString, isValidNumber } from "../utils/validation.js";
@@ -398,6 +399,65 @@ export default function createAisConversion(
 				],
 			},
 			{
+				// Regression: PGN 129041 atonName is a STRING_LAU field, but
+				// canboatjs's toPgn writer hardcodes an 18-character cap for
+				// this specific field. The plugin pre-clamps to the same
+				// width (ATON_NAME_CHARS) so the pre-encode value is the
+				// authoritative source of truth; if canboatjs ever loosens
+				// or removes its cap, the wire output stays bounded.
+				input: [
+					{
+						context: "atons.urn:mrn:imo:mmsi:993672085",
+						updates: [
+							{
+								values: [
+									{
+										path: "",
+										value: { name: "EXCEEDINGLY LONG AID TO NAVIGATION LABEL" },
+									},
+									{
+										path: "navigation.position",
+										value: { longitude: -76.5, latitude: 38.6 },
+									},
+									{
+										path: "atonType",
+										value: { id: 14, name: "Beacon, Starboard Hand" },
+									},
+									{ path: "", value: { mmsi: "993672085" } },
+									{ path: "sensors.ais.class", value: "ATON" },
+								],
+							},
+						],
+					},
+				],
+				expected: [
+					{
+						prio: 2,
+						pgn: 129041,
+						dst: 255,
+						fields: {
+							messageId: "ATON report",
+							repeatIndicator: "Initial",
+							userId: 993672085,
+							longitude: -76.5,
+							latitude: 38.6,
+							positionAccuracy: "Low",
+							raim: "not in use",
+							timeStamp: "0",
+							atonType: "Fixed beacon: starboard hand",
+							offPositionIndicator: "No",
+							virtualAtonFlag: "No",
+							assignedModeFlag: "Autonomous and continuous",
+							spare: 1,
+							// 18 chars from the 41-char input: the plugin's
+							// clampString(ATON_NAME_CHARS) caps the value before it
+							// reaches canboatjs.
+							atonName: "EXCEEDINGLY LONG A",
+						},
+					},
+				],
+			},
+			{
 				// Regression: 129038 navStatus must respect SK navigation.state.
 				// "anchored" maps to NAV_STATUS value 1 ("At anchor"); a regression
 				// to the old reverse-lookup pattern would silently encode 0
@@ -746,7 +806,7 @@ function generateAtoN(
 			virtualAtonFlag: "No",
 			assignedModeFlag: "Autonomous and continuous",
 			spare: 1,
-			atonName: name,
+			atonName: clampString(name, ATON_NAME_CHARS),
 		},
 	};
 }

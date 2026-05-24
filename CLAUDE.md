@@ -168,9 +168,11 @@ Spread (not mutation): conversion modules are loaded once in the PluginManager c
 
 - `ids: Map<path, alertId>` is the forward mapping: which alertId did we assign to this Signal K path.
 - `alertIdToPath: Map<alertId, path>` is the reverse mapping. Load-bearing: `releaseAlertId()` uses it to clean up `ids` when the PGN-cap path evicts an entry, otherwise a released alertId could later be re-allocated to a different path while a stale `ids` binding still points at the same number.
-- `usedAlertIds: Set<number>` is the allocation pool (free-id check is O(1)).
-- `pgnsByAlertId: Map<alertId, [PGN_126985, PGN_126983]>` is the cached pair returned to the resend pipeline.
-- `cachedFlat: N2KMessage[]` is the flat view of `pgnsByAlertId.values()`, rebuilt only on mutation (`pgnsByAlertId.set`, `releaseAlertId`, `resetState`). All dedup callback paths return this reference unchanged, restoring zero-allocation behavior.
+- `usedAlertIds: Set<number>` is the allocation pool. `nextAlertIdHint` rolls forward across allocations so `allocateAlertId` does not always scan from 1.
+- `pgnsByAlertId: Map<alertId, { pgns: [PGN_126985, PGN_126983]; digest: string }>` is the cached pair plus a `JSON.stringify(pgns)` digest computed once at set time (via `setAlertPgns`). The digest lets the hot path do a string compare instead of stringifying per active alert per delta.
+- `emitTracker: Map<alertId, { lastEmitMs, lastDigest }>` is the per-alert emit gate. The conversion callback fires for every `notifications.*` delta on the vessel (Evinrude alone broadcasts ~24 state=normal paths at ~2.4 Hz each), so returning the full PGN cache on every invocation flooded the bus at ~100 PGN/s per active alert. `buildEmitList` walks `pgnsByAlertId` and emits each pair only when `entry.digest !== emitTracker.get(id)?.lastDigest` (state/ack/silence change) or `now - lastEmitMs >= MIN_EMIT_INTERVAL_MS = 1000` (1 Hz rebroadcast matching the NMEA 2000 guidance for PGN 126983). An idle delta returns a shared `EMPTY_EMIT` sentinel.
+
+Allocation profile: zero per-callback allocation on idle deltas (the shared `EMPTY_EMIT` sentinel is reused), one fresh `N2KMessage[]` allocation per gated rebroadcast (bounded at 1 Hz per active alert). The earlier `cachedFlat` design that returned a shared mutable array across calls was traded for this for two reasons: the gate already caps the allocation rate; and digest-based change detection is simpler to reason about than cache-invalidation on every state mutation.
 
 `alertCategory` is derived from the Signal K path via `matchPathPrefix(path, CATEGORY_BY_PATH_PREFIX)`: `notifications.mob`, `notifications.navigation`, `notifications.anchor`, `notifications.arrival`, `notifications.gnss` route to "Navigational"; everything else falls through to "Technical".
 

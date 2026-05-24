@@ -91,9 +91,23 @@ export interface SourcesResponse {
 	sources: string[];
 }
 
-/** Body of `POST /api/advisor/review` and `GET /api/advisor/pending`. */
+/** Body of `POST /api/advisor/review`. */
 export interface AdvisorReviewResponse {
 	result: ReviewResult;
+}
+
+/**
+ * Body of `GET /api/advisor/pending`. `ranAt` is absent until the first
+ * review has run; consumers must treat it as optional rather than parsing
+ * an empty string as a date.
+ */
+export interface AdvisorPendingResponse {
+	result: {
+		ranAt?: string;
+		autoApplied: ReviewResult["autoApplied"];
+		pending: ReviewResult["pending"];
+		notes: ReviewResult["notes"];
+	};
 }
 
 /** Request body of `POST /api/advisor/apply`. */
@@ -105,3 +119,21 @@ export interface AdvisorApplyRequest {
 export interface AdvisorApplyResponse {
 	applied: number;
 }
+
+// The remaining advisor probe responses mirror the Advisor class return
+// shapes via `Awaited<ReturnType<...>>`, so a change in the advisor method
+// flows through to the API contract without a manual second declaration.
+type AdvisorApi = import("../advisor/advisor.js").Advisor;
+
+/** Body of `GET /api/advisor/questdb-test`. */
+export type AdvisorQuestDbTestResponse = Awaited<
+	ReturnType<AdvisorApi["testQuestDB"]>
+>;
+
+/** Body of `POST /api/advisor/test-key`. */
+export type AdvisorTestKeyResponse = Awaited<ReturnType<AdvisorApi["testKey"]>>;
+
+/** Body of `GET /api/advisor/models`. */
+export type AdvisorModelsResponse = Awaited<
+	ReturnType<AdvisorApi["listModels"]>
+>;

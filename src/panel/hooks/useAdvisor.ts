@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import type { ApplyDecision, ReviewResult } from "../../advisor/types.js";
+import type { AdvisorReviewResponse } from "../../api/types.js";
 import { errMessage } from "../../utils/errorUtils.js";
 import { fetchJson } from "../api-base";
 
@@ -24,10 +25,9 @@ export function useAdvisor(): {
 	const review = useCallback(async () => {
 		setState((s) => ({ ...s, loading: true, error: null }));
 		try {
-			const body = await fetchJson<{ result: ReviewResult }>(
-				"/advisor/review",
-				{ method: "POST" },
-			);
+			const body = await fetchJson<AdvisorReviewResponse>("/advisor/review", {
+				method: "POST",
+			});
 			setState({ result: body.result, loading: false, error: null });
 		} catch (err) {
 			setState((s) => ({ ...s, loading: false, error: errMessage(err) }));

@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import type { AdvisorModelsResponse } from "../../api/types.js";
 import { fetchJson } from "../api-base";
 
 export type ModelsState = "idle" | "loading" | "ready" | "error";
@@ -19,8 +20,8 @@ export function useOpenRouterModels(): {
 	const loadModels = useCallback(async () => {
 		setModelsState("loading");
 		try {
-			const body = await fetchJson<{ models?: string[] }>("/advisor/models");
-			setModels(body.models ?? []);
+			const body = await fetchJson<AdvisorModelsResponse>("/advisor/models");
+			setModels(body.models);
 			setModelsState("ready");
 		} catch {
 			setModelsState("error");

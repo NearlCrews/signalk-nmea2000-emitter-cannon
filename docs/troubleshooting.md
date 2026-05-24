@@ -18,7 +18,7 @@
   Compare the result to the filter value saved in the admin UI for that
   conversion.
 
-## The Environmental preset enables temperature, pressure and humidity but not wind
+## The Environmental preset enables temperature, pressure, and humidity but not wind
 
 The **Environmental** preset chip enables the temperature, pressure, humidity,
 and sea-temperature conversions, but not `WIND_TRUE_GROUND` (PGN 130306). A

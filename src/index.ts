@@ -1,4 +1,3 @@
-import pkg from "../package.json" with { type: "json" };
 import { Advisor } from "./advisor/advisor.js";
 import { BudgetTracker } from "./advisor/budget.js";
 import { buildLiveInventory } from "./advisor/inventory.js";
@@ -15,11 +14,6 @@ import { RootConfig } from "./config/schema.js";
 import { PluginManager } from "./plugin-manager.js";
 import type { SignalKApp, SignalKPlugin } from "./types/index.js";
 import { errMessage } from "./utils/errorUtils.js";
-
-// Read the runtime version from package.json so it stays in lockstep with
-// the published version automatically. esbuild inlines the JSON into the
-// bundle at build time, so there is no runtime FS read.
-const PLUGIN_VERSION = pkg.version;
 
 /**
  * Signal K to NMEA 2000 conversion plugin factory
@@ -58,10 +52,6 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 		schema: () => RootConfig,
 		start: startPlugin,
 		stop: stopPlugin,
-		// signalk-server reads this for the version line in the Server Plugins
-		// list. Without it the admin UI shows "Unknown" next to the plugin
-		// name even though package.json carries the real version.
-		getModuleVersion: () => PLUGIN_VERSION,
 	};
 
 	// The Config Advisor reviews live Signal K paths and recommends which

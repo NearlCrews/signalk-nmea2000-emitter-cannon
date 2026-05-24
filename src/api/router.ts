@@ -6,6 +6,12 @@ import { errMessage } from "../utils/errorUtils.js";
 import { enumerateActivePaths, enumerateSourcesForPath } from "./discovery.js";
 import type {
 	AdvisorApplyRequest,
+	AdvisorApplyResponse,
+	AdvisorModelsResponse,
+	AdvisorPendingResponse,
+	AdvisorQuestDbTestResponse,
+	AdvisorReviewResponse,
+	AdvisorTestKeyResponse,
 	ConversionsResponse,
 	PathsResponse,
 	SourcesResponse,
@@ -133,21 +139,27 @@ export function createApiRouter(
 		router.post(
 			"/api/advisor/review",
 			advisorRoute(async (advisor, _req, res) => {
-				res.json({ result: await advisor.runReview() });
+				const body: AdvisorReviewResponse = {
+					result: await advisor.runReview(),
+				};
+				res.json(body);
 			}),
 		);
 
 		router.get(
 			"/api/advisor/pending",
 			advisorRoute((advisor, _req, res) => {
-				res.json({
+				// Synthetic envelope: no run yet, so `ranAt` is omitted rather
+				// than set to an empty string the panel would mis-parse as a
+				// date.
+				const body: AdvisorPendingResponse = {
 					result: {
-						ranAt: "",
 						autoApplied: [],
 						pending: advisor.getPending(),
 						notes: [],
 					},
-				});
+				};
+				res.json(body);
 			}),
 		);
 
@@ -157,28 +169,34 @@ export function createApiRouter(
 				const body = (req.body ?? {}) as Partial<AdvisorApplyRequest>;
 				const decisions = Array.isArray(body.decisions) ? body.decisions : [];
 				await advisor.applyReview(decisions);
-				res.json({ applied: decisions.filter((d) => d.approved).length });
+				const response: AdvisorApplyResponse = {
+					applied: decisions.filter((d) => d.approved).length,
+				};
+				res.json(response);
 			}),
 		);
 
 		router.get(
 			"/api/advisor/questdb-test",
 			advisorRoute(async (advisor, _req, res) => {
-				res.json(await advisor.testQuestDB());
+				const body: AdvisorQuestDbTestResponse = await advisor.testQuestDB();
+				res.json(body);
 			}),
 		);
 
 		router.post(
 			"/api/advisor/test-key",
 			advisorRoute(async (advisor, _req, res) => {
-				res.json(await advisor.testKey());
+				const body: AdvisorTestKeyResponse = await advisor.testKey();
+				res.json(body);
 			}),
 		);
 
 		router.get(
 			"/api/advisor/models",
 			advisorRoute(async (advisor, _req, res) => {
-				res.json(await advisor.listModels());
+				const body: AdvisorModelsResponse = await advisor.listModels();
+				res.json(body);
 			}),
 		);
 	};

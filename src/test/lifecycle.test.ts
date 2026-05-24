@@ -164,8 +164,6 @@ function createMockSignalKApp(): MockSignalKApp {
 		// Required ServerAPI methods exercised by PluginManager.
 		reportOutputMessages: (_count?: number) => {},
 		registerDeltaInputHandler: (_handler: unknown) => {},
-
-		signalk: { on: () => {} },
 	} as unknown as SignalKApp;
 
 	return {

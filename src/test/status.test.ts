@@ -31,7 +31,6 @@ function makeMockApp(): SignalKApp {
 		subscriptionmanager: {
 			subscribe: () => {},
 		},
-		signalk: { on: () => {} },
 		on: () => undefined,
 		removeListener: () => undefined,
 	} as unknown as SignalKApp;

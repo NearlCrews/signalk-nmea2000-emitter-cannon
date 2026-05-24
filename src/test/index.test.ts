@@ -50,9 +50,6 @@ const mockApp: SignalKApp = {
 	subscriptionmanager: {
 		subscribe: () => {},
 	},
-	signalk: {
-		on: () => {},
-	},
 } as unknown as SignalKApp;
 
 /**

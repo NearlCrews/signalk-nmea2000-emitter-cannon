@@ -19,10 +19,18 @@ export function normalizeAngle(angle: number): number {
 // and throws past it; that throw is re-raised uncatchably by signalk-server's
 // safeApply, so an unclamped field can crash the host process. maxChars counts
 // JS code units: marine string fields are ASCII, so this matches byte width.
+// Non-string input (Signal K providers occasionally publish numbers, objects,
+// or null where a string is expected) returns undefined rather than crashing
+// at .slice; callers can then fall back to a sentinel or skip the field.
+export function clampString(value: string, maxChars: number): string;
 export function clampString(
 	value: string | undefined,
 	maxChars: number,
+): string | undefined;
+export function clampString(
+	value: unknown,
+	maxChars: number,
 ): string | undefined {
-	if (value === undefined || value.length <= maxChars) return value;
-	return value.slice(0, maxChars);
+	if (typeof value !== "string") return undefined;
+	return value.length <= maxChars ? value : value.slice(0, maxChars);
 }

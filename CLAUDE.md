@@ -96,8 +96,8 @@ Tests live in `src/test/` across 13 files (`advisor-config.test.ts`, `advisor.te
 ## Key Technical Details
 
 - **Runtime**: Node.js 22.12+, pure ESM modules
-- **Build**: esbuild bundles to single `dist/index.mjs` (currently ~510 KB)
-- **Externals**: rxjs (only runtime dependency kept out of the bundle; @signalk/server-api is type-only)
+- **Build**: esbuild bundles to single `dist/index.mjs` (currently ~350 KB)
+- **Externals**: rxjs is the only runtime dependency (esbuild `--external:rxjs`). `@signalk/server-api` is a devDependency used for types only and MUST stay a type-only import: a value import (e.g. its `hasValues`) bundles the whole package, whose dynamic `require("events")` throws at load ("Dynamic require of events is not supported"), so the plugin keeps local copies of any such guards (see `notifications.ts`).
 - **Reactivity**: RxJS for Signal K data subscriptions (Signal K server uses BaconJS internally)
 - **N2K Message Format**: CanboatJS format: `{ prio, pgn, dst, fields: {...} }`
 

@@ -1,5 +1,13 @@
 ## Change Log
 
+<a id="v168"></a>
+
+### v1.6.8 (2026/05/29) - canboat 3.20 alignment, a load-time bundling fix, and a dependency refresh
+
+**Maintenance release: dependencies refreshed to current (including canboat 3.20), the emitted PGNs aligned with canboat 3.20 and enriched with several Garmin-relevant fields, and a fix for a load-time failure an ESM-bundling regression could trigger. No breaking changes.**
+
+The load fix: the notification conversion imported a value (`hasValues`) from `@signalk/server-api`, which forced esbuild to bundle the entire package; under `@signalk/server-api` 2.25.0 that bundle reached a dynamic `require("events")` that throws on load ("Dynamic require of events is not supported"). The plugin now keeps `@signalk/server-api` a type-only import behind a local guard, so the package is no longer bundled: the runtime bundle dropped from about 510 KB to about 350 KB, and `@signalk/server-api` moved to devDependencies since it is compile-time only. Dependencies were refreshed (canboatjs 3.18 to 3.20, plus `@signalk/server-api`, Biome, Babel, and webpack). Reviewed against canboat 3.20's definitions, two AIS fields that had been emitting reserved-sentinel defaults are now set correctly (PGN 129038 `specialManeuverIndicator` is "Not available" and PGN 129794 `repeatIndicator` is "Initial"), and five Garmin-relevant fields the plugin already had data for are now emitted: PGN 129794 `imoNumber` (from `registrations.imo`), PGN 129029 `pdop` (from `navigation.gnss.positionDilution`), PGN 127506 `remainingCapacity` (from `capacity.remaining`), PGN 129041 `aisTransceiverInformation`, and a SID on PGNs 130313 and 130314. A correctness fix: the PGN 127505 tank instance is a 4-bit field (0 to 13), and an out-of-range mapping silently wrapped onto a different gauge (for example 20 became 4); the encoder now clamps it and the admin panel caps the input at 13. An internal `/simplify` pass added a shared `clamp()` helper that replaces four hand-rolled clamps, co-located `parseImo` beside `parseMmsi`, and removed dead code. Git hooks no longer auto-install on `npm install` (the husky `prepare` lifecycle broke the app-store install simulation on Node 22's npm 10); run `npm run hooks` once after cloning. The test suite remains 113 tests across 13 files.
+
 <a id="v167"></a>
 
 ### v1.6.7 (2026/05/29) - App store listing, cross-platform plugin CI, and a code-simplification pass

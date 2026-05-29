@@ -13,19 +13,19 @@ plugins such as [`signalk-virtual-weather-sensors`](https://github.com/NearlCrew
 > Built on the foundation of [`signalk-to-nmea2000`](https://github.com/SignalK/signalk-to-nmea2000)
 > by Scott Bender and the Signal K community.
 
-## What's New in v1.6.7
+## What's New in v1.6.8
 
-v1.6.7 is a maintenance release. The Signal K app store listing now carries
-three admin-panel screenshots and a "Works well with" list of companion
-plugins ([`signalk-virtual-weather-sensors`](https://github.com/NearlCrews/signalk-virtual-weather-sensors)
-and [`signalk-openrouter-companion`](https://github.com/NearlCrews/signalk-openrouter-companion)),
-a new workflow runs the official SignalK plugin CI across Linux, macOS, and
-Windows on Node 22 and 24, and an internal code-simplification pass removed
-dead types, shared an empty-config factory, and unified an AIS guard helper.
-No on-the-wire output changes.
+v1.6.8 is a maintenance release. It refreshes all dependencies to current
+(including canboat 3.20), aligns the emitted PGNs with canboat 3.20, and adds
+several Garmin-relevant fields the plugin already had data for (AIS IMO number,
+GNSS PDOP, battery remaining capacity, and more). It also fixes a load-time
+failure ("Dynamic require of events is not supported") by keeping
+`@signalk/server-api` out of the runtime bundle, which shrinks the bundle from
+about 510 KB to about 350 KB, and clamps the PGN 127505 tank instance to its
+valid 0-13 range. No breaking changes.
 
-See the [v1.6.7 changelog entry](CHANGELOG.md#v167) and the
-[v1.6.7 release](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/releases/tag/v1.6.7).
+See the [v1.6.8 changelog entry](CHANGELOG.md#v168) and the
+[v1.6.8 release](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/releases/tag/v1.6.8).
 [Full release history](CHANGELOG.md).
 
 ## Features

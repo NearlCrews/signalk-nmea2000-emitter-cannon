@@ -11,6 +11,20 @@ export function parseMmsi(mmsi: unknown): number {
 	return isValidNumber(n) ? n : 0;
 }
 
+/**
+ * Parse a Signal K `registrations.imo` value (e.g. "IMO9074729" or "9074729")
+ * into the bare integer the PGN 129794 imoNumber field expects. Strips any
+ * non-digits (the "IMO" prefix), and returns undefined for missing, empty, or
+ * zero input so the field stays unset.
+ */
+export function parseImo(raw: unknown): number | undefined {
+	if (typeof raw !== "string") return undefined;
+	const digits = raw.replace(/\D/g, "");
+	if (digits.length === 0) return undefined;
+	const n = Number(digits);
+	return n > 0 ? n : undefined;
+}
+
 // AIS string field widths. canboatjs writes STRING_FIX values with no length
 // check, so a value relayed from another vessel must be clamped to its field
 // width before it reaches the encoder; see clampString.

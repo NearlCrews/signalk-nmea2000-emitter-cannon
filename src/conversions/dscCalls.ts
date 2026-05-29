@@ -76,6 +76,10 @@ export default function createDscCallsConversion(
 					fields: {
 						dscFormat:
 							callTypeToFormat[callTypeString] ?? "Individual stations",
+						// canboatjs 3.20 variant matching only encodes dscCategory for
+						// the Distress variant; non-distress categories (Routine,
+						// Safety, Urgency) drop to the "not available" sentinel on the
+						// wire. The distress path encodes correctly. Tracked upstream.
 						dscCategory: dscCategoryMapping[callTypeString] ?? "Routine",
 						dscMessageAddress: parseMmsi(mmsi),
 						natureOfDistress: distressMapping[natureString] ?? "Undesignated",

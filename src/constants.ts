@@ -6,6 +6,9 @@ export const N2K_BROADCAST_DST = 255;
 export const N2K_DEFAULT_SID = 87;
 export const N2K_SID_ZERO = 0;
 export const N2K_DEFAULT_INSTANCE = 100;
+// PGN 127505 (Fluid Level) instance is a 4-bit field; values above 13 are
+// reserved or not-available and would silently wrap on the wire.
+export const MAX_TANK_INSTANCE = 13;
 export const DEFAULT_DATA_TIMEOUT_MS = 10000;
 // 1-minute freshness window for slow-cadence data sources where the
 // data-path is expected to update much less often than the 10s default.

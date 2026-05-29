@@ -2,6 +2,7 @@ import {
 	N2K_BROADCAST_DST,
 	N2K_DEFAULT_INSTANCE,
 	N2K_DEFAULT_PRIORITY,
+	N2K_SID_ZERO,
 } from "../constants.js";
 import type {
 	ConversionCallback,
@@ -21,6 +22,7 @@ function createHumidityMessage(humidity: number, source: string): N2KMessage[] {
 			pgn: 130313,
 			dst: N2K_BROADCAST_DST,
 			fields: {
+				sid: N2K_SID_ZERO,
 				instance: N2K_DEFAULT_INSTANCE,
 				source,
 				actualHumidity: pct,
@@ -66,6 +68,7 @@ export default function createHumidityConversions(
 							pgn: 130313,
 							dst: 255,
 							fields: {
+								sid: 0,
 								instance: 100,
 								source: "Outside",
 								actualHumidity: 50,
@@ -81,6 +84,7 @@ export default function createHumidityConversions(
 							pgn: 130313,
 							dst: 255,
 							fields: {
+								sid: 0,
 								instance: 100,
 								source: "Outside",
 								actualHumidity: 95,
@@ -97,6 +101,7 @@ export default function createHumidityConversions(
 							pgn: 130313,
 							dst: 255,
 							fields: {
+								sid: 0,
 								instance: 100,
 								source: "Outside",
 								actualHumidity: 60,
@@ -113,6 +118,7 @@ export default function createHumidityConversions(
 							pgn: 130313,
 							dst: 255,
 							fields: {
+								sid: 0,
 								instance: 100,
 								source: "Outside",
 								actualHumidity: 50,
@@ -129,6 +135,7 @@ export default function createHumidityConversions(
 							pgn: 130313,
 							dst: 255,
 							fields: {
+								sid: 0,
 								instance: 100,
 								source: "Outside",
 								actualHumidity: 0,
@@ -160,6 +167,7 @@ export default function createHumidityConversions(
 							pgn: 130313,
 							dst: 255,
 							fields: {
+								sid: 0,
 								instance: 100,
 								source: "Inside",
 								actualHumidity: 100,
@@ -175,6 +183,7 @@ export default function createHumidityConversions(
 							pgn: 130313,
 							dst: 255,
 							fields: {
+								sid: 0,
 								instance: 100,
 								source: "Inside",
 								actualHumidity: 35,

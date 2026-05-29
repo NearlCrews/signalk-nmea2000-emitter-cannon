@@ -1,10 +1,12 @@
 import type * as React from "react";
 import { useState } from "react";
+import { clamp } from "../../utils/validation.js";
 import { S } from "../styles";
 
 interface BaseProps {
 	value: number | undefined;
 	min?: number;
+	max?: number;
 	placeholder?: string;
 	ariaLabel: string;
 }
@@ -22,7 +24,7 @@ type Props = BaseProps &
 // field can be cleared mid-edit instead of snapping back to a number on
 // every keystroke. Commits a clamped, truncated integer (or `undefined`).
 export default function NumberInput(props: Props): React.ReactElement {
-	const { value, min = 0, placeholder, ariaLabel } = props;
+	const { value, min = 0, max, placeholder, ariaLabel } = props;
 	const [draft, setDraft] = useState<string | null>(null);
 
 	const commit = (raw: string): void => {
@@ -32,13 +34,18 @@ export default function NumberInput(props: Props): React.ReactElement {
 			return;
 		}
 		const n = Number(raw);
-		props.onChange(Number.isFinite(n) ? Math.max(min, Math.trunc(n)) : min);
+		props.onChange(
+			Number.isFinite(n)
+				? clamp(Math.trunc(n), min, max ?? Number.POSITIVE_INFINITY)
+				: min,
+		);
 	};
 
 	return (
 		<input
 			type="number"
 			min={min}
+			max={max}
 			style={S.input}
 			value={draft ?? (value === undefined ? "" : String(value))}
 			placeholder={placeholder}

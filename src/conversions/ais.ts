@@ -15,6 +15,7 @@ import {
 	AIS_DESTINATION_CHARS,
 	AIS_NAME_CHARS,
 	ATON_NAME_CHARS,
+	parseImo,
 	parseMmsi,
 } from "../utils/aisUtils.js";
 import { clampString, isValidNumber } from "../utils/validation.js";
@@ -240,6 +241,7 @@ export default function createAisConversion(
 									{ path: "design.beam", value: 7 },
 									{ path: "", value: { mmsi: "367301250" } },
 									{ path: "", value: { name: "SOME BOAT" } },
+									{ path: "registrations.imo", value: "IMO9074729" },
 								],
 							},
 						],
@@ -265,6 +267,7 @@ export default function createAisConversion(
 							heading: 5.6199,
 							rateOfTurn: 0,
 							navStatus: "Under way using engine",
+							specialManeuverIndicator: "Not available",
 						},
 					},
 					{
@@ -273,7 +276,9 @@ export default function createAisConversion(
 						dst: 255,
 						fields: {
 							messageId: "Static and voyage related data",
+							repeatIndicator: "Initial",
 							userId: 367301250,
+							imoNumber: 9074729,
 							name: "SOME BOAT",
 							typeOfShip: "Tug",
 							length: 30,
@@ -346,6 +351,7 @@ export default function createAisConversion(
 							virtualAtonFlag: "No",
 							assignedModeFlag: "Autonomous and continuous",
 							spare: 1,
+							aisTransceiverInformation: "Channel A VDL reception",
 							atonName: "78A",
 						},
 					},
@@ -403,6 +409,7 @@ export default function createAisConversion(
 							virtualAtonFlag: "No",
 							assignedModeFlag: "Autonomous and continuous",
 							spare: 1,
+							aisTransceiverInformation: "Channel A VDL reception",
 							atonName: "RED-1",
 						},
 					},
@@ -459,6 +466,7 @@ export default function createAisConversion(
 							virtualAtonFlag: "No",
 							assignedModeFlag: "Autonomous and continuous",
 							spare: 1,
+							aisTransceiverInformation: "Channel A VDL reception",
 							// 18 chars from the 41-char input: the plugin's
 							// clampString(ATON_NAME_CHARS) caps the value before it
 							// reaches canboatjs.
@@ -505,6 +513,7 @@ export default function createAisConversion(
 							timeStamp: "0",
 							aisTransceiverInformation: "Channel A VDL reception",
 							navStatus: "At anchor",
+							specialManeuverIndicator: "Not available",
 						},
 					},
 				],
@@ -573,6 +582,7 @@ export default function createAisConversion(
 						dst: 255,
 						fields: {
 							messageId: "Static and voyage related data",
+							repeatIndicator: "Initial",
 							userId: 367301250,
 							callsign: "CALLSIG",
 							name: "VERY LONG VESSEL NAM",
@@ -634,6 +644,9 @@ function generateStatic(
 		vessel,
 		"navigation.destination.commonName",
 	);
+	const imoNumber = parseImo(
+		indexedFindValue<string>(index, vessel, "registrations.imo"),
+	);
 
 	const fromStarboard = starboardOffset(beam, fromCenter);
 
@@ -645,7 +658,9 @@ function generateStatic(
 		dst: N2K_BROADCAST_DST,
 		fields: {
 			messageId: "Static and voyage related data",
+			repeatIndicator: "Initial",
 			userId: mmsiNumber,
+			imoNumber,
 			callsign: clampString(callsign, AIS_CALLSIGN_CHARS),
 			name: clampString(name, AIS_NAME_CHARS),
 			typeOfShip: type,
@@ -730,6 +745,7 @@ function generatePosition(
 			heading: validHeading,
 			rateOfTurn: rot,
 			navStatus: status,
+			specialManeuverIndicator: "Not available",
 		},
 	};
 }
@@ -801,6 +817,7 @@ function generateAtoN(
 			positionAccuracy: "Low",
 			raim: "not in use",
 			timeStamp: "0",
+			aisTransceiverInformation: "Channel A VDL reception",
 			lengthDiameter: length,
 			beamDiameter: beam,
 			positionReferenceFromStarboardEdge: fromStarboard,

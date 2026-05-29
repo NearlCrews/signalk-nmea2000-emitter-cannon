@@ -186,6 +186,10 @@ export default function createBatteryConversion(
 											? validStateOfHealth * PERCENT_SCALE
 											: undefined,
 									timeRemaining: resolvedTimeRemaining ?? undefined,
+									// SK capacity.remaining is Coulombs (As); canboatjs
+									// converts it to the PGN 127506 Ah wire field, so the
+									// Coulomb value is passed through directly.
+									remainingCapacity: validCapacityRemaining ?? undefined,
 								},
 							});
 						}
@@ -219,6 +223,7 @@ export default function createBatteryConversion(
 										stateOfCharge: 93,
 										stateOfHealth: 60,
 										timeRemaining: "03:26:00",
+										remainingCapacity: 378000,
 									},
 								},
 							],
@@ -247,6 +252,7 @@ export default function createBatteryConversion(
 										dcType: "Battery",
 										stateOfCharge: 100,
 										timeRemaining: "05:15:00",
+										remainingCapacity: 378000,
 									},
 								},
 							],
@@ -275,6 +281,7 @@ export default function createBatteryConversion(
 										dcType: "Battery",
 										stateOfCharge: 100,
 										timeRemaining: "05:15:00",
+										remainingCapacity: 378000,
 									},
 								},
 							],
@@ -302,6 +309,7 @@ export default function createBatteryConversion(
 										instance: 1,
 										dcType: "Battery",
 										stateOfCharge: 99,
+										remainingCapacity: 374400,
 										// timeRemaining omitted when null - canboatjs won't include it in parsed output
 									},
 								},

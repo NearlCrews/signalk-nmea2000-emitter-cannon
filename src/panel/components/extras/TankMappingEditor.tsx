@@ -1,4 +1,5 @@
 import type * as React from "react";
+import { MAX_TANK_INSTANCE } from "../../../constants.js";
 import { S } from "../../styles";
 import NumberInput from "../NumberInput";
 import MappingTable from "./MappingTable";
@@ -50,6 +51,7 @@ export default function TankMappingEditor({
 							value={r.instanceId}
 							onChange={(n) => set({ ...r, instanceId: n })}
 							min={0}
+							max={MAX_TANK_INSTANCE}
 							ariaLabel="NMEA 2000 tank instance id"
 						/>
 					),

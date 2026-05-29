@@ -2,6 +2,7 @@ import {
 	N2K_BROADCAST_DST,
 	N2K_DEFAULT_INSTANCE,
 	N2K_DEFAULT_PRIORITY,
+	N2K_SID_ZERO,
 } from "../constants.js";
 import type {
 	ConversionModule,
@@ -17,6 +18,7 @@ function createPressureMessage(pressure: number, source: string): N2KMessage[] {
 			pgn: 130314,
 			dst: N2K_BROADCAST_DST,
 			fields: {
+				sid: N2K_SID_ZERO,
 				instance: N2K_DEFAULT_INSTANCE,
 				source,
 				pressure,
@@ -51,6 +53,7 @@ export default function createPressureConversions(
 							pgn: 130314,
 							dst: 255,
 							fields: {
+								sid: 0,
 								instance: 100,
 								source: "Atmospheric",
 								pressure: 103047.8,
@@ -66,6 +69,7 @@ export default function createPressureConversions(
 							pgn: 130314,
 							dst: 255,
 							fields: {
+								sid: 0,
 								instance: 100,
 								source: "Atmospheric",
 								pressure: 101325,
@@ -81,6 +85,7 @@ export default function createPressureConversions(
 							pgn: 130314,
 							dst: 255,
 							fields: {
+								sid: 0,
 								instance: 100,
 								source: "Atmospheric",
 								pressure: 98000,

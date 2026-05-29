@@ -8,6 +8,12 @@ export function toValidNumber(value: unknown): number | null {
 	return isValidNumber(value) ? value : null;
 }
 
+// Clamps a number into the inclusive [min, max] range. Replaces the hand-rolled
+// Math.max(min, Math.min(max, x)) idiom used across the codebase.
+export function clamp(value: number, min: number, max: number): number {
+	return Math.max(min, Math.min(max, value));
+}
+
 // Modulo-wraps any real angle into [0, 2π); a single-turn shift would corrupt
 // inputs outside [-2π, 2π].
 export function normalizeAngle(angle: number): number {

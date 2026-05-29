@@ -1,4 +1,5 @@
 import {
+	MAX_TANK_INSTANCE,
 	N2K_BROADCAST_DST,
 	N2K_DEFAULT_PRIORITY,
 	SLOW_DATA_TIMEOUT_MS,
@@ -9,7 +10,7 @@ import type {
 	N2KMessage,
 	SignalKApp,
 } from "../types/index.js";
-import { toValidNumber } from "../utils/validation.js";
+import { clamp, toValidNumber } from "../utils/validation.js";
 
 const typeMapping: Record<string, string> = {
 	fuel: "Fuel",
@@ -72,6 +73,10 @@ export default function createTanksConversion(
 				const type = typeMapping[tankType];
 
 				if (type) {
+					// PGN 127505 instance is a 4-bit field (0-13 valid). Clamp once
+					// so an out-of-range mapping cannot silently wrap (e.g. 20 -> 4)
+					// onto a different tank gauge.
+					const instance = clamp(tank.instanceId, 0, MAX_TANK_INSTANCE);
 					return {
 						keys: [
 							`${tank.signalkPath}.currentLevel`,
@@ -95,7 +100,7 @@ export default function createTanksConversion(
 									pgn: 127505,
 									dst: N2K_BROADCAST_DST,
 									fields: {
-										instance: tank.instanceId,
+										instance,
 										type,
 										level: level !== null ? level * 100 : null,
 										capacity: cap !== null ? cap * 1000 : null,

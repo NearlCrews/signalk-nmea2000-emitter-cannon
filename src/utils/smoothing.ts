@@ -1,4 +1,4 @@
-import { isValidNumber } from "./validation.js";
+import { clamp, isValidNumber } from "./validation.js";
 
 // Module-level registry so PluginManager.stop() can wipe smoothed state on
 // every instance without each conversion having to track its own smoothers.
@@ -9,7 +9,7 @@ export class ExponentialSmoother {
 	private readonly alpha: number;
 
 	constructor(alpha: number = 0.3) {
-		this.alpha = Math.max(0, Math.min(1, alpha));
+		this.alpha = clamp(alpha, 0, 1);
 		registeredSmoothers.add(this);
 	}
 

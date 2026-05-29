@@ -1,4 +1,4 @@
-import { isValidNumber } from "../utils/validation.js";
+import { clamp, isValidNumber } from "../utils/validation.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 // setInterval's delay is a signed 32-bit int of milliseconds (~24.8 days).
@@ -28,7 +28,7 @@ export class AdvisorScheduler {
 		this.stop();
 		if (!periodic) return;
 		const days = isValidNumber(intervalDays)
-			? Math.min(Math.max(1, Math.trunc(intervalDays)), MAX_INTERVAL_DAYS)
+			? clamp(Math.trunc(intervalDays), 1, MAX_INTERVAL_DAYS)
 			: DEFAULT_INTERVAL_DAYS;
 		this.timer = setInterval(() => {
 			void this.run().catch(() => {

@@ -78,6 +78,7 @@ export default function createGpsConversion(
 				const integrity = getSelfValue(app, "navigation.gnss.integrity");
 				const numberOfSvs = getSelfValue(app, "navigation.gnss.satellites");
 				const hdop = getSelfValue(app, "navigation.gnss.horizontalDilution");
+				const pdop = getSelfValue(app, "navigation.gnss.positionDilution");
 				const geoidalSeparation = getSelfValue(
 					app,
 					"navigation.gnss.geoidalSeparation",
@@ -99,6 +100,7 @@ export default function createGpsConversion(
 				if (isValidNumber(hdop)) fields.hdop = hdop;
 				if (isValidNumber(geoidalSeparation))
 					fields.geoidalSeparation = geoidalSeparation;
+				if (isValidNumber(pdop)) fields.pdop = pdop;
 
 				res.push({
 					prio: N2K_DEFAULT_PRIORITY,
@@ -123,6 +125,7 @@ export default function createGpsConversion(
 					"navigation.gnss.satellites": { value: 9 },
 					"navigation.gnss.horizontalDilution": { value: 1.2 },
 					"navigation.gnss.geoidalSeparation": { value: -34.5 },
+					"navigation.gnss.positionDilution": { value: 2.1 },
 				},
 				expected: [
 					{
@@ -149,6 +152,7 @@ export default function createGpsConversion(
 							numberOfSvs: 9,
 							hdop: 1.2,
 							geoidalSeparation: -34.5,
+							pdop: 2.1,
 						},
 						__preprocess__: (testResult: N2KMessage) => {
 							// Remove dynamic date/time fields and canboat-decoder

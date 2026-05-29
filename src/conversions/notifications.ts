@@ -1,8 +1,9 @@
-import {
-	type Delta,
-	hasValues,
-	type SourceRef,
-	type Timestamp,
+import type {
+	Delta,
+	PathValue,
+	SourceRef,
+	Timestamp,
+	Update,
 } from "@signalk/server-api";
 import {
 	N2K_BROADCAST_DST,
@@ -19,6 +20,14 @@ import { isDebugEnabled } from "../utils/debugUtils.js";
 import { isClearState } from "../utils/notificationUtils.js";
 import { matchPathPrefix } from "../utils/pathUtils.js";
 import { clampString } from "../utils/validation.js";
+
+// Local copy of @signalk/server-api's `hasValues` type guard. Importing it as a
+// value pulls the whole server-api package (FullSignalK, BaconJS) into the
+// esbuild ESM bundle, where its dynamic `require("events")` throws at load.
+// Keeping server-api a type-only import keeps the runtime bundle lean.
+function hasValues(u: Update): u is Update & { values: PathValue[] } {
+	return "values" in u && Array.isArray(u.values);
+}
 
 interface AlertValue {
 	state: string;

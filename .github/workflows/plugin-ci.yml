@@ -1,0 +1,30 @@
+name: SignalK Plugin CI
+
+# Calls the official SignalK reusable plugin-ci workflow. The plugin registry
+# (dirkwa.github.io/signalk-plugin-registry) looks for a workflow run that
+# references SignalK/signalk-server/.github/workflows/plugin-ci.yml on the
+# published version's commit; without one it applies a scoring penalty. The
+# tag trigger guarantees a run exists on the exact commit each release is
+# published from.
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  plugin-ci:
+    uses: SignalK/signalk-server/.github/workflows/plugin-ci.yml@master
+    with:
+      build-command: npm run build
+      # Formatting/lint is already enforced on Linux by ci.yml; skipping it
+      # here avoids a CRLF false-positive on the Windows runner.
+      # The plugin requires Node >= 22.12 (see package.json engines), so the
+      # armv7 / Cerbo GX lane (Node 20, Venus OS) is not a supported target.
+      enable-armv7: false

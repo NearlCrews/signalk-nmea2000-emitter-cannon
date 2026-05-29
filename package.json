@@ -23,7 +23,7 @@
 		"format": "biome format src/ --write",
 		"check": "biome check src/",
 		"typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.panel.json && tsc --noEmit -p tsconfig.test.json",
-		"clean": "rm -rf dist && rm -f public/*.js public/*.mjs public/*.LICENSE.txt public/*.map",
+		"clean": "node scripts/clean.mjs",
 		"prepare": "husky",
 		"prepack": "npm run build",
 		"create-release": "gh release create v$npm_package_version --generate-notes",
@@ -41,7 +41,16 @@
 	"signalk-plugin-enabled-by-default": false,
 	"signalk": {
 		"appIcon": "./assets/icons/icon-192.png",
-		"displayName": "NMEA 2000 Emitter Cannon"
+		"displayName": "NMEA 2000 Emitter Cannon",
+		"screenshots": [
+			"assets/screenshots/config-panel.png",
+			"assets/screenshots/environment-conversions.png",
+			"assets/screenshots/config-advisor.png"
+		],
+		"recommends": [
+			"signalk-virtual-weather-sensors",
+			"signalk-openrouter-companion"
+		]
 	},
 	"author": {
 		"name": "Nearl Crews",

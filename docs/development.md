@@ -12,7 +12,14 @@
 git clone https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon.git
 cd signalk-nmea2000-emitter-cannon
 npm install
+npm run hooks          # one-time: enable the lint-staged pre-commit hook
 ```
+
+Git hooks are not auto-installed on `npm install`: the husky `prepare`
+lifecycle is omitted because it breaks `npm pack` on Node 22's npm 10 (the
+script banner leaks into the packed-tarball name, which fails the app-store
+install check in CI). Run `npm run hooks` once after cloning to enable the
+pre-commit hook.
 
 ## Build commands
 

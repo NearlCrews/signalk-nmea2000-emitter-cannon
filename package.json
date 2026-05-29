@@ -1,6 +1,6 @@
 {
 	"name": "signalk-nmea2000-emitter-cannon",
-	"version": "1.6.7",
+	"version": "1.6.8",
 	"description": "Signal K plugin that converts Signal K deltas to Garmin-aligned NMEA 2000 PGNs",
 	"main": "dist/index.mjs",
 	"files": [
@@ -24,7 +24,7 @@
 		"check": "biome check src/",
 		"typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.panel.json && tsc --noEmit -p tsconfig.test.json",
 		"clean": "node scripts/clean.mjs",
-		"prepare": "husky",
+		"hooks": "husky",
 		"prepack": "npm run build",
 		"create-release": "gh release create v$npm_package_version --generate-notes",
 		"release": "git rev-parse \"v$npm_package_version\" >/dev/null 2>&1 && { echo \"tag v$npm_package_version already exists\"; exit 1; } ; git tag v$npm_package_version && git push --tags && git push && npm run create-release"
@@ -65,7 +65,6 @@
 	],
 	"license": "Apache-2.0",
 	"dependencies": {
-		"@signalk/server-api": "^2.24.0",
 		"@sinclair/typebox": "^0.34.49",
 		"rxjs": "^7.8.2"
 	},
@@ -78,11 +77,12 @@
 		"url": "https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/issues"
 	},
 	"devDependencies": {
-		"@babel/core": "^7.29.0",
-		"@babel/preset-react": "^7.28.5",
-		"@babel/preset-typescript": "^7.28.5",
-		"@biomejs/biome": "^2.4.15",
-		"@canboat/canboatjs": "^3.18.0",
+		"@babel/core": "^7.29.7",
+		"@babel/preset-react": "^7.29.7",
+		"@babel/preset-typescript": "^7.29.7",
+		"@biomejs/biome": "^2.4.16",
+		"@canboat/canboatjs": "^3.20.0",
+		"@signalk/server-api": "^2.25.0",
 		"@types/express": "^5.0.6",
 		"@types/json-schema": "^7.0.15",
 		"@types/node": "^25.7.0",
@@ -104,8 +104,8 @@
 		"tsx": "^4.21.0",
 		"typescript": "^6.0.3",
 		"vitest": "^4.0.17",
-		"webpack": "^5.106.2",
-		"webpack-cli": "^7.0.2"
+		"webpack": "^5.107.2",
+		"webpack-cli": "^7.0.3"
 	},
 	"engines": {
 		"node": ">=22.12"

@@ -33,3 +33,17 @@ Before running `npm run release`:
    Update the `## What's New in vX.Y.Z` heading to the new version.
 4. Run `npm run check`, `npm run typecheck`, `npm test`, and `npm run build`.
 5. Commit, then run `npm run release`.
+
+## Troubleshooting
+
+- **`Publish to npm` fails at the publish step with `npm error code E404 ... Not Found - PUT`.**
+  On `npm publish` an `E404` is npm's disguised authentication failure: the
+  `NPM_TOKEN` secret is invalid, expired, or lacks publish rights on this
+  package (an `npm publish` to a package that exists never legitimately 404s).
+  Set a fresh npm Automation token, or a Granular token with publish + read on
+  this package, with `printf '%s' '<token>' | gh secret set NPM_TOKEN`, then
+  re-run the workflow from the Actions tab. To sanity-check a token without
+  cutting a new version, dispatch the workflow against an already-published tag
+  (`gh workflow run publish.yml -f tag=vX.Y.Z`): a healthy token gets past auth
+  and stops at `E403 ... cannot publish over the previously published versions`,
+  which confirms the credential works.

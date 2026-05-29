@@ -13,17 +13,19 @@ plugins such as [`signalk-virtual-weather-sensors`](https://github.com/NearlCrew
 > Built on the foundation of [`signalk-to-nmea2000`](https://github.com/SignalK/signalk-to-nmea2000)
 > by Scott Bender and the Signal K community.
 
-## What's New in v1.6.6
+## What's New in v1.6.7
 
-v1.6.6 is a bug-fix release. A follow-up multi-agent audit and code review
-extended the canboatjs buffer-overflow guard to PGN 129041 `atonName` and
-PGN 127498 `vin` / `softwareId`, hardened `clampString` against non-string
-input from upstream providers, tightened every admin-panel advisor response
-type so the router and the panel hooks share one contract, and removed dead
-code and stale doc text. No on-the-wire output changes for healthy inputs.
+v1.6.7 is a maintenance release. The Signal K app store listing now carries
+three admin-panel screenshots and a "Works well with" list of companion
+plugins ([`signalk-virtual-weather-sensors`](https://github.com/NearlCrews/signalk-virtual-weather-sensors)
+and [`signalk-openrouter-companion`](https://github.com/NearlCrews/signalk-openrouter-companion)),
+a new workflow runs the official SignalK plugin CI across Linux, macOS, and
+Windows on Node 22 and 24, and an internal code-simplification pass removed
+dead types, shared an empty-config factory, and unified an AIS guard helper.
+No on-the-wire output changes.
 
-See the [v1.6.6 changelog entry](CHANGELOG.md#v166) and the
-[v1.6.6 release](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/releases/tag/v1.6.6).
+See the [v1.6.7 changelog entry](CHANGELOG.md#v167) and the
+[v1.6.7 release](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/releases/tag/v1.6.7).
 [Full release history](CHANGELOG.md).
 
 ## Features
@@ -108,6 +110,12 @@ identifier to NMEA 2000 instance mapping (`BATTERY`, `ENGINE_PARAMETERS`,
 
 The config panel loads on any signalk-server 2.x admin UI. v1.4.x config
 payloads migrate transparently the first time the panel loads them.
+
+## Screenshots
+
+| Conversion config | Environment category | Config Advisor |
+| :---: | :---: | :---: |
+| [![Conversion config panel with per-conversion cards and live emit counts](assets/screenshots/config-panel.png)](assets/screenshots/config-panel.png) | [![Environment category conversions](assets/screenshots/environment-conversions.png)](assets/screenshots/environment-conversions.png) | [![Config Advisor settings](assets/screenshots/config-advisor.png)](assets/screenshots/config-advisor.png) |
 
 ## Documentation
 

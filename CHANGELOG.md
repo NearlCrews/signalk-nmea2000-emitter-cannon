@@ -1,5 +1,13 @@
 ## Change Log
 
+<a id="v167"></a>
+
+### v1.6.7 (2026/05/29) - App store listing, cross-platform plugin CI, and a code-simplification pass
+
+**Maintenance release: a richer Signal K app store listing, an official cross-platform plugin CI workflow, and an internal code-simplification pass. No on-the-wire output changes.**
+
+The Signal K app store page now shows screenshots and a "Works well with" section. `package.json` declares `signalk.screenshots` with three admin-panel captures (the conversion config panel, the Environment category, and the Config Advisor) shipped in the npm tarball, and `signalk.recommends` lists the companion plugins it pairs with: [`signalk-virtual-weather-sensors`](https://github.com/NearlCrews/signalk-virtual-weather-sensors), the source of the `environment.*` forecast paths this plugin puts on the bus, and [`signalk-openrouter-companion`](https://github.com/NearlCrews/signalk-openrouter-companion). A new `.github/workflows/plugin-ci.yml` calls the official SignalK reusable plugin-ci workflow, exercising install, build, and the full test suite on Linux x64, Linux arm64, macOS, and Windows across Node 22 and 24; the build's `clean` step was rewritten as a small Node script so it runs on Windows runners instead of a unix-only `rm`. An internal `/simplify` pass tidied the code without changing behavior: it removed the dead exported types `OutputType` and `AdvisorConfigType` and two unused `errorBuckets` fields, added a shared `emptyConversionConfig()` factory used by the admin panel and the advisor, extracted a NaN-safe `starboardOffset()` helper so the AIS static-data and AtoN paths share one guard, routed the advisor and OpenRouter client error handling through the shared `errMessage()` helper, and corrected two import paths missing their `.js` extension. The test suite remains 113 tests across 13 files.
+
 <a id="v166"></a>
 
 ### v1.6.6 (2026/05/24) - Audit pass: two more clamped PGNs, hardened helpers, tighter API types

@@ -25,6 +25,16 @@ import type { Position } from "./routeTypes.js";
 // for "navigation state unknown". canboatjs accepts the numeric value.
 const NAV_STATUS_NOT_DEFINED = 15;
 
+/** Distance from the starboard side: half-beam plus the offset from centerline. */
+function starboardOffset(
+	beam: number | undefined,
+	fromCenter: number | undefined,
+): number | undefined {
+	return isValidNumber(beam) && isValidNumber(fromCenter)
+		? beam / 2 + fromCenter
+		: undefined;
+}
+
 interface AisShipType {
 	id?: number;
 	name?: string;
@@ -625,10 +635,7 @@ function generateStatic(
 		"navigation.destination.commonName",
 	);
 
-	let fromStarboard: number | undefined;
-	if (beam != null && fromCenter != null) {
-		fromStarboard = beam / 2 + fromCenter;
-	}
+	const fromStarboard = starboardOffset(beam, fromCenter);
 
 	const mmsiNumber = parseMmsi(mmsi);
 
@@ -765,10 +772,7 @@ function generateAtoN(
 		"sensors.ais.fromBow",
 	);
 
-	let fromStarboard: number | undefined;
-	if (isValidNumber(beam) && isValidNumber(fromCenter)) {
-		fromStarboard = beam / 2 + fromCenter;
-	}
+	const fromStarboard = starboardOffset(beam, fromCenter);
 
 	const fromBowScaled = isValidNumber(fromBow) ? fromBow * 10 : undefined;
 	const mmsiNumber = parseMmsi(mmsi);

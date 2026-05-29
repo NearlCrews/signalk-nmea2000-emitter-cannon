@@ -139,18 +139,12 @@ export class PluginManager {
 	 * identifier (e.g. `callback:<optionKey>:<source>`). A conversion bug that
 	 * fires on every delta would otherwise flood the server log; this collapses
 	 * a run of identical errors into one log per window plus a final summary.
-	 *
-	 * `lastMessage` / `lastEmittedAt` are captured at the bucket-write site so
-	 * getStatusSnapshot() can surface the most recent emitted error and its age
-	 * without re-scanning the log.
 	 */
 	private errorBuckets: Map<
 		string,
 		{
 			suppressed: number;
 			nextEmit: number;
-			lastMessage?: string;
-			lastEmittedAt?: number;
 		}
 	> = new Map();
 	private static readonly ERROR_THROTTLE_S = 60;
@@ -296,8 +290,6 @@ export class PluginManager {
 			this.errorBuckets.set(key, {
 				suppressed: 0,
 				nextEmit: now + PluginManager.ERROR_THROTTLE_MS,
-				lastMessage: message,
-				lastEmittedAt: now,
 			});
 			const parent = this.parentKeyFromBucketKey(key);
 			if (parent !== undefined) {

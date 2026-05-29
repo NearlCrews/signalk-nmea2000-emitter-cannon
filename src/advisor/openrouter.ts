@@ -1,3 +1,4 @@
+import { errMessage } from "../utils/errorUtils.js";
 import type { Recommendation } from "./types.js";
 
 export interface OpenRouterConfig {
@@ -83,10 +84,7 @@ export class OpenRouterClient {
 				n,
 				err instanceof OpenRouterError
 					? err
-					: new OpenRouterError(
-							0,
-							err instanceof Error ? err.message : String(err),
-						),
+					: new OpenRouterError(0, errMessage(err)),
 			);
 		} finally {
 			clearTimeout(timer);

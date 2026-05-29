@@ -5,8 +5,11 @@ import type {
 	ConversionMetadata,
 	PerConversionStatus,
 } from "../../api/types.js";
-import type { ConversionConfig } from "../../config/schema.js";
-import { pathToPropName } from "../../utils/pathUtils";
+import {
+	type ConversionConfig,
+	emptyConversionConfig,
+} from "../../config/schema.js";
+import { pathToPropName } from "../../utils/pathUtils.js";
 import { splitPgnTitle } from "../../utils/pgnUtils.js";
 import { S } from "../styles";
 import DisclosureCaret from "./DisclosureCaret";
@@ -28,12 +31,7 @@ interface Props {
 	ensureLoaded: (p: string) => Promise<void>;
 }
 
-const EMPTY_CFG: ConversionConfig = {
-	enabled: false,
-	resend: 0,
-	sources: {},
-	extras: {},
-};
+const EMPTY_CFG: ConversionConfig = emptyConversionConfig();
 
 // Compatibility badge colors reference theme tokens so the badge stays
 // readable in both light and dark host themes.

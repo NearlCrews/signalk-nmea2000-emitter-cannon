@@ -80,4 +80,8 @@ export const RootConfig = Type.Object({
 
 export type Config = Static<typeof RootConfig>;
 export type ConversionConfig = Static<typeof Conversion>;
-export type AdvisorConfigType = Static<typeof AdvisorConfig>;
+
+/** A fresh disabled conversion entry with empty sources and extras. */
+export function emptyConversionConfig(): ConversionConfig {
+	return { enabled: false, resend: 0, sources: {}, extras: {} };
+}

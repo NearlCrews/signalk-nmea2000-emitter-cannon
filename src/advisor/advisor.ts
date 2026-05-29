@@ -1,5 +1,9 @@
 import type { ConversionMetadata } from "../api/types.js";
-import type { ConversionConfig } from "../config/schema.js";
+import {
+	type ConversionConfig,
+	emptyConversionConfig,
+} from "../config/schema.js";
+import { errMessage } from "../utils/errorUtils.js";
 import { isValidNumber } from "../utils/validation.js";
 import { mergeHistoric } from "./inventory.js";
 import { recommend } from "./recommender.js";
@@ -70,7 +74,7 @@ export class Advisor {
 				);
 				inventory = mergeHistoric(inventory, historic);
 			} catch (err) {
-				const detail = err instanceof Error ? err.message : String(err);
+				const detail = errMessage(err);
 				notes.push(
 					`QuestDB history unavailable (${detail}); reviewed live data only.`,
 				);
@@ -96,7 +100,7 @@ export class Advisor {
 				}
 				if (note) notes.push(note);
 			} catch (err) {
-				const detail = err instanceof Error ? err.message : String(err);
+				const detail = errMessage(err);
 				notes.push(
 					`OpenRouter enrichment unavailable (${detail}); using built-in explanations.`,
 				);
@@ -231,6 +235,6 @@ export class Advisor {
 	}
 
 	private entryOf(map: ConversionMap, key: string): ConversionConfig {
-		return map[key] ?? { enabled: false, resend: 0, sources: {}, extras: {} };
+		return map[key] ?? emptyConversionConfig();
 	}
 }

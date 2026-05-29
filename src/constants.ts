@@ -44,4 +44,3 @@ export type SourceType = (typeof SOURCE_TYPE)[keyof typeof SOURCE_TYPE];
 export const OUTPUT_TYPE = {
 	TO_N2K: "to-n2k",
 } as const;
-export type OutputType = (typeof OUTPUT_TYPE)[keyof typeof OUTPUT_TYPE];

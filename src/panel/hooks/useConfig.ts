@@ -2,8 +2,12 @@ import type * as React from "react";
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import type { ConversionMetadata } from "../../api/types.js";
 import type { PresetTag } from "../../config/enums.js";
-import { migrateLegacyConfig } from "../../config/migrate";
-import type { Config, ConversionConfig } from "../../config/schema.js";
+import { migrateLegacyConfig } from "../../config/migrate.js";
+import {
+	type Config,
+	type ConversionConfig,
+	emptyConversionConfig,
+} from "../../config/schema.js";
 
 type Action =
 	| { type: "setEnabled"; key: string; enabled: boolean }
@@ -26,12 +30,7 @@ function withEntry(
 ): { state: Config; entry: ConversionConfig } {
 	const existing = s.conversions[key];
 	if (existing) return { state: s, entry: existing };
-	const entry: ConversionConfig = {
-		enabled: false,
-		resend: 0,
-		sources: {},
-		extras: {},
-	};
+	const entry: ConversionConfig = emptyConversionConfig();
 	return {
 		state: {
 			...s,

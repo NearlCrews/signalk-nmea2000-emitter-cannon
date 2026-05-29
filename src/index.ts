@@ -14,6 +14,7 @@ import { RootConfig } from "./config/schema.js";
 import { PluginManager } from "./plugin-manager.js";
 import type { SignalKApp, SignalKPlugin } from "./types/index.js";
 import { errMessage } from "./utils/errorUtils.js";
+import { isValidNumber } from "./utils/validation.js";
 
 /**
  * Signal K to NMEA 2000 conversion plugin factory
@@ -176,7 +177,7 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 			).advisor?.schedule;
 			advisorScheduler.configure(
 				schedule?.periodic === true,
-				typeof schedule?.intervalDays === "number" ? schedule.intervalDays : 7,
+				isValidNumber(schedule?.intervalDays) ? schedule.intervalDays : 7,
 			);
 		} catch (error) {
 			const msg = errMessage(error);

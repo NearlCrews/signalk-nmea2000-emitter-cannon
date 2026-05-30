@@ -76,6 +76,10 @@
 	"bugs": {
 		"url": "https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/issues"
 	},
+	"funding": {
+		"type": "buymeacoffee",
+		"url": "https://www.buymeacoffee.com/nearlcrews"
+	},
 	"devDependencies": {
 		"@babel/core": "^7.29.7",
 		"@babel/preset-react": "^7.29.7",

@@ -4,6 +4,7 @@
 [![npm downloads](https://img.shields.io/npm/dm/signalk-nmea2000-emitter-cannon.svg)](https://www.npmjs.com/package/signalk-nmea2000-emitter-cannon)
 [![License](https://img.shields.io/github/license/NearlCrews/signalk-nmea2000-emitter-cannon.svg)](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/blob/main/LICENSE)
 [![CI](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/actions/workflows/ci.yml/badge.svg)](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/actions/workflows/ci.yml)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?logo=buymeacoffee&logoColor=black)](https://www.buymeacoffee.com/nearlcrews)
 
 A Signal K plugin that converts Signal K deltas into NMEA 2000 messages. 46
 conversion modules covering 53 data PGNs, aligned with Garmin ECHOMAP / GPSMAP
@@ -155,6 +156,9 @@ for the conversion framework and PGN implementations.
   protocol implementation that the canboatjs encoder is built on
 
 ## Support
+
+Find this plugin useful? You can support its continued development by
+[buying me a coffee](https://www.buymeacoffee.com/nearlcrews).
 
 - [Report a bug](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/issues/new?template=bug_report.md)
 - [Request a feature](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/issues/new?template=feature_request.md)

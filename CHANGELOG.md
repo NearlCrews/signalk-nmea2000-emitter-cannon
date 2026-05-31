@@ -1,5 +1,13 @@
 ## Change Log
 
+<a id="v170"></a>
+
+### v1.7.0 (2026/05/30) - three wire-correctness fixes, event-driven AIS, and a whole-repo cleanup
+
+**Three wire-correctness fixes, all previously masked by dead or missing tests, plus a non-behavioral cleanup across the whole codebase. One behavior change: AIS no longer periodically re-emits.**
+
+The correctness fixes: NMEA 2000 readiness could latch false forever when the plugin was enabled or installed after the one-shot `nmea2000OutAvailable` event had already fired, silently dropping every PGN; readiness is now also seeded from the registration-time `app.isNmea2000OutAvailable` snapshot, not only the latched event. PGN 129041 (Aid to Navigation) emitted `positionReferenceFromTrueNorthFacingEdge` at ten times the correct distance, so a 9 m offset went on the wire as 90 m; the field is now passed in SI metres like its sibling geometry fields. PGN 126720 (Raymarine display brightness) emitted a field set that matched no canboat variant, so the frame was undecodable and a real Raymarine MFD ignored it; it now uses the SeaTalk1 Display Brightness variant. The AIS conversion, the only on-delta module, no longer arms a resend timer: re-broadcasting one stale target on a timer could make a dead AIS contact look live on an MFD, so AIS stays purely event-driven. The rest is non-behavioral cleanup from a multi-agent audit: dead code removed (the `JSONSchema` type, `STATIC_DATA_TIMEOUT_MS`, `ExponentialSmoother.clearKey`, and the advisor `origin` "none" member); shared helpers extracted to cut duplication (`instanceList` for per-instance option arrays with a uniform `Array.isArray` guard so a malformed config can no longer crash a conversion, `markTypeFor` and `toWaypointEntry` for the route PGNs, `starboardOffset` and `AisShipType` shared between the AIS modules, `stripSubIndex` in the plugin manager, the wind builder moved to its own `windData.ts`, and a shared `extraRows` accessor plus a memoized `ConversionCard` in the admin panel); the `ENGINE_PARAMETERS` title no longer advertises PGN 130312 (which only its sibling `EXHAUST_TEMPERATURE` emits); the admin panel's source field no longer drops keyboard focus mid-edit, and its duplicate Save control was removed; the advisor now prunes applied recommendations from its pending list, enriches only actionable recommendations, and surfaces periodic-review failures instead of swallowing them. The test suite grew from 113 to 118 with new readiness, smoothing-math, and AtoN and brightness round-trip coverage.
+
 <a id="v168"></a>
 
 ### v1.6.8 (2026/05/29) - canboat 3.20 alignment, a load-time bundling fix, and a dependency refresh

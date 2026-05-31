@@ -14,19 +14,21 @@ plugins such as [`signalk-virtual-weather-sensors`](https://github.com/NearlCrew
 > Built on the foundation of [`signalk-to-nmea2000`](https://github.com/SignalK/signalk-to-nmea2000)
 > by Scott Bender and the Signal K community.
 
-## What's New in v1.6.8
+## What's New in v1.7.0
 
-v1.6.8 is a maintenance release. It refreshes all dependencies to current
-(including canboat 3.20), aligns the emitted PGNs with canboat 3.20, and adds
-several Garmin-relevant fields the plugin already had data for (AIS IMO number,
-GNSS PDOP, battery remaining capacity, and more). It also fixes a load-time
-failure ("Dynamic require of events is not supported") by keeping
-`@signalk/server-api` out of the runtime bundle, which shrinks the bundle from
-about 510 KB to about 350 KB, and clamps the PGN 127505 tank instance to its
-valid 0-13 range. No breaking changes.
+v1.7.0 lands three wire-correctness fixes that were each masked by dead or
+missing tests: NMEA 2000 readiness could latch false and silently drop every
+PGN when the plugin was enabled after output was already available, the Aid to
+Navigation PGN 129041 emitted a distance ten times too large, and the Raymarine
+PGN 126720 brightness frame was undecodable. AIS is now event-driven only and
+no longer re-broadcasts a stale target on a timer. The rest is a whole-repo
+cleanup: dead code removed, duplicated logic consolidated into shared helpers, a
+malformed per-instance config can no longer crash a conversion, and the admin
+panel no longer drops keyboard focus while editing a source. No breaking
+changes; the test suite grew from 113 to 118.
 
-See the [v1.6.8 changelog entry](CHANGELOG.md#v168) and the
-[v1.6.8 release](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/releases/tag/v1.6.8).
+See the [v1.7.0 changelog entry](CHANGELOG.md#v170) and the
+[v1.7.0 release](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/releases/tag/v1.7.0).
 [Full release history](CHANGELOG.md).
 
 ## Features
@@ -48,7 +50,7 @@ See the [v1.6.8 changelog entry](CHANGELOG.md#v168) and the
   history and OpenRouter-powered plain-language explanations
 - **Single ESM bundle** via esbuild; the only runtime dependency is RxJS
 - **Embedded canboatjs round-trip tests** on every conversion module, plus
-  advisor unit tests (113 tests across 13 files)
+  advisor unit tests (118 tests across 13 files)
 - **`$source: 'NMEA2000'` echo-guard** on AIS conversions to avoid re-emitting
   received AIS deltas back onto the bus
 - **Apache 2.0**, pure ESM, Node 22.12+

@@ -22,39 +22,32 @@ export default function SourceField({
 		if (touched) void ensureLoaded(path);
 	}, [path, touched, ensureLoaded]);
 	const sources = sourcesFor(path);
-	const showDropdown = touched && sources.length > 0;
+	const listId = `sources-${path}`;
 
+	// A single <input> with a <datalist> rather than swapping between an
+	// <input> and a <select>: swapping element types unmounts the focused node
+	// mid-interaction and drops keyboard focus. The datalist offers discovered
+	// sources as suggestions once they load on focus, while still allowing a
+	// free-form source for paths with no discovered source. An empty value
+	// means "any source".
 	return (
 		<div style={S.fieldRow}>
 			<span style={S.label}>Source for {path}</span>
-			{showDropdown ? (
-				<select
-					style={S.select}
-					value={value}
-					onChange={(e) => onChange(e.target.value)}
-					aria-label={`Source for ${path}`}
-				>
-					<option value="">(any)</option>
-					{value && !sources.includes(value) && (
-						<option value={value}>{value} (current)</option>
-					)}
-					{sources.map((s) => (
-						<option key={s} value={s}>
-							{s}
-						</option>
-					))}
-				</select>
-			) : (
-				<input
-					style={S.input}
-					type="text"
-					value={value}
-					placeholder="any source"
-					onChange={(e) => onChange(e.target.value)}
-					onFocus={() => setTouched(true)}
-					aria-label={`Source for ${path}`}
-				/>
-			)}
+			<input
+				style={S.input}
+				type="text"
+				list={listId}
+				value={value}
+				placeholder="any source"
+				onChange={(e) => onChange(e.target.value)}
+				onFocus={() => setTouched(true)}
+				aria-label={`Source for ${path}`}
+			/>
+			<datalist id={listId}>
+				{sources.map((s) => (
+					<option key={s} value={s} />
+				))}
+			</datalist>
 		</div>
 	);
 }

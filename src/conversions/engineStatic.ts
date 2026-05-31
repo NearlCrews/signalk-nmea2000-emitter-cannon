@@ -11,6 +11,7 @@ import type {
 	SubConversionModule,
 } from "../types/index.js";
 import { clampString, toValidNumber } from "../utils/validation.js";
+import { instanceList } from "./instanceOptions.js";
 
 // PGN 127498 vin and softwareId are STRING_LAU per canboat (length-prefixed,
 // variable, with no canboat-declared cap). We bound them anyway as a safety
@@ -32,12 +33,6 @@ interface EngineStaticEngineConfig {
 	ratedEngineSpeed?: number;
 	VIN?: string;
 	softwareVersion?: string;
-}
-
-interface EngineStaticOptions {
-	engines?: EngineStaticEngineConfig[];
-	enabled?: boolean;
-	resend?: number;
 }
 
 // canboat ENGINE_INSTANCE enum labels, used to derive test expectations from
@@ -146,10 +141,10 @@ export default function createEngineStaticConversion(
 		},
 
 		conversions: (options): SubConversionModule[] | null => {
-			const engineOptions = options as EngineStaticOptions;
-			const engines = Array.isArray(engineOptions?.engines)
-				? engineOptions.engines
-				: [];
+			const engines = instanceList<EngineStaticEngineConfig>(
+				options,
+				"engines",
+			);
 			if (engines.length === 0) return null;
 
 			return engines.map((engine): SubConversionModule => {

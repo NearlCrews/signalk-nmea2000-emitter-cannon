@@ -29,14 +29,16 @@ export default function AdvisorSettings({
 		onChange({ ...cfg, ...part });
 	};
 
-	const modelsHint =
-		modelsState === "loading"
-			? "Loading the model list..."
-			: modelsState === "error"
-				? "Could not load the model list; type the model slug manually."
-				: modelsState === "ready"
-					? `${models.length} models available (autocomplete)`
-					: "Focus the field to load the model list for autocomplete.";
+	let modelsHint: string;
+	if (modelsState === "loading") {
+		modelsHint = "Loading the model list...";
+	} else if (modelsState === "error") {
+		modelsHint = "Could not load the model list; type the model slug manually.";
+	} else if (modelsState === "ready") {
+		modelsHint = `${models.length} models available (autocomplete)`;
+	} else {
+		modelsHint = "Focus the field to load the model list for autocomplete.";
+	}
 
 	return (
 		<div>

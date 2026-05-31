@@ -16,6 +16,8 @@ import type { SignalKApp, SignalKPlugin } from "./types/index.js";
 import { errMessage } from "./utils/errorUtils.js";
 import { isValidNumber } from "./utils/validation.js";
 
+const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
+
 /**
  * Signal K to NMEA 2000 conversion plugin factory
  *
@@ -28,18 +30,26 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 	// Persistent readiness state across PluginManager restarts.
 	//
 	// signalk-server passes plugins a SHALLOW COPY of `app` (via
-	// `_.assign({}, app, ...)` in interfaces/plugins.js), so the
-	// `appCopy.isNmea2000OutAvailable` we see is frozen at plugin-registration
-	// time. canboat flips the live `app.isNmea2000OutAvailable` to true when
-	// it claims an address, but our snapshot stays false forever. The
-	// `nmea2000OutAvailable` event still reaches us because event-listener
-	// registration goes through prototype methods that reach the live app, but
-	// the event is one-shot: subsequent PluginManager restarts (e.g. on Save
-	// from the panel) miss it and stay stuck on "Waiting for NMEA 2000 output".
+	// `_.assign({}, app, ...)` in interfaces/plugins.js), so
+	// `app.isNmea2000OutAvailable` is a SNAPSHOT taken at plugin-registration
+	// time, not a live view. Two readiness scenarios follow, and covering both
+	// needs both signals:
 	//
-	// The factory closure outlives PluginManager instances, so we latch the
-	// flag here on the FIRST emit and reuse it for every subsequent restart.
-	let nmea2000Ready = false;
+	//   1. Loaded at boot, before NMEA 2000 output is ready. The snapshot is
+	//      false, but our listener (registered through prototype methods that
+	//      reach the live app) catches the one-shot `nmea2000OutAvailable` when
+	//      canboat claims an address. We latch it so later PluginManager
+	//      restarts (e.g. Save from the panel) stay ready even though the
+	//      one-shot event will not fire again.
+	//   2. Enabled or installed at runtime, AFTER output is already available.
+	//      The one-shot event already fired so the listener never sees it, but
+	//      the registration-time snapshot is already true. Seeding from it is
+	//      the only readiness signal for this case.
+	//
+	// Seed from the snapshot, then latch the event: the OR of the two covers
+	// both. Honouring only the event (the prior behaviour) silently dropped
+	// every PGN for a plugin enabled after output came up.
+	let nmea2000Ready = app.isNmea2000OutAvailable === true;
 	const factoryListener = (): void => {
 		nmea2000Ready = true;
 	};
@@ -55,23 +65,6 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 		stop: stopPlugin,
 	};
 
-	// The Config Advisor reviews live Signal K paths and recommends which
-	// conversions to enable. It outlives PluginManager restarts: getMetadata
-	// reads through the `pluginManager` closure so it always sees the current
-	// instance (or an empty catalog before the first start).
-	//
-	// readPluginOptions returns the full options envelope
-	// (`{ enabled, configuration, enableLogging, enableDebug }`); the plugin
-	// config lives under `.configuration`. readConfig runs that through
-	// migrateLegacyConfig, which flattens the envelope. A historical save bug
-	// could nest the envelope several layers deep; a single `.configuration`
-	// unwrap would then leave the advisor with a config whose `conversions`
-	// key is still buried, which the recommender mistakes for an empty config
-	// and rebuilds from scratch, stranding every factory-module conversion
-	// (BATTERY, NOTIFICATIONS, ENGINE_*, TANKS, SOLAR). savePluginOptions
-	// re-wraps the bare config as `.configuration`, so writeConfig passes the
-	// flattened object straight through.
-
 	// Counts OpenRouter calls per UTC day across reviews for this plugin run.
 	// The per-day cap is read from config at call time, so enrichReasons
 	// enforces the configured maxCallsPerDay against this count.
@@ -83,14 +76,29 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 		new OpenRouterClient({
 			apiKey: o.apiKey,
 			model: o.model || "anthropic/claude-haiku-4.5",
-			baseUrl: "https://openrouter.ai/api/v1",
+			baseUrl: OPENROUTER_BASE_URL,
 		});
 
+	// readPluginOptions returns the full options envelope
+	// (`{ enabled, configuration, enableLogging, enableDebug }`); the plugin
+	// config lives under `.configuration`. readConfig runs that through
+	// migrateLegacyConfig, which flattens the envelope. A historical save bug
+	// could nest the envelope several layers deep; a single `.configuration`
+	// unwrap would then leave the advisor with a config whose `conversions`
+	// key is still buried, which the recommender mistakes for an empty config
+	// and rebuilds from scratch, stranding every factory-module conversion
+	// (BATTERY, NOTIFICATIONS, ENGINE_*, TANKS, SOLAR). savePluginOptions
+	// re-wraps the bare config as `.configuration`, so writeConfig passes the
+	// flattened object straight through.
 	const readConfig = () => {
 		const envelope = app.readPluginOptions() as { configuration?: unknown };
 		return migrateLegacyConfig(envelope.configuration ?? {});
 	};
 
+	// The Config Advisor reviews live Signal K paths and recommends which
+	// conversions to enable. It outlives PluginManager restarts: getMetadata
+	// reads through the `pluginManager` closure so it always sees the current
+	// instance (or an empty catalog before the first start).
 	const advisor = new Advisor({
 		buildInventory: () => buildLiveInventory(app),
 		getMetadata: () =>
@@ -140,12 +148,16 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 			});
 			return true;
 		},
-		listModelsFn: () => fetchOpenRouterModels("https://openrouter.ai/api/v1"),
+		listModelsFn: () => fetchOpenRouterModels(OPENROUTER_BASE_URL),
 	});
 
 	// Drives the optional periodic review. Reconfigured on every startPlugin
-	// from the advisor.schedule config, cleared on stopPlugin.
-	const advisorScheduler = new AdvisorScheduler(() => advisor.runReview());
+	// from the advisor.schedule config, cleared on stopPlugin. A scheduled-run
+	// rejection is logged here (user-triggered runs already log via the router).
+	const advisorScheduler = new AdvisorScheduler(
+		() => advisor.runReview(),
+		(err) => app.error(`advisor periodic review failed: ${errMessage(err)}`),
+	);
 
 	plugin.registerWithRouter = createApiRouter(
 		app,

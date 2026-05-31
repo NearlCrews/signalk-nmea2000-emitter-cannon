@@ -14,12 +14,7 @@ import {
 	normalizeAngle,
 	toValidNumber,
 } from "../utils/validation.js";
-
-// canboat MARK_TYPE entries: Collision, Turning point, Reference, Wheelover,
-// Waypoint. SK only emits "waypoint"; everything else maps to "Reference"
-// since the canonical lookup has no generic "mark" entry.
-const markTypeFor = (t: string | null) =>
-	t === "waypoint" ? "Waypoint" : "Reference";
+import { markTypeFor } from "./routeTypes.js";
 
 type BearingDistanceInputs = [
 	number | null,

@@ -61,7 +61,10 @@ export function isValidN2KFieldValue(value: unknown): value is N2KFieldValue {
 }
 
 // Strips processing artifacts that canboatjs / decoders may attach so the
-// payload validates against our N2KMessage shape.
+// payload validates against our N2KMessage shape. Test-support only: the
+// conversion round-trip suite uses it to normalise decoded frames before
+// comparison. The runtime emit path never decodes, so it has no caller in
+// production and is tree-shaken out of the bundle.
 export function cleanN2KMessage(message: Record<string, unknown>): N2KMessage {
 	const cleaned = { ...message };
 	delete cleaned.description;

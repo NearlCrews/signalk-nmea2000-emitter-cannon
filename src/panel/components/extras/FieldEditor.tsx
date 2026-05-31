@@ -21,32 +21,42 @@ function FieldRow({
 	const v = value[spec.key] ?? spec.default ?? "";
 	const update = (next: unknown): void =>
 		onChange({ ...value, [spec.key]: next });
+
+	let control: React.ReactElement;
+	if (spec.control === "boolean") {
+		control = (
+			<input
+				type="checkbox"
+				style={S.checkbox}
+				checked={Boolean(v)}
+				onChange={(e) => update(e.target.checked)}
+				aria-label={spec.label}
+			/>
+		);
+	} else if (spec.control === "number") {
+		control = (
+			<NumberInput
+				value={Number(v) || 0}
+				onChange={update}
+				ariaLabel={spec.label}
+			/>
+		);
+	} else {
+		control = (
+			<input
+				type="text"
+				style={S.input}
+				value={String(v)}
+				onChange={(e) => update(e.target.value)}
+				aria-label={spec.label}
+			/>
+		);
+	}
+
 	return (
 		<div style={S.fieldRow}>
 			<span style={S.label}>{spec.label}</span>
-			{spec.control === "boolean" ? (
-				<input
-					type="checkbox"
-					style={S.checkbox}
-					checked={Boolean(v)}
-					onChange={(e) => update(e.target.checked)}
-					aria-label={spec.label}
-				/>
-			) : spec.control === "number" ? (
-				<NumberInput
-					value={Number(v) || 0}
-					onChange={update}
-					ariaLabel={spec.label}
-				/>
-			) : (
-				<input
-					type="text"
-					style={S.input}
-					value={String(v)}
-					onChange={(e) => update(e.target.value)}
-					aria-label={spec.label}
-				/>
-			)}
+			{control}
 		</div>
 	);
 }

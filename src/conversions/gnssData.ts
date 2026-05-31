@@ -64,8 +64,8 @@ export default function createGnssDataConversions(
 							desiredMode: "Auto",
 							actualMode: "Auto",
 							hdop: hdopValue,
-							vdop: undefined,
-							tdop: undefined,
+							// vdop/tdop omitted: an absent field encodes identically
+							// to an explicit undefined ("not available").
 						},
 					},
 				];

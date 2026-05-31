@@ -66,6 +66,10 @@ function alarmIdForPath(path: string): string | undefined {
 }
 
 export default function createRaymarineAlarmsConversion(): ConversionModule {
+	// Persistent set of active alarms, mutated (push/filter) across callbacks.
+	// The callback returns a snapshot copy ([...pgns]) rather than this live
+	// reference so a consumer that retains the result never sees a later
+	// callback's mutation (the aliasing trap notifications.ts avoids).
 	let pgns: AlarmPGN[] = [];
 	return {
 		title: "Raymarine Seatalk Alarms (PGN 65288)",
@@ -114,11 +118,11 @@ export default function createRaymarineAlarmsConversion(): ConversionModule {
 				value === null ||
 				typeof value !== "object"
 			) {
-				return pgns;
+				return [...pgns];
 			}
 
 			if (path.includes("notifications.nmea")) {
-				return pgns;
+				return [...pgns];
 			}
 
 			pgns = pgns.filter((obj) => obj.path !== path);
@@ -146,7 +150,7 @@ export default function createRaymarineAlarmsConversion(): ConversionModule {
 				});
 			}
 
-			return pgns;
+			return [...pgns];
 		},
 		tests: [
 			{

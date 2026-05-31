@@ -31,7 +31,6 @@ export default function createTrueHeadingConversion(
 					fields: {
 						sid: N2K_DEFAULT_SID,
 						heading,
-						variation: undefined,
 						reference: "True",
 					},
 				},
@@ -40,7 +39,7 @@ export default function createTrueHeadingConversion(
 
 		tests: [
 			{
-				input: [1.35, undefined],
+				input: [1.35],
 				expected: [
 					{
 						prio: 2,

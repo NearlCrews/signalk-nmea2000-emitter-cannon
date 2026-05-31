@@ -1,6 +1,5 @@
 import type * as React from "react";
-import { PresetTags } from "../../config/enums";
-import type { PresetTag } from "../../config/enums.js";
+import { type PresetTag, PresetTags } from "../../config/enums";
 import { S } from "../styles";
 
 const LABELS: Record<PresetTag, string> = {

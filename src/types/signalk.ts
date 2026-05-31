@@ -1,5 +1,4 @@
 import type { ServerAPI } from "@signalk/server-api";
-import type { JSONSchema7 } from "json-schema";
 import type { N2KMessage } from "./nmea2000.js";
 
 export interface SignalKApp extends ServerAPI {
@@ -19,5 +18,3 @@ export interface SignalKApp extends ServerAPI {
 		addAdminMiddleware: (pathPrefix: string) => void;
 	};
 }
-
-export type JSONSchema = JSONSchema7;

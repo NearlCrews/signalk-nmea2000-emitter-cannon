@@ -9,6 +9,7 @@ import type {
 	N2KMessage,
 } from "../types/index.js";
 import { toValidNumber } from "../utils/validation.js";
+import { markTypeFor } from "./routeTypes.js";
 
 export default function createTimeToMarkConversion(): ConversionModule {
 	return {
@@ -33,7 +34,7 @@ export default function createTimeToMarkConversion(): ConversionModule {
 			const fields: Record<string, N2KFieldValue> = {
 				sid: N2K_SID_ZERO,
 				timeToMark: validTimeToGo,
-				markType: markType === "waypoint" ? "Waypoint" : "Reference",
+				markType: markTypeFor(markType),
 			};
 
 			return [

@@ -33,7 +33,7 @@ export interface Recommendation {
 	currentlyEnabled: boolean;
 	matchedPaths: string[];
 	confidence: "high" | "low";
-	origin: "live" | "historic" | "none";
+	origin: "live" | "historic";
 	reason: string;
 }
 

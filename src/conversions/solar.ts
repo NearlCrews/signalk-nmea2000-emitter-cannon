@@ -10,17 +10,12 @@ import type {
 	SignalKApp,
 } from "../types/index.js";
 import { toValidNumber } from "../utils/validation.js";
+import { instanceList } from "./instanceOptions.js";
 
 interface SolarChargerConfig {
 	signalkId: string;
 	instanceId: number;
 	panelInstanceId: number;
-}
-
-interface SolarOptions {
-	chargers: SolarChargerConfig[];
-	enabled?: boolean;
-	resend?: number;
 }
 
 export default function createSolarConversion(
@@ -46,12 +41,10 @@ export default function createSolarConversion(
 		},
 
 		conversions: (options: unknown) => {
-			const solarOptions = options as SolarOptions;
-			if (!solarOptions?.chargers) {
-				return null;
-			}
+			const chargers = instanceList<SolarChargerConfig>(options, "chargers");
+			if (chargers.length === 0) return null;
 
-			return solarOptions.chargers.map((charger) => ({
+			return chargers.map((charger) => ({
 				keys: solarKeys.map(
 					(key) => `electrical.solar.${charger.signalkId}.${key}`,
 				),
@@ -76,8 +69,8 @@ export default function createSolarConversion(
 							dst: N2K_BROADCAST_DST,
 							fields: {
 								instance: charger.instanceId,
-								voltage: voltageValue,
-								current: currentValue,
+								voltage: voltageValue ?? undefined,
+								current: currentValue ?? undefined,
 							},
 						});
 					}
@@ -89,8 +82,8 @@ export default function createSolarConversion(
 							dst: N2K_BROADCAST_DST,
 							fields: {
 								instance: charger.panelInstanceId,
-								voltage: panelVoltageValue,
-								current: panelCurrentValue,
+								voltage: panelVoltageValue ?? undefined,
+								current: panelCurrentValue ?? undefined,
 							},
 						});
 					}

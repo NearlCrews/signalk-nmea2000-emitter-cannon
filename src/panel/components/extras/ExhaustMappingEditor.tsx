@@ -1,5 +1,6 @@
 import type * as React from "react";
 import NumberInput from "../NumberInput";
+import { extraRows } from "./extraRows";
 import MappingTable, { signalkIdColumn } from "./MappingTable";
 
 // signalkId is the final segment of the SK propulsion key under propulsion.<id>
@@ -21,10 +22,7 @@ export default function ExhaustMappingEditor({
 	value,
 	onChange,
 }: Props): React.ReactElement {
-	const rows: Row[] = Array.isArray(value.engines)
-		? (value.engines as Row[])
-		: [];
-	const setRows = (next: Row[]): void => onChange({ ...value, engines: next });
+	const { rows, setRows } = extraRows<Row>(value, "engines", onChange);
 	return (
 		<MappingTable<Row>
 			title="Exhaust Temperature Mapping"

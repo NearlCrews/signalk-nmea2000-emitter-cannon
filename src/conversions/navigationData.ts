@@ -125,7 +125,6 @@ function createNavDataConversion(
 						bearingPositionToDestinationWaypoint: isValidNumber(bearingToDest)
 							? bearingToDest
 							: undefined,
-						originWaypointNumber: undefined,
 						destinationWaypointNumber: wpid,
 						destinationLatitude: destination?.position?.latitude,
 						destinationLongitude: destination?.position?.longitude,

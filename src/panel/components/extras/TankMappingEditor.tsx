@@ -2,6 +2,7 @@ import type * as React from "react";
 import { MAX_TANK_INSTANCE } from "../../../constants.js";
 import { S } from "../../styles";
 import NumberInput from "../NumberInput";
+import { extraRows } from "./extraRows";
 import MappingTable from "./MappingTable";
 
 // signalkPath is the full SK path (e.g. "tanks.fuel.0") because the SK tank
@@ -22,8 +23,7 @@ export default function TankMappingEditor({
 	value,
 	onChange,
 }: Props): React.ReactElement {
-	const rows: Row[] = Array.isArray(value.tanks) ? (value.tanks as Row[]) : [];
-	const setRows = (next: Row[]): void => onChange({ ...value, tanks: next });
+	const { rows, setRows } = extraRows<Row>(value, "tanks", onChange);
 	return (
 		<MappingTable<Row>
 			title="Tank Mapping"

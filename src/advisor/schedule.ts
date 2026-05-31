@@ -12,13 +12,17 @@ const DEFAULT_INTERVAL_DAYS = 1;
 
 /**
  * Drives the advisor's optional periodic review. A single setInterval is
- * (re)armed by `configure` and cleared by `stop`. Callback errors are
- * swallowed so one failing review does not stop the schedule.
+ * (re)armed by `configure` and cleared by `stop`. A failing review never stops
+ * the schedule; the rejection is routed to the optional `onError` callback so a
+ * persistently failing periodic run stays observable instead of silent.
  */
 export class AdvisorScheduler {
 	private timer: ReturnType<typeof setInterval> | null = null;
 
-	constructor(private readonly run: () => Promise<unknown>) {}
+	constructor(
+		private readonly run: () => Promise<unknown>,
+		private readonly onError?: (err: unknown) => void,
+	) {}
 
 	/**
 	 * Arm or disarm the periodic review. Always clears any existing timer
@@ -31,9 +35,12 @@ export class AdvisorScheduler {
 			? clamp(Math.trunc(intervalDays), 1, MAX_INTERVAL_DAYS)
 			: DEFAULT_INTERVAL_DAYS;
 		this.timer = setInterval(() => {
-			void this.run().catch(() => {
-				// A failing review must not stop the schedule; runReview
-				// surfaces its own problems through the ReviewResult notes.
+			void this.run().catch((err) => {
+				// A failing review must not stop the schedule. runReview surfaces
+				// QuestDB/OpenRouter sub-failures through ReviewResult notes, but a
+				// throw from buildInventory, getMetadata, or writeConfig on a
+				// periodic (non-user-triggered) run would otherwise be invisible.
+				this.onError?.(err);
 			});
 		}, days * DAY_MS);
 	}

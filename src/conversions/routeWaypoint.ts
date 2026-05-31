@@ -9,9 +9,9 @@ import {
 	DEFAULT_ROUTE_NAME,
 	MAX_ROUTE_NAME_CHARS,
 	MAX_RPS_WAYPOINTS,
-	MAX_WP_NAME_CHARS,
 	mapValidWaypoints,
 	type Position,
+	toWaypointEntry,
 } from "./routeTypes.js";
 
 export default function createRouteWaypointConversion(): ConversionModule {
@@ -42,12 +42,11 @@ export default function createRouteWaypointConversion(): ConversionModule {
 				return [];
 			}
 
-			const list = mapValidWaypoints(waypoints, MAX_RPS_WAYPOINTS, (wp, i) => ({
-				wpId: wp.id ?? i,
-				wpName: clampString(wp.name || `WP${i}`, MAX_WP_NAME_CHARS),
-				wpLatitude: wp.position?.latitude,
-				wpLongitude: wp.position?.longitude,
-			}));
+			const list = mapValidWaypoints(
+				waypoints,
+				MAX_RPS_WAYPOINTS,
+				toWaypointEntry,
+			);
 
 			// PGN 129285 with nitems=0 is malformed per spec. Skip the emission
 			// when neither a waypoint list nor a nextPoint position is present:

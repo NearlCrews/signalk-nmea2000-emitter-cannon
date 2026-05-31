@@ -33,14 +33,16 @@ export default function createEnvironmentParametersConversion(
 
 		tests: [
 			{
-				input: [3507100],
+				// 101300 Pa = 1013 hPa, a realistic sea-level pressure and an
+				// exact multiple of the field's 100 Pa resolution.
+				input: [101300],
 				expected: [
 					{
 						prio: 2,
 						pgn: 130311,
 						dst: 255,
 						fields: {
-							atmosphericPressure: 3507100,
+							atmosphericPressure: 101300,
 						},
 					},
 				],

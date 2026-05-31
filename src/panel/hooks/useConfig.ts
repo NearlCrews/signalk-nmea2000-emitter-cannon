@@ -9,7 +9,7 @@ import {
 	emptyConversionConfig,
 } from "../../config/schema.js";
 
-type Action =
+export type Action =
 	| { type: "setEnabled"; key: string; enabled: boolean }
 	| { type: "setResend"; key: string; ms: number }
 	| { type: "setSource"; key: string; path: string; source: string }
@@ -118,23 +118,22 @@ export function useConfig(initial: unknown): {
 	dispatch: React.Dispatch<Action>;
 	markSaved: () => void;
 } {
-	// Run migration exactly once at first render so state and savedState are
-	// both the migrated shape from the start. This keeps `dirty` false on
-	// mount and prevents legacy shapes from leaking into reducer state.
-	const [migratedInitial] = useState<Config>(() =>
-		migrateLegacyConfig(initial),
-	);
-	const [state, dispatch] = useReducer(reducer, migratedInitial);
+	// Migrate once per `initial` value. `incoming` seeds both the reducer state
+	// and savedState (each reads it only on first render), so the migration
+	// runs once on mount rather than once here and again in a separate
+	// initializer. This keeps `dirty` false on mount and prevents legacy shapes
+	// from leaking into reducer state.
+	const incoming = useMemo(() => migrateLegacyConfig(initial), [initial]);
+	const [state, dispatch] = useReducer(reducer, incoming);
 	// savedState is the last config the user persisted (or the migrated
 	// initial value, before any save). The panel uses identity equality
 	// (`state !== savedState`) as the dirty check: every reducer case
 	// returns a new object on change, so identity is a sound stand-in for
 	// the previous JSON.stringify deep compare without the O(N) cost.
-	const [savedState, setSavedState] = useState<Config>(migratedInitial);
+	const [savedState, setSavedState] = useState<Config>(incoming);
 	const markSaved = useCallback(() => {
 		setSavedState(state);
 	}, [state]);
-	const incoming = useMemo(() => migrateLegacyConfig(initial), [initial]);
 	// Adopt an externally changed `configuration` prop. The advisor writes
 	// config server-side (the "Review now" button, scheduled reviews), and the
 	// next prop reflects that saved state. Adopt it only when the panel has no

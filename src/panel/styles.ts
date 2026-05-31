@@ -392,16 +392,6 @@ S.advisorToggle = {
 	textAlign: "left",
 };
 S.advisorBody = { marginTop: 10 };
-// The advisor's Save control: button on top, save status stacked beneath it.
-S.advisorSaveRow = {
-	display: "flex",
-	flexDirection: "column",
-	alignItems: "flex-start",
-	gap: 8,
-	marginTop: 16,
-	borderTop: "1px solid var(--skn-border)",
-	paddingTop: 12,
-};
 S.advisorIntro = {
 	fontSize: 12,
 	color: "var(--skn-text-muted)",
@@ -495,6 +485,8 @@ S.tableTitle = {
 	marginBottom: 4,
 	color: "var(--skn-text)",
 };
+S.tableCell = { padding: 6 };
+S.tableHeadCell = { padding: 6, fontWeight: 500 };
 // Collapsible Modern / Legacy section: a disclosure header and a body of
 // conversion cards.
 S.section = { marginBottom: 10 };

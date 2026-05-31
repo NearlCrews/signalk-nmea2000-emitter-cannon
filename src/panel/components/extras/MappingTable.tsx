@@ -25,7 +25,10 @@ export function signalkIdColumn<R extends { signalkId: string }>(opts: {
 			<input
 				type="text"
 				style={S.input}
-				value={r.signalkId}
+				// ?? "" keeps the input controlled: a malformed persisted row can
+				// carry an undefined id, which would otherwise flip the field
+				// controlled -> uncontrolled and warn.
+				value={r.signalkId ?? ""}
 				placeholder={opts.placeholder}
 				onChange={(e) => onRow({ ...r, signalkId: e.target.value } as R)}
 				aria-label={opts.ariaLabel}
@@ -77,15 +80,11 @@ export default function MappingTable<T>(props: Props<T>): React.ReactElement {
 					<thead>
 						<tr style={S.tableHeadRow}>
 							{props.columns.map((c) => (
-								<th
-									key={c.header}
-									scope="col"
-									style={{ padding: 6, fontWeight: 500 }}
-								>
+								<th key={c.header} scope="col" style={S.tableHeadCell}>
 									{c.header}
 								</th>
 							))}
-							<th scope="col" style={{ padding: 6 }}>
+							<th scope="col" style={S.tableCell}>
 								<span style={S.visuallyHidden}>Actions</span>
 							</th>
 						</tr>
@@ -95,7 +94,7 @@ export default function MappingTable<T>(props: Props<T>): React.ReactElement {
 							// biome-ignore lint/suspicious/noArrayIndexKey: rows have no natural id; index is the only stable handle for add/remove
 							<tr key={i}>
 								{props.columns.map((c) => (
-									<td key={c.header} style={{ padding: 6 }}>
+									<td key={c.header} style={S.tableCell}>
 										{c.render(
 											row,
 											(next) => {
@@ -107,7 +106,7 @@ export default function MappingTable<T>(props: Props<T>): React.ReactElement {
 										)}
 									</td>
 								))}
-								<td style={{ padding: 6 }}>
+								<td style={S.tableCell}>
 									<button
 										type="button"
 										style={S.btnDestructiveSm}

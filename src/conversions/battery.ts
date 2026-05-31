@@ -14,6 +14,7 @@ import type {
 } from "../types/index.js";
 import { ExponentialSmoother } from "../utils/smoothing.js";
 import { toValidNumber } from "../utils/validation.js";
+import { instanceList } from "./instanceOptions.js";
 
 const BATTERY_TIME_REMAINING_ALPHA = 0.3;
 const DISCHARGE_THRESHOLD_A = 0.5;
@@ -25,12 +26,6 @@ const PERCENT_SCALE = 100;
 interface BatteryConfig {
 	signalkId: string | number;
 	instanceId: number;
-}
-
-interface BatteryOptions {
-	batteries: BatteryConfig[];
-	enabled?: boolean;
-	resend?: number;
 }
 
 export default function createBatteryConversion(
@@ -69,14 +64,12 @@ export default function createBatteryConversion(
 		},
 
 		conversions: (options: unknown): SubConversionModule[] | null => {
-			const batteryOptions = options as BatteryOptions;
-			if (!batteryOptions?.batteries) {
-				return null;
-			}
+			const batteries = instanceList<BatteryConfig>(options, "batteries");
+			if (batteries.length === 0) return null;
 
 			const sharedTimeouts = batteryKeys.map(() => SLOW_DATA_TIMEOUT_MS);
 
-			return batteryOptions.batteries.map((battery): SubConversionModule => {
+			return batteries.map((battery): SubConversionModule => {
 				const smoothingKey = `${battery.signalkId}_${battery.instanceId}`;
 				return {
 					keys: batteryKeys.map(
@@ -144,11 +137,10 @@ export default function createBatteryConversion(
 								}
 							}
 
-							if (
-								remainingC !== null &&
-								dischargeCurrentA !== null &&
-								dischargeCurrentA > 0
-							) {
+							// dischargeCurrentA is null or, when set, always
+							// > DISCHARGE_THRESHOLD_A (0.5), so a non-null value is
+							// already safe as a divisor; no separate > 0 check needed.
+							if (remainingC !== null && dischargeCurrentA !== null) {
 								let seconds = Math.round(remainingC / dischargeCurrentA);
 								if (seconds < 0) seconds = 0;
 								if (seconds > MAX_TIME_REMAINING_S) {

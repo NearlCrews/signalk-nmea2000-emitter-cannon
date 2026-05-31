@@ -1,5 +1,26 @@
 import { isValidNumber } from "./validation.js";
 
+/** SK `design.aisShipType` shape: a numeric SHIP_TYPE id with a display name. */
+export interface AisShipType {
+	id?: number;
+	name?: string;
+}
+
+/**
+ * Distance from the starboard side: half-beam plus the offset from centerline.
+ * Returns undefined unless both inputs are valid numbers (canboat omits the
+ * field for undefined). Shared by PGN 129041/129794 (ais) and the own-vessel
+ * static report (aisExtended).
+ */
+export function starboardOffset(
+	beam: number | null | undefined,
+	fromCenter: number | null | undefined,
+): number | undefined {
+	return isValidNumber(beam) && isValidNumber(fromCenter)
+		? beam / 2 + fromCenter
+		: undefined;
+}
+
 /**
  * Parse a Signal K MMSI string into the numeric User ID expected by
  * canboatjs AIS PGNs. canboat treats 0 as "unknown source", which is

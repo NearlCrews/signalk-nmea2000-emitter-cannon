@@ -1,4 +1,5 @@
 import type * as React from "react";
+import { extraRows } from "./extraRows";
 import MappingTable, {
 	instanceIdColumn,
 	signalkIdColumn,
@@ -22,11 +23,7 @@ export default function BatteryMappingEditor({
 	value,
 	onChange,
 }: Props): React.ReactElement {
-	const rows: Row[] = Array.isArray(value.batteries)
-		? (value.batteries as Row[])
-		: [];
-	const setRows = (next: Row[]): void =>
-		onChange({ ...value, batteries: next });
+	const { rows, setRows } = extraRows<Row>(value, "batteries", onChange);
 	return (
 		<MappingTable<Row>
 			title="Battery Mapping"

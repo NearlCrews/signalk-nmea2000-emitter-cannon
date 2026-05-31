@@ -42,7 +42,11 @@ export function useAdvisor(): {
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ decisions }),
 			});
-			setState((s) => ({ ...s, loading: false }));
+			// Clear the result on success: the applied items are now live, and
+			// the server's /pending list does not drop them until the next
+			// review, so reusing the old result would re-render already-applied
+			// rows and let the user re-apply them.
+			setState({ result: null, loading: false, error: null });
 		} catch (err) {
 			setState((s) => ({ ...s, loading: false, error: errMessage(err) }));
 		}

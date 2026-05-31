@@ -39,10 +39,6 @@ export class ExponentialSmoother {
 	clear(): void {
 		this.values.clear();
 	}
-
-	clearKey(key: string): void {
-		this.values.delete(key);
-	}
 }
 
 // Releases registry references so old instances can be garbage-collected

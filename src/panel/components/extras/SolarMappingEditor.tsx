@@ -1,5 +1,6 @@
 import type * as React from "react";
 import NumberInput from "../NumberInput";
+import { extraRows } from "./extraRows";
 import MappingTable, {
 	instanceIdColumn,
 	signalkIdColumn,
@@ -23,10 +24,7 @@ export default function SolarMappingEditor({
 	value,
 	onChange,
 }: Props): React.ReactElement {
-	const rows: Row[] = Array.isArray(value.chargers)
-		? (value.chargers as Row[])
-		: [];
-	const setRows = (next: Row[]): void => onChange({ ...value, chargers: next });
+	const { rows, setRows } = extraRows<Row>(value, "chargers", onChange);
 	return (
 		<MappingTable<Row>
 			title="Solar Charger Mapping"

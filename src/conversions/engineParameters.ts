@@ -12,6 +12,7 @@ import type {
 	SubConversionModule,
 } from "../types/index.js";
 import { isValidNumber, toValidNumber } from "../utils/validation.js";
+import { instanceList } from "./instanceOptions.js";
 
 interface ExhaustTempEngineConfig {
 	signalkId: string | number;
@@ -21,18 +22,6 @@ interface ExhaustTempEngineConfig {
 interface EngineConfig {
 	signalkId: string | number;
 	instanceId: number;
-}
-
-interface ExhaustTempOptions {
-	engines: ExhaustTempEngineConfig[];
-	enabled?: boolean;
-	resend?: number;
-}
-
-interface EngineParamsOptions {
-	engines: EngineConfig[];
-	enabled?: boolean;
-	resend?: number;
 }
 
 export default function createEngineParametersConversions(
@@ -72,12 +61,13 @@ export default function createEngineParametersConversions(
 			},
 
 			conversions: (options: unknown) => {
-				const engineOptions = options as ExhaustTempOptions;
-				if (!engineOptions?.engines) {
-					return null;
-				}
+				const engines = instanceList<ExhaustTempEngineConfig>(
+					options,
+					"engines",
+				);
+				if (engines.length === 0) return null;
 
-				return engineOptions.engines.map((engine) => ({
+				return engines.map((engine) => ({
 					keys: [`propulsion.${engine.signalkId}.exhaustTemperature`],
 					callback: ((temperature: number | null) => {
 						if (!isValidNumber(temperature)) {
@@ -117,7 +107,7 @@ export default function createEngineParametersConversions(
 			},
 		},
 		{
-			title: "Engine Parameters (PGNs 127488, 127489, 130312)",
+			title: "Engine Parameters (PGNs 127488, 127489)",
 			optionKey: "ENGINE_PARAMETERS",
 			category: "engine",
 			presets: ["engine-set"],
@@ -133,17 +123,15 @@ export default function createEngineParametersConversions(
 			},
 
 			conversions: (options: unknown) => {
-				const engineOptions = options as EngineParamsOptions;
-				if (!engineOptions?.engines) {
-					return null;
-				}
+				const engines = instanceList<EngineConfig>(options, "engines");
+				if (engines.length === 0) return null;
 
 				const engParTimeouts = engParKeys.map(() => DEFAULT_DATA_TIMEOUT_MS);
 				const engRapidTimeouts = engRapidKeys.map(
 					() => DEFAULT_DATA_TIMEOUT_MS,
 				);
 
-				const dyn = engineOptions.engines.map((engine) => ({
+				const dyn = engines.map((engine) => ({
 					keys: engParKeys.map(
 						(key) => `propulsion.${engine.signalkId}.${key}`,
 					),
@@ -243,7 +231,7 @@ export default function createEngineParametersConversions(
 					],
 				}));
 
-				const rapid = engineOptions.engines.map((engine) => ({
+				const rapid = engines.map((engine) => ({
 					keys: engRapidKeys.map(
 						(key) => `propulsion.${engine.signalkId}.${key}`,
 					),
@@ -275,7 +263,9 @@ export default function createEngineParametersConversions(
 					>,
 					tests: [
 						{
-							input: [1001, 20345, 0.5],
+							// 30 rev/s = 1800 RPM, a realistic cruising engine speed that
+							// fits the 0.25 RPM u16 field without overflow.
+							input: [30, 20345, 0.5],
 							expected: [
 								{
 									prio: 2,
@@ -283,7 +273,7 @@ export default function createEngineParametersConversions(
 									dst: 255,
 									fields: {
 										instance: "Dual Engine Starboard",
-										speed: 10908,
+										speed: 1800,
 										boostPressure: 20300,
 										tiltTrim: 50,
 									},

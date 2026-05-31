@@ -1,8 +1,7 @@
 import type * as React from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ConversionMetadata, PerConversionStatus } from "../api/types.js";
-import { Categories } from "../config/enums";
-import type { ConversionCategory } from "../config/enums.js";
+import { Categories, type ConversionCategory } from "../config/enums";
 import AdvisorPanel from "./components/advisor/AdvisorPanel";
 import CategoryTabs from "./components/CategoryTabs";
 import CollapsibleSection from "./components/CollapsibleSection";
@@ -44,9 +43,12 @@ export default function PluginConfigurationPanel({
 	const toggleSection = (key: string): void => {
 		setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
 	};
-	const toggleCard = (key: string): void => {
+	// Stable identity so the memoized ConversionCard does not re-render every
+	// card when one card toggles. setExpandedCards is a functional update, so no
+	// dependencies are needed.
+	const toggleCard = useCallback((key: string): void => {
 		setExpandedCards((prev) => ({ ...prev, [key]: !prev[key] }));
-	};
+	}, []);
 
 	useEffect(() => {
 		if (justSavedAt === null) return;
@@ -105,19 +107,10 @@ export default function PluginConfigurationPanel({
 			config={state.conversions[m.key]}
 			status={statusByKey.get(m.key)}
 			expanded={expandedCards[m.key] ?? false}
-			onToggleExpanded={() => toggleCard(m.key)}
+			dispatch={dispatch}
+			toggleCard={toggleCard}
 			sourcesFor={sourcesFor}
 			ensureLoaded={ensureLoaded}
-			onSetEnabled={(e) =>
-				dispatch({ type: "setEnabled", key: m.key, enabled: e })
-			}
-			onSetResend={(ms) => dispatch({ type: "setResend", key: m.key, ms })}
-			onSetSource={(path, source) =>
-				dispatch({ type: "setSource", key: m.key, path, source })
-			}
-			onSetExtras={(extras) =>
-				dispatch({ type: "setExtras", key: m.key, extras })
-			}
 		/>
 	);
 
@@ -128,9 +121,6 @@ export default function PluginConfigurationPanel({
 			<AdvisorPanel
 				advisor={state.advisor}
 				onChangeAdvisor={(advisor) => dispatch({ type: "setAdvisor", advisor })}
-				dirty={dirty}
-				onSave={handleSave}
-				justSavedAt={justSavedAt}
 			/>
 			{error ? (
 				<div role="alert" style={S.errorBanner}>

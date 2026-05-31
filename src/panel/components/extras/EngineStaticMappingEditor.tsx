@@ -1,6 +1,7 @@
 import type * as React from "react";
 import { S } from "../../styles";
 import NumberInput from "../NumberInput";
+import { extraRows } from "./extraRows";
 import MappingTable, {
 	instanceIdColumn,
 	signalkIdColumn,
@@ -29,10 +30,7 @@ export default function EngineStaticMappingEditor({
 	value,
 	onChange,
 }: Props): React.ReactElement {
-	const rows: Row[] = Array.isArray(value.engines)
-		? (value.engines as Row[])
-		: [];
-	const setRows = (next: Row[]): void => onChange({ ...value, engines: next });
+	const { rows, setRows } = extraRows<Row>(value, "engines", onChange);
 	return (
 		<MappingTable<Row>
 			title="Engine Static Mapping (PGN 127498)"

@@ -11,6 +11,7 @@ import type {
 	SignalKApp,
 } from "../types/index.js";
 import { clamp, toValidNumber } from "../utils/validation.js";
+import { instanceList } from "./instanceOptions.js";
 
 const typeMapping: Record<string, string> = {
 	fuel: "Fuel",
@@ -27,12 +28,6 @@ const typeMapping: Record<string, string> = {
 interface TankConfig {
 	signalkPath: string;
 	instanceId: number;
-}
-
-interface TankOptions {
-	tanks: TankConfig[];
-	enabled?: boolean;
-	resend?: number;
 }
 
 export default function createTanksConversion(
@@ -55,12 +50,10 @@ export default function createTanksConversion(
 		},
 
 		conversions: (options: unknown) => {
-			const tankOptions = options as TankOptions;
-			if (!tankOptions?.tanks) {
-				return null;
-			}
+			const tanks = instanceList<TankConfig>(options, "tanks");
+			if (tanks.length === 0) return null;
 
-			const validConversions = tankOptions.tanks.map((tank) => {
+			const validConversions = tanks.map((tank) => {
 				const split = tank.signalkPath.split(".");
 				const tankType = split[1];
 

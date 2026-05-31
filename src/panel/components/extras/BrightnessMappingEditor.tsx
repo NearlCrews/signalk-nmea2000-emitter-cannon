@@ -1,5 +1,6 @@
 import type * as React from "react";
 import { S } from "../../styles";
+import { extraRows } from "./extraRows";
 import MappingTable from "./MappingTable";
 
 // signalkId is the final segment of the SK Raymarine brightness group key
@@ -21,10 +22,7 @@ export default function BrightnessMappingEditor({
 	value,
 	onChange,
 }: Props): React.ReactElement {
-	const rows: Row[] = Array.isArray(value.groups)
-		? (value.groups as Row[])
-		: [];
-	const setRows = (next: Row[]): void => onChange({ ...value, groups: next });
+	const { rows, setRows } = extraRows<Row>(value, "groups", onChange);
 	return (
 		<MappingTable<Row>
 			title="Brightness Group Mapping"

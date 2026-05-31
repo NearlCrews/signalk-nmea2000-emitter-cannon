@@ -1,5 +1,5 @@
 import type { ConversionModule, SignalKApp } from "../types/index.js";
-import { createWind130306Conversion } from "./windTrueWater.js";
+import { createWind130306Conversion } from "./windData.js";
 
 /**
  * Bridges the synthetic apparent wind that `signalk-virtual-weather-sensors`

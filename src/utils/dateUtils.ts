@@ -1,5 +1,8 @@
+const MS_PER_DAY = 86_400_000;
+
+// PGN date fields count whole days since the Unix epoch.
 export function toN2KDate(date: Date = new Date()): number {
-	return Math.trunc(date.getTime() / 86400 / 1000);
+	return Math.trunc(date.getTime() / MS_PER_DAY);
 }
 
 export function toN2KTime(date: Date = new Date()): number {

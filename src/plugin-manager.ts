@@ -86,6 +86,16 @@ interface PerConversionState {
 let activeManager: PluginManager | null = null;
 let deltaHandlerRegistered = false;
 
+/**
+ * Strip the `[N]` sub-conversion suffix from an option key
+ * (`BATTERY[0]` -> `BATTERY`). Returns the key unchanged when there is no
+ * suffix (the single-PGN path: no substring allocation).
+ */
+function stripSubIndex(key: string): string {
+	const bracket = key.indexOf("[");
+	return bracket === -1 ? key : key.substring(0, bracket);
+}
+
 // Not idempotent on a reused instance: stop() clears this.conversions and
 // removes the constructor-installed listener, so a subsequent start() on the
 // same instance is a no-op. index.ts always discards the instance after stop()
@@ -179,12 +189,14 @@ export class PluginManager {
 	constructor(
 		app: SignalKApp,
 		plugin: SignalKPlugin,
-		// Reads the factory-level latched `nmea2000Ready` flag. signalk-server
-		// passes plugins a SHALLOW COPY of `app` (see index.ts comment), so
-		// reading `app.isNmea2000OutAvailable` here returns the stale snapshot
-		// from plugin-registration time. The factory closure in index.ts owns
-		// a listener that latches the real flag and exposes it via this getter,
-		// which survives the PluginManager construct / discard cycle.
+		// Reads the factory-level `nmea2000Ready` flag from index.ts. That flag
+		// folds the registration-time `app.isNmea2000OutAvailable` snapshot
+		// together with the latched one-shot `nmea2000OutAvailable` event, so it
+		// covers both the boot-then-ready and the enabled-after-ready cases (see
+		// index.ts comment). The closure survives the PluginManager construct /
+		// discard cycle, so reading it here is correct across restarts; reading
+		// `app.isNmea2000OutAvailable` directly would only see the frozen
+		// snapshot.
 		private readonly factoryNmea2000Ready: () => boolean = () => false,
 	) {
 		this.app = app;
@@ -263,8 +275,7 @@ export class PluginManager {
 		const secondColon = afterPrefix.indexOf(":");
 		const id =
 			secondColon === -1 ? afterPrefix : afterPrefix.substring(0, secondColon);
-		const bracket = id.indexOf("[");
-		return bracket === -1 ? id : id.substring(0, bracket);
+		return stripSubIndex(id);
 	}
 
 	/**
@@ -342,11 +353,11 @@ export class PluginManager {
 			// where the listener is already attached from the constructor.
 			this.app.removeListener("nmea2000OutAvailable", this.onNmea2000Ready);
 			this.app.on("nmea2000OutAvailable", this.onNmea2000Ready);
-			// Sync check via the factory-latched flag. signalk-server's
-			// `app.isNmea2000OutAvailable` is a stale snapshot on the appCopy
-			// it gives plugins (see index.ts), so we cannot rely on it here.
-			// The factory installs its own listener once at registration time
-			// and latches the real flag, which survives PluginManager restarts.
+			// Sync readiness check via the factory flag (see index.ts): it folds
+			// the registration-time `app.isNmea2000OutAvailable` snapshot together
+			// with the latched one-shot event, so a plugin enabled after output
+			// came up still detects readiness here. Reading the appCopy snapshot
+			// directly would miss the boot-then-ready case.
 			if (this.factoryNmea2000Ready()) {
 				this.nmea2000Ready = true;
 				this.app.debug(
@@ -603,10 +614,15 @@ export class PluginManager {
 			);
 		}
 
-		// Timer-source conversions (e.g. systemTime) provide their own
-		// schedule; arming a resend timer on top would double-emit every
-		// global-resend window.
-		if (conversion.sourceType === SOURCE_TYPE.TIMER) {
+		// Timer-source conversions (e.g. systemTime) provide their own schedule;
+		// arming a resend timer on top would double-emit every global-resend
+		// window. ON_DELTA conversions (AIS) are purely event-driven: resend
+		// would re-broadcast one arbitrary stale target, so they get no timer
+		// either (see dispatchDelta).
+		if (
+			conversion.sourceType === SOURCE_TYPE.TIMER ||
+			conversion.sourceType === SOURCE_TYPE.ON_DELTA
+		) {
 			return;
 		}
 
@@ -690,9 +706,14 @@ export class PluginManager {
 	 */
 	private dispatchDelta(delta: unknown): void {
 		if (this.stopped) return;
+		// ON_DELTA conversions are purely event-driven, so we neither record
+		// lastInputs nor arm a resend timer for them (see processOutput). AIS is
+		// the only ON_DELTA module: a resend would re-broadcast a single stale
+		// target every interval (lastInputs holds just one delta), making a dead
+		// contact look live on an MFD. The arg array is identical for every
+		// delta-conversion this tick, so allocate it once.
+		const args: unknown[] = [delta];
 		for (const { conversion, options } of this.deltaConversions) {
-			const args: unknown[] = [delta];
-			this.lastInputs.set(conversion, args);
 			const result = this.invokeCallback(conversion, args, BUCKET_PREFIX.DELTA);
 			// The process-wide delta handler fires on every server-wide delta;
 			// the AIS callback returns [] for the overwhelming majority that
@@ -954,13 +975,12 @@ export class PluginManager {
 	 * every factory-bearing module (BATTERY, ENGINE_PARAMETERS, TANKS, SOLAR,
 	 * EXHAUST_TEMPERATURE, RAYMARINE_BRIGHTNESS, TEMPERATURE_*).
 	 *
-	 * `indexOf("[")` returns -1 for the single-PGN path: no substring
-	 * allocation. The sub-conversion path allocates one substring per emit,
-	 * O(parent-key length), amortized across the conversion's full traffic.
+	 * stripSubIndex does no allocation on the single-PGN path; the
+	 * sub-conversion path allocates one substring per emit, amortized across
+	 * the conversion's full traffic.
 	 */
 	private recordEmit(key: string): void {
-		const bracket = key.indexOf("[");
-		const parent = bracket === -1 ? key : key.substring(0, bracket);
+		const parent = stripSubIndex(key);
 		const entry = this.getPerConversionState(parent);
 		entry.emitCount++;
 		entry.lastEmitAt = Date.now();

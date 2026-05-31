@@ -1,10 +1,9 @@
 import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import type { ConversionModule, N2KMessage } from "../types/index.js";
-import { clampString } from "../utils/validation.js";
 import {
 	MAX_WP_LIST_WAYPOINTS,
-	MAX_WP_NAME_CHARS,
 	mapValidWaypoints,
+	toWaypointEntry,
 } from "./routeTypes.js";
 
 export default function createRouteWpListConversion(): ConversionModule {
@@ -33,12 +32,7 @@ export default function createRouteWpListConversion(): ConversionModule {
 			const wpList = mapValidWaypoints(
 				waypoints,
 				MAX_WP_LIST_WAYPOINTS,
-				(wp, index) => ({
-					wpId: wp.id ?? index + 1,
-					wpName: clampString(wp.name || `WP${index + 1}`, MAX_WP_NAME_CHARS),
-					wpLatitude: wp.position?.latitude,
-					wpLongitude: wp.position?.longitude,
-				}),
+				toWaypointEntry,
 			);
 
 			return [
@@ -51,7 +45,6 @@ export default function createRouteWpListConversion(): ConversionModule {
 						nitems: wpList.length,
 						numberOfValidWpsInTheWpList: wpList.length,
 						databaseId: 1,
-						reserved: 0,
 						list: wpList,
 					},
 				},
@@ -89,7 +82,6 @@ export default function createRouteWpListConversion(): ConversionModule {
 							databaseId: 1,
 							nitems: 3,
 							numberOfValidWpsInTheWpList: 3,
-							reserved: 0,
 							startWpId: 0,
 							list: [
 								{
@@ -138,7 +130,6 @@ export default function createRouteWpListConversion(): ConversionModule {
 							databaseId: 1,
 							nitems: 1,
 							numberOfValidWpsInTheWpList: 1,
-							reserved: 0,
 							startWpId: 0,
 							list: [
 								{

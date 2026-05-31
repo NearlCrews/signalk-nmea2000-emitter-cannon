@@ -53,13 +53,21 @@ export default function createRaymarineBrightnessConversion(
 						prio: N2K_DEFAULT_PRIORITY,
 						pgn: 126720,
 						dst: N2K_BROADCAST_DST,
+						// Fields match canboat's "Seatalk1: Display Brightness"
+						// variant (proprietaryId "Display" = 140, command1
+						// "Settings" = 12, command NUMBER match 0). The earlier
+						// shape (proprietaryId "0x0c8c", command "Brightness",
+						// stray unknown1, missing command1/shared) did not match
+						// any variant, so canboatjs could not encode a frame a
+						// Raymarine MFD would recognize.
 						fields: {
 							manufacturerCode: "Raymarine",
 							industryCode: "Marine Industry",
-							proprietaryId: "0x0c8c",
+							proprietaryId: "Display",
+							command1: "Settings",
 							group: group.groupLabel || "Helm 2",
-							unknown1: 1,
-							command: "Brightness",
+							shared: "Shared",
+							command: 0,
 							brightness: brightness * 100,
 							unknown2: 0,
 						},
@@ -69,6 +77,8 @@ export default function createRaymarineBrightnessConversion(
 			tests: [
 				{
 					input: [0.85],
+					// Expected is the canboatjs-decoded frame: the command NUMBER
+					// (emitted as 0) decodes back to its label "Brightness".
 					expected: [
 						{
 							prio: 2,
@@ -77,9 +87,10 @@ export default function createRaymarineBrightnessConversion(
 							fields: {
 								manufacturerCode: "Raymarine",
 								industryCode: "Marine Industry",
-								proprietaryId: "0x0c8c",
+								proprietaryId: "Display",
+								command1: "Settings",
 								group: "Helm 2",
-								unknown1: 1,
+								shared: "Shared",
 								command: "Brightness",
 								brightness: 85,
 								unknown2: 0,
@@ -96,6 +107,12 @@ export default function createRaymarineBrightnessConversion(
 		optionKey: "RAYMARINE_BRIGHTNESS",
 		category: "comms",
 		presets: ["raymarine"],
+		// Without testOptions the harness calls conversions({}) -> [], so the
+		// embedded round-trip test never runs. Supply one group so the 126720
+		// frame is exercised against the canboatjs encoder/decoder.
+		testOptions: {
+			groups: [{ signalkId: "0", groupLabel: "Helm 2" }],
+		},
 		conversions,
 	};
 }

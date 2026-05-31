@@ -13,6 +13,7 @@ import type {
 	SubConversionModule,
 } from "../types/index.js";
 import { isValidNumber } from "../utils/validation.js";
+import { instanceList } from "./instanceOptions.js";
 
 const TRIP_KEYS = [
 	"trip.fuelUsed",
@@ -24,12 +25,6 @@ const TRIP_KEYS = [
 interface EngineTripConfig {
 	signalkId: string | number;
 	instanceId: number;
-}
-
-interface EngineTripOptions {
-	engines?: EngineTripConfig[];
-	enabled?: boolean;
-	resend?: number;
 }
 
 type TripInputs = [number | null, number | null, number | null, number | null];
@@ -54,12 +49,12 @@ export default function createEngineTripConversion(
 		},
 
 		conversions: (options): SubConversionModule[] | null => {
-			const tripOptions = options as EngineTripOptions;
-			if (!Array.isArray(tripOptions?.engines)) return null;
+			const engines = instanceList<EngineTripConfig>(options, "engines");
+			if (engines.length === 0) return null;
 
 			const timeouts = TRIP_KEYS.map(() => DEFAULT_DATA_TIMEOUT_MS);
 
-			return tripOptions.engines.map((engine): SubConversionModule => {
+			return engines.map((engine): SubConversionModule => {
 				const callback: ConversionCallback<TripInputs> = (
 					fuelUsed,
 					fuelRateAverage,

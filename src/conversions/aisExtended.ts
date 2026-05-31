@@ -12,7 +12,9 @@ import type {
 import {
 	AIS_NAME_CHARS,
 	AIS_SAFETY_TEXT_CHARS,
+	type AisShipType,
 	parseMmsi,
+	starboardOffset,
 } from "../utils/aisUtils.js";
 import { clampString, isValidNumber } from "../utils/validation.js";
 import type { Position as GeoPosition } from "./routeTypes.js";
@@ -22,11 +24,6 @@ import type { Position as GeoPosition } from "./routeTypes.js";
 // path, so this extends the shared Position with an optional altitude.
 interface Position extends GeoPosition {
 	altitude?: number;
-}
-
-interface AisShipType {
-	id?: number;
-	name?: string;
 }
 
 // AIS safety broadcasts are intentionally infrequent: 5 minutes of staleness
@@ -211,10 +208,7 @@ export default function createAisExtendedConversions(
 				const mmsi = selfMmsi();
 				if (!mmsi) return [];
 
-				let fromStarboard: number | null = null;
-				if (isValidNumber(beam) && isValidNumber(fromCenter)) {
-					fromStarboard = beam / 2 + fromCenter;
-				}
+				const fromStarboard = starboardOffset(beam, fromCenter);
 
 				// canboat SHIP_TYPE is a numeric LOOKUP. Passing the SK
 				// `shipType.id` directly avoids the silent-encode-as-zero

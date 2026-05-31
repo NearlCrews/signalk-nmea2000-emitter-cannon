@@ -14,9 +14,11 @@ import {
 	AIS_CALLSIGN_CHARS,
 	AIS_DESTINATION_CHARS,
 	AIS_NAME_CHARS,
+	type AisShipType,
 	ATON_NAME_CHARS,
 	parseImo,
 	parseMmsi,
+	starboardOffset,
 } from "../utils/aisUtils.js";
 import { clampString, isValidNumber } from "../utils/validation.js";
 import type { Position } from "./routeTypes.js";
@@ -25,21 +27,6 @@ import type { Position } from "./routeTypes.js";
 // stops at 14, but the AIS bitfield is 4 bits and 15 is the spec default
 // for "navigation state unknown". canboatjs accepts the numeric value.
 const NAV_STATUS_NOT_DEFINED = 15;
-
-/** Distance from the starboard side: half-beam plus the offset from centerline. */
-function starboardOffset(
-	beam: number | undefined,
-	fromCenter: number | undefined,
-): number | undefined {
-	return isValidNumber(beam) && isValidNumber(fromCenter)
-		? beam / 2 + fromCenter
-		: undefined;
-}
-
-interface AisShipType {
-	id?: number;
-	name?: string;
-}
 
 interface Design {
 	length?: { overall?: number };
@@ -476,6 +463,67 @@ export default function createAisConversion(
 				],
 			},
 			{
+				// Regression (H1): 129041 geometry fields are plain SI meters
+				// (res 0.1). positionReferenceFromTrueNorthFacingEdge must
+				// round-trip fromBow unscaled, matching the sibling length,
+				// beam, and starboard fields. A re-introduced *10 scale would
+				// put 90 m on the wire for a 9 m offset.
+				input: [
+					{
+						context: "atons.urn:mrn:imo:mmsi:993672085",
+						updates: [
+							{
+								values: [
+									{ path: "", value: { name: "DIM" } },
+									{
+										path: "navigation.position",
+										value: { longitude: -76.5, latitude: 38.6 },
+									},
+									{
+										path: "atonType",
+										value: { id: 14, name: "Beacon, Starboard Hand" },
+									},
+									{ path: "design.length", value: { overall: 12 } },
+									{ path: "design.beam", value: 4 },
+									{ path: "sensors.ais.fromCenter", value: 1 },
+									{ path: "sensors.ais.fromBow", value: 9 },
+									{ path: "", value: { mmsi: "993672085" } },
+									{ path: "sensors.ais.class", value: "ATON" },
+								],
+							},
+						],
+					},
+				],
+				expected: [
+					{
+						prio: 2,
+						pgn: 129041,
+						dst: 255,
+						fields: {
+							messageId: "ATON report",
+							repeatIndicator: "Initial",
+							userId: 993672085,
+							longitude: -76.5,
+							latitude: 38.6,
+							positionAccuracy: "Low",
+							raim: "not in use",
+							timeStamp: "0",
+							lengthDiameter: 12,
+							beamDiameter: 4,
+							positionReferenceFromStarboardEdge: 3,
+							positionReferenceFromTrueNorthFacingEdge: 9,
+							atonType: "Fixed beacon: starboard hand",
+							offPositionIndicator: "No",
+							virtualAtonFlag: "No",
+							assignedModeFlag: "Autonomous and continuous",
+							spare: 1,
+							aisTransceiverInformation: "Channel A VDL reception",
+							atonName: "DIM",
+						},
+					},
+				],
+			},
+			{
 				// Regression: 129038 navStatus must respect SK navigation.state.
 				// "anchored" maps to NAV_STATUS value 1 ("At anchor"); a regression
 				// to the old reverse-lookup pattern would silently encode 0
@@ -603,7 +651,7 @@ function generateStatic(
 	vessel: Vessel,
 	mmsi: string,
 	index: Map<string, unknown>,
-): N2KMessage | null {
+): N2KMessage {
 	const name = indexedFindValue<string>(index, vessel, "name");
 	const typeObj = indexedFindValue<AisShipType>(
 		index,
@@ -723,6 +771,10 @@ function generatePosition(
 		isValidNumber(heading) && heading >= 0 && heading <= Math.PI * 2
 			? heading
 			: undefined;
+	// Guard sog/rot like cog/heading: a NaN or Infinity from a flaky provider
+	// must not reach the encoder.
+	const validSog = isValidNumber(sog) ? sog : undefined;
+	const validRot = isValidNumber(rot) ? rot : undefined;
 
 	const mmsiNumber = parseMmsi(mmsi);
 
@@ -740,10 +792,10 @@ function generatePosition(
 			raim: "not in use",
 			timeStamp: "0",
 			cog: validCog,
-			sog: sog,
+			sog: validSog,
 			aisTransceiverInformation: "Channel A VDL reception",
 			heading: validHeading,
-			rateOfTurn: rot,
+			rateOfTurn: validRot,
 			navStatus: status,
 			specialManeuverIndicator: "Not available",
 		},
@@ -790,7 +842,11 @@ function generateAtoN(
 
 	const fromStarboard = starboardOffset(beam, fromCenter);
 
-	const fromBowScaled = isValidNumber(fromBow) ? fromBow * 10 : undefined;
+	// canboat 129041 positionReferenceFromTrueNorthFacingEdge is res=0.1, unit=m;
+	// canboatjs round-trips plain SI meters, so pass fromBow unscaled to match
+	// the sibling geometry fields (lengthDiameter, beamDiameter,
+	// positionReferenceFromStarboardEdge), which are all the same spec.
+	const fromBowMeters = isValidNumber(fromBow) ? fromBow : undefined;
 	const mmsiNumber = parseMmsi(mmsi);
 
 	// SK atons.* contexts publish atonType.id as the canonical AIS Message
@@ -821,7 +877,7 @@ function generateAtoN(
 			lengthDiameter: length,
 			beamDiameter: beam,
 			positionReferenceFromStarboardEdge: fromStarboard,
-			positionReferenceFromTrueNorthFacingEdge: fromBowScaled,
+			positionReferenceFromTrueNorthFacingEdge: fromBowMeters,
 			atonType,
 			offPositionIndicator: "No",
 			virtualAtonFlag: "No",

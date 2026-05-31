@@ -1,5 +1,5 @@
 import type * as React from "react";
-import { Fragment } from "react";
+import { Fragment, memo, useCallback } from "react";
 import { pgnSummaryFor } from "../../api/pgnSummaries.js";
 import type {
 	ConversionMetadata,
@@ -11,6 +11,7 @@ import {
 } from "../../config/schema.js";
 import { pathToPropName } from "../../utils/pathUtils.js";
 import { splitPgnTitle } from "../../utils/pgnUtils.js";
+import type { Action } from "../hooks/useConfig";
 import { S } from "../styles";
 import DisclosureCaret from "./DisclosureCaret";
 import ExtrasEditor from "./ExtrasEditor";
@@ -22,11 +23,12 @@ interface Props {
 	config: ConversionConfig | undefined;
 	status: PerConversionStatus | undefined;
 	expanded: boolean;
-	onToggleExpanded: () => void;
-	onSetEnabled: (next: boolean) => void;
-	onSetResend: (ms: number) => void;
-	onSetSource: (path: string, source: string) => void;
-	onSetExtras: (extras: Record<string, unknown>) => void;
+	// dispatch and toggleCard are referentially stable (useReducer dispatch and
+	// a useCallback in the parent), and meta/config/status/expanded are stable
+	// per card unless that card's own data changes. That lets the memo() wrapper
+	// below skip re-rendering every other card on a single-field edit.
+	dispatch: React.Dispatch<Action>;
+	toggleCard: (key: string) => void;
 	sourcesFor: (p: string) => string[];
 	ensureLoaded: (p: string) => Promise<void>;
 }
@@ -80,8 +82,34 @@ function renderCardTitle(title: string): React.ReactNode {
 	);
 }
 
-export default function ConversionCard(props: Props): React.ReactElement {
+function ConversionCard(props: Props): React.ReactElement {
+	const { dispatch, toggleCard } = props;
+	const key = props.meta.key;
 	const cfg = props.config ?? EMPTY_CFG;
+
+	const onSetEnabled = useCallback(
+		(enabled: boolean) => dispatch({ type: "setEnabled", key, enabled }),
+		[dispatch, key],
+	);
+	const onSetResend = useCallback(
+		(ms: number) => dispatch({ type: "setResend", key, ms }),
+		[dispatch, key],
+	);
+	const onSetSource = useCallback(
+		(path: string, source: string) =>
+			dispatch({ type: "setSource", key, path, source }),
+		[dispatch, key],
+	);
+	const onSetExtras = useCallback(
+		(extras: Record<string, unknown>) =>
+			dispatch({ type: "setExtras", key, extras }),
+		[dispatch, key],
+	);
+	const onToggleExpanded = useCallback(
+		() => toggleCard(key),
+		[toggleCard, key],
+	);
+
 	const compatibility = props.meta.compatibility;
 	const compatStyle = compatibility
 		? COMPATIBILITY_STYLES[compatibility.garmin]
@@ -96,7 +124,7 @@ export default function ConversionCard(props: Props): React.ReactElement {
 					type="checkbox"
 					style={S.checkbox}
 					checked={cfg.enabled}
-					onChange={(e) => props.onSetEnabled(e.target.checked)}
+					onChange={(e) => onSetEnabled(e.target.checked)}
 					aria-label={`Enable ${props.meta.title}`}
 				/>
 				<button
@@ -104,7 +132,7 @@ export default function ConversionCard(props: Props): React.ReactElement {
 					style={S.cardDisclosure}
 					aria-expanded={props.expanded}
 					aria-controls={bodyId}
-					onClick={props.onToggleExpanded}
+					onClick={onToggleExpanded}
 				>
 					<DisclosureCaret expanded={props.expanded} />
 					<h3 style={S.cardTitle}>{renderCardTitle(props.meta.title)}</h3>
@@ -164,7 +192,7 @@ export default function ConversionCard(props: Props): React.ReactElement {
 						<span style={S.label}>Resend (seconds, 0 = global)</span>
 						<NumberInput
 							value={cfg.resend}
-							onChange={props.onSetResend}
+							onChange={onSetResend}
 							min={0}
 							ariaLabel={`Resend interval seconds for ${props.meta.title}`}
 						/>
@@ -180,7 +208,7 @@ export default function ConversionCard(props: Props): React.ReactElement {
 							// (via pathToPropName) is the path of last resort before
 							// the field reads empty.
 							value={cfg.sources[p] ?? cfg.sources[pathToPropName(p)] ?? ""}
-							onChange={(s) => props.onSetSource(p, s)}
+							onChange={(s) => onSetSource(p, s)}
 							sourcesFor={props.sourcesFor}
 							ensureLoaded={props.ensureLoaded}
 						/>
@@ -188,10 +216,14 @@ export default function ConversionCard(props: Props): React.ReactElement {
 					<ExtrasEditor
 						meta={props.meta.extras}
 						value={cfg.extras}
-						onChange={(e) => props.onSetExtras(e)}
+						onChange={onSetExtras}
 					/>
 				</div>
 			) : null}
 		</div>
 	);
 }
+
+// Memoized so a single-field edit re-renders only the touched card, not every
+// card in the open section (see the Props doc on why the props are stable).
+export default memo(ConversionCard);

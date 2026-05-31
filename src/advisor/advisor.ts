@@ -45,10 +45,12 @@ export interface AdvisorDeps {
 
 type ConversionMap = Record<string, ConversionConfig>;
 
-// Matches the schema default for advisor.questdb.lookbackDays. Used when the
-// configured value is missing or not a positive number: fetchHistoricPaths
-// builds a SQL `dateadd` expression and a zero/negative/NaN value produces a
-// broken QuestDB query.
+// Runtime fallback for advisor.questdb.lookbackDays when the configured value
+// is missing or not a positive number: fetchHistoricPaths builds a SQL
+// `dateadd` expression and a zero/negative/NaN value produces a broken QuestDB
+// query. Keep this in sync with the schema default (config/schema.ts) and its
+// enum default (config/enums.ts); it is a separate copy because this guards
+// unvalidated config and cannot import the validated schema default.
 const DEFAULT_LOOKBACK_DAYS = 7;
 
 export class Advisor {
@@ -87,14 +89,22 @@ export class Advisor {
 			currentConfig: conversions,
 		});
 
+		const enables = recs.filter((r) => r.action === "enable");
+		const disables = recs.filter((r) => r.action === "disable");
+		// "keep" recommendations are never surfaced (getPending and ReviewResult
+		// carry only enables and disables), and on a typical boat keeps are the
+		// majority. Enrich only the actionable subset so OpenRouter is not billed
+		// for rationales that are then discarded.
+		const actionable = [...enables, ...disables];
+
 		const openRouter = this.openRouterConfig(config);
 		if (openRouter && this.deps.enrichReasons) {
 			try {
 				const { reasons, note } = await this.deps.enrichReasons(
 					openRouter,
-					recs,
+					actionable,
 				);
-				for (const r of recs) {
+				for (const r of actionable) {
 					const enriched = reasons.get(r.optionKey);
 					if (enriched) r.reason = enriched;
 				}
@@ -108,10 +118,8 @@ export class Advisor {
 		}
 
 		const autoApply = this.autoApplyFlag(config);
-		const enables = recs.filter((r) => r.action === "enable");
-		const disables = recs.filter((r) => r.action === "disable");
 		const autoApplied = autoApply ? enables : [];
-		const pending = autoApply ? disables : [...enables, ...disables];
+		const pending = autoApply ? disables : actionable;
 		this.lastPending = pending;
 
 		if (autoApplied.length > 0) {
@@ -186,6 +194,15 @@ export class Advisor {
 			};
 		}
 		this.deps.writeConfig({ ...config, conversions });
+
+		// Drop applied items from lastPending so getPending (and the panel's
+		// /pending fetch) stop reporting already-applied recommendations. The
+		// Advisor instance outlives PluginManager restarts, so the implicit
+		// restart from writeConfig does not clear this on its own.
+		const appliedKeys = new Set(approved.map((d) => d.optionKey));
+		this.lastPending = this.lastPending.filter(
+			(r) => !appliedKeys.has(r.optionKey),
+		);
 	}
 
 	private conversionsOf(config: Record<string, unknown>): ConversionMap {

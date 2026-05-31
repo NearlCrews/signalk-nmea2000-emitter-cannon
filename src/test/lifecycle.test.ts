@@ -6,6 +6,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RootConfig } from "../config/schema.js";
+import createPlugin from "../index.js";
 import { PluginManager } from "../plugin-manager.js";
 import type {
 	N2KMessage,
@@ -218,12 +219,13 @@ describe("PluginManager lifecycle", () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
 		mock = createMockSignalKApp();
-		// Pass a factory-latched getter that returns true so start() flips
-		// nmea2000Ready via its sync-detect path. Mirrors the "plugin re-enabled
-		// after the server already announced N2K output" scenario, which is the
-		// common production case. (The constructor's third argument replaced
-		// the older reliance on `app.isNmea2000OutAvailable`, which is a stale
-		// snapshot on the appCopy signalk-server passes plugins.)
+		// Pass a factory readiness getter that returns true so start() detects
+		// readiness synchronously. The factory flag in index.ts is itself the OR
+		// of the registration-time isNmea2000OutAvailable snapshot and the
+		// latched one-shot event, so a true getter models either the
+		// re-enabled-after-boot-event case or the enabled-after-output-available
+		// case. PluginManager only reads this getter, never the appCopy snapshot
+		// directly (see index.ts).
 		manager = new PluginManager(mock.app, mockPlugin, () => true);
 	});
 
@@ -236,10 +238,10 @@ describe("PluginManager lifecycle", () => {
 		vi.useRealTimers();
 	});
 
-	it("start() registers the nmea2000OutAvailable listener and flips ready via the sync mirror", () => {
+	it("start() registers the nmea2000OutAvailable listener and flips ready via the factory flag", () => {
 		// Constructor binds the callback but does NOT attach it; start() owns
-		// the lifecycle. With isNmea2000OutAvailable=true set in beforeEach,
-		// start() flips ready via the sync-detect path.
+		// the lifecycle. With the factory readiness getter returning true (set
+		// in beforeEach), start() flips ready via its sync-detect path.
 		expect(mock.eventListenerCount()).toBe(0);
 
 		manager.start({
@@ -378,8 +380,8 @@ describe("PluginManager lifecycle", () => {
 		// Exact Issue #5 scenario: disable then re-enable from the admin UI
 		// triggers stop() then start() on the same PluginManager instance. The
 		// nmea2000OutAvailable event is one-shot at server boot, so start()'s
-		// idempotent removeListener+addListener (plus the sync-mirror check
-		// via isNmea2000OutAvailable) is what keeps the listener count at 1.
+		// idempotent removeListener+addListener (plus the sync-detect check via
+		// the factory readiness getter) is what keeps the listener count at 1.
 		for (let i = 0; i < 3; i++) {
 			manager.start(opts);
 			expect(mock.eventListenerCount()).toBe(1);
@@ -515,5 +517,69 @@ describe("PluginManager lifecycle", () => {
 		mock.pushStream("environment.depth.belowTransducer", { value: 6 });
 		await flush();
 		expect(mock.emittedMessages.length).toBe(emittedBeforeStop);
+	});
+});
+
+describe("createPlugin NMEA 2000 readiness seeding", () => {
+	beforeEach(() => {
+		vi.useFakeTimers();
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	it("seeds readiness from app.isNmea2000OutAvailable so a plugin enabled after the one-shot event still emits", async () => {
+		// Regression: when the plugin is enabled or installed after
+		// signalk-server already fired the one-shot nmea2000OutAvailable event,
+		// the listener attaches too late to ever catch it, so the
+		// registration-time snapshot is the only readiness signal. createPlugin
+		// must seed from it, otherwise processToN2K drops every PGN.
+		const mock = createMockSignalKApp();
+		(mock.app as { isNmea2000OutAvailable?: boolean }).isNmea2000OutAvailable =
+			true;
+
+		const plugin = createPlugin(mock.app);
+		plugin.start(
+			{
+				globalResendInterval: 0,
+				WIND: { enabled: true, resend: 0 },
+			} as unknown as PluginOptions,
+			() => {},
+		);
+
+		// Deliberately never fire nmea2000OutAvailable: the snapshot seed is the
+		// only thing that can mark output ready in this scenario.
+		mock.pushStream("environment.wind.angleApparent", { value: 1.5 });
+		mock.pushStream("environment.wind.speedApparent", { value: 2.0 });
+		await flush();
+
+		expect(mock.emittedMessages.length).toBeGreaterThanOrEqual(1);
+
+		plugin.stop();
+	});
+
+	it("drops output when neither the snapshot nor the event marks readiness", async () => {
+		// Control for the test above: with isNmea2000OutAvailable unset and the
+		// event never fired, readiness stays false and processToN2K drops the
+		// message rather than emitting onto a bus that is not ready.
+		const mock = createMockSignalKApp();
+
+		const plugin = createPlugin(mock.app);
+		plugin.start(
+			{
+				globalResendInterval: 0,
+				WIND: { enabled: true, resend: 0 },
+			} as unknown as PluginOptions,
+			() => {},
+		);
+
+		mock.pushStream("environment.wind.angleApparent", { value: 1.5 });
+		mock.pushStream("environment.wind.speedApparent", { value: 2.0 });
+		await flush();
+
+		expect(mock.emittedMessages).toEqual([]);
+
+		plugin.stop();
 	});
 });

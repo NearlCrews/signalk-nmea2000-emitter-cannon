@@ -13,7 +13,9 @@ import { toN2KDateTime } from "../utils/dateUtils.js";
 import { getSelfValue } from "../utils/pathUtils.js";
 import { isValidNumber } from "../utils/validation.js";
 
-interface Position {
+// Distinct from routeTypes' Position (which has optional lat/lon and no
+// altitude): the GPS callback requires a fixed lat/lon and accepts altitude.
+interface GpsPosition {
 	latitude: number;
 	longitude: number;
 	altitude?: number;
@@ -23,7 +25,7 @@ const GNSS_RATE_LIMIT_MS = 1000;
 
 export default function createGpsConversion(
 	app: SignalKApp,
-): ConversionModule<[Position | null]> {
+): ConversionModule<[GpsPosition | null]> {
 	let lastUpdate: number | null = null;
 
 	return {
@@ -32,7 +34,7 @@ export default function createGpsConversion(
 		category: "navigation",
 		presets: ["basic-nav"],
 		keys: ["navigation.position"],
-		callback: ((position: Position | null) => {
+		callback: ((position: GpsPosition | null) => {
 			if (!position || typeof position !== "object") {
 				return [];
 			}
@@ -111,7 +113,7 @@ export default function createGpsConversion(
 			}
 
 			return res;
-		}) as ConversionCallback<[Position | null]>,
+		}) as ConversionCallback<[GpsPosition | null]>,
 
 		tests: [
 			{

@@ -5,29 +5,22 @@ import type { Config } from "../../../config/schema.js";
 import { useAdvisor } from "../../hooks/useAdvisor.js";
 import { S } from "../../styles";
 import DisclosureCaret from "../DisclosureCaret.js";
-import SaveStatus from "../SaveStatus.js";
 import AdvisorSettings from "./AdvisorSettings.js";
 import ReviewResultView from "./ReviewResultView.js";
 
 interface Props {
 	advisor: Config["advisor"];
 	onChangeAdvisor: (next: NonNullable<Config["advisor"]>) => void;
-	dirty: boolean;
-	onSave: () => void;
-	/** Epoch ms of the last successful save, or null. Drives the Saved pill. */
-	justSavedAt: number | null;
 }
 
 /**
  * Collapsible "Config Advisor" section: the settings form, a Review now
- * button, the result, and per-item Approve/Reject.
+ * button, the result, and per-item Approve/Reject. Persisting advisor settings
+ * uses the panel's single footer Save, so this section has no Save of its own.
  */
 export default function AdvisorPanel({
 	advisor,
 	onChangeAdvisor,
-	dirty,
-	onSave,
-	justSavedAt,
 }: Props): React.ReactElement {
 	const [open, setOpen] = useState(false);
 	const { state, review, apply } = useAdvisor();
@@ -105,17 +98,6 @@ export default function AdvisorPanel({
 							)}
 						</div>
 					)}
-					<div style={S.advisorSaveRow}>
-						<button
-							type="button"
-							style={S.btnPrimary}
-							onClick={onSave}
-							disabled={!dirty}
-						>
-							Save
-						</button>
-						<SaveStatus dirty={dirty} justSavedAt={justSavedAt} />
-					</div>
 				</div>
 			)}
 		</section>

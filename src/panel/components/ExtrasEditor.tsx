@@ -40,5 +40,13 @@ export default function ExtrasEditor({
 		case "field":
 		case "fields":
 			return <FieldEditor meta={meta} value={value} onChange={onChange} />;
+		default: {
+			// Exhaustiveness guard: adding a new ExtrasMeta variant without a
+			// case above becomes a compile error here rather than silently
+			// returning undefined (which violates the ReactElement | null
+			// contract).
+			const _exhaustive: never = meta;
+			return _exhaustive;
+		}
 	}
 }

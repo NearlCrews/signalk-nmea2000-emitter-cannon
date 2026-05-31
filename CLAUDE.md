@@ -68,7 +68,7 @@ The registry `src/conversions/index.ts` imports all factories and exports `creat
 ### Type System
 - `src/types/plugin.ts` - `ConversionModule<T>`, `SignalKPlugin`, plugin interfaces
 - `src/types/nmea2000.ts` - `N2KMessage`, field validation types
-- `src/types/signalk.ts` - `SignalKApp` (extends `ServerAPI` with the `nmea2000JsonOut` / `nmea2000OutAvailable` event signatures) and `JSONSchema`
+- `src/types/signalk.ts` - `SignalKApp` (extends `ServerAPI` with the `nmea2000JsonOut` / `nmea2000OutAvailable` event signatures, the `isNmea2000OutAvailable` sync mirror, and the `securityStrategy.addAdminMiddleware` hook)
 
 ### Utilities
 - `src/utils/messageUtils.ts` - N2K message validation (`validateN2KMessage`), formatting (`formatN2KMessage`), cleaning (`cleanN2KMessage`)
@@ -79,15 +79,17 @@ The registry `src/conversions/index.ts` imports all factories and exports `creat
 - `src/utils/notificationUtils.ts` - `isClearState(state)`: true for the non-alert Signal K states (`normal`, `nominal`); shared by `notifications.ts` and `raymarineAlarms.ts`
 - `src/utils/smoothing.ts` - `ExponentialSmoother` class for sensor data smoothing
 - `src/constants.ts` - Standard N2K values (`N2K_DEFAULT_PRIORITY`, `N2K_BROADCAST_DST`, `N2K_DEFAULT_SID`, `N2K_SID_ZERO`, `N2K_DEFAULT_INSTANCE`, `DEFAULT_DATA_TIMEOUT_MS`, `VESSELS_SELF_CONTEXT`, `STREAM_DEBOUNCE_MS`)
-- `src/conversions/routeTypes.ts` - Shared `Position`/`Waypoint` interfaces, `DEFAULT_ROUTE_NAME`, per-PGN waypoint capacity constants (`MAX_RPS_WAYPOINTS`, `MAX_WP_LIST_WAYPOINTS`), and name-length caps (`MAX_WP_NAME_CHARS`, `MAX_ROUTE_NAME_CHARS`)
+- `src/conversions/routeTypes.ts` - Shared `Position`/`Waypoint` interfaces, `DEFAULT_ROUTE_NAME`, per-PGN waypoint capacity constants (`MAX_RPS_WAYPOINTS`, `MAX_WP_LIST_WAYPOINTS`), name-length caps (`MAX_WP_NAME_CHARS`, `MAX_ROUTE_NAME_CHARS`), the shared `markTypeFor()` mark-type mapping (PGN 129301/129302), and `toWaypointEntry()` (the shared 0-based waypoint-list row builder for PGN 129285/130074)
+- `src/conversions/instanceOptions.ts` - `instanceList(options, key)`: reads a per-instance config array (engines, batteries, chargers, tanks, groups) off a factory module's options, returning `[]` for a non-array so a malformed config cannot reach `.map` and throw
+- `src/conversions/windData.ts` - `createWind130306Conversion()`: the shared PGN 130306 (Wind Data) builder used by the apparent, true-over-water, true-over-ground, and weather-forecast wind modules
 
 ### Configuration Schema
 `src/config/schema.ts` defines the TypeBox `RootConfig` schema. `Plugin.schema` returns the TypeBox value directly (it IS a valid JSON Schema literal at runtime). Adding a new conversion does NOT require new schema entries because `Conversion` already accepts a `Record<string, ConversionConfig>` with `enabled`, `resend`, `sources`, and `extras` per key. Per-conversion identity comes from each module's `category` and optional `presets` metadata.
 
 ## Testing
 
-Tests live in `src/test/` across 13 files (`advisor-config.test.ts`, `advisor.test.ts`, `api.test.ts`, `discovery.test.ts`, `index.test.ts`, `lifecycle.test.ts`, `migrate.test.ts`, `pathUtils.test.ts`, `schedule.test.ts`, `smoothing.test.ts`, `status.test.ts`, `temperature.test.ts`, `useConfig.test.ts`). The conversion-module test cases live embedded in each module's `tests` array, run by `src/test/index.test.ts`. The full suite (113 tests):
-1. Loads all 46 conversion modules
+Tests live in `src/test/` across 13 files (`advisor-config.test.ts`, `advisor.test.ts`, `api.test.ts`, `discovery.test.ts`, `index.test.ts`, `lifecycle.test.ts`, `migrate.test.ts`, `pathUtils.test.ts`, `schedule.test.ts`, `smoothing.test.ts`, `status.test.ts`, `temperature.test.ts`, `useConfig.test.ts`). The conversion-module test cases live embedded in each module's `tests` array, run by `src/test/index.test.ts`. The full suite (118 tests):
+1. Loads every conversion module (the registry expands the 46 source modules into 75 runtime conversion objects via the per-instance factories; `index.test.ts` pins the 75)
 2. Validates each module has test cases
 3. Runs embedded tests against CanboatJS encoder/decoder
 
@@ -128,11 +130,11 @@ app.error(err as Error);
 ```
 
 ### Plugin Status Reporting
-Use these methods for UI visibility in the Signal K admin panel. `plugin-manager.ts` already implements the four canonical states:
+Use these methods for UI visibility in the Signal K admin panel. `plugin-manager.ts` already implements the five canonical states:
 - `Starting...` at the top of `start()`
 - `Running with N conversions enabled` once N>0 and `nmea2000Ready` is true
 - `No conversions enabled. Enable at least one in plugin settings.` when N=0
-- `Waiting for NMEA 2000 output (N conversions enabled)` when N>0 but `nmea2000OutAvailable` has not yet fired (refreshed automatically by the listener that `start()` attaches; `start()` also reads `app.isNmea2000OutAvailable` synchronously so a plugin restarted after the one-shot event already fired still goes straight to running)
+- `Waiting for NMEA 2000 output (N conversions enabled)` when N>0 but readiness has not yet been detected (refreshed automatically by the listener that `start()` attaches; the factory in `index.ts` seeds readiness from `app.isNmea2000OutAvailable` at registration and latches the one-shot `nmea2000OutAvailable` event, and `start()` reads that factory flag, so a plugin enabled or restarted after the event already fired still goes straight to running)
 - `Stopped` on `stop()`
 
 Brand: use "NMEA 2000" (with space) in user-facing strings (status, schema text, README, CHANGELOG, comments). Event identifiers like `nmea2000OutAvailable` / `nmea2000JsonOut` stay as the API names. Em dashes are banned everywhere.
@@ -140,8 +142,11 @@ Brand: use "NMEA 2000" (with space) in user-facing strings (status, schema text,
 ### NMEA 2000 Output Readiness
 Wait for the `nmea2000OutAvailable` event before emitting messages. `PluginManager` already does this:
 - The constructor binds `onNmea2000Ready` (so `stop()` can `removeListener` the exact same reference) but does NOT attach it: `start()` owns the lifecycle so a constructed-but-never-started instance does not leak a listener.
-- `start()` removes-then-adds the listener idempotently, and reads `app.isNmea2000OutAvailable` (the sync mirror that `signalk-server >= 2.x` maintains) so a plugin re-enabled after the one-shot `nmea2000OutAvailable` event already fired still detects readiness.
+- `start()` removes-then-adds the listener idempotently, and reads the factory readiness flag via `factoryNmea2000Ready()`. The factory closure in `index.ts` seeds that flag from the registration-time `app.isNmea2000OutAvailable` snapshot (the sync mirror that `signalk-server >= 2.x` maintains) and latches the one-shot `nmea2000OutAvailable` event, so a plugin enabled or re-enabled after the event already fired still detects readiness. Honouring only the event dropped every PGN for a plugin enabled after output came up.
 - The listener checks the `stopped` flag before flipping `nmea2000Ready` and refreshes the status from `Waiting for NMEA 2000 output (...)` to the running form via `lastEnabledCount`.
+
+### Delta-source conversions (ON_DELTA)
+AIS (`ais.ts`) is the only `ON_DELTA` module: it runs off the process-wide delta input handler (`dispatchDelta`), not a path subscription. ON_DELTA conversions are purely event-driven, so `dispatchDelta` records no `lastInputs` for them and `processOutput` arms no resend timer (it early-returns for `ON_DELTA`, same as for `TIMER`). A resend would re-broadcast a single arbitrary target every interval, which makes a dead AIS contact look live on an MFD; AIS must emit only when a fresh delta arrives. `aisExtended.ts` (own-vessel reports) rides the subscription path and keeps normal resend.
 
 ### Error Throttling
 Per-callback errors route through `PluginManager.throttledError(key, message)` with a per-key 60s window. Use `bucketKey(prefix, conversion, suffix?)` to build the key: it normalizes the `optionKey ?? title ?? "?"` fallback chain. Apply uniformly to every error path (callback, processOutput, resend, subscription, RxJS stream `error`); asymmetric coverage leaves a log-flood surface open. `start()` and `stop()` both clear `errorBuckets` so the next lifecycle begins fresh.
@@ -157,10 +162,12 @@ const labeled: ConversionModule =
         ...subConversion,
         optionKey: `${conv.optionKey}[${idx}]`,
         title: subConversion.title ?? `${conv.title} #${idx}`,
+        category: conv.category,
+        ...(conv.presets ? { presets: conv.presets } : {}),
       };
 ```
 
-Spread (not mutation): conversion modules are loaded once in the PluginManager constructor and reused across start/stop cycles, so mutating the source would leak annotations between cycles. The `subConversion === conv` guard preserves the single-PGN path. Result: each sub-conversion gets a unique throttle bucket key (`callback:BATTERY[0]:stream`) and a useful log label (`Battery (PGNs 127506, 127508) #0 [BATTERY[0]]`).
+Spread (not mutation): conversion modules are loaded once in the PluginManager constructor and reused across start/stop cycles, so mutating the source would leak annotations between cycles. The sub-conversion inherits the parent's `category` and `presets` so the panel groups it correctly. The `subConversion === conv` guard preserves the single-PGN path. Result: each sub-conversion gets a unique throttle bucket key (`callback:BATTERY[0]:stream`) and a useful log label (`Battery (PGNs 127506, 127508) #0 [BATTERY[0]]`).
 
 ### Notification PGNs (126983 / 126985)
 
@@ -211,7 +218,7 @@ Adding a new conversion now requires:
 
 Source discovery: `enumerateSourcesForPath` uses `app.getSelfPath(path)` because `app.getPath("vessels.self.<path>")` does NOT resolve the `self` indirection. The `/sources` tree on the Signal K server is unrelated: it stores device metadata, not path-keyed source listings.
 
-`PluginManager.recordEmit` aggregates per-conversion emit counters by stripping the `[N]` suffix used for sub-conversion bucket keys, so totals are reported under the parent `optionKey`. The `/api/status` snapshot walks all source-type bucket suffixes (delta, stream, subscription, timer) and matches both parent and sub-conversion key forms so a flaky sub-conversion still surfaces as an error indicator on the parent card.
+`PluginManager.recordEmit` aggregates per-conversion emit counters by stripping the `[N]` suffix used for sub-conversion bucket keys (via the shared `stripSubIndex()` helper, also used by `parentKeyFromBucketKey`), so totals are reported under the parent `optionKey`. The `/api/status` snapshot walks all source-type bucket suffixes (delta, stream, subscription, timer) and matches both parent and sub-conversion key forms so a flaky sub-conversion still surfaces as an error indicator on the parent card.
 
 ## Config Advisor (`src/advisor/`)
 

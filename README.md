@@ -14,21 +14,19 @@ plugins such as [`signalk-virtual-weather-sensors`](https://github.com/NearlCrew
 > Built on the foundation of [`signalk-to-nmea2000`](https://github.com/SignalK/signalk-to-nmea2000)
 > by Scott Bender and the Signal K community.
 
-## What's New in v1.7.0
+## What's New in v1.7.1
 
-v1.7.0 lands three wire-correctness fixes that were each masked by dead or
-missing tests: NMEA 2000 readiness could latch false and silently drop every
-PGN when the plugin was enabled after output was already available, the Aid to
-Navigation PGN 129041 emitted a distance ten times too large, and the Raymarine
-PGN 126720 brightness frame was undecodable. AIS is now event-driven only and
-no longer re-broadcasts a stale target on a timer. The rest is a whole-repo
-cleanup: dead code removed, duplicated logic consolidated into shared helpers, a
-malformed per-instance config can no longer crash a conversion, and the admin
-panel no longer drops keyboard focus while editing a source. No breaking
-changes; the test suite grew from 113 to 118.
+v1.7.1 is a bug-fix release from a five-agent code review with NMEA 2000 and
+Garmin specialists. The route PGNs 129285 and 130074 now pack waypoints against
+the real 223-byte fast-packet limit instead of silently emitting frames an MFD
+cannot reassemble, and every unsigned angle field is normalized before encoding
+so a negative heading can no longer appear roughly 15 degrees off on the
+display. The Config Advisor's apply endpoint is validated and allow-listed on
+both layers, partially-saved legacy configs no longer crash the admin panel,
+and the test suite grew from 118 to 135. No breaking changes.
 
-See the [v1.7.0 changelog entry](CHANGELOG.md#v170) and the
-[v1.7.0 release](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/releases/tag/v1.7.0).
+See the [v1.7.1 changelog entry](CHANGELOG.md#v171) and the
+[v1.7.1 release](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/releases/tag/v1.7.1).
 [Full release history](CHANGELOG.md).
 
 ## Features
@@ -134,8 +132,8 @@ payloads migrate transparently the first time the panel loads them.
 
 - **Signal K Server**: 2.x (the React config panel loads on every 2.x admin UI)
 - **Node.js**: 22.12+
-- **CanboatJS**: 3.13.0+
-- **`@signalk/server-api`**: 2.10.2+
+- **CanboatJS**: tested with 3.20 (bundled into the build, not a runtime install)
+- **`@signalk/server-api`**: tested with 2.25 (type definitions only)
 - **TypeScript**: 6.0+ (development only)
 
 ## License

@@ -79,7 +79,7 @@ The registry `src/conversions/index.ts` imports all factories and exports `creat
 - `src/utils/notificationUtils.ts` - `isClearState(state)`: true for the non-alert Signal K states (`normal`, `nominal`); shared by `notifications.ts` and `raymarineAlarms.ts`
 - `src/utils/smoothing.ts` - `ExponentialSmoother` class for sensor data smoothing
 - `src/constants.ts` - Standard N2K values (`N2K_DEFAULT_PRIORITY`, `N2K_BROADCAST_DST`, `N2K_DEFAULT_SID`, `N2K_SID_ZERO`, `N2K_DEFAULT_INSTANCE`, `DEFAULT_DATA_TIMEOUT_MS`, `VESSELS_SELF_CONTEXT`, `STREAM_DEBOUNCE_MS`)
-- `src/conversions/routeTypes.ts` - Shared `Position`/`Waypoint` interfaces, `DEFAULT_ROUTE_NAME`, per-PGN waypoint capacity constants (`MAX_RPS_WAYPOINTS`, `MAX_WP_LIST_WAYPOINTS`), name-length caps (`MAX_WP_NAME_CHARS`, `MAX_ROUTE_NAME_CHARS`), the shared `markTypeFor()` mark-type mapping (PGN 129301/129302), and `toWaypointEntry()` (the shared 0-based waypoint-list row builder for PGN 129285/130074)
+- `src/conversions/routeTypes.ts` - Shared `Position`/`Waypoint` interfaces, `DEFAULT_ROUTE_NAME`, waypoint candidate ceilings (`MAX_RPS_WAYPOINTS`, `MAX_WP_LIST_WAYPOINTS`), name-length caps (`MAX_WP_NAME_CHARS`, `MAX_ROUTE_NAME_CHARS`), the shared `markTypeFor()` mark-type mapping (PGN 129301/129302), `toWaypointEntry()` (the shared 0-based waypoint-list row builder for PGN 129285/130074), and `packWaypointsToBudget()` plus `FAST_PACKET_MAX_BYTES`. PGN 129285 and 130074 are variable-length fast-packet route frames, so the on-wire waypoint count is bounded by the encoded byte size (<= 223 bytes), not a fixed constant: `packWaypointsToBudget()` greedily trims the list against the per-PGN header (10 bytes for 130074, `12 + routeName.length` for 129285) and the real STRING_LAU name lengths so a long route never emits an untransmittable frame. The `MAX_*_WAYPOINTS` constants are now just upper candidate ceilings.
 - `src/conversions/instanceOptions.ts` - `instanceList(options, key)`: reads a per-instance config array (engines, batteries, chargers, tanks, groups) off a factory module's options, returning `[]` for a non-array so a malformed config cannot reach `.map` and throw
 - `src/conversions/windData.ts` - `createWind130306Conversion()`: the shared PGN 130306 (Wind Data) builder used by the apparent, true-over-water, true-over-ground, and weather-forecast wind modules
 
@@ -88,7 +88,7 @@ The registry `src/conversions/index.ts` imports all factories and exports `creat
 
 ## Testing
 
-Tests live in `src/test/` across 13 files (`advisor-config.test.ts`, `advisor.test.ts`, `api.test.ts`, `discovery.test.ts`, `index.test.ts`, `lifecycle.test.ts`, `migrate.test.ts`, `pathUtils.test.ts`, `schedule.test.ts`, `smoothing.test.ts`, `status.test.ts`, `temperature.test.ts`, `useConfig.test.ts`). The conversion-module test cases live embedded in each module's `tests` array, run by `src/test/index.test.ts`. The full suite (118 tests):
+Tests live in `src/test/` across 13 files (`advisor-config.test.ts`, `advisor.test.ts`, `api.test.ts`, `discovery.test.ts`, `index.test.ts`, `lifecycle.test.ts`, `migrate.test.ts`, `pathUtils.test.ts`, `schedule.test.ts`, `smoothing.test.ts`, `status.test.ts`, `temperature.test.ts`, `useConfig.test.ts`). The conversion-module test cases live embedded in each module's `tests` array, run by `src/test/index.test.ts`. The full suite (135 tests):
 1. Loads every conversion module (the registry expands the 46 source modules into 75 runtime conversion objects via the per-instance factories; `index.test.ts` pins the 75)
 2. Validates each module has test cases
 3. Runs embedded tests against CanboatJS encoder/decoder
@@ -98,7 +98,7 @@ Tests live in `src/test/` across 13 files (`advisor-config.test.ts`, `advisor.te
 ## Key Technical Details
 
 - **Runtime**: Node.js 22.12+, pure ESM modules
-- **Build**: esbuild bundles to single `dist/index.mjs` (currently ~350 KB)
+- **Build**: esbuild bundles to single `dist/index.mjs` (currently ~365 KB)
 - **Externals**: rxjs is the only runtime dependency (esbuild `--external:rxjs`). `@signalk/server-api` is a devDependency used for types only and MUST stay a type-only import: a value import (e.g. its `hasValues`) bundles the whole package, whose dynamic `require("events")` throws at load ("Dynamic require of events is not supported"), so the plugin keeps local copies of any such guards (see `notifications.ts`).
 - **Reactivity**: RxJS for Signal K data subscriptions (Signal K server uses BaconJS internally)
 - **N2K Message Format**: CanboatJS format: `{ prio, pgn, dst, fields: {...} }`
@@ -197,7 +197,7 @@ PGN 126984 (Alert Response, inbound) is NOT handled. Acknowledgements from an MF
 
 As of v1.5.4 the plugin's admin config UI is a webpack 5 Module Federation remote built into `public/remoteEntry.js` plus chunked `public/*.js` from `src/panel/`. The Signal K admin loads it because `package.json` `keywords` include `signalk-plugin-configurator`. Component contract: default export `PluginConfigurationPanel({ configuration, save })`. `save` is fire-and-forget, returns void; the next `configuration` prop reflects the saved state.
 
-Live data comes from an Express router mounted via `Plugin.registerWithRouter` under `/plugins/signalk-nmea2000-emitter-cannon/api/` with these endpoints: `/status`, `/conversions`, `/paths`, `/sources`. The router calls `app.securityStrategy.addAdminMiddleware` on the API prefix so unauthenticated requests are rejected. If the running server does not expose that hook, the router logs a warning and the endpoints stay open (compat fallback for older signalk-server builds).
+Live data comes from an Express router mounted via `Plugin.registerWithRouter` under `/plugins/signalk-nmea2000-emitter-cannon/api/` with these endpoints: `/status`, `/conversions`, `/paths`, `/sources`. The router calls `app.securityStrategy.addAdminMiddleware` on the API prefix so unauthenticated requests are rejected. If the running server does not expose that hook, the router logs a warning and only the read-only GET endpoints stay open (compat fallback for older signalk-server builds); the mutating advisor routes (`/advisor/review`, `/advisor/apply`, `/advisor/test-key`) fail closed with 403.
 
 Config shape: TypeBox at `src/config/schema.ts`. `Plugin.schema` returns the TypeBox value directly (a valid JSON Schema literal at runtime). `Static<typeof RootConfig>` derives the `Config` TypeScript type. Migration of v1.4.x payloads runs once at `useConfig` init in the panel (synchronously imported from `src/config/migrate.ts`). The on-disk shape is now `conversions: { KEY: { enabled, resend, sources, extras } }`; the load-time migration accepts the old flat shape and normalizes it.
 

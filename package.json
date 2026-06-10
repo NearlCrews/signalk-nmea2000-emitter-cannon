@@ -25,7 +25,6 @@
 		"typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.panel.json && tsc --noEmit -p tsconfig.test.json",
 		"clean": "node scripts/clean.mjs",
 		"hooks": "husky",
-		"prepack": "npm run build",
 		"create-release": "gh release create v$npm_package_version --generate-notes",
 		"release": "git rev-parse \"v$npm_package_version\" >/dev/null 2>&1 && { echo \"tag v$npm_package_version already exists\"; exit 1; } ; git tag v$npm_package_version && git push --tags && git push && npm run create-release"
 	},
@@ -103,7 +102,7 @@
 		"lint-staged": "^17.0.4",
 		"react": "^19.2.6",
 		"react-dom": "^19.2.6",
-		"sharp": "^0.34.5",
+		"sharp": "^0.35.0",
 		"signalk-server": "^2.27.0",
 		"supertest": "^7.2.2",
 		"tsx": "^4.21.0",

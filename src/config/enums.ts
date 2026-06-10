@@ -14,6 +14,20 @@ export const Categories = [
 ] as const;
 export type ConversionCategory = (typeof Categories)[number];
 
+// Display labels for each category. Shared by every panel surface that renders
+// a category name (the tabs, the search-result group headers, the setup wizard)
+// so the casing stays consistent, notably "AIS" rather than a naive "Ais".
+export const CategoryLabels: Record<ConversionCategory, string> = {
+	navigation: "Navigation",
+	engine: "Engine",
+	electrical: "Electrical",
+	tanks: "Tanks",
+	environment: "Environment",
+	ais: "AIS",
+	comms: "Comms",
+	system: "System",
+};
+
 export const PresetTags = [
 	"basic-nav",
 	"engine-set",

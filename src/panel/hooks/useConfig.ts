@@ -1,5 +1,12 @@
 import type * as React from "react";
-import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
+import {
+	useCallback,
+	useEffect,
+	useMemo,
+	useReducer,
+	useRef,
+	useState,
+} from "react";
 import type { ConversionMetadata } from "../../api/types.js";
 import type { PresetTag } from "../../config/enums.js";
 import { migrateLegacyConfig } from "../../config/migrate.js";
@@ -112,6 +119,60 @@ function reducer(state: Config, action: Action): Config {
 	}
 }
 
+/**
+ * Three-way merge of an externally changed configuration into the user's
+ * in-progress edits, so a dirty panel can absorb an advisor write (the "Review
+ * now" button, a scheduled review) without either clobbering the user's
+ * unsaved edits or having the next Save clobber the advisor's writes.
+ *
+ * The three inputs are the classic merge triple:
+ *   - `base`   the last config the panel and server agreed on (the saved
+ *              baseline / common ancestor)
+ *   - `ours`   the user's current reducer state, with unsaved edits
+ *   - `theirs` the new external configuration the host just handed us
+ *
+ * Merge rule, at per-conversion-entry granularity plus globalResendInterval and
+ * the whole advisor block: for every key the user has NOT touched (`ours` is
+ * identity-equal to `base` for that key) adopt `theirs`; for every key the user
+ * HAS touched keep `ours`. The user wins on a conflicting key. Identity
+ * equality is sound because every reducer case returns a fresh object only for
+ * the field it changes, so an untouched entry keeps its `base` reference while
+ * a touched one gets a new reference.
+ *
+ * The caller pairs this with `setSavedState(theirs)`: the merged result becomes
+ * the new reducer state, `theirs` becomes the new baseline, so Save persists
+ * the merged config and Discard reverts to the latest external state.
+ */
+export function mergeExternalConfig(
+	base: Config,
+	ours: Config,
+	theirs: Config,
+): Config {
+	const conversions: Record<string, ConversionConfig> = {};
+	const keys = new Set<string>([
+		...Object.keys(theirs.conversions),
+		...Object.keys(ours.conversions),
+	]);
+	for (const key of keys) {
+		const ourEntry = ours.conversions[key];
+		// Untouched (ours === base for this key): adopt the external entry, which
+		// may add, change, or drop it. Touched: keep the user's edit verbatim.
+		const entry =
+			ourEntry === base.conversions[key] ? theirs.conversions[key] : ourEntry;
+		if (entry !== undefined) conversions[key] = entry;
+	}
+	const merged: Config = {
+		globalResendInterval:
+			ours.globalResendInterval === base.globalResendInterval
+				? theirs.globalResendInterval
+				: ours.globalResendInterval,
+		conversions,
+	};
+	const advisor = ours.advisor === base.advisor ? theirs.advisor : ours.advisor;
+	if (advisor !== undefined) merged.advisor = advisor;
+	return merged;
+}
+
 export function useConfig(initial: unknown): {
 	state: Config;
 	savedState: Config;
@@ -134,18 +195,33 @@ export function useConfig(initial: unknown): {
 	const markSaved = useCallback(() => {
 		setSavedState(state);
 	}, [state]);
-	// Adopt an externally changed `configuration` prop. The advisor writes
-	// config server-side (the "Review now" button, scheduled reviews), and the
-	// next prop reflects that saved state. Adopt it only when the panel has no
-	// unsaved edits (state === savedState), so an in-flight user edit is never
-	// discarded. The JSON.stringify deep compare is deliberate here: it runs
-	// only on a prop change while not dirty, never per keystroke, and `incoming`
-	// is a fresh object each render so identity equality cannot stand in.
+	// Tracks the last `incoming` object identity we reconciled against. `incoming`
+	// is memoized on `initial`, so its identity changes only when the host hands
+	// the panel a new `configuration` prop (an advisor write, a scheduled review),
+	// never on a local keystroke. Gating on this ref keeps the deep compare and
+	// the merge off the per-edit render path, and stops a stale prop from
+	// reverting a fresh local Save before the host echoes it back.
+	const reconciledIncoming = useRef(incoming);
+	// Reconcile an externally changed `configuration` prop with local state.
+	//   - Clean panel: adopt the external config wholesale (old behavior).
+	//   - Dirty panel: three-way merge so the user's edits survive AND the
+	//     advisor's writes survive. See mergeExternalConfig for the rule.
+	// Either way `savedState` becomes the external config (the new baseline), so
+	// Save persists the reconciled result and Discard reverts to the external
+	// state, never to a pre-advisor snapshot.
 	useEffect(() => {
-		if (state !== savedState) return;
+		if (incoming === reconciledIncoming.current) return;
+		reconciledIncoming.current = incoming;
+		// `incoming` is a fresh object each time `initial` changes, so identity
+		// cannot stand in for "did anything actually change"; the deep compare
+		// runs here only on a genuine prop change, not per keystroke.
 		if (JSON.stringify(incoming) === JSON.stringify(savedState)) return;
+		const next =
+			state === savedState
+				? incoming
+				: mergeExternalConfig(savedState, state, incoming);
 		setSavedState(incoming);
-		dispatch({ type: "discard", config: incoming });
+		dispatch({ type: "discard", config: next });
 	}, [incoming, state, savedState]);
 	return { state, savedState, dispatch, markSaved };
 }

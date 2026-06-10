@@ -1,15 +1,22 @@
 import type * as React from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ConversionMetadata, PerConversionStatus } from "../api/types.js";
-import { Categories, type ConversionCategory } from "../config/enums";
+import {
+	Categories,
+	CategoryLabels,
+	type ConversionCategory,
+} from "../config/enums";
 import AdvisorPanel from "./components/advisor/AdvisorPanel";
 import CategoryTabs from "./components/CategoryTabs";
 import CollapsibleSection from "./components/CollapsibleSection";
 import ConversionCard from "./components/ConversionCard";
+import FirstRunWizard from "./components/FirstRunWizard";
 import FooterBar from "./components/FooterBar";
 import GlobalSettings from "./components/GlobalSettings";
 import PresetChips from "./components/PresetChips";
 import StatusDashboard from "./components/StatusDashboard";
+import StatusView from "./components/StatusView";
+import ThemeToggle from "./components/ThemeToggle";
 import { useConfig } from "./hooks/useConfig";
 import { useMeta } from "./hooks/useMeta";
 import { useSources } from "./hooks/useSources";
@@ -22,16 +29,41 @@ interface Props {
 	save: (configuration: unknown) => void;
 }
 
+type PanelView = "configure" | "status";
+
+// Status keys for factory sub-conversions carry a `[N]` index suffix
+// (e.g. `BATTERY[0]`); strip it to recover the parent catalog key.
+function stripSubIndex(key: string): string {
+	return key.replace(/\[\d+\]$/, "");
+}
+
+// A conversion matches the catalog search when the needle (already lower-cased)
+// appears in its title, one of its PGN numbers, or one of its Signal K paths.
+function matchesQuery(m: ConversionMetadata, needle: string): boolean {
+	if (m.title.toLowerCase().includes(needle)) return true;
+	for (const p of m.pgns) if (p.includes(needle)) return true;
+	for (const p of m.paths) if (p.toLowerCase().includes(needle)) return true;
+	return false;
+}
+
 export default function PluginConfigurationPanel({
 	configuration,
 	save,
 }: Props): React.ReactElement {
-	const { status, error } = useStatus();
+	const { status, error, lastUpdatedMs } = useStatus();
 	const { state, savedState, dispatch, markSaved } = useConfig(configuration);
 	const { sourcesFor, ensureLoaded } = useSources();
 	const { meta, metaError, metaLoading, reload: reloadMeta } = useMeta();
 	const [tab, setTab] = useState<ConversionCategory>("navigation");
+	const [view, setView] = useState<PanelView>("configure");
 	const [justSavedAt, setJustSavedAt] = useState<number | null>(null);
+	const [wizardOpen, setWizardOpen] = useState(false);
+	const [advisorPending, setAdvisorPending] = useState(0);
+	// Raw search box value plus its debounced echo. Filtering keys off the
+	// debounced value so a fast typist does not re-filter the whole catalog on
+	// every keystroke.
+	const [searchInput, setSearchInput] = useState("");
+	const [search, setSearch] = useState("");
 	// Disclosure state, persisted across tab switches within the session. An
 	// absent key falls back to a default (sections to their `defaultExpanded`,
 	// cards to collapsed). Sections are keyed `category:group`.
@@ -56,16 +88,46 @@ export default function PluginConfigurationPanel({
 		return () => clearTimeout(t);
 	}, [justSavedAt]);
 
+	// Debounce the search box.
+	useEffect(() => {
+		const t = setTimeout(() => setSearch(searchInput), 200);
+		return () => clearTimeout(t);
+	}, [searchInput]);
+
 	// Reducer cases always return a new object on change, so identity equality
 	// against the last-saved snapshot is a sound dirty check. Replaces a deep
 	// JSON.stringify compare that ran on every render.
 	const dirty = state !== savedState;
+	// The advisor block is replaced wholesale by the setAdvisor reducer case, so
+	// identity inequality against the baseline is a sound "advisor edited" check.
+	const advisorSettingsDirty = state.advisor !== savedState.advisor;
+
+	// Warn before a tab close or reload while edits are unsaved. The handler is
+	// only registered while dirty and torn down once clean or unmounted.
+	useEffect(() => {
+		if (!dirty) return;
+		const onBeforeUnload = (e: BeforeUnloadEvent): void => {
+			e.preventDefault();
+			// Legacy browsers require a returnValue to trigger the prompt.
+			e.returnValue = "";
+		};
+		window.addEventListener("beforeunload", onBeforeUnload);
+		return () => window.removeEventListener("beforeunload", onBeforeUnload);
+	}, [dirty]);
 
 	const handleSave = (): void => {
 		save(state);
 		markSaved();
 		setJustSavedAt(Date.now());
 	};
+
+	const enableKeys = useCallback(
+		(keys: string[]): void => {
+			for (const k of keys)
+				dispatch({ type: "setEnabled", key: k, enabled: true });
+		},
+		[dispatch],
+	);
 
 	const counts = useMemo(() => {
 		const c = {} as Record<ConversionCategory, number>;
@@ -78,6 +140,58 @@ export default function PluginConfigurationPanel({
 		if (status) for (const r of status.perConversion) m.set(r.key, r);
 		return m;
 	}, [status]);
+	const metaByKey = useMemo(() => {
+		const m = new Map<string, ConversionMetadata>();
+		for (const x of meta) m.set(x.key, x);
+		return m;
+	}, [meta]);
+
+	// Parent catalog keys currently reporting an error, with sub-conversion
+	// `[N]` suffixes folded onto the parent so a flaky sub-conversion surfaces
+	// on its parent card and category.
+	const errorKeys = useMemo(() => {
+		const s = new Set<string>();
+		if (status) {
+			for (const c of status.perConversion) {
+				if (c.lastErrorMessage) s.add(stripSubIndex(c.key));
+			}
+		}
+		return s;
+	}, [status]);
+	const errorCountByCategory = useMemo(() => {
+		const c: Record<string, number> = {};
+		for (const m of meta) {
+			if (errorKeys.has(m.key)) c[m.category] = (c[m.category] ?? 0) + 1;
+		}
+		return c;
+	}, [meta, errorKeys]);
+
+	// Jump from the status error badge to the first conversion reporting an
+	// error: switch to its tab, expand its section and card, and scroll it into
+	// view. Clears any active search so the card is reachable in its tab.
+	const jumpToFirstError = useCallback(() => {
+		if (!status) return;
+		const first = status.perConversion.find((c) => c.lastErrorMessage);
+		if (!first) return;
+		const m = metaByKey.get(stripSubIndex(first.key));
+		if (!m) return;
+		setSearchInput("");
+		setSearch("");
+		setView("configure");
+		setTab(m.category);
+		const group = m.legacy ? "legacy" : "modern";
+		setOpenSections((prev) => ({ ...prev, [`${m.category}:${group}`]: true }));
+		setExpandedCards((prev) => ({ ...prev, [m.key]: true }));
+		// Scroll after React commits the tab/section/card state above. A double
+		// rAF lets the newly mounted card body land in the DOM first.
+		requestAnimationFrame(() => {
+			requestAnimationFrame(() => {
+				document
+					.getElementById(`skn-card-${m.key}`)
+					?.scrollIntoView({ behavior: "smooth", block: "center" });
+			});
+		});
+	}, [status, metaByKey]);
 
 	// The active category split into a Modern section (expanded by default)
 	// and a Legacy section (collapsed).
@@ -100,6 +214,22 @@ export default function PluginConfigurationPanel({
 	}, [meta, tab]);
 	const hasConversions = sections.some((s) => s.list.length > 0);
 
+	// When searching, flatten matches across every category, grouped by category
+	// for orientation. Null when the search box is empty.
+	const searchGroups = useMemo(() => {
+		const q = search.trim().toLowerCase();
+		if (!q) return null;
+		const matched = meta.filter((m) => matchesQuery(m, q));
+		return Categories.map((cat) => ({
+			cat,
+			list: matched.filter((m) => m.category === cat),
+		})).filter((g) => g.list.length > 0);
+	}, [search, meta]);
+	const searchActive = searchGroups !== null;
+	const searchMatchCount = searchGroups
+		? searchGroups.reduce((n, g) => n + g.list.length, 0)
+		: 0;
+
 	const renderCard = (m: ConversionMetadata): React.ReactElement => (
 		<ConversionCard
 			key={m.key}
@@ -111,78 +241,241 @@ export default function PluginConfigurationPanel({
 			toggleCard={toggleCard}
 			sourcesFor={sourcesFor}
 			ensureLoaded={ensureLoaded}
+			globalResendSeconds={state.globalResendInterval}
 		/>
 	);
+
+	const showFirstRunCallout =
+		view === "configure" && status !== null && status.enabledCount === 0;
+	const advisorPill =
+		advisorPending > 0 ? (
+			<span
+				role="img"
+				style={S.countPill}
+				aria-label={`${advisorPending} pending advisor decision${
+					advisorPending === 1 ? "" : "s"
+				}`}
+			>
+				{advisorPending} pending
+			</span>
+		) : null;
 
 	return (
 		<div className="skn-panel" style={S.root}>
 			<style>{THEME_STYLE}</style>
-			<StatusDashboard status={status} />
-			<AdvisorPanel
-				advisor={state.advisor}
-				onChangeAdvisor={(advisor) => dispatch({ type: "setAdvisor", advisor })}
-			/>
-			{error ? (
-				<div role="alert" style={S.errorBanner}>
-					<span>Status: {error}. The next poll will retry automatically.</span>
-				</div>
-			) : null}
-			{metaError ? (
-				<div role="alert" style={S.errorBanner}>
-					<span>Conversion catalog failed to load: {metaError}.</span>
-					<button type="button" style={S.btnRetry} onClick={reloadMeta}>
-						Retry
+			<div style={S.controlBar}>
+				<fieldset style={S.themeToggle}>
+					<legend style={S.visuallyHidden}>View</legend>
+					<button
+						type="button"
+						aria-pressed={view === "configure"}
+						style={
+							view === "configure" ? S.themeToggleBtnActive : S.themeToggleBtn
+						}
+						onClick={() => setView("configure")}
+					>
+						Configure
 					</button>
-				</div>
-			) : null}
-			{metaLoading && meta.length === 0 && !metaError ? (
-				<p role="status" style={S.loadingText}>
-					Loading conversions...
-				</p>
-			) : null}
-			<PresetChips
-				onApply={(p) => dispatch({ type: "applyPreset", preset: p, meta })}
-			/>
-			<GlobalSettings
-				value={state.globalResendInterval}
-				onChange={(ms) => dispatch({ type: "setGlobalResend", ms })}
-			/>
-			<CategoryTabs active={tab} onChange={setTab} countsByCategory={counts} />
-			<div
-				role="tabpanel"
-				id={`skn-panel-${tab}`}
-				aria-labelledby={`skn-tab-${tab}`}
-			>
-				{!hasConversions && !metaLoading ? (
-					<p style={S.loadingText}>No conversions in this category.</p>
-				) : null}
-				{sections.map((s) => {
-					if (s.list.length === 0) return null;
-					const sectionKey = `${tab}:${s.group}`;
-					return (
-						<CollapsibleSection
-							key={s.group}
-							id={`skn-section-${tab}-${s.group}`}
-							title={s.title}
-							count={s.list.length}
-							enabledCount={s.list.reduce(
-								(n, m) => n + (state.conversions[m.key]?.enabled ? 1 : 0),
-								0,
-							)}
-							expanded={openSections[sectionKey] ?? s.defaultExpanded}
-							onToggle={() => toggleSection(sectionKey)}
-						>
-							{s.list.map(renderCard)}
-						</CollapsibleSection>
-					);
-				})}
+					<button
+						type="button"
+						aria-pressed={view === "status"}
+						style={
+							view === "status" ? S.themeToggleBtnActive : S.themeToggleBtn
+						}
+						onClick={() => setView("status")}
+					>
+						Status
+					</button>
+				</fieldset>
+				<ThemeToggle />
 			</div>
+
+			{view === "status" ? (
+				<StatusView status={status} meta={meta} />
+			) : (
+				<>
+					<StatusDashboard
+						status={status}
+						onErrorBadgeClick={jumpToFirstError}
+						lastUpdatedMs={lastUpdatedMs ?? undefined}
+					/>
+					<AdvisorPanel
+						advisor={state.advisor}
+						onChangeAdvisor={(advisor) =>
+							dispatch({ type: "setAdvisor", advisor })
+						}
+						onPendingCountChange={setAdvisorPending}
+						dirty={dirty}
+						advisorSettingsDirty={advisorSettingsDirty}
+						headerExtra={advisorPill}
+					/>
+					{error ? (
+						<div role="alert" style={S.errorBanner}>
+							<span>
+								Status: {error}. The next poll will retry automatically.
+							</span>
+						</div>
+					) : null}
+					{metaError ? (
+						<div role="alert" style={S.errorBanner}>
+							<span>Conversion catalog failed to load: {metaError}.</span>
+							<button type="button" style={S.btnRetry} onClick={reloadMeta}>
+								Retry
+							</button>
+						</div>
+					) : null}
+					{metaLoading && meta.length === 0 && !metaError ? (
+						<p role="status" style={S.loadingText}>
+							Loading conversions...
+						</p>
+					) : null}
+					{showFirstRunCallout ? (
+						<div style={S.calloutFirstRun}>
+							<span style={S.calloutText}>
+								Nothing is emitting yet. Apply a preset below, open the setup
+								wizard, or let the Config Advisor scan your boat's live data.
+							</span>
+							<button
+								type="button"
+								style={S.btnPrimary}
+								onClick={() => setWizardOpen(true)}
+							>
+								Open setup wizard
+							</button>
+						</div>
+					) : null}
+					<PresetChips
+						onApply={(p) => dispatch({ type: "applyPreset", preset: p, meta })}
+						meta={meta}
+					/>
+					<GlobalSettings
+						value={state.globalResendInterval}
+						onChange={(ms) => dispatch({ type: "setGlobalResend", ms })}
+					/>
+					<div style={S.searchRow}>
+						<input
+							type="search"
+							style={S.searchInput}
+							value={searchInput}
+							placeholder="Search conversions by name, PGN, or path"
+							aria-label="Search conversions by name, PGN, or path"
+							onChange={(e) => setSearchInput(e.target.value)}
+							onKeyDown={(e) => {
+								if (e.key === "Escape") {
+									setSearchInput("");
+									setSearch("");
+								}
+							}}
+						/>
+						{searchInput ? (
+							<button
+								type="button"
+								style={S.searchClear}
+								onClick={() => {
+									setSearchInput("");
+									setSearch("");
+								}}
+							>
+								Clear
+							</button>
+						) : null}
+					</div>
+
+					{searchActive ? (
+						<div>
+							<p style={S.searchSummary} role="status">
+								{searchMatchCount} match
+								{searchMatchCount === 1 ? "" : "es"} across all categories
+							</p>
+							{searchMatchCount === 0 ? (
+								<p style={S.loadingText}>
+									No conversions match "{search.trim()}".
+								</p>
+							) : null}
+							{searchGroups?.map((g) => (
+								<CollapsibleSection
+									key={g.cat}
+									id={`skn-search-${g.cat}`}
+									title={CategoryLabels[g.cat]}
+									count={g.list.length}
+									enabledCount={g.list.reduce(
+										(n, m) => n + (state.conversions[m.key]?.enabled ? 1 : 0),
+										0,
+									)}
+									errorCount={g.list.reduce(
+										(n, m) => n + (errorKeys.has(m.key) ? 1 : 0),
+										0,
+									)}
+									expanded={openSections[`search:${g.cat}`] ?? true}
+									onToggle={() => toggleSection(`search:${g.cat}`)}
+								>
+									{g.list.map(renderCard)}
+								</CollapsibleSection>
+							))}
+						</div>
+					) : (
+						<>
+							<CategoryTabs
+								active={tab}
+								onChange={setTab}
+								countsByCategory={counts}
+								errorCountByCategory={errorCountByCategory}
+							/>
+							<div
+								role="tabpanel"
+								id={`skn-panel-${tab}`}
+								aria-labelledby={`skn-tab-${tab}`}
+							>
+								{!hasConversions && !metaLoading ? (
+									<p style={S.loadingText}>No conversions in this category.</p>
+								) : null}
+								{sections.map((s) => {
+									if (s.list.length === 0) return null;
+									const sectionKey = `${tab}:${s.group}`;
+									return (
+										<CollapsibleSection
+											key={s.group}
+											id={`skn-section-${tab}-${s.group}`}
+											title={s.title}
+											count={s.list.length}
+											enabledCount={s.list.reduce(
+												(n, m) =>
+													n + (state.conversions[m.key]?.enabled ? 1 : 0),
+												0,
+											)}
+											errorCount={s.list.reduce(
+												(n, m) => n + (errorKeys.has(m.key) ? 1 : 0),
+												0,
+											)}
+											expanded={openSections[sectionKey] ?? s.defaultExpanded}
+											onToggle={() => toggleSection(sectionKey)}
+										>
+											{s.list.map(renderCard)}
+										</CollapsibleSection>
+									);
+								})}
+							</div>
+						</>
+					)}
+				</>
+			)}
 			<FooterBar
 				dirty={dirty}
 				justSavedAt={justSavedAt}
 				onSave={handleSave}
 				onDiscard={() => dispatch({ type: "discard", config: savedState })}
 			/>
+			{wizardOpen ? (
+				<FirstRunWizard
+					meta={meta}
+					config={state}
+					onEnableKeys={enableKeys}
+					onApplyPreset={(p) =>
+						dispatch({ type: "applyPreset", preset: p, meta })
+					}
+					onClose={() => setWizardOpen(false)}
+				/>
+			) : null}
 		</div>
 	);
 }

@@ -1,4 +1,5 @@
 import type * as React from "react";
+import { useRef } from "react";
 import { S } from "../styles";
 import SaveStatus from "./SaveStatus";
 
@@ -17,12 +18,28 @@ export default function FooterBar({
 	onDiscard,
 	justSavedAt,
 }: Props): React.ReactElement {
+	// Save and Discard disable themselves the instant they fire (dirty flips to
+	// false), which would drop keyboard focus to <body>. Move focus to the
+	// save-status wrapper instead so it lands on a stable, focusable element and
+	// a screen reader announces the resulting "Saved" status.
+	const statusRef = useRef<HTMLSpanElement>(null);
+	const focusStatus = (): void => statusRef.current?.focus();
+
+	const handleSave = (): void => {
+		onSave();
+		focusStatus();
+	};
+	const handleDiscard = (): void => {
+		onDiscard();
+		focusStatus();
+	};
+
 	return (
 		<div style={S.footer}>
 			<button
 				type="button"
 				style={S.btnPrimary}
-				onClick={onSave}
+				onClick={handleSave}
 				disabled={!dirty}
 			>
 				Save
@@ -30,12 +47,14 @@ export default function FooterBar({
 			<button
 				type="button"
 				style={S.btnSecondary}
-				onClick={onDiscard}
+				onClick={handleDiscard}
 				disabled={!dirty}
 			>
 				Discard
 			</button>
-			<SaveStatus dirty={dirty} justSavedAt={justSavedAt ?? null} />
+			<span ref={statusRef} tabIndex={-1} style={S.saveStatusFocus}>
+				<SaveStatus dirty={dirty} justSavedAt={justSavedAt ?? null} />
+			</span>
 		</div>
 	);
 }

@@ -12,15 +12,30 @@ import type { CSSProperties } from "react";
 // card that inherits it loses its white fill and blends into the page.
 // Components stay theme-agnostic: they read tokens, the theme layer redefines
 // them. A new hex literal in a component is a defect.
+//
+// Theme pinning: a `data-skn-theme` attribute on the `.skn-panel` root
+// (set by ThemeToggle, persisted under localStorage key `skn-theme`) pins
+// light, dark, or the red-preserving night theme regardless of the host.
+// The pinned blocks share specificity (0,2,0) with the host-driven dark
+// block and are emitted later in the stylesheet, so a pinned choice wins.
 
-// Injected once by PluginConfigurationPanel. Covers the token contract, the
-// dark-mode overrides, and the :focus-visible ring (inline styles cannot
-// express pseudo-classes).
-export const THEME_STYLE = `
-.skn-panel {
-	/* Surfaces and text: explicit light-mode values. Cards must read white
-	   so they stand out from the admin's gray page background. The dark
-	   block below replaces every one of these. */
+// Scale tokens: theme-independent, defined once on the root. Radii and font
+// sizes sit on Bootstrap 5.3 defaults (radius .375rem = 6px, small text
+// .875rem = 14px) so the panel reads native inside the CoreUI admin shell.
+const SCALE_TOKENS = `
+	--skn-radius: 6px;
+	--skn-radius-sm: 4px;
+	--skn-radius-pill: 999px;
+	--skn-font-body: 14px;
+	--skn-font-small: 12px;
+	--skn-font-title: 15px;
+`;
+
+// Light theme. Cards must read white so they stand out from the admin's gray
+// page background. Faint text is #62687a: 5.05:1 on the raised surface and
+// 4.99:1 on the warn background, so it clears WCAG AA (4.5:1) everywhere it
+// is used at small sizes.
+const LIGHT_TOKENS = `
 	--skn-bg: #e4e5e6;
 	--skn-surface: #ffffff;
 	--skn-surface-muted: #f8f9fa;
@@ -28,14 +43,12 @@ export const THEME_STYLE = `
 	--skn-border: #e0e0e0;
 	--skn-text: #333333;
 	--skn-text-muted: #555555;
-	--skn-text-faint: #888888;
-	/* Accents. Light defaults; the dark block below brightens them. */
+	--skn-text-faint: #62687a;
 	--skn-accent: #3b82f6;
 	--skn-accent-text: #ffffff;
 	--skn-ok: #22c55e;
 	--skn-wait: #f59e0b;
 	--skn-off: #9ca3af;
-	/* Status / semantic surfaces, each a paired bg + fg + border. */
 	--skn-danger-bg: #fef2f2;
 	--skn-danger-fg: #991b1b;
 	--skn-danger-border: #fca5a5;
@@ -51,9 +64,11 @@ export const THEME_STYLE = `
 	--skn-legacy-bg: #ede9fe;
 	--skn-legacy-fg: #5b21b6;
 	--skn-legacy-border: #c4b5fd;
-}
-[data-bs-theme="dark"] .skn-panel,
-.dark-mode .skn-panel {
+`;
+
+// Dark theme. Faint text is #9aa1ad: 4.88:1 on the raised surface, 5.63:1 on
+// the card surface, so AA holds on every dark background it appears on.
+const DARK_TOKENS = `
 	--skn-bg: #1b1c22;
 	--skn-surface: #262833;
 	--skn-surface-muted: #20212b;
@@ -61,8 +76,9 @@ export const THEME_STYLE = `
 	--skn-border: #3a3c4a;
 	--skn-text: #e6e7ea;
 	--skn-text-muted: #a3a9b5;
-	--skn-text-faint: #7c8290;
+	--skn-text-faint: #9aa1ad;
 	--skn-accent: #4c93ff;
+	--skn-accent-text: #ffffff;
 	--skn-ok: #2dd4a0;
 	--skn-wait: #fbbf24;
 	--skn-off: #6b7785;
@@ -81,7 +97,61 @@ export const THEME_STYLE = `
 	--skn-legacy-bg: #2a2245;
 	--skn-legacy-fg: #c4b5fd;
 	--skn-legacy-border: #4a3f77;
-}
+`;
+
+// Night theme: red-preserving for night vision at the helm. Near-black
+// surfaces, every text and accent token collapses into the desaturated red
+// and amber families, nothing renders blue, green, or white. Contrast checked
+// against the night surfaces: text 7.25:1, muted 5.13:1, faint 4.56:1 worst
+// case, every status fg 5.65:1 or better on its paired bg.
+const NIGHT_TOKENS = `
+	--skn-bg: #0d0606;
+	--skn-surface: #160a0a;
+	--skn-surface-muted: #110808;
+	--skn-surface-raised: #1f0e0e;
+	--skn-border: #3a1616;
+	--skn-text: #e08a8a;
+	--skn-text-muted: #b87474;
+	--skn-text-faint: #ad6c6c;
+	--skn-accent: #cf6a3c;
+	--skn-accent-text: #1a0808;
+	--skn-ok: #cf8a4a;
+	--skn-wait: #a9742e;
+	--skn-off: #7a4f4f;
+	--skn-danger-bg: #2a0d0d;
+	--skn-danger-fg: #e07a6a;
+	--skn-danger-border: #6e2a2a;
+	--skn-warn-bg: #241204;
+	--skn-warn-fg: #d9a05a;
+	--skn-warn-border: #6e4a1f;
+	--skn-success-bg: #1d0f08;
+	--skn-success-fg: #cf8a5a;
+	--skn-success-border: #6e3f1f;
+	--skn-info-bg: #200c0c;
+	--skn-info-fg: #c98080;
+	--skn-info-border: #5e2a2a;
+	--skn-legacy-bg: #220d12;
+	--skn-legacy-fg: #c47a7a;
+	--skn-legacy-border: #5e2a35;
+`;
+
+// Injected once by PluginConfigurationPanel. Covers the token contract, the
+// host-driven dark overrides, the pinned theme blocks, and the :focus-visible
+// ring (inline styles cannot express pseudo-classes). Order matters: the
+// pinned `[data-skn-theme]` blocks come after the host-driven dark block so
+// an explicit user choice outranks the host theme at equal specificity.
+export const THEME_STYLE = `
+.skn-panel {
+${SCALE_TOKENS}${LIGHT_TOKENS}}
+[data-bs-theme="dark"] .skn-panel,
+.dark-mode .skn-panel {
+${DARK_TOKENS}}
+.skn-panel[data-skn-theme="light"] {
+${LIGHT_TOKENS}}
+.skn-panel[data-skn-theme="dark"] {
+${DARK_TOKENS}}
+.skn-panel[data-skn-theme="night"] {
+${NIGHT_TOKENS}}
 .skn-panel input:focus-visible,
 .skn-panel select:focus-visible,
 .skn-panel button:focus-visible {
@@ -114,10 +184,10 @@ export const S: Record<string, CSSProperties> = {
 		padding: "12px 16px",
 		background: "var(--skn-surface-muted)",
 		border: "1px solid var(--skn-border)",
-		borderRadius: 10,
+		borderRadius: "var(--skn-radius)",
 		marginBottom: 16,
 		alignItems: "center",
-		fontSize: 13,
+		fontSize: "var(--skn-font-body)",
 	},
 	dot: { width: 10, height: 10, borderRadius: "50%", display: "inline-block" },
 	dotOk: { background: "var(--skn-ok)" },
@@ -130,8 +200,8 @@ export const S: Record<string, CSSProperties> = {
 		color: "var(--skn-danger-fg)",
 		border: "1px solid var(--skn-danger-border)",
 		padding: "2px 8px",
-		borderRadius: 4,
-		fontSize: 12,
+		borderRadius: "var(--skn-radius-sm)",
+		fontSize: "var(--skn-font-small)",
 	},
 };
 
@@ -143,33 +213,33 @@ S.fieldRow = {
 	flexWrap: "wrap",
 };
 S.label = {
-	fontSize: 13,
+	fontSize: "var(--skn-font-body)",
 	color: "var(--skn-text-muted)",
 	width: 280,
 	flexShrink: 0,
 };
 S.select = {
 	padding: "6px 10px",
-	borderRadius: 6,
+	borderRadius: "var(--skn-radius)",
 	border: "1px solid var(--skn-border)",
 	background: "var(--skn-surface)",
 	color: "var(--skn-text)",
-	fontSize: 13,
+	fontSize: "var(--skn-font-body)",
 	minWidth: 220,
 };
 S.input = {
 	padding: "6px 10px",
-	borderRadius: 6,
+	borderRadius: "var(--skn-radius)",
 	border: "1px solid var(--skn-border)",
 	background: "var(--skn-surface)",
 	color: "var(--skn-text)",
-	fontSize: 13,
+	fontSize: "var(--skn-font-body)",
 	width: 220,
 };
 S.card = {
 	background: "var(--skn-surface)",
 	border: "1px solid var(--skn-border)",
-	borderRadius: 10,
+	borderRadius: "var(--skn-radius)",
 	padding: "12px 16px",
 	marginBottom: 10,
 };
@@ -180,8 +250,19 @@ S.cardHeader = {
 	marginBottom: 0,
 	flexWrap: "wrap",
 };
-S.checkbox = { width: 16, height: 16, flexShrink: 0, cursor: "pointer" };
-S.cardMeta = { fontSize: 11, color: "var(--skn-text-faint)" };
+// 22px hit area for marine use: a 16px checkbox is too small for wet fingers
+// on a moving boat. accentColor keeps the checked fill on the token palette.
+S.checkbox = {
+	width: 22,
+	height: 22,
+	flexShrink: 0,
+	cursor: "pointer",
+	accentColor: "var(--skn-accent)",
+};
+S.cardMeta = {
+	fontSize: "var(--skn-font-small)",
+	color: "var(--skn-text-faint)",
+};
 S.tabs = {
 	display: "flex",
 	flexWrap: "wrap",
@@ -191,11 +272,12 @@ S.tabs = {
 };
 S.tab = {
 	padding: "8px 14px",
+	minHeight: 36,
 	background: "transparent",
 	border: "none",
 	borderBottom: "2px solid transparent",
 	cursor: "pointer",
-	fontSize: 13,
+	fontSize: "var(--skn-font-body)",
 	color: "var(--skn-text-muted)",
 };
 S.tabActive = {
@@ -204,7 +286,13 @@ S.tabActive = {
 	fontWeight: 600,
 };
 S.tabCount = { color: "var(--skn-text-faint)" };
+// Sticky action bar pinned to the bottom of the viewport so Save, Discard, and
+// the dirty indicator stay reachable above a long card list. The panel
+// background fills behind it so cards scrolling underneath do not show
+// through, and the top border reads it as a distinct bar.
 S.footer = {
+	position: "sticky",
+	bottom: 0,
 	display: "flex",
 	alignItems: "center",
 	flexWrap: "wrap",
@@ -212,42 +300,69 @@ S.footer = {
 	padding: "12px 0",
 	borderTop: "1px solid var(--skn-border)",
 	marginTop: 16,
+	background: "var(--skn-bg)",
+	zIndex: 5,
+};
+// Wrapper around the save-status indicator in the footer. Focusable
+// (tabIndex -1) but not in the tab order, so Save and Discard can move focus
+// here after they disable themselves instead of dropping it to <body>.
+S.saveStatusFocus = {
+	display: "inline-flex",
+	alignItems: "center",
+	outline: "none",
 };
 S.btnPrimary = {
 	padding: "8px 16px",
+	minHeight: 36,
 	background: "var(--skn-accent)",
 	color: "var(--skn-accent-text)",
 	border: "none",
-	borderRadius: 6,
+	borderRadius: "var(--skn-radius)",
 	fontWeight: 600,
 	cursor: "pointer",
 };
 S.btnSecondary = {
 	padding: "8px 16px",
+	minHeight: 36,
 	background: "var(--skn-surface-raised)",
 	color: "var(--skn-text)",
 	border: "1px solid var(--skn-border)",
-	borderRadius: 6,
+	borderRadius: "var(--skn-radius)",
 	cursor: "pointer",
 };
 S.btnDestructive = {
 	padding: "8px 16px",
+	minHeight: 36,
 	background: "var(--skn-surface)",
 	color: "var(--skn-danger-fg)",
 	border: "1px solid var(--skn-danger-border)",
-	borderRadius: 6,
+	borderRadius: "var(--skn-radius)",
 	cursor: "pointer",
 };
-// Compact destructive button sized for table rows, where the full-size
-// S.btnDestructive would tower over the 6px-padded cells around it.
+// Compact destructive button sized for table rows. Smaller text than the
+// full-size S.btnDestructive but the same 36px minimum hit area: touch
+// targets do not shrink just because the surrounding cells are compact.
 S.btnDestructiveSm = {
 	...S.btnDestructive,
-	padding: "4px 10px",
-	fontSize: 12,
+	padding: "6px 12px",
+	fontSize: "var(--skn-font-small)",
 };
-S.dirty = { color: "var(--skn-warn-fg)", fontSize: 12, marginLeft: 8 };
+// Armed confirm state for the table-row Remove button: inverted danger
+// colors so the second, destructive tap is visually unmistakable.
+S.btnDestructiveSmArmed = {
+	...S.btnDestructiveSm,
+	background: "var(--skn-danger-fg)",
+	color: "var(--skn-surface)",
+	borderColor: "var(--skn-danger-fg)",
+	fontWeight: 600,
+};
+S.dirty = {
+	color: "var(--skn-warn-fg)",
+	fontSize: "var(--skn-font-small)",
+	marginLeft: 8,
+};
 S.cardTitle = {
-	fontSize: 14,
+	fontSize: "var(--skn-font-title)",
 	fontWeight: 600,
 	flex: 1,
 	minWidth: 180,
@@ -255,7 +370,7 @@ S.cardTitle = {
 	color: "var(--skn-text)",
 };
 S.cardPurpose = {
-	fontSize: 12,
+	fontSize: "var(--skn-font-small)",
 	color: "var(--skn-text-muted)",
 	lineHeight: 1.45,
 	margin: "2px 0 6px",
@@ -264,9 +379,9 @@ S.cardPurpose = {
 // Each badge spreads this and adds its own colors and modifiers.
 const badgeBase: CSSProperties = {
 	display: "inline-block",
-	fontSize: 11,
+	fontSize: "var(--skn-font-small)",
 	padding: "1px 6px",
-	borderRadius: 4,
+	borderRadius: "var(--skn-radius-sm)",
 };
 S.cardCompatibility = {
 	...badgeBase,
@@ -290,7 +405,7 @@ S.pgnHover = {
 	textUnderlineOffset: 2,
 };
 S.helpHint = {
-	fontSize: 12,
+	fontSize: "var(--skn-font-small)",
 	color: "var(--skn-text-muted)",
 	lineHeight: 1.45,
 	margin: "2px 0 6px",
@@ -302,25 +417,28 @@ S.notePrefix = {
 S.note = {
 	background: "var(--skn-warn-bg)",
 	border: "1px solid var(--skn-warn-border)",
-	borderRadius: 4,
+	borderRadius: "var(--skn-radius-sm)",
 	color: "var(--skn-warn-fg)",
-	fontSize: 12,
+	fontSize: "var(--skn-font-small)",
 	lineHeight: 1.45,
 	margin: "8px 0 6px",
 	padding: "6px 8px",
 };
 S.errorMark = { color: "var(--skn-danger-fg)", fontSize: 14, fontWeight: 700 };
-S.loadingText = { color: "var(--skn-text-muted)", fontSize: 13 };
+S.loadingText = {
+	color: "var(--skn-text-muted)",
+	fontSize: "var(--skn-font-body)",
+};
 S.savedPill = {
 	display: "inline-flex",
 	alignItems: "center",
 	justifyContent: "center",
-	fontSize: 12,
+	fontSize: "var(--skn-font-small)",
 	lineHeight: 1,
 	color: "var(--skn-success-fg)",
 	background: "var(--skn-success-bg)",
 	border: "1px solid var(--skn-success-border)",
-	borderRadius: 999,
+	borderRadius: "var(--skn-radius-pill)",
 	padding: "5px 12px",
 	marginLeft: 8,
 };
@@ -328,9 +446,9 @@ S.errorBanner = {
 	color: "var(--skn-danger-fg)",
 	background: "var(--skn-danger-bg)",
 	border: "1px solid var(--skn-danger-border)",
-	borderRadius: 6,
+	borderRadius: "var(--skn-radius)",
 	padding: "8px 12px",
-	fontSize: 13,
+	fontSize: "var(--skn-font-body)",
 	margin: "8px 0",
 	display: "flex",
 	alignItems: "center",
@@ -338,12 +456,13 @@ S.errorBanner = {
 	gap: 12,
 };
 S.btnRetry = {
-	padding: "4px 10px",
+	padding: "6px 12px",
+	minHeight: 36,
 	background: "var(--skn-surface)",
 	color: "var(--skn-danger-fg)",
 	border: "1px solid var(--skn-danger-border)",
-	borderRadius: 6,
-	fontSize: 12,
+	borderRadius: "var(--skn-radius)",
+	fontSize: "var(--skn-font-small)",
 	cursor: "pointer",
 };
 S.visuallyHidden = {
@@ -365,13 +484,44 @@ S.chipRow = {
 };
 S.chip = {
 	padding: "6px 12px",
+	minHeight: 36,
 	background: "var(--skn-info-bg)",
 	color: "var(--skn-info-fg)",
 	border: "1px solid var(--skn-info-border)",
-	borderRadius: 999,
-	fontSize: 12,
+	borderRadius: "var(--skn-radius-pill)",
+	fontSize: "var(--skn-font-small)",
 	fontWeight: 500,
 	cursor: "pointer",
+};
+
+// Theme toggle: a compact segmented control (Auto, Light, Dark, Night).
+// Buttons share a bordered pill-less container; the active segment fills
+// with the accent. 36px segments for marine touch use.
+S.themeToggle = {
+	display: "inline-flex",
+	// Rendered as a <fieldset>: zero out the user-agent margin and padding
+	// so the segments sit flush inside the border.
+	margin: 0,
+	padding: 0,
+	border: "1px solid var(--skn-border)",
+	borderRadius: "var(--skn-radius)",
+	overflow: "hidden",
+	background: "var(--skn-surface)",
+};
+S.themeToggleBtn = {
+	padding: "6px 12px",
+	minHeight: 36,
+	background: "transparent",
+	color: "var(--skn-text-muted)",
+	border: "none",
+	fontSize: "var(--skn-font-small)",
+	cursor: "pointer",
+};
+S.themeToggleBtnActive = {
+	...S.themeToggleBtn,
+	background: "var(--skn-accent)",
+	color: "var(--skn-accent-text)",
+	fontWeight: 600,
 };
 
 // Config Advisor section. The section reuses S.card; these cover the
@@ -382,6 +532,7 @@ S.advisorToggle = {
 	alignItems: "center",
 	gap: 8,
 	width: "100%",
+	minHeight: 36,
 	background: "none",
 	border: "none",
 	padding: 0,
@@ -393,7 +544,7 @@ S.advisorToggle = {
 };
 S.advisorBody = { marginTop: 10 };
 S.advisorIntro = {
-	fontSize: 12,
+	fontSize: "var(--skn-font-small)",
 	color: "var(--skn-text-muted)",
 	lineHeight: 1.45,
 	margin: "0 0 10px",
@@ -401,23 +552,27 @@ S.advisorIntro = {
 S.advisorAutoBlock = {
 	background: "var(--skn-success-bg)",
 	border: "1px solid var(--skn-success-border)",
-	borderRadius: 8,
+	borderRadius: "var(--skn-radius)",
 	padding: "10px 12px",
 	marginBottom: 8,
 };
 S.advisorPendingBlock = {
 	background: "var(--skn-warn-bg)",
 	border: "1px solid var(--skn-warn-border)",
-	borderRadius: 8,
+	borderRadius: "var(--skn-radius)",
 	padding: "10px 12px",
 	marginBottom: 8,
 };
 S.advisorBlockTitle = {
 	fontWeight: 600,
-	fontSize: 13,
+	fontSize: "var(--skn-font-body)",
 	color: "var(--skn-text)",
 };
-S.advisorList = { margin: "6px 0 0", paddingLeft: 18, fontSize: 13 };
+S.advisorList = {
+	margin: "6px 0 0",
+	paddingLeft: 18,
+	fontSize: "var(--skn-font-body)",
+};
 S.advisorRow = {
 	borderTop: "1px solid var(--skn-warn-border)",
 	paddingTop: 8,
@@ -429,18 +584,28 @@ S.advisorRowHead = {
 	gap: 8,
 	flexWrap: "wrap",
 };
-S.advisorRowKey = { fontWeight: 600, fontSize: 13, flex: 1, minWidth: 140 };
+S.advisorRowKey = {
+	fontWeight: 600,
+	fontSize: "var(--skn-font-body)",
+	flex: 1,
+	minWidth: 140,
+};
 S.advisorReason = {
-	fontSize: 12,
+	fontSize: "var(--skn-font-small)",
 	color: "var(--skn-text-muted)",
 	lineHeight: 1.45,
 	marginTop: 4,
 };
-S.advisorNote = { fontSize: 12, color: "var(--skn-text-faint)", marginTop: 6 };
+S.advisorNote = {
+	fontSize: "var(--skn-font-small)",
+	color: "var(--skn-text-faint)",
+	marginTop: 6,
+};
 S.btnApprove = {
-	padding: "3px 10px",
-	borderRadius: 6,
-	fontSize: 12,
+	padding: "6px 12px",
+	minHeight: 36,
+	borderRadius: "var(--skn-radius)",
+	fontSize: "var(--skn-font-small)",
 	cursor: "pointer",
 	background: "var(--skn-surface)",
 	color: "var(--skn-success-fg)",
@@ -452,9 +617,10 @@ S.btnApproveActive = {
 	color: "var(--skn-surface)",
 };
 S.btnReject = {
-	padding: "3px 10px",
-	borderRadius: 6,
-	fontSize: 12,
+	padding: "6px 12px",
+	minHeight: 36,
+	borderRadius: "var(--skn-radius)",
+	fontSize: "var(--skn-font-small)",
 	cursor: "pointer",
 	background: "var(--skn-surface)",
 	color: "var(--skn-danger-fg)",
@@ -466,7 +632,7 @@ S.btnRejectActive = {
 	color: "var(--skn-surface)",
 };
 S.advisorSubhead = {
-	fontSize: 13,
+	fontSize: "var(--skn-font-body)",
 	fontWeight: 600,
 	color: "var(--skn-text)",
 	margin: "12px 0 4px",
@@ -475,17 +641,20 @@ S.tableWrap = { overflowX: "auto" };
 S.table = {
 	width: "100%",
 	borderCollapse: "collapse",
-	fontSize: 13,
+	fontSize: "var(--skn-font-body)",
 	color: "var(--skn-text)",
 };
 S.tableHeadRow = { textAlign: "left", color: "var(--skn-text-muted)" };
 S.tableTitle = {
-	fontSize: 13,
+	fontSize: "var(--skn-font-body)",
 	fontWeight: 600,
 	marginBottom: 4,
 	color: "var(--skn-text)",
 };
 S.tableCell = { padding: 6 };
+// Actions column: extra left padding keeps the destructive Remove button
+// clear of the editable cells so a wet-finger tap cannot straddle both.
+S.tableActionCell = { padding: 6, paddingLeft: 16 };
 S.tableHeadCell = { padding: 6, fontWeight: 500 };
 // Collapsible Modern / Legacy section: a disclosure header and a body of
 // conversion cards.
@@ -498,9 +667,9 @@ S.sectionHeader = {
 	padding: "10px 12px",
 	background: "var(--skn-surface-muted)",
 	border: "1px solid var(--skn-border)",
-	borderRadius: 8,
+	borderRadius: "var(--skn-radius)",
 	cursor: "pointer",
-	fontSize: 13,
+	fontSize: "var(--skn-font-body)",
 	fontWeight: 600,
 	color: "var(--skn-text)",
 	textAlign: "left",
@@ -513,7 +682,7 @@ S.disclosureCaret = {
 };
 S.sectionCount = {
 	fontWeight: 400,
-	fontSize: 12,
+	fontSize: "var(--skn-font-small)",
 	color: "var(--skn-text-muted)",
 };
 S.sectionBody = { marginTop: 8 };
@@ -533,3 +702,201 @@ S.cardDisclosure = {
 	textAlign: "left",
 };
 S.cardBody = { marginTop: 8 };
+
+// Top control row: the Configure / Status view toggle on the left, the theme
+// toggle on the right. Both reuse the segmented S.themeToggle* styles.
+S.controlBar = {
+	display: "flex",
+	alignItems: "center",
+	justifyContent: "space-between",
+	flexWrap: "wrap",
+	gap: 8,
+	marginBottom: 12,
+};
+
+// Catalog search: a filter input with a sibling Clear button (kept a real
+// 36px button rather than an overlay so it stays a full touch target).
+S.searchRow = {
+	display: "flex",
+	alignItems: "center",
+	gap: 8,
+	marginBottom: 12,
+};
+S.searchInput = {
+	flex: 1,
+	minWidth: 0,
+	minHeight: 36,
+	boxSizing: "border-box",
+	padding: "8px 12px",
+	borderRadius: "var(--skn-radius)",
+	border: "1px solid var(--skn-border)",
+	background: "var(--skn-surface)",
+	color: "var(--skn-text)",
+	fontSize: "var(--skn-font-body)",
+};
+S.searchClear = {
+	minHeight: 36,
+	minWidth: 36,
+	padding: "6px 12px",
+	background: "var(--skn-surface-raised)",
+	color: "var(--skn-text)",
+	border: "1px solid var(--skn-border)",
+	borderRadius: "var(--skn-radius)",
+	cursor: "pointer",
+	fontSize: "var(--skn-font-small)",
+};
+S.searchSummary = {
+	fontSize: "var(--skn-font-small)",
+	color: "var(--skn-text-muted)",
+	margin: "0 0 8px",
+};
+
+// First-run callout: shown above the catalog when nothing is emitting yet.
+// Info-colored so it reads as guidance, not an error.
+S.calloutFirstRun = {
+	display: "flex",
+	alignItems: "center",
+	flexWrap: "wrap",
+	gap: 12,
+	background: "var(--skn-info-bg)",
+	border: "1px solid var(--skn-info-border)",
+	color: "var(--skn-info-fg)",
+	borderRadius: "var(--skn-radius)",
+	padding: "12px 16px",
+	margin: "0 0 16px",
+	fontSize: "var(--skn-font-body)",
+	lineHeight: 1.45,
+};
+S.calloutText = { flex: 1, minWidth: 220 };
+
+// Small count pill (e.g. the advisor pending-decision badge on its header).
+S.countPill = {
+	display: "inline-flex",
+	alignItems: "center",
+	justifyContent: "center",
+	minWidth: 20,
+	padding: "1px 8px",
+	borderRadius: "var(--skn-radius-pill)",
+	background: "var(--skn-warn-bg)",
+	color: "var(--skn-warn-fg)",
+	border: "1px solid var(--skn-warn-border)",
+	fontSize: "var(--skn-font-small)",
+	fontWeight: 600,
+};
+
+// First-run setup wizard: a modal dialog over a dimmed overlay. The dimmed
+// backdrop is a real <button> (S.wizardBackdrop) so click-to-close has native
+// keyboard semantics; the dialog sits above it via position/zIndex.
+S.wizardOverlay = {
+	position: "fixed",
+	inset: 0,
+	display: "flex",
+	alignItems: "flex-start",
+	justifyContent: "center",
+	padding: "24px 16px",
+	overflowY: "auto",
+	zIndex: 1000,
+};
+S.wizardBackdrop = {
+	position: "fixed",
+	inset: 0,
+	margin: 0,
+	padding: 0,
+	border: "none",
+	background: "rgba(0, 0, 0, 0.5)",
+	cursor: "pointer",
+};
+S.wizardDialog = {
+	position: "relative",
+	zIndex: 1,
+	display: "flex",
+	flexDirection: "column",
+	width: "100%",
+	maxWidth: 680,
+	maxHeight: "calc(100vh - 48px)",
+	overflow: "hidden",
+	background: "var(--skn-surface)",
+	color: "var(--skn-text)",
+	border: "1px solid var(--skn-border)",
+	borderRadius: "var(--skn-radius)",
+	boxShadow: "0 10px 40px rgba(0, 0, 0, 0.35)",
+};
+S.wizardHeader = {
+	display: "flex",
+	alignItems: "center",
+	gap: 12,
+	padding: "16px 20px",
+	borderBottom: "1px solid var(--skn-border)",
+};
+S.wizardTitle = {
+	flex: 1,
+	margin: 0,
+	fontSize: "var(--skn-font-title)",
+	fontWeight: 600,
+	color: "var(--skn-text)",
+};
+S.wizardClose = {
+	minWidth: 36,
+	minHeight: 36,
+	background: "var(--skn-surface-raised)",
+	color: "var(--skn-text)",
+	border: "1px solid var(--skn-border)",
+	borderRadius: "var(--skn-radius)",
+	cursor: "pointer",
+	fontSize: 18,
+	lineHeight: 1,
+};
+S.wizardBody = { padding: "16px 20px", overflowY: "auto" };
+S.wizardIntro = {
+	fontSize: "var(--skn-font-small)",
+	color: "var(--skn-text-muted)",
+	lineHeight: 1.45,
+	margin: "0 0 12px",
+};
+S.wizardFooter = {
+	display: "flex",
+	alignItems: "center",
+	flexWrap: "wrap",
+	gap: 8,
+	padding: "12px 20px",
+	borderTop: "1px solid var(--skn-border)",
+};
+S.wizardFooterHint = {
+	flex: 1,
+	minWidth: 200,
+	fontSize: "var(--skn-font-small)",
+	color: "var(--skn-text-muted)",
+	lineHeight: 1.4,
+};
+S.wizardGroup = { marginBottom: 16 };
+S.wizardGroupTitle = {
+	fontSize: "var(--skn-font-body)",
+	fontWeight: 600,
+	margin: "0 0 6px",
+	color: "var(--skn-text)",
+};
+// Whole row is a <label> so tapping the text toggles the checkbox. 40px tall
+// so the touch target clears its neighbours in the list.
+S.wizardRow = {
+	display: "flex",
+	alignItems: "center",
+	gap: 10,
+	minHeight: 40,
+	padding: "4px 0",
+	cursor: "pointer",
+};
+S.wizardRowText = {
+	fontSize: "var(--skn-font-body)",
+	color: "var(--skn-text)",
+};
+S.wizardRowMeta = {
+	fontSize: "var(--skn-font-small)",
+	color: "var(--skn-text-faint)",
+	marginLeft: 6,
+};
+S.wizardSubhead = {
+	fontSize: "var(--skn-font-body)",
+	fontWeight: 600,
+	color: "var(--skn-text)",
+	margin: "16px 0 4px",
+};

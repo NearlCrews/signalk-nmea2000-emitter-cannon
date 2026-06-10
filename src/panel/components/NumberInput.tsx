@@ -54,6 +54,12 @@ export default function NumberInput(props: Props): React.ReactElement {
 				commit(e.target.value);
 			}}
 			onBlur={() => setDraft(null)}
+			onWheel={(e) => {
+				// A scroll gesture over a focused number field silently spins the
+				// value. Dropping focus before the spin applies makes scrolling
+				// past the field safe; an unfocused number input never spins.
+				if (document.activeElement === e.currentTarget) e.currentTarget.blur();
+			}}
 			aria-label={ariaLabel}
 		/>
 	);

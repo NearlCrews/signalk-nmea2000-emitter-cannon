@@ -8,6 +8,11 @@ interface Props {
 	onChange: (next: string) => void;
 	sourcesFor: (path: string) => string[];
 	ensureLoaded: (path: string) => Promise<void>;
+	// Disambiguates the datalist id when two rendered fields share a path
+	// (e.g. two expanded conversion cards subscribing to the same Signal K
+	// key). Pass the conversion option key. Omitting it preserves the
+	// original `sources-<path>` id.
+	idScope?: string;
 }
 
 export default function SourceField({
@@ -16,13 +21,15 @@ export default function SourceField({
 	onChange,
 	sourcesFor,
 	ensureLoaded,
+	idScope,
 }: Props): React.ReactElement {
 	const [touched, setTouched] = useState(false);
 	useEffect(() => {
 		if (touched) void ensureLoaded(path);
 	}, [path, touched, ensureLoaded]);
 	const sources = sourcesFor(path);
-	const listId = `sources-${path}`;
+	const listId =
+		idScope === undefined ? `sources-${path}` : `sources-${idScope}-${path}`;
 
 	// A single <input> with a <datalist> rather than swapping between an
 	// <input> and a <select>: swapping element types unmounts the focused node

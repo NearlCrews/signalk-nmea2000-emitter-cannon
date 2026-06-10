@@ -1,6 +1,11 @@
 import type * as React from "react";
+import { useEffect, useRef, useState } from "react";
 import { S } from "../../styles";
 import NumberInput from "../NumberInput";
+
+// Module-level sequence so generated row ids stay unique across every
+// MappingTable instance in the panel.
+let rowIdSeq = 0;
 
 export interface Column<T> {
 	header: string;
@@ -71,6 +76,34 @@ interface Props<T> {
 }
 
 export default function MappingTable<T>(props: Props<T>): React.ReactElement {
+	// Stable per-row ids so React keys survive a mid-list Remove. Rows are
+	// plain config objects with no natural id, so generated ids live in a
+	// ref aligned by index: an edit replaces the row in place and keeps its
+	// id, our Remove splices the matching slot, and Add row appends (covered
+	// by the push loop). An external reset that shrinks the list truncates
+	// from the end, which is the best available guess without a natural key.
+	const idsRef = useRef<string[]>([]);
+	const ids = idsRef.current;
+	while (ids.length < props.rows.length) ids.push(`skn-row-${rowIdSeq++}`);
+	if (ids.length > props.rows.length) ids.length = props.rows.length;
+
+	// Remove is two-step: the first tap arms an inline "Confirm remove"
+	// state for that row, the second tap deletes it. The armed state clears
+	// on blur or after a short timeout so a stray tap never leaves a live
+	// destructive button behind.
+	const [confirmId, setConfirmId] = useState<string | null>(null);
+	useEffect(() => {
+		if (confirmId === null) return;
+		const timer = setTimeout(() => setConfirmId(null), 4000);
+		return () => clearTimeout(timer);
+	}, [confirmId]);
+
+	const removeRow = (i: number): void => {
+		ids.splice(i, 1);
+		setConfirmId(null);
+		props.onChange(props.rows.filter((_, j) => j !== i));
+	};
+
 	return (
 		<div style={{ marginTop: 8 }}>
 			<div style={S.tableTitle}>{props.title}</div>
@@ -84,42 +117,55 @@ export default function MappingTable<T>(props: Props<T>): React.ReactElement {
 									{c.header}
 								</th>
 							))}
-							<th scope="col" style={S.tableCell}>
+							<th scope="col" style={S.tableActionCell}>
 								<span style={S.visuallyHidden}>Actions</span>
 							</th>
 						</tr>
 					</thead>
 					<tbody>
-						{props.rows.map((row, i) => (
-							// biome-ignore lint/suspicious/noArrayIndexKey: rows have no natural id; index is the only stable handle for add/remove
-							<tr key={i}>
-								{props.columns.map((c) => (
-									<td key={c.header} style={S.tableCell}>
-										{c.render(
-											row,
-											(next) => {
-												const out = props.rows.slice();
-												out[i] = next;
-												props.onChange(out);
-											},
-											props.available ?? [],
-										)}
+						{props.rows.map((row, i) => {
+							const rowId = ids[i];
+							const armed = confirmId === rowId;
+							return (
+								<tr key={rowId}>
+									{props.columns.map((c) => (
+										<td key={c.header} style={S.tableCell}>
+											{c.render(
+												row,
+												(next) => {
+													const out = props.rows.slice();
+													out[i] = next;
+													props.onChange(out);
+												},
+												props.available ?? [],
+											)}
+										</td>
+									))}
+									<td style={S.tableActionCell}>
+										<button
+											type="button"
+											style={
+												armed ? S.btnDestructiveSmArmed : S.btnDestructiveSm
+											}
+											onClick={() => {
+												if (armed) removeRow(i);
+												else setConfirmId(rowId);
+											}}
+											onBlur={() => {
+												if (armed) setConfirmId(null);
+											}}
+											aria-label={
+												armed
+													? `Confirm removing row ${i + 1}`
+													: `Remove row ${i + 1}`
+											}
+										>
+											{armed ? "Confirm remove" : "Remove"}
+										</button>
 									</td>
-								))}
-								<td style={S.tableCell}>
-									<button
-										type="button"
-										style={S.btnDestructiveSm}
-										onClick={() =>
-											props.onChange(props.rows.filter((_, j) => j !== i))
-										}
-										aria-label={`Remove row ${i + 1}`}
-									>
-										Remove
-									</button>
-								</td>
-							</tr>
-						))}
+								</tr>
+							);
+						})}
 					</tbody>
 				</table>
 			</div>

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { RootConfig } from "../config/schema.js";
 import { PluginManager } from "../plugin-manager.js";
 import type { SignalKApp, SignalKPlugin } from "../types/index.js";
@@ -138,5 +138,46 @@ describe("PluginManager.getConversionMetadata", () => {
 		const meta = pm.getConversionMetadata();
 		const missing = meta.filter((m) => m.pgns.length === 0);
 		expect(missing).toEqual([]);
+	});
+});
+
+describe("PluginManager.throttledError window", () => {
+	it("suppresses repeat errors within 60s and reopens with a suppressed-count suffix", () => {
+		vi.useFakeTimers();
+		try {
+			const errors: string[] = [];
+			const app = makeMockApp();
+			// Capture the throttled error output. makeMockApp's error() is a
+			// no-op, so override it to record what actually reaches the log.
+			(app as unknown as { error: (m: string) => void }).error = (m) => {
+				errors.push(m);
+			};
+			const pm = new PluginManager(app, mockPlugin);
+			const throttledError = (
+				pm as unknown as { throttledError: (k: string, m: string) => void }
+			).throttledError.bind(pm);
+			const key = "callback:WIND:stream";
+
+			// First error for the key passes through immediately.
+			throttledError(key, "boom");
+			expect(errors).toEqual(["boom"]);
+
+			// A second identical-key error inside the 60s window is suppressed
+			// (counted, not logged).
+			vi.advanceTimersByTime(30_000);
+			throttledError(key, "boom");
+			expect(errors).toHaveLength(1);
+
+			// Once the window expires, the next error logs again and reports how
+			// many were suppressed during the window.
+			vi.advanceTimersByTime(31_000);
+			throttledError(key, "boom");
+			expect(errors).toHaveLength(2);
+			expect(errors[1]).toBe(
+				"boom (1 similar errors suppressed in the last 60s)",
+			);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 });

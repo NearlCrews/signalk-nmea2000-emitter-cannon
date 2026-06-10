@@ -256,6 +256,52 @@ describe("PluginManager lifecycle", () => {
 		expect(mock.statusUpdates).toContain("Running with 1 conversions enabled");
 	});
 
+	it("flips readiness and starts emitting when nmea2000OutAvailable fires after start()", async () => {
+		// Construct a manager whose factory readiness getter returns false, so
+		// start() cannot sync-detect readiness. This models a plugin enabled
+		// before signalk-server has brought NMEA 2000 output up: output must be
+		// gated until the one-shot nmea2000OutAvailable event arrives, then
+		// latch ready. This is the event half of the v1.7.0 readiness fix; the
+		// snapshot-seed half is covered by the createPlugin describe block below.
+		const readyManager = new PluginManager(mock.app, mockPlugin, () => false);
+
+		readyManager.start({
+			globalResendInterval: 0,
+			WIND: { enabled: true, resend: 0 },
+		} as unknown as PluginOptions);
+
+		// Not ready yet: status is the waiting form, not the running form.
+		expect(mock.statusUpdates).toContain(
+			"Waiting for NMEA 2000 output (1 conversions enabled)",
+		);
+		expect(mock.statusUpdates).not.toContain(
+			"Running with 1 conversions enabled",
+		);
+
+		// A delta arriving before readiness is dropped, not emitted onto a bus
+		// that is not up.
+		mock.pushStream("environment.wind.angleApparent", { value: 1.5 });
+		mock.pushStream("environment.wind.speedApparent", { value: 2.0 });
+		await flush();
+		expect(mock.emittedMessages).toEqual([]);
+
+		// The one-shot event arrives: readiness latches and the status refreshes
+		// to the running form.
+		mock.fireEvent("nmea2000OutAvailable");
+		expect(mock.statusUpdates).toContain("Running with 1 conversions enabled");
+
+		// A delta arriving after the event now emits.
+		mock.pushStream("environment.wind.angleApparent", { value: 1.6 });
+		mock.pushStream("environment.wind.speedApparent", { value: 2.1 });
+		await flush();
+		expect(mock.emittedMessages.length).toBeGreaterThanOrEqual(1);
+		expect(mock.emittedMessages[mock.emittedMessages.length - 1]?.pgn).toBe(
+			130306,
+		);
+
+		readyManager.stop();
+	});
+
 	it("start() wires up stream subscriptions for enabled conversions", () => {
 		const options = {
 			globalResendInterval: 5,

@@ -388,8 +388,13 @@ export class PluginManager {
 				globalResendInterval: migrated.globalResendInterval,
 				conversions,
 			};
+			// Nullish-coalesce, not `||`: a configured 0 is a meaningful value
+			// (disable global resend) and must survive. `migrateLegacyConfig`
+			// already guarantees a number here, so `??` only fills a genuinely
+			// absent value with the default. A conversion with its own resend > 0
+			// still resends; only the global default is switched off.
 			this.globalResendInterval =
-				options.globalResendInterval || DEFAULT_GLOBAL_RESEND_SECONDS;
+				options.globalResendInterval ?? DEFAULT_GLOBAL_RESEND_SECONDS;
 
 			this.app.setPluginStatus("Starting...");
 			this.app.debug(

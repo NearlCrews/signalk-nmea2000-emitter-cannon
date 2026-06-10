@@ -10,6 +10,7 @@ import {
 } from "../advisor/openrouter.js";
 import { fetchHistoricPaths, QuestDBClient } from "../advisor/questdb.js";
 import { recommend } from "../advisor/recommender.js";
+import type { ApplyDecision } from "../advisor/types.js";
 import type { ConversionMetadata } from "../api/types.js";
 import { DEFAULT_ADVISOR_CONFIG } from "../config/enums.js";
 import type { SignalKApp } from "../types/index.js";
@@ -216,6 +217,12 @@ describe("Advisor.runReview", () => {
 describe("Advisor.applyReview", () => {
 	it("applies approved disables and ignores rejected ones", async () => {
 		const deps = advisorDeps({
+			// applyReview allow-lists optionKey against getMetadata(), so the
+			// acted-on conversions must be present in the loaded metadata.
+			getMetadata: () => [
+				meta("GPS", ["navigation.position"]),
+				meta("AIS", ["navigation.position"]),
+			],
 			readConfig: () => ({
 				conversions: {
 					GPS: { enabled: true, resend: 0, sources: {}, extras: {} },
@@ -249,6 +256,48 @@ describe("Advisor.applyReview", () => {
 			conversions: Record<string, { enabled: boolean }>;
 		};
 		expect(saved.conversions.DEPTH?.enabled).toBe(true);
+	});
+
+	it("drops an approved decision whose optionKey is not a loaded conversion", async () => {
+		// applyReview allow-lists optionKey against getMetadata(); a key naming
+		// no loaded conversion is filtered out so it cannot inject a junk entry
+		// into the saved config. With nothing applicable, config is never written.
+		const deps = advisorDeps({
+			readConfig: () => ({
+				conversions: {
+					DEPTH: { enabled: false, resend: 0, sources: {}, extras: {} },
+				},
+			}),
+		});
+		await new Advisor(deps).applyReview([
+			{ optionKey: "TOTALLY_BOGUS", approved: true, action: "enable" },
+		]);
+		expect(deps.getSaved()).toBeNull();
+	});
+
+	it("tolerates null and unkeyed decision elements without throwing", async () => {
+		// The apply route forwards untrusted JSON, so a null or optionKey-less
+		// element must be skipped rather than crash or write an "undefined" key.
+		// The one well-formed decision still applies.
+		const deps = advisorDeps({
+			readConfig: () => ({
+				conversions: {
+					DEPTH: { enabled: false, resend: 0, sources: {}, extras: {} },
+				},
+			}),
+		});
+		await expect(
+			new Advisor(deps).applyReview([
+				null as unknown as ApplyDecision,
+				{ approved: true } as unknown as ApplyDecision,
+				{ optionKey: "DEPTH", approved: true, action: "enable" },
+			]),
+		).resolves.toBeUndefined();
+		const saved = deps.getSaved() as {
+			conversions: Record<string, { enabled: boolean }>;
+		};
+		expect(saved.conversions.DEPTH?.enabled).toBe(true);
+		expect(Object.keys(saved.conversions)).toEqual(["DEPTH"]);
 	});
 });
 
@@ -497,6 +546,38 @@ describe("OpenRouterClient", () => {
 				status: 401,
 				headers: new Headers(),
 				json: async () => ({ error: { message: "bad key" } }),
+			} as Response;
+		}) as typeof fetch;
+		const client = new OpenRouterClient(cfg, counting);
+		await expect(client.complete({ system: "s", user: "u" })).rejects.toThrow();
+		expect(calls).toBe(1);
+	});
+
+	it("throws a terminal error on 404 without retrying", async () => {
+		let calls = 0;
+		const counting = (async () => {
+			calls += 1;
+			return {
+				ok: false,
+				status: 404,
+				headers: new Headers(),
+				json: async () => ({ error: { message: "no such model" } }),
+			} as Response;
+		}) as typeof fetch;
+		const client = new OpenRouterClient(cfg, counting);
+		await expect(client.complete({ system: "s", user: "u" })).rejects.toThrow();
+		expect(calls).toBe(1);
+	});
+
+	it("throws a terminal error on 422 without retrying", async () => {
+		let calls = 0;
+		const counting = (async () => {
+			calls += 1;
+			return {
+				ok: false,
+				status: 422,
+				headers: new Headers(),
+				json: async () => ({ error: { message: "unprocessable" } }),
 			} as Response;
 		}) as typeof fetch;
 		const client = new OpenRouterClient(cfg, counting);

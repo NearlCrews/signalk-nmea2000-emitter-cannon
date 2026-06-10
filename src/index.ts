@@ -124,6 +124,13 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 			fetchHistoricPaths(new QuestDBClient({ url }), lookbackDays),
 		probeQuestDB: (url) => new QuestDBClient({ url }).probe(),
 		enrichReasons: async (openRouter, recs) => {
+			// No actionable recommendations means enrichRationales makes no
+			// OpenRouter request, so short-circuit before touching the budget:
+			// recording a call here would consume the day's allowance for an
+			// HTTP round-trip that never happens.
+			if (recs.length === 0) {
+				return { reasons: new Map() };
+			}
 			const cap = readConfig().advisor?.openRouter?.maxCallsPerDay ?? 0;
 			if (advisorBudget.callsToday() >= cap) {
 				return {
@@ -180,13 +187,12 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 		try {
 			pluginManager = new PluginManager(app, plugin, () => nmea2000Ready);
 			pluginManager.start(options);
-			const schedule = (
-				options as {
-					advisor?: {
-						schedule?: { periodic?: unknown; intervalDays?: unknown };
-					};
-				}
-			).advisor?.schedule;
+			// Read the scheduler config from the migrated/flattened shape, the same
+			// as PluginManager.start() and the advisor's readConfig do. Reading raw
+			// `options` would miss advisor.schedule on a config that still carries
+			// the historical `configuration`-envelope nesting, so the periodic
+			// review would silently never arm even though conversions still emit.
+			const schedule = migrateLegacyConfig(options).advisor?.schedule;
 			advisorScheduler.configure(
 				schedule?.periodic === true,
 				isValidNumber(schedule?.intervalDays) ? schedule.intervalDays : 7,

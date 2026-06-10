@@ -16,7 +16,12 @@ export interface CompleteArgs {
 
 const TIMEOUT_MS = 20000;
 const MODELS_TIMEOUT_MS = 12000;
-const TERMINAL = new Set([400, 401, 402, 403]);
+// Statuses that will not succeed on retry, so they throw immediately: 400 bad
+// request, 401 unauthorized, 402 payment required, 403 forbidden, 404 unknown
+// model or endpoint, and 422 unprocessable request. Retrying any of these just
+// burns the backoff budget before the same failure. Transient statuses (429,
+// 5xx) and network errors still retry.
+const TERMINAL = new Set([400, 401, 402, 403, 404, 422]);
 const BACKOFF_MS = [500, 1500, 4000];
 
 export class OpenRouterError extends Error {

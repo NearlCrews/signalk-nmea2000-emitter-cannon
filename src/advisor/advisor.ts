@@ -53,6 +53,28 @@ type ConversionMap = Record<string, ConversionConfig>;
 // unvalidated config and cannot import the validated schema default.
 const DEFAULT_LOOKBACK_DAYS = 7;
 
+/**
+ * True when a decision is a well-formed approval for a known conversion. The
+ * apply endpoint forwards untrusted request JSON (and on older signalk-server
+ * builds the route may be unauthenticated), so each element is re-validated at
+ * runtime rather than trusted to match the ApplyDecision type: it must be a
+ * non-null object, `approved === true`, and carry an optionKey string naming a
+ * loaded conversion. Malformed or unknown-key entries are dropped so they
+ * neither throw nor inject a junk key into the saved config.
+ */
+function isApplicableDecision(
+	d: unknown,
+	knownKeys: ReadonlySet<string>,
+): d is ApplyDecision {
+	if (d === null || typeof d !== "object") return false;
+	const o = d as Record<string, unknown>;
+	return (
+		o.approved === true &&
+		typeof o.optionKey === "string" &&
+		knownKeys.has(o.optionKey)
+	);
+}
+
 export class Advisor {
 	private lastPending: Recommendation[] = [];
 
@@ -183,7 +205,14 @@ export class Advisor {
 	 * compatibility with the autoApply-on flow, whose pending list is disables.
 	 */
 	async applyReview(decisions: ApplyDecision[]): Promise<void> {
-		const approved = decisions.filter((d) => d.approved);
+		// Trust nothing about the inbound decisions: keep only well-formed
+		// approvals whose optionKey names a loaded conversion. This tolerates
+		// malformed elements (null, missing optionKey) without throwing and
+		// stops an arbitrary key from being written to the saved config.
+		const knownKeys = new Set(this.deps.getMetadata().map((m) => m.key));
+		const approved = decisions.filter((d) =>
+			isApplicableDecision(d, knownKeys),
+		);
 		if (approved.length === 0) return;
 		const config = this.deps.readConfig();
 		const conversions = { ...this.conversionsOf(config) };

@@ -11,6 +11,7 @@ import {
 	MAX_RPS_WAYPOINTS,
 	mapValidWaypoints,
 	type Position,
+	packWaypointsToBudget,
 	toWaypointEntry,
 } from "./routeTypes.js";
 
@@ -42,10 +43,22 @@ export default function createRouteWaypointConversion(): ConversionModule {
 				return [];
 			}
 
-			const list = mapValidWaypoints(
-				waypoints,
-				MAX_RPS_WAYPOINTS,
-				toWaypointEntry,
+			const routeNameString =
+				typeof routeName === "string" ? routeName : DEFAULT_ROUTE_NAME;
+			const clampedRouteName = clampString(
+				routeNameString,
+				MAX_ROUTE_NAME_CHARS,
+			);
+
+			// Pack the waypoint list against the 223-byte fast-packet budget. The
+			// PGN 129285 fixed header is 12 bytes (startRps, nItems, databaseId,
+			// routeId, the direction-and-flags byte, the reserved byte, and the
+			// route name's STRING_LAU length-and-control prefix) plus the route
+			// name's characters, so the per-frame waypoint count shrinks as the
+			// route name grows.
+			const list = packWaypointsToBudget(
+				mapValidWaypoints(waypoints, MAX_RPS_WAYPOINTS, toWaypointEntry),
+				12 + clampedRouteName.length,
 			);
 
 			// PGN 129285 with nitems=0 is malformed per spec. Skip the emission
@@ -57,9 +70,6 @@ export default function createRouteWaypointConversion(): ConversionModule {
 			if (list.length === 0 && !hasNextPosition) {
 				return [];
 			}
-
-			const routeNameString =
-				typeof routeName === "string" ? routeName : DEFAULT_ROUTE_NAME;
 
 			return [
 				{
@@ -73,7 +83,7 @@ export default function createRouteWaypointConversion(): ConversionModule {
 						routeId: 1,
 						navigationDirectionInRoute: "Forward",
 						supplementaryRouteWpDataAvailable: list.length > 0 ? "On" : "Off",
-						routeName: clampString(routeNameString, MAX_ROUTE_NAME_CHARS),
+						routeName: clampedRouteName,
 						list,
 					},
 				},
@@ -163,6 +173,43 @@ export default function createRouteWaypointConversion(): ConversionModule {
 									wpLongitude: -76.6122,
 								},
 							],
+						},
+					},
+				],
+			},
+			{
+				// Regression: a long route is trimmed to the 223-byte fast-packet
+				// budget. With a 32-char route name (44-byte header) only six
+				// 16-char-named waypoints fit (6 * 28 + 44 = 212); the seventh and
+				// eighth are dropped and nitems tracks the packed count.
+				input: [
+					{ latitude: 40, longitude: -75 },
+					"R".repeat(32),
+					Array.from({ length: 8 }, (_, i) => ({
+						id: i + 1,
+						name: `WAYPOINT-LONG-0${i + 1}`,
+						position: { latitude: 39 + i, longitude: -76 - i },
+					})),
+				],
+				expected: [
+					{
+						prio: 2,
+						pgn: 129285,
+						dst: 255,
+						fields: {
+							startRps: 0,
+							nitems: 6,
+							databaseId: 1,
+							routeId: 1,
+							navigationDirectionInRoute: "Forward",
+							supplementaryRouteWpDataAvailable: "On",
+							routeName: "R".repeat(32),
+							list: Array.from({ length: 6 }, (_, i) => ({
+								wpId: i + 1,
+								wpName: `WAYPOINT-LONG-0${i + 1}`,
+								wpLatitude: 39 + i,
+								wpLongitude: -76 - i,
+							})),
 						},
 					},
 				],

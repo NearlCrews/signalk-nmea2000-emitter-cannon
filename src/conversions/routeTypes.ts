@@ -24,15 +24,27 @@ export const DEFAULT_ROUTE_NAME = "ACTIVE_ROUTE";
 export const markTypeFor = (t: unknown): "Waypoint" | "Reference" =>
 	t === "waypoint" ? "Waypoint" : "Reference";
 
-// PGN 129285 (Route/Waypoint) carries up to 8 waypoints per frame.
-export const MAX_RPS_WAYPOINTS = 8;
-// PGN 130074 (Route WP List) carries up to 16 waypoints per frame.
-export const MAX_WP_LIST_WAYPOINTS = 16;
+// Upper bound on candidate waypoints considered per frame, before the
+// fast-packet byte budget trims further. A single fast-packet route frame holds
+// at most ~17 waypoints even with empty names, so these ceilings only cap how
+// many raw entries we process; packWaypointsToBudget is the authoritative
+// on-wire bound. See FAST_PACKET_MAX_BYTES.
+export const MAX_RPS_WAYPOINTS = 18;
+export const MAX_WP_LIST_WAYPOINTS = 18;
 
-// Waypoint and route names are STRING_LAU fields. 16 chars keeps a full
-// 16-waypoint PGN 130074 under the encoder buffer limit; see clampString.
+// Waypoint and route names are STRING_LAU fields. 16 chars bounds each name so
+// a frame holds a useful number of waypoints within the fast-packet limit and
+// keeps every name well under the encoder buffer; see clampString and
+// packWaypointsToBudget.
 export const MAX_WP_NAME_CHARS = 16;
 export const MAX_ROUTE_NAME_CHARS = 32;
+
+// NMEA 2000 fast packet tops out at 223 bytes (32 frames, a 5-bit sequence
+// counter: 6 + 31 * 7). A PGN larger than this cannot be transmitted as a
+// single fast packet, so a receiver (Garmin, B&G) silently drops or truncates
+// it. PGN 129285 and 130074 are variable-length route frames, so the waypoint
+// count has to be bounded by the ENCODED byte size, not a fixed waypoint count.
+export const FAST_PACKET_MAX_BYTES = 223;
 
 // Filters waypoints with valid latitude/longitude and projects each via the
 // transform; out-of-range entries are dropped.
@@ -72,4 +84,31 @@ export function toWaypointEntry(wp: Waypoint, index: number): WaypointEntry {
 		wpLatitude: wp.position?.latitude,
 		wpLongitude: wp.position?.longitude,
 	};
+}
+
+// Fixed bytes per waypoint row in both PGN 129285 and 130074: wpId(2) +
+// wpLatitude(4) + wpLongitude(4) + the STRING_LAU name's length-and-control
+// prefix(2). Each name character adds one byte (canboatjs writes one byte per
+// code unit), so a row is WAYPOINT_ROW_FIXED_BYTES + wpName.length bytes.
+const WAYPOINT_ROW_FIXED_BYTES = 12;
+
+// Greedily keep the leading waypoints whose encoded rows fit the fast-packet
+// budget after the PGN's fixed header (headerBytes). Returns the packed prefix;
+// any tail that would push the frame past FAST_PACKET_MAX_BYTES is dropped so
+// the emitted PGN stays transmittable on the bus. Names are already clamped by
+// toWaypointEntry.
+export function packWaypointsToBudget(
+	entries: WaypointEntry[],
+	headerBytes: number,
+): WaypointEntry[] {
+	const budget = FAST_PACKET_MAX_BYTES - headerBytes;
+	const packed: WaypointEntry[] = [];
+	let used = 0;
+	for (const entry of entries) {
+		const rowBytes = WAYPOINT_ROW_FIXED_BYTES + entry.wpName.length;
+		if (used + rowBytes > budget) break;
+		used += rowBytes;
+		packed.push(entry);
+	}
+	return packed;
 }

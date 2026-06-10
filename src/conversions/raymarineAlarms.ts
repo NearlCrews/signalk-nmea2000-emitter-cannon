@@ -52,6 +52,22 @@ const SUBSCRIBED_KEYS: ReadonlyArray<string> = ALARM_ID_BY_PATH_PREFIX.map(
 	([prefix]) => prefix,
 );
 
+// Seatalk alarm group per alarmId (values must match @canboat/ts-pgns
+// SeatalkAlarmGroup enum verbatim). Autopilot alarms route to the "Autopilot"
+// group so a Raymarine MFD lists them with the pilot alarms rather than the
+// generic instrument set; every other alarmId keeps the default "Instrument".
+const ALARM_GROUP_BY_ID: Record<string, string> = {
+	"Pilot Watch": "Autopilot",
+	"Pilot Off Course": "Autopilot",
+	"Pilot Wind Shift": "Autopilot",
+};
+
+const DEFAULT_ALARM_GROUP = "Instrument";
+
+function alarmGroupForId(alarmId: string): string {
+	return ALARM_GROUP_BY_ID[alarmId] ?? DEFAULT_ALARM_GROUP;
+}
+
 function alarmStatus(state: string, hasSound: boolean): string | undefined {
 	if (isClearState(state)) {
 		return hasSound ? "Alarm condition not met" : undefined;
@@ -142,7 +158,7 @@ export default function createRaymarineAlarmsConversion(): ConversionModule {
 						sid: RAYMARINE_ALARM_SID,
 						alarmStatus: state,
 						alarmId,
-						alarmGroup: "Instrument",
+						alarmGroup: alarmGroupForId(alarmId),
 						alarmPriority: 1,
 						manufacturerCode: "Raymarine",
 						industryCode: "Marine Industry",
@@ -208,6 +224,46 @@ export default function createRaymarineAlarmsConversion(): ConversionModule {
 					},
 				],
 				expected: [],
+			},
+			{
+				// Autopilot alarms route to the "Autopilot" group, not the default
+				// "Instrument" group, so a Raymarine MFD lists them with the pilot
+				// alarms. The prior "nominal" case cleared the anchor alarm, so this
+				// starts from an empty active set.
+				input: [
+					{
+						context: "vessels.urn:mrn:imo:mmsi:367301250",
+						updates: [
+							{
+								values: [
+									{
+										path: "notifications.steering.autopilot.watchAlarm",
+										value: {
+											state: "alarm",
+											method: ["sound"],
+										},
+									},
+								],
+							},
+						],
+					},
+				],
+				expected: [
+					{
+						prio: 2,
+						pgn: 65288,
+						dst: 255,
+						fields: {
+							manufacturerCode: "Raymarine",
+							industryCode: "Marine Industry",
+							sid: 1,
+							alarmStatus: "Alarm condition met and not silenced",
+							alarmId: "Pilot Watch",
+							alarmGroup: "Autopilot",
+							alarmPriority: 1,
+						},
+					},
+				],
 			},
 		],
 	};

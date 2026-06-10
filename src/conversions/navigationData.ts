@@ -7,7 +7,7 @@ import {
 import type { ConversionModule, N2KMessage } from "../types/index.js";
 import { toN2KDateTime } from "../utils/dateUtils.js";
 import { isClearState } from "../utils/notificationUtils.js";
-import { isValidNumber } from "../utils/validation.js";
+import { isValidNumber, normalizeAngle } from "../utils/validation.js";
 import type { Position } from "./routeTypes.js";
 
 // PGN 129284 uses a fixed sequence identifier per common implementations.
@@ -117,13 +117,15 @@ function createNavDataConversion(
 						calculationType,
 						etaTime,
 						etaDate,
+						// Both bearings are unsigned [0, 2pi) fields: normalize so a
+						// negative or >2pi bearing does not wrap by the uint16 modulus.
 						bearingOriginToDestinationWaypoint: isValidNumber(
 							bearingOriginToDest,
 						)
-							? bearingOriginToDest
+							? normalizeAngle(bearingOriginToDest)
 							: undefined,
 						bearingPositionToDestinationWaypoint: isValidNumber(bearingToDest)
-							? bearingToDest
+							? normalizeAngle(bearingToDest)
 							: undefined,
 						destinationWaypointNumber: wpid,
 						destinationLatitude: destination?.position?.latitude,
@@ -169,6 +171,41 @@ function createNavDataConversion(
 							destinationLatitude: 32.0631296,
 							destinationLongitude: -75.487264,
 							waypointClosingVelocity: 4,
+						},
+					},
+				],
+			},
+			{
+				// Regression: negative or out-of-range bearings are normalized into
+				// [0, 2pi) before the unsigned PGN 129284 bearing fields. -0.2 rad
+				// wraps to 6.0832 rad. WCV is null so no ETA fields are emitted.
+				input: [
+					12,
+					-0.2,
+					1.0,
+					{ position: { longitude: -75.5, latitude: 32.0 } },
+					null,
+					null,
+					null,
+					null,
+				],
+				expected: [
+					{
+						prio: 2,
+						pgn: 129284,
+						dst: 255,
+						fields: {
+							sid: NAV_DATA_SID,
+							distanceToWaypoint: 12,
+							courseBearingReference: "True",
+							perpendicularCrossed: "No",
+							arrivalCircleEntered: "No",
+							calculationType,
+							bearingOriginToDestinationWaypoint: 1,
+							bearingPositionToDestinationWaypoint: 6.0832,
+							destinationWaypointNumber: 0,
+							destinationLatitude: 32,
+							destinationLongitude: -75.5,
 						},
 					},
 				],

@@ -77,6 +77,33 @@ export default function createMagneticVarianceConversion(
 					},
 				],
 			},
+			{
+				// A populated ageOfService (Signal K epoch seconds) must encode as
+				// the PGN 127258 DATE field (days since 1970-01-01). Epoch
+				// 1700000000 s is 19675 days, which round-trips to 2023.11.14. The
+				// null-age case above leaves this branch untested, so this case
+				// covers the toN2KDate conversion and the emitted ageOfService.
+				input: [-0.0524, 1700000000],
+				expected: [
+					{
+						prio: 2,
+						pgn: 127258,
+						dst: 255,
+						fields: {
+							sid: 0,
+							source: "Automatic Calculation",
+							ageOfService: "2023.11.14",
+							variation: -0.0524,
+						},
+					},
+				],
+			},
+			{
+				// No usable variation: the callback must drop the message rather
+				// than emit a zeroed PGN 127258.
+				input: [null, null],
+				expected: [],
+			},
 		],
 	};
 }

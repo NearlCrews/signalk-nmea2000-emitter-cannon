@@ -358,6 +358,16 @@ export default function createNotificationsConversion(
 					return buildEmitList();
 				}
 
+				// Register the upstream-supplied id in the allocation pool and the
+				// path maps. Without this, allocateAlertId() (which only skips ids
+				// in usedAlertIds) could later hand the same number to a different
+				// path and silently overwrite this alert's cached PGNs. nextAlertIdHint
+				// starts at 1 and providers commonly use alertId 1, so the collision
+				// is reachable on the first auto-allocated alert.
+				usedAlertIds.add(alertId);
+				ids.set(update.path, alertId);
+				alertIdToPath.set(alertId, update.path);
+
 				setAlertPgns(
 					alertId,
 					buildAlertPgns({ alertId, type, category, priority, value }),
@@ -515,6 +525,34 @@ export default function createNotificationsConversion(
 						},
 					},
 				],
+			},
+			{
+				// Regression: clear the explicit-alertId alert set above so it does
+				// not linger across cases. With the external alertId now registered
+				// in usedAlertIds it cannot be reused by a later auto-allocation, so
+				// without this clear id 1 would survive and the 1 Hz rebroadcast gate
+				// could re-emit it in a later case on a slow run. Clearing keeps the
+				// embedded sequence deterministic.
+				input: [
+					{
+						context: "vessels.urn:mrn:imo:mmsi:367301250",
+						updates: [
+							{
+								values: [
+									{
+										path: "notifications.environment.inside.refrigerator.temperature",
+										value: {
+											state: "normal",
+											message: "The Fridge Temperature is normal",
+											alertId: 1,
+										},
+									},
+								],
+							},
+						],
+					},
+				],
+				expected: [],
 			},
 			{
 				// Regression: "nominal" is a valid non-alert Signal K state. It

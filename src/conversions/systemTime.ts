@@ -30,6 +30,10 @@ export default function createSystemTimeConversion(
 					pgn: 126992,
 					dst: N2K_BROADCAST_DST,
 					fields: {
+						// Declare the time source so a consumer does not see the
+						// SYSTEM_TIME field as "not available". The plugin derives time
+						// from the host clock, which on a marine install is GPS-disciplined.
+						source: "GPS",
 						date,
 						time,
 					},
@@ -46,6 +50,7 @@ export default function createSystemTimeConversion(
 						pgn: 126992,
 						dst: 255,
 						fields: {
+							source: "GPS",
 							date: "2017.04.15",
 							time: "14:59:53.12300",
 						},

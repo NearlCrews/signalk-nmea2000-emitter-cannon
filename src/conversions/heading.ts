@@ -8,7 +8,7 @@ import type {
 	ConversionModule,
 	SignalKApp,
 } from "../types/index.js";
-import { toValidNumber } from "../utils/validation.js";
+import { normalizeAngle, toValidNumber } from "../utils/validation.js";
 
 export default function createHeadingConversion(
 	_app: SignalKApp,
@@ -43,7 +43,11 @@ export default function createHeadingConversion(
 					dst: N2K_BROADCAST_DST,
 					fields: {
 						sid: N2K_DEFAULT_SID,
-						heading: validHeading,
+						// PGN 127250 heading is an unsigned [0, 2pi) field. Normalize so
+						// a provider that publishes a negative or >2pi heading does not
+						// wrap by the uint16 modulus into a wrong angle. deviation and
+						// variation are signed [-pi, pi] fields, so they are left as-is.
+						heading: normalizeAngle(validHeading),
 						deviation: validDeviation,
 						variation: validVariation,
 						reference: "Magnetic",
@@ -97,6 +101,24 @@ export default function createHeadingConversion(
 							heading: 0,
 							deviation: 0,
 							variation: 0.1,
+							reference: "Magnetic",
+						},
+					},
+				],
+			},
+			{
+				// Regression: a negative heading must be normalized into [0, 2pi)
+				// before the unsigned PGN 127250 field. -0.5 rad wraps to 5.7832 rad
+				// (2pi - 0.5), not the 6.0536 rad the raw uint16 modulus would give.
+				input: [-0.5, null, null],
+				expected: [
+					{
+						prio: 2,
+						pgn: 127250,
+						dst: 255,
+						fields: {
+							sid: 87,
+							heading: 5.7832,
 							reference: "Magnetic",
 						},
 					},

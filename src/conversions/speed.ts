@@ -23,6 +23,13 @@ export default function createSpeedConversion(
 			if (!isValidNumber(speed)) {
 				return [];
 			}
+			// PGN 128259 speedWaterReferenced is an unsigned u16 at 0.01 m/s. A
+			// negative (astern) value cannot be represented and would wrap into
+			// garbage on the wire, so drop the frame rather than encode nonsense
+			// (matches depth.ts).
+			if (speed < 0) {
+				return [];
+			}
 			return [
 				{
 					prio: N2K_DEFAULT_PRIORITY,
@@ -78,6 +85,12 @@ export default function createSpeedConversion(
 						},
 					},
 				],
+			},
+			{
+				// Regression: a negative (astern) speed cannot be represented by the
+				// unsigned PGN 128259 field, so the frame is dropped.
+				input: [-1],
+				expected: [],
 			},
 		],
 	};

@@ -16,7 +16,11 @@ import {
 	parseMmsi,
 	starboardOffset,
 } from "../utils/aisUtils.js";
-import { clampString, isValidNumber } from "../utils/validation.js";
+import {
+	clampString,
+	isValidNumber,
+	normalizeAngle,
+} from "../utils/validation.js";
 import type { Position as GeoPosition } from "./routeTypes.js";
 
 // SK publishes altitude as a sub-field of the position value when available
@@ -96,10 +100,12 @@ export default function createAisExtendedConversions(
 							positionAccuracy: "Low",
 							raim: "not in use",
 							timeStamp: "0",
-							cog: isValidNumber(cog) ? cog : undefined,
+							cog: isValidNumber(cog) ? normalizeAngle(cog) : undefined,
 							sog: isValidNumber(sog) ? sog : undefined,
 							aisTransceiverInformation: "Channel A VDL reception",
-							heading: isValidNumber(heading) ? heading : undefined,
+							heading: isValidNumber(heading)
+								? normalizeAngle(heading)
+								: undefined,
 							regionalApplication: 0,
 							unitType: "SOTDMA",
 							integratedDisplay: "No",
@@ -231,10 +237,12 @@ export default function createAisExtendedConversions(
 							positionAccuracy: "Low",
 							raim: "not in use",
 							timeStamp: "0",
-							cog: isValidNumber(cog) ? cog : undefined,
+							cog: isValidNumber(cog) ? normalizeAngle(cog) : undefined,
 							sog: isValidNumber(sog) ? sog : undefined,
 							aisTransceiverInformation: "Channel A VDL reception",
-							trueHeading: isValidNumber(heading) ? heading : undefined,
+							trueHeading: isValidNumber(heading)
+								? normalizeAngle(heading)
+								: undefined,
 							typeOfShip,
 							length: isValidNumber(length) ? length : undefined,
 							beam: isValidNumber(beam) ? beam : undefined,
@@ -367,7 +375,7 @@ export default function createAisExtendedConversions(
 							positionAccuracy: "High",
 							raim: "in use",
 							timeStamp: "0",
-							cog: isValidNumber(cog) ? cog : undefined,
+							cog: isValidNumber(cog) ? normalizeAngle(cog) : undefined,
 							sog: isValidNumber(sog) ? sog : undefined,
 							aisTransceiverInformation: "Channel A VDL reception",
 							altitude: isValidNumber(altitude) ? altitude : undefined,
@@ -396,6 +404,39 @@ export default function createAisExtendedConversions(
 								aisTransceiverInformation: "Channel A VDL reception",
 								altitude: 500,
 								cog: 0.7854,
+								dte: "Available",
+								latitude: 40.7128,
+								longitude: -74.006,
+								messageId: "Standard SAR aircraft position report",
+								positionAccuracy: "High",
+								raim: "in use",
+								repeatIndicator: "Initial",
+								sog: 25.7,
+								timeStamp: "0",
+								userId: 111000001,
+							},
+						},
+					],
+				},
+				{
+					// Regression: a negative COG is normalized into [0, 2pi) before
+					// the unsigned PGN 129798 field. -0.5 rad wraps to 5.7832 rad.
+					skSelfData: { mmsi: "111000001" },
+					input: [
+						"SAR",
+						{ latitude: 40.7128, longitude: -74.006, altitude: 500 },
+						-0.5,
+						25.7,
+					],
+					expected: [
+						{
+							prio: 2,
+							pgn: 129798,
+							dst: 255,
+							fields: {
+								aisTransceiverInformation: "Channel A VDL reception",
+								altitude: 500,
+								cog: 5.7832,
 								dte: "Available",
 								latitude: 40.7128,
 								longitude: -74.006,

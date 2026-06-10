@@ -42,8 +42,11 @@ export default function createDepthConversion(
 			// negative = distance to the keel. SK `surfaceToTransducer` is the
 			// positive distance down from the waterline, so it encodes as a
 			// positive offset. SK `transducerToKeel` is the positive distance
-			// down to the keel, so it encodes as a negative offset.
-			let offset = 0;
+			// down to the keel, so it encodes as a negative offset. When neither
+			// is configured, leave the field undefined so canboatjs encodes the
+			// spec's "data not available" sentinel rather than 0, which would
+			// claim the transducer sits exactly at the waterline.
+			let offset: number | undefined;
 			if (surfaceToTransducer !== null) {
 				offset = surfaceToTransducer;
 			} else if (transducerToKeel !== null) {
@@ -102,6 +105,9 @@ export default function createDepthConversion(
 				],
 			},
 			{
+				// No surfaceToTransducer or transducerToKeel configured: the offset
+				// field is omitted so canboatjs encodes "data not available" rather
+				// than asserting a zero (transducer-at-waterline) offset.
 				input: [5.0],
 				skSelfData: {},
 				expected: [
@@ -112,7 +118,6 @@ export default function createDepthConversion(
 						fields: {
 							sid: 87,
 							depth: 5.0,
-							offset: 0,
 						},
 					},
 				],

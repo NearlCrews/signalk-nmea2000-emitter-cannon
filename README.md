@@ -16,14 +16,17 @@ plugins such as [`signalk-virtual-weather-sensors`](https://github.com/NearlCrew
 
 ## What's New in v1.7.1
 
-v1.7.1 is a bug-fix release from a five-agent code review with NMEA 2000 and
-Garmin specialists. The route PGNs 129285 and 130074 now pack waypoints against
-the real 223-byte fast-packet limit instead of silently emitting frames an MFD
-cannot reassemble, and every unsigned angle field is normalized before encoding
-so a negative heading can no longer appear roughly 15 degrees off on the
-display. The Config Advisor's apply endpoint is validated and allow-listed on
-both layers, partially-saved legacy configs no longer crash the admin panel,
-and the test suite grew from 118 to 135. No breaking changes.
+v1.7.1 pairs a five-agent code review (with NMEA 2000 and Garmin specialists)
+with a ground-up UX overhaul of the admin config panel. The route PGNs 129285
+and 130074 now pack waypoints against the real 223-byte fast-packet limit
+instead of silently emitting frames an MFD cannot reassemble, and every
+unsigned angle field is normalized before encoding so a negative heading can
+no longer appear roughly 15 degrees off on the display. The panel gains a
+red-preserving Night theme, helm-sized touch targets, catalog search, a
+first-run setup wizard driven by your boat's live data, a live Status view,
+inline error and emit-recency readouts, and conflict-safe saves that stop the
+Config Advisor and a dirty panel from clobbering each other. The test suite
+grew from 118 to 141. No breaking changes.
 
 See the [v1.7.1 changelog entry](CHANGELOG.md#v171) and the
 [v1.7.1 release](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/releases/tag/v1.7.1).

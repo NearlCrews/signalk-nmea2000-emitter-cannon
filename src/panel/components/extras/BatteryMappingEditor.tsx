@@ -26,7 +26,7 @@ export default function BatteryMappingEditor({
 	const { rows, setRows } = extraRows<Row>(value, "batteries", onChange);
 	return (
 		<MappingTable<Row>
-			title="Battery Mapping"
+			title="Battery mapping"
 			rows={rows}
 			emptyRow={() => ({ signalkId: "", instanceId: 0 })}
 			onChange={setRows}
@@ -37,8 +37,8 @@ export default function BatteryMappingEditor({
 					ariaLabel: "Signal K battery id",
 				}),
 				instanceIdColumn<Row>({
-					header: "NMEA 2000 Instance Id",
-					ariaLabel: "NMEA 2000 battery instance id",
+					header: "NMEA 2000 instance",
+					ariaLabel: "NMEA 2000 battery instance",
 				}),
 			]}
 		/>

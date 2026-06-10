@@ -33,8 +33,8 @@ export default function EngineStaticMappingEditor({
 	const { rows, setRows } = extraRows<Row>(value, "engines", onChange);
 	return (
 		<MappingTable<Row>
-			title="Engine Static Mapping (PGN 127498)"
-			helpText="Set Signal K engine id to the same value used in Engine Parameters and Engine Trip rows (e.g. main, port, 0). MFDs pair PGNs by instance: all engine tables must agree. Instance Id 0 is Single Engine or Dual Engine Port, 1 is Dual Engine Starboard."
+			title="Engine static mapping (PGN 127498)"
+			helpText="Set Signal K engine id to the same value used in Engine Parameters and Engine Trip rows (e.g. main, port, 0). MFDs pair PGNs by instance: all engine tables must agree. Instance 0 is Single Engine or Dual Engine Port, 1 is Dual Engine Starboard."
 			rows={rows}
 			emptyRow={() => ({
 				signalkId: "",
@@ -48,11 +48,11 @@ export default function EngineStaticMappingEditor({
 					ariaLabel: "Signal K engine id",
 				}),
 				instanceIdColumn<Row>({
-					header: "NMEA 2000 Engine Instance Id",
-					ariaLabel: "NMEA 2000 engine instance id",
+					header: "NMEA 2000 engine instance",
+					ariaLabel: "NMEA 2000 engine instance",
 				}),
 				{
-					header: "Rated Engine Speed (RPM)",
+					header: "Rated engine speed (RPM)",
 					render: (r, set) => (
 						<NumberInput
 							value={r.ratedEngineSpeed}
@@ -60,16 +60,17 @@ export default function EngineStaticMappingEditor({
 							min={0}
 							placeholder="3600"
 							allowEmpty
+							style={S.tableInput}
 							ariaLabel="Rated engine speed in RPM"
 						/>
 					),
 				},
 				{
-					header: "Vehicle Identification Number",
+					header: "Vehicle identification number",
 					render: (r, set) => (
 						<input
 							type="text"
-							style={S.input}
+							style={S.tableInput}
 							value={r.VIN ?? ""}
 							onChange={(e) => set({ ...r, VIN: e.target.value })}
 							aria-label="Vehicle identification number"
@@ -77,11 +78,11 @@ export default function EngineStaticMappingEditor({
 					),
 				},
 				{
-					header: "Software Version",
+					header: "Software version",
 					render: (r, set) => (
 						<input
 							type="text"
-							style={S.input}
+							style={S.tableInput}
 							value={r.softwareVersion ?? ""}
 							onChange={(e) => set({ ...r, softwareVersion: e.target.value })}
 							aria-label="Engine software version"

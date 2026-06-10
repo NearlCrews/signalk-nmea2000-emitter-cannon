@@ -1,6 +1,7 @@
 import type * as React from "react";
 import { useEffect, useState } from "react";
 import type { ApplyDecision } from "../../../advisor/types.js";
+import type { ConversionMetadata } from "../../../api/types.js";
 import type { Config } from "../../../config/schema.js";
 import { useAdvisor } from "../../hooks/useAdvisor.js";
 import { plural } from "../../recency";
@@ -26,6 +27,11 @@ interface Props {
 	 * config, not the in-memory form.
 	 */
 	advisorSettingsDirty?: boolean;
+	/**
+	 * Conversion catalog keyed by option key (the parent's memoized map), so
+	 * review results can show conversion titles instead of raw option keys.
+	 */
+	metaByKey: Map<string, ConversionMetadata>;
 }
 
 // Pending-decision count pill at the trailing edge of the toggle row, visible
@@ -36,17 +42,21 @@ const PENDING_PILL: React.CSSProperties = {
 };
 
 /**
- * Collapsible "Config Advisor" section: the settings form, a Review now
- * button, the result, and per-item Approve/Reject. Persisting advisor settings
- * uses the panel's single footer Save, so this section has no Save of its own.
+ * Collapsible "Config Advisor" section: an intro, the Review now button, the
+ * result with per-item Approve/Reject, and the settings form behind its own
+ * collapsed disclosure (reviewing comes first; the settings are a one-time
+ * setup). Persisting advisor settings uses the panel's single footer Save, so
+ * this section has no Save of its own.
  */
 export default function AdvisorPanel({
 	advisor,
 	onChangeAdvisor,
 	dirty = false,
 	advisorSettingsDirty = false,
+	metaByKey,
 }: Props): React.ReactElement {
 	const [open, setOpen] = useState(false);
+	const [settingsOpen, setSettingsOpen] = useState(false);
 	const { state, review, apply, loadPending } = useAdvisor();
 	const [decisions, setDecisions] = useState<Record<string, boolean>>({});
 
@@ -120,16 +130,11 @@ export default function AdvisorPanel({
 			</button>
 			{open && (
 				<div style={S.advisorBody}>
-					<AdvisorSettings
-						value={advisor}
-						onChange={onChangeAdvisor}
-						advisorSettingsDirty={advisorSettingsDirty}
-					/>
 					<p style={S.advisorIntro}>
 						Reviews the Signal K paths your boat publishes and recommends which
 						conversions to enable or disable. Recommended enables apply
-						automatically unless you turn that off above; disables always wait
-						for your approval.
+						automatically unless you turn that off in Advisor settings below;
+						disables always wait for your approval.
 					</p>
 					<button
 						type="button"
@@ -162,6 +167,7 @@ export default function AdvisorPanel({
 							<ReviewResultView
 								result={state.result}
 								decisions={decisions}
+								metaByKey={metaByKey}
 								onApprove={(k) => decide(k, true)}
 								onReject={(k) => decide(k, false)}
 							/>
@@ -177,6 +183,34 @@ export default function AdvisorPanel({
 							)}
 						</div>
 					)}
+					{/* Settings last, behind their own disclosure: the form (toggle,
+					    API key, QuestDB) is one-time setup and should not greet the
+					    user ahead of the review action. */}
+					<div style={S.advisorBody}>
+						<button
+							type="button"
+							style={S.advisorToggle}
+							aria-expanded={settingsOpen}
+							aria-controls="skn-advisor-settings"
+							onClick={() => setSettingsOpen((o) => !o)}
+						>
+							<DisclosureCaret expanded={settingsOpen} />
+							Advisor settings
+						</button>
+						{settingsOpen ? (
+							<div id="skn-advisor-settings" style={S.advisorBody}>
+								<AdvisorSettings
+									value={advisor}
+									onChange={onChangeAdvisor}
+									advisorSettingsDirty={advisorSettingsDirty}
+								/>
+							</div>
+						) : (
+							// Placeholder keeps the aria-controls target present
+							// while collapsed.
+							<div id="skn-advisor-settings" hidden />
+						)}
+					</div>
 				</div>
 			)}
 		</section>

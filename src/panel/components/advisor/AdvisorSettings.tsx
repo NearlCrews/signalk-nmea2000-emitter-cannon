@@ -23,6 +23,16 @@ interface Props {
 // S.fieldRow lays it out; the pointer cursor signals the row is clickable.
 const checkboxRow: React.CSSProperties = { ...S.fieldRow, cursor: "pointer" };
 
+// Primary toggle labels get full text color (S.label's muted gray read as
+// disabled next to a live checkbox) and flex with the row instead of holding
+// a fixed column, so tablets do not get a dead gutter.
+const toggleLabel: React.CSSProperties = {
+	fontSize: "var(--skn-font-body)",
+	color: "var(--skn-text)",
+	flex: "1 1 auto",
+	minWidth: 160,
+};
+
 type ProbeState =
 	| { phase: "idle" }
 	| { phase: "testing" }
@@ -156,11 +166,11 @@ export default function AdvisorSettings({
 					checked={cfg.enabled}
 					onChange={(e) => patch({ enabled: e.target.checked })}
 				/>
-				<span style={S.label}>Enable the Config Advisor</span>
+				<span style={toggleLabel}>Enable the Config Advisor</span>
 			</label>
 			<p style={S.helpHint}>
 				When enabled, the advisor can review on a schedule. The Review now
-				button below always works regardless of this toggle.
+				button above always works regardless of this toggle.
 			</p>
 
 			<label style={checkboxRow}>
@@ -170,7 +180,7 @@ export default function AdvisorSettings({
 					checked={cfg.autoApply}
 					onChange={(e) => patch({ autoApply: e.target.checked })}
 				/>
-				<span style={S.label}>Apply recommended enables automatically</span>
+				<span style={toggleLabel}>Apply recommended enables automatically</span>
 			</label>
 			<p style={S.helpHint}>
 				When on, a review enables recommended conversions for you right away.
@@ -196,7 +206,7 @@ export default function AdvisorSettings({
 						})
 					}
 				/>
-				<span style={S.label}>Use OpenRouter for explanations</span>
+				<span style={toggleLabel}>Use OpenRouter for explanations</span>
 			</label>
 			<div style={S.fieldRow}>
 				<span style={S.label}>OpenRouter API key</span>
@@ -279,7 +289,7 @@ export default function AdvisorSettings({
 						patch({ questdb: { ...cfg.questdb, enabled: e.target.checked } })
 					}
 				/>
-				<span style={S.label}>Use QuestDB history</span>
+				<span style={toggleLabel}>Use QuestDB history</span>
 			</label>
 			<div style={S.fieldRow}>
 				<span style={S.label}>QuestDB REST URL</span>
@@ -340,7 +350,7 @@ export default function AdvisorSettings({
 						})
 					}
 				/>
-				<span style={S.label}>Review on a schedule</span>
+				<span style={toggleLabel}>Review on a schedule</span>
 			</label>
 			<div style={S.fieldRow}>
 				<span style={S.label}>Review every (days)</span>

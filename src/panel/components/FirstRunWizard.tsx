@@ -49,7 +49,9 @@ export default function FirstRunWizard({
 	// Unchecked-by-the-user overrides; every proposed conversion is checked
 	// unless overridden, so no state sync with the proposal list is needed.
 	const [overrides, setOverrides] = useState<Record<string, boolean>>({});
-	const [stagedCount, setStagedCount] = useState<number | null>(null);
+	// Footer hint, updated after an Apply or a preset-chip apply so the
+	// role="status" region reflects what just happened.
+	const [hint, setHint] = useState<string | null>(null);
 	const dialogRef = useRef<HTMLDivElement>(null);
 	const titleId = "skn-wizard-title";
 
@@ -69,10 +71,35 @@ export default function FirstRunWizard({
 		};
 	}, []);
 
-	// Close on Escape from anywhere in the dialog.
+	// Close on Escape from anywhere, and trap Tab inside the dialog: a modal
+	// that lets Tab walk out into the (visually dimmed) page behind it strands
+	// keyboard users. Minimal trap: wrap at the dialog edges.
 	useEffect(() => {
 		const onKey = (e: KeyboardEvent): void => {
-			if (e.key === "Escape") onClose();
+			if (e.key === "Escape") {
+				onClose();
+				return;
+			}
+			if (e.key !== "Tab") return;
+			const dialog = dialogRef.current;
+			if (!dialog) return;
+			const focusables = dialog.querySelectorAll<HTMLElement>(
+				'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])',
+			);
+			if (focusables.length === 0) return;
+			const first = focusables[0];
+			const last = focusables[focusables.length - 1];
+			const active = document.activeElement;
+			const inside = active instanceof Node && dialog.contains(active);
+			if (e.shiftKey) {
+				if (!inside || active === first) {
+					e.preventDefault();
+					last.focus();
+				}
+			} else if (!inside || active === last) {
+				e.preventDefault();
+				first.focus();
+			}
 		};
 		document.addEventListener("keydown", onKey);
 		return () => document.removeEventListener("keydown", onKey);
@@ -114,7 +141,18 @@ export default function FirstRunWizard({
 
 	const handleApply = (): void => {
 		if (checkedKeys.length > 0) onEnableKeys(checkedKeys);
-		setStagedCount(checkedKeys.length);
+		setHint(
+			`Staged ${plural(checkedKeys.length, "conversion")}. Close, review the checked conversions, then Save.`,
+		);
+	};
+
+	// Preset chips apply instantly (no separate Apply step), so reflect that
+	// in the footer hint right away.
+	const handlePreset = (p: PresetTag): void => {
+		onApplyPreset(p);
+		setHint(
+			"Preset applied and staged. Close, review the checked conversions, then Save.",
+		);
 	};
 
 	const scanning = paths === null && loadError === null;
@@ -204,15 +242,18 @@ export default function FirstRunWizard({
 						</div>
 					))}
 
-					<h3 style={S.wizardSubhead}>Or apply a preset</h3>
-					<PresetChips onApply={onApplyPreset} meta={meta} />
+					<h3 style={S.wizardSubhead}>Or apply a preset now</h3>
+					<p style={S.helpHint}>
+						Preset chips stage their conversions the moment you tap one; there
+						is no separate Apply step.
+					</p>
+					<PresetChips onApply={handlePreset} meta={meta} />
 				</div>
 
 				<div style={S.wizardFooter}>
 					<span style={S.wizardFooterHint} role="status">
-						{stagedCount === null
-							? "Applying stages your selection. Close, review the checked conversions, then Save."
-							: `Staged ${plural(stagedCount, "conversion")}. Close, review the checked conversions, then Save.`}
+						{hint ??
+							"Apply stages your selection; preset chips stage instantly. Close, review the checked conversions, then Save."}
 					</span>
 					<button
 						type="button"

@@ -22,6 +22,9 @@ import type { CSSProperties } from "react";
 // Scale tokens: theme-independent, defined once on the root. Radii and font
 // sizes sit on Bootstrap 5.3 defaults (radius .375rem = 6px, small text
 // .875rem = 14px) so the panel reads native inside the CoreUI admin shell.
+// The display size gives the wizard title and view-level headings one step of
+// real contrast over the 15px card titles. Spacing runs an 8/12/16 scale so
+// gutters stay on a consistent rhythm.
 const SCALE_TOKENS = `
 	--skn-radius: 6px;
 	--skn-radius-sm: 4px;
@@ -29,13 +32,21 @@ const SCALE_TOKENS = `
 	--skn-font-body: 14px;
 	--skn-font-small: 12px;
 	--skn-font-title: 15px;
+	--skn-font-display: 17px;
+	--skn-space-1: 8px;
+	--skn-space-2: 12px;
+	--skn-space-3: 16px;
 `;
 
 // Light theme. Cards must read white so they stand out from the admin's gray
 // page background. Faint text is #62687a: 5.05:1 on the raised surface and
 // 4.99:1 on the warn background, so it clears WCAG AA (4.5:1) everywhere it
 // is used at small sizes.
+// color-scheme rides along with each token block so native widgets
+// (checkboxes, select dropdown lists, number spinners, scrollbars) follow the
+// panel theme even when it is pinned against the host.
 const LIGHT_TOKENS = `
+	color-scheme: light;
 	--skn-bg: #e4e5e6;
 	--skn-surface: #ffffff;
 	--skn-surface-muted: #f8f9fa;
@@ -61,14 +72,12 @@ const LIGHT_TOKENS = `
 	--skn-info-bg: #eef2ff;
 	--skn-info-fg: #3730a3;
 	--skn-info-border: #c7d2fe;
-	--skn-legacy-bg: #ede9fe;
-	--skn-legacy-fg: #5b21b6;
-	--skn-legacy-border: #c4b5fd;
 `;
 
 // Dark theme. Faint text is #9aa1ad: 4.88:1 on the raised surface, 5.63:1 on
 // the card surface, so AA holds on every dark background it appears on.
 const DARK_TOKENS = `
+	color-scheme: dark;
 	--skn-bg: #1b1c22;
 	--skn-surface: #262833;
 	--skn-surface-muted: #20212b;
@@ -94,9 +103,6 @@ const DARK_TOKENS = `
 	--skn-info-bg: #1e2547;
 	--skn-info-fg: #a9b6f0;
 	--skn-info-border: #3a4577;
-	--skn-legacy-bg: #2a2245;
-	--skn-legacy-fg: #c4b5fd;
-	--skn-legacy-border: #4a3f77;
 `;
 
 // Night theme: red-preserving for night vision at the helm. Near-black
@@ -105,6 +111,7 @@ const DARK_TOKENS = `
 // against the night surfaces: text 7.25:1, muted 5.13:1, faint 4.56:1 worst
 // case, every status fg 5.65:1 or better on its paired bg.
 const NIGHT_TOKENS = `
+	color-scheme: dark;
 	--skn-bg: #0d0606;
 	--skn-surface: #160a0a;
 	--skn-surface-muted: #110808;
@@ -130,9 +137,6 @@ const NIGHT_TOKENS = `
 	--skn-info-bg: #200c0c;
 	--skn-info-fg: #c98080;
 	--skn-info-border: #5e2a2a;
-	--skn-legacy-bg: #220d12;
-	--skn-legacy-fg: #c47a7a;
-	--skn-legacy-border: #5e2a35;
 `;
 
 // Injected once by PluginConfigurationPanel. Covers the token contract, the
@@ -168,24 +172,47 @@ ${NIGHT_TOKENS}}
 	border-color: var(--skn-border) !important;
 	cursor: not-allowed !important;
 }
+/* Pointer feedback. Inline styles cannot express :hover or :active, so the
+   interactive elements get a shared brightness response here: a touch darker
+   on hover, darker still while pressed, with a short transition so the shift
+   reads as a response rather than a flicker. Disabled buttons opt out. */
+.skn-panel button,
+.skn-panel input,
+.skn-panel select {
+	transition:
+		background-color 120ms ease,
+		border-color 120ms ease,
+		filter 120ms ease;
+}
+.skn-panel button:hover:not(:disabled) {
+	filter: brightness(0.96);
+}
+.skn-panel button:active:not(:disabled) {
+	filter: brightness(0.9);
+}
 `;
 
 export const S: Record<string, CSSProperties> = {
+	// The root paints --skn-bg itself: a pinned Dark or Night theme must read
+	// as one continuous surface, not dark cards floating on the host's light
+	// page (and the sticky footer reuses the same background).
 	root: {
 		fontFamily:
 			'-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
 		color: "var(--skn-text)",
-		padding: "16px 0",
+		background: "var(--skn-bg)",
+		padding: "var(--skn-space-3)",
+		borderRadius: "var(--skn-radius)",
 	},
 	statusBar: {
 		display: "flex",
 		flexWrap: "wrap",
-		gap: 18,
-		padding: "12px 16px",
+		gap: "var(--skn-space-3)",
+		padding: "var(--skn-space-2) var(--skn-space-3)",
 		background: "var(--skn-surface-muted)",
 		border: "1px solid var(--skn-border)",
 		borderRadius: "var(--skn-radius)",
-		marginBottom: 16,
+		marginBottom: "var(--skn-space-3)",
 		alignItems: "center",
 		fontSize: "var(--skn-font-body)",
 	},
@@ -205,18 +232,29 @@ export const S: Record<string, CSSProperties> = {
 	},
 };
 
+// Error badge rendered as a real button (jump to first error). Inherits the
+// badge palette and adds button resets plus a pointer cursor. Shared by
+// StatusDashboard and StatusView so the two badges stay pixel-identical.
+S.errorBadgeButton = {
+	...S.errorBadge,
+	cursor: "pointer",
+	font: "inherit",
+};
+
 S.fieldRow = {
 	display: "flex",
 	alignItems: "center",
-	gap: 12,
-	marginBottom: 8,
+	gap: "var(--skn-space-2)",
+	marginBottom: "var(--skn-space-1)",
 	flexWrap: "wrap",
 };
+// flex-basis 280 with shrink allowed: labels align in a column on wide
+// screens but give the space back on tablets instead of forcing a dead
+// gutter beside short labels.
 S.label = {
 	fontSize: "var(--skn-font-body)",
 	color: "var(--skn-text-muted)",
-	width: 280,
-	flexShrink: 0,
+	flex: "0 1 280px",
 };
 S.select = {
 	padding: "6px 10px",
@@ -240,13 +278,13 @@ S.card = {
 	background: "var(--skn-surface)",
 	border: "1px solid var(--skn-border)",
 	borderRadius: "var(--skn-radius)",
-	padding: "12px 16px",
-	marginBottom: 10,
+	padding: "var(--skn-space-2) var(--skn-space-3)",
+	marginBottom: "var(--skn-space-2)",
 };
 S.cardHeader = {
 	display: "flex",
 	alignItems: "center",
-	gap: 12,
+	gap: "var(--skn-space-2)",
 	marginBottom: 0,
 	flexWrap: "wrap",
 };
@@ -268,7 +306,7 @@ S.tabs = {
 	flexWrap: "wrap",
 	gap: 4,
 	borderBottom: "1px solid var(--skn-border)",
-	marginBottom: 12,
+	marginBottom: "var(--skn-space-2)",
 };
 S.tab = {
 	padding: "8px 14px",
@@ -296,10 +334,10 @@ S.footer = {
 	display: "flex",
 	alignItems: "center",
 	flexWrap: "wrap",
-	gap: 8,
-	padding: "12px 0",
+	gap: "var(--skn-space-1)",
+	padding: "var(--skn-space-2) 0",
 	borderTop: "1px solid var(--skn-border)",
-	marginTop: 16,
+	marginTop: "var(--skn-space-3)",
 	background: "var(--skn-bg)",
 	zIndex: 5,
 };
@@ -395,13 +433,15 @@ S.cardCompatibility = {
 	marginLeft: 8,
 	fontWeight: 500,
 };
+// Neutral palette on purpose: "Legacy" is a fact, not a warning, and a
+// colored badge on every legacy card would compete with real status badges.
 S.cardLegacy = {
 	...badgeBase,
 	marginLeft: 8,
 	fontWeight: 500,
-	background: "var(--skn-legacy-bg)",
-	color: "var(--skn-legacy-fg)",
-	border: "1px solid var(--skn-legacy-border)",
+	background: "var(--skn-surface-raised)",
+	color: "var(--skn-text-muted)",
+	border: "1px solid var(--skn-border)",
 	cursor: "help",
 };
 // Applied to each PGN number inside the card title so the existing
@@ -430,6 +470,14 @@ S.note = {
 	lineHeight: 1.45,
 	margin: "8px 0 6px",
 	padding: "6px 8px",
+};
+// Informational note (e.g. a conversion's usage note in the expanded card
+// body). Info palette, not amber: amber is reserved for genuine cautions.
+S.noteInfo = {
+	...S.note,
+	background: "var(--skn-info-bg)",
+	border: "1px solid var(--skn-info-border)",
+	color: "var(--skn-info-fg)",
 };
 S.errorMark = { color: "var(--skn-danger-fg)", fontSize: 14, fontWeight: 700 };
 S.loadingText = {
@@ -485,9 +533,9 @@ S.visuallyHidden = {
 };
 S.chipRow = {
 	display: "flex",
-	gap: 8,
+	gap: "var(--skn-space-1)",
 	flexWrap: "wrap",
-	marginBottom: 16,
+	marginBottom: "var(--skn-space-3)",
 };
 S.chip = {
 	padding: "6px 12px",
@@ -659,6 +707,21 @@ S.tableTitle = {
 	color: "var(--skn-text)",
 };
 S.tableCell = { padding: 6 };
+// Inputs inside mapping-table cells flex with the column instead of holding
+// the fixed 220px of S.input, so the table fits a phone without forcing
+// horizontal scroll. minWidth keeps each field usable when columns compress.
+S.tableInput = {
+	...S.input,
+	width: "100%",
+	minWidth: 120,
+	boxSizing: "border-box",
+};
+S.tableSelect = {
+	...S.select,
+	width: "100%",
+	minWidth: 120,
+	boxSizing: "border-box",
+};
 // Actions column: extra left padding keeps the destructive Remove button
 // clear of the editable cells so a wet-finger tap cannot straddle both.
 S.tableActionCell = { padding: 6, paddingLeft: 16 };
@@ -717,8 +780,16 @@ S.controlBar = {
 	alignItems: "center",
 	justifyContent: "space-between",
 	flexWrap: "wrap",
-	gap: 8,
-	marginBottom: 12,
+	gap: "var(--skn-space-1)",
+	marginBottom: "var(--skn-space-2)",
+};
+// Right-hand cluster of the control bar: the Setup wizard shortcut and the
+// theme toggle.
+S.controlBarGroup = {
+	display: "flex",
+	alignItems: "center",
+	flexWrap: "wrap",
+	gap: "var(--skn-space-1)",
 };
 
 // Catalog search: a filter input with a sibling Clear button (kept a real
@@ -726,8 +797,8 @@ S.controlBar = {
 S.searchRow = {
 	display: "flex",
 	alignItems: "center",
-	gap: 8,
-	marginBottom: 12,
+	gap: "var(--skn-space-1)",
+	marginBottom: "var(--skn-space-2)",
 };
 S.searchInput = {
 	flex: 1,
@@ -838,7 +909,7 @@ S.wizardHeader = {
 S.wizardTitle = {
 	flex: 1,
 	margin: 0,
-	fontSize: "var(--skn-font-title)",
+	fontSize: "var(--skn-font-display)",
 	fontWeight: 600,
 	color: "var(--skn-text)",
 };

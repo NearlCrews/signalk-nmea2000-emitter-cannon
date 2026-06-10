@@ -114,11 +114,29 @@ function ConversionCard(props: Props): React.ReactElement {
 		() => toggleCard(key),
 		[toggleCard, key],
 	);
+	// The whole header row is a disclosure target, delegating to the real
+	// disclosure button's semantics. Clicks that originate on an interactive
+	// element (the enable checkbox, the disclosure button itself, a future
+	// link) are ignored so the row handler never double-fires or swallows
+	// them; no nested buttons are introduced.
+	const onHeaderClick = useCallback(
+		(e: React.MouseEvent<HTMLDivElement>) => {
+			if ((e.target as HTMLElement).closest("input, button, select, a, label"))
+				return;
+			toggleCard(key);
+		},
+		[toggleCard, key],
+	);
 
 	const compatibility = props.meta.compatibility;
 	const compatStyle = compatibility
 		? COMPATIBILITY_STYLES[compatibility.garmin]
 		: null;
+	// Header badge only for the deviation cases (partial, ignores). The common
+	// "displays" case is unremarkable and already spelled out in the expanded
+	// body, so a badge for it would just be header noise on most cards.
+	const showCompatBadge =
+		compatStyle !== null && compatibility?.garmin !== "consumes";
 
 	const bodyId = `skn-card-${props.meta.key}`;
 
@@ -149,7 +167,12 @@ function ConversionCard(props: Props): React.ReactElement {
 
 	return (
 		<div style={S.card}>
-			<div style={S.cardHeader}>
+			{/* biome-ignore lint/a11y/useKeyWithClickEvents: the row click only delegates to the disclosure button, which carries the keyboard semantics itself. */}
+			{/* biome-ignore lint/a11y/noStaticElementInteractions: pointer convenience only; the nested disclosure button remains the accessible control, so the row must NOT take a role of its own. */}
+			<div
+				style={{ ...S.cardHeader, cursor: "pointer" }}
+				onClick={onHeaderClick}
+			>
 				<input
 					type="checkbox"
 					style={S.checkbox}
@@ -167,7 +190,7 @@ function ConversionCard(props: Props): React.ReactElement {
 					<DisclosureCaret expanded={props.expanded} />
 					<h3 style={S.cardTitle}>{renderCardTitle(props.meta.title)}</h3>
 				</button>
-				{compatStyle ? (
+				{showCompatBadge && compatStyle ? (
 					<span
 						style={{
 							...S.cardCompatibility,
@@ -200,14 +223,6 @@ function ConversionCard(props: Props): React.ReactElement {
 					</span>
 				) : null}
 			</div>
-			{props.meta.description ? (
-				<div role="note" style={S.note}>
-					<span style={S.notePrefix}>
-						<span aria-hidden="true">⚠</span> Note:
-					</span>
-					{props.meta.description}
-				</div>
-			) : null}
 			{props.expanded ? (
 				<div id={bodyId} style={S.cardBody}>
 					{/* Inline error banner: the same message the header's ⚠ marks,
@@ -223,6 +238,14 @@ function ConversionCard(props: Props): React.ReactElement {
 					) : null}
 					{props.meta.purpose ? (
 						<p style={S.cardPurpose}>{props.meta.purpose}</p>
+					) : null}
+					{/* Usage note in the expanded body only, on the info palette:
+					    a permanently visible amber box devalued real cautions. */}
+					{props.meta.description ? (
+						<div role="note" style={S.noteInfo}>
+							<span style={S.notePrefix}>Note:</span>
+							{props.meta.description}
+						</div>
 					) : null}
 					{/* Compatibility and legacy notes as visible body text so the
 					    information in the header badges' tooltips is reachable

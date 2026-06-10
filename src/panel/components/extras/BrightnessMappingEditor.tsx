@@ -26,7 +26,7 @@ export default function BrightnessMappingEditor({
 	const { rows, setRows } = extraRows<Row>(value, "groups", onChange);
 	return (
 		<MappingTable<Row>
-			title="Brightness Group Mapping"
+			title="Brightness group mapping"
 			rows={rows}
 			emptyRow={() => ({ signalkId: "", groupLabel: "" })}
 			onChange={setRows}
@@ -36,7 +36,7 @@ export default function BrightnessMappingEditor({
 					render: (r, set) => (
 						<input
 							type="text"
-							style={S.input}
+							style={S.tableInput}
 							value={r.signalkId}
 							placeholder="helm, nav, cabin"
 							onChange={(e) => set({ ...r, signalkId: e.target.value })}
@@ -45,7 +45,7 @@ export default function BrightnessMappingEditor({
 					),
 				},
 				{
-					header: "NMEA 2000 Group Label",
+					header: "NMEA 2000 group label",
 					// A select over the canboat SEATALK_NETWORK_GROUP labels: the
 					// runtime silently falls back on an unknown label, so free text
 					// invited typos that quietly mapped to the default group. A
@@ -53,7 +53,7 @@ export default function BrightnessMappingEditor({
 					// own option so an existing config is not silently rewritten.
 					render: (r, set) => (
 						<select
-							style={S.select}
+							style={S.tableSelect}
 							value={r.groupLabel}
 							onChange={(e) => set({ ...r, groupLabel: e.target.value })}
 							aria-label="NMEA 2000 brightness group label"

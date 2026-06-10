@@ -1,18 +1,51 @@
 import type * as React from "react";
+import type { CSSProperties } from "react";
 import type { ReviewResult } from "../../../advisor/types.js";
+import type { ConversionMetadata } from "../../../api/types.js";
 import { S } from "../../styles";
 
 interface Props {
 	result: ReviewResult;
 	decisions: Record<string, boolean>;
+	// Conversion catalog keyed by option key, used to render the human
+	// conversion title instead of the raw option key.
+	metaByKey: Map<string, ConversionMetadata>;
 	onApprove: (optionKey: string) => void;
 	onReject: (optionKey: string) => void;
+}
+
+// The raw option key as small secondary text after the conversion title.
+const KEY_SUFFIX: CSSProperties = {
+	fontSize: "var(--skn-font-small)",
+	fontWeight: 400,
+	color: "var(--skn-text-faint)",
+	marginLeft: 6,
+};
+
+// Conversion title with the option key as secondary text; just the key when
+// no catalog entry exists for it.
+function ConversionLabel({
+	optionKey,
+	metaByKey,
+}: {
+	optionKey: string;
+	metaByKey: Map<string, ConversionMetadata>;
+}): React.ReactElement {
+	const title = metaByKey.get(optionKey)?.title;
+	if (!title) return <>{optionKey}</>;
+	return (
+		<>
+			{title}
+			<span style={KEY_SUFFIX}>{optionKey}</span>
+		</>
+	);
 }
 
 /** Renders one ReviewResult: the auto-applied list and the pending list. */
 export default function ReviewResultView({
 	result,
 	decisions,
+	metaByKey,
 	onApprove,
 	onReject,
 }: Props): React.ReactElement {
@@ -28,7 +61,11 @@ export default function ReviewResultView({
 					<ul style={S.advisorList}>
 						{result.autoApplied.map((r) => (
 							<li key={r.optionKey}>
-								Enabled {r.optionKey}
+								Enabled{" "}
+								<ConversionLabel
+									optionKey={r.optionKey}
+									metaByKey={metaByKey}
+								/>
 								<div style={S.advisorReason}>{r.reason}</div>
 							</li>
 						))}
@@ -46,7 +83,11 @@ export default function ReviewResultView({
 							<div key={r.optionKey} style={S.advisorRow}>
 								<div style={S.advisorRowHead}>
 									<span style={S.advisorRowKey}>
-										{r.action === "enable" ? "Enable" : "Disable"} {r.optionKey}
+										{r.action === "enable" ? "Enable" : "Disable"}{" "}
+										<ConversionLabel
+											optionKey={r.optionKey}
+											metaByKey={metaByKey}
+										/>
 									</span>
 									<button
 										type="button"

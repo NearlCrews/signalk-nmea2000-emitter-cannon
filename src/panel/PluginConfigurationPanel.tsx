@@ -1,5 +1,5 @@
 import type * as React from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ConversionMetadata, PerConversionStatus } from "../api/types.js";
 import {
 	Categories,
@@ -59,6 +59,7 @@ export default function PluginConfigurationPanel({
 	const { meta, metaError, metaLoading, reload: reloadMeta } = useMeta();
 	const [tab, setTab] = useState<ConversionCategory>("navigation");
 	const [view, setView] = useState<PanelView>("configure");
+	const rootRef = useRef<HTMLDivElement>(null);
 	const [justSavedAt, setJustSavedAt] = useState<number | null>(null);
 	const [wizardOpen, setWizardOpen] = useState(false);
 	const [search, setSearch] = useState("");
@@ -71,6 +72,14 @@ export default function PluginConfigurationPanel({
 	);
 
 	const clearSearch = useCallback(() => setSearch(""), []);
+
+	// Both views stay mounted (switching via `hidden`), so a deep scroll offset
+	// in one view would otherwise persist into the other. Bring the panel top
+	// back into view on every switch.
+	const changeView = useCallback((v: PanelView): void => {
+		setView(v);
+		rootRef.current?.scrollIntoView({ block: "start" });
+	}, []);
 
 	const toggleSection = (key: string): void => {
 		setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -234,23 +243,39 @@ export default function PluginConfigurationPanel({
 	const showFirstRunCallout = status !== null && status.enabledCount === 0;
 
 	return (
-		<div className="skn-panel" style={S.root}>
+		<div className="skn-panel" style={S.root} ref={rootRef}>
 			<style>{THEME_STYLE}</style>
 			<div style={S.controlBar}>
 				<SegmentedControl
 					legend="View"
 					choices={VIEW_CHOICES}
 					value={view}
-					onChange={setView}
+					onChange={changeView}
 				/>
-				<ThemeToggle />
+				<div style={S.controlBarGroup}>
+					{/* Permanent wizard shortcut: the first-run callout disappears
+					    once anything is enabled, so the wizard needs a home that
+					    stays discoverable. */}
+					<button
+						type="button"
+						style={S.btnSecondary}
+						onClick={() => setWizardOpen(true)}
+					>
+						Setup wizard
+					</button>
+					<ThemeToggle />
+				</div>
 			</div>
 
 			{/* Both views stay mounted; the inactive one is hidden. Unmounting on
 			    every switch dropped AdvisorPanel state and refetched its pending
 			    list each time the user peeked at Status. */}
 			<div hidden={view !== "status"}>
-				<StatusView status={status} metaByKey={metaByKey} />
+				<StatusView
+					status={status}
+					metaByKey={metaByKey}
+					onErrorClick={jumpToFirstError}
+				/>
 			</div>
 			<div hidden={view !== "configure"}>
 				<StatusDashboard
@@ -265,6 +290,7 @@ export default function PluginConfigurationPanel({
 					}
 					dirty={dirty}
 					advisorSettingsDirty={advisorSettingsDirty}
+					metaByKey={metaByKey}
 				/>
 				{error ? (
 					<div role="alert" style={S.errorBanner}>
@@ -301,6 +327,11 @@ export default function PluginConfigurationPanel({
 						</button>
 					</div>
 				) : null}
+				{/* One-line heading so the chips read as bulk-enable shortcuts,
+				    not as filters for the catalog below. */}
+				<h3 style={{ ...S.advisorSubhead, marginTop: 0 }}>
+					Quick presets: enable a group at once
+				</h3>
 				<PresetChips
 					onApply={(p) => dispatch({ type: "applyPreset", preset: p, meta })}
 					meta={meta}
@@ -321,11 +352,16 @@ export default function PluginConfigurationPanel({
 							if (e.key === "Escape") clearSearch();
 						}}
 					/>
-					{search ? (
-						<button type="button" style={S.searchClear} onClick={clearSearch}>
-							Clear
-						</button>
-					) : null}
+					{/* Always mounted (disabled while empty) so the input width does
+					    not jump on the first keystroke. */}
+					<button
+						type="button"
+						style={S.searchClear}
+						onClick={clearSearch}
+						disabled={!search}
+					>
+						Clear
+					</button>
 				</div>
 
 				{searchResult ? (

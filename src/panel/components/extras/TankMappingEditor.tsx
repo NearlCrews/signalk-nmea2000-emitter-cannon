@@ -26,7 +26,7 @@ export default function TankMappingEditor({
 	const { rows, setRows } = extraRows<Row>(value, "tanks", onChange);
 	return (
 		<MappingTable<Row>
-			title="Tank Mapping"
+			title="Tank mapping"
 			rows={rows}
 			emptyRow={() => ({ signalkPath: "", instanceId: 0 })}
 			onChange={setRows}
@@ -36,7 +36,7 @@ export default function TankMappingEditor({
 					render: (r, set) => (
 						<input
 							type="text"
-							style={S.input}
+							style={S.tableInput}
 							value={r.signalkPath}
 							placeholder="tanks.fuel.0"
 							onChange={(e) => set({ ...r, signalkPath: e.target.value })}
@@ -45,14 +45,15 @@ export default function TankMappingEditor({
 					),
 				},
 				{
-					header: "NMEA 2000 Tank Instance Id",
+					header: "NMEA 2000 tank instance",
 					render: (r, set) => (
 						<NumberInput
 							value={r.instanceId}
 							onChange={(n) => set({ ...r, instanceId: n })}
 							min={0}
 							max={MAX_TANK_INSTANCE}
-							ariaLabel="NMEA 2000 tank instance id"
+							style={S.tableInput}
+							ariaLabel="NMEA 2000 tank instance"
 						/>
 					),
 				},

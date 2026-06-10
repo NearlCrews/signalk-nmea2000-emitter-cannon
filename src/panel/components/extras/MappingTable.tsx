@@ -29,7 +29,7 @@ export function signalkIdColumn<R extends { signalkId: string }>(opts: {
 		render: (r, onRow) => (
 			<input
 				type="text"
-				style={S.input}
+				style={S.tableInput}
 				// ?? "" keeps the input controlled: a malformed persisted row can
 				// carry an undefined id, which would otherwise flip the field
 				// controlled -> uncontrolled and warn.
@@ -56,6 +56,7 @@ export function instanceIdColumn<R extends { instanceId: number }>(opts: {
 				value={r.instanceId}
 				onChange={(n) => onRow({ ...r, instanceId: n } as R)}
 				min={0}
+				style={S.tableInput}
 				ariaLabel={opts.ariaLabel}
 			/>
 		),

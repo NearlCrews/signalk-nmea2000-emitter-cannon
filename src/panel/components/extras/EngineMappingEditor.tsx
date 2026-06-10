@@ -25,8 +25,8 @@ export default function EngineMappingEditor({
 	const { rows, setRows } = extraRows<Row>(value, "engines", onChange);
 	return (
 		<MappingTable<Row>
-			title="Engine Mapping"
-			helpText="Use the same Signal K engine id you set in Engine Static and Engine Trip (e.g. main, port, 0). Instance Id 0 is Single Engine or Dual Engine Port, 1 is Dual Engine Starboard."
+			title="Engine mapping"
+			helpText="Use the same Signal K engine id you set in Engine Static and Engine Trip (e.g. main, port, 0). Instance 0 is Single Engine or Dual Engine Port, 1 is Dual Engine Starboard."
 			rows={rows}
 			emptyRow={() => ({ signalkId: "", instanceId: 0 })}
 			onChange={setRows}
@@ -37,8 +37,8 @@ export default function EngineMappingEditor({
 					ariaLabel: "Signal K engine id",
 				}),
 				instanceIdColumn<Row>({
-					header: "NMEA 2000 Engine Instance Id",
-					ariaLabel: "NMEA 2000 engine instance id",
+					header: "NMEA 2000 engine instance",
+					ariaLabel: "NMEA 2000 engine instance",
 				}),
 			]}
 		/>

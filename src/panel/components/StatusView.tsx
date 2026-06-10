@@ -19,6 +19,10 @@ interface Props {
 	// (`BATTERY[0]`) resolve via their parent key; the title parse is the
 	// fallback only when no catalog entry exists at all.
 	metaByKey: Map<string, ConversionMetadata>;
+	// Jump to the first conversion reporting an error (the parent switches to
+	// the Configure view and scrolls the card into view). When provided, the
+	// error badge renders as a button, matching StatusDashboard's behavior.
+	onErrorClick?: () => void;
 }
 
 // Touch-friendly table cell: taller rows than the dense advisor table so a
@@ -49,9 +53,9 @@ const ERROR_TEXT: CSSProperties = { color: "var(--skn-danger-fg)" };
 const HEADER_ROW: CSSProperties = {
 	display: "flex",
 	flexWrap: "wrap",
-	gap: 18,
+	gap: "var(--skn-space-3)",
 	alignItems: "center",
-	marginBottom: 12,
+	marginBottom: "var(--skn-space-2)",
 	fontSize: "var(--skn-font-body)",
 };
 const EMPTY_TEXT: CSSProperties = {
@@ -72,6 +76,7 @@ function pgnsFor(
 export default function StatusView({
 	status,
 	metaByKey,
+	onErrorClick,
 }: Props): React.ReactElement {
 	if (!status) {
 		return <StatusLoading />;
@@ -83,8 +88,10 @@ export default function StatusView({
 	const ready = status.nmea2000Ready;
 	const readyDot = ready ? S.dotOk : S.dotWait;
 
+	// Plain container, not S.root: this view is already nested inside the
+	// panel root, and doubling the root padding made the view toggle jump.
 	return (
-		<div style={S.root}>
+		<div>
 			<div style={HEADER_ROW} role="status">
 				<span>
 					<span
@@ -105,7 +112,18 @@ export default function StatusView({
 					<span style={S.statValue}>{totalEmits}</span>
 				</span>
 				{errorCount > 0 ? (
-					<span style={S.errorBadge}>{plural(errorCount, "error")}</span>
+					onErrorClick ? (
+						<button
+							type="button"
+							style={S.errorBadgeButton}
+							onClick={onErrorClick}
+							aria-label={`${plural(errorCount, "error")}. Jump to first error.`}
+						>
+							{plural(errorCount, "error")}
+						</button>
+					) : (
+						<span style={S.errorBadge}>{plural(errorCount, "error")}</span>
+					)
 				) : null}
 			</div>
 

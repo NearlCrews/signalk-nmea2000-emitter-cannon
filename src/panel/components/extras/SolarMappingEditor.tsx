@@ -1,4 +1,5 @@
 import type * as React from "react";
+import { S } from "../../styles";
 import NumberInput from "../NumberInput";
 import { extraRows } from "./extraRows";
 import MappingTable, {
@@ -27,7 +28,7 @@ export default function SolarMappingEditor({
 	const { rows, setRows } = extraRows<Row>(value, "chargers", onChange);
 	return (
 		<MappingTable<Row>
-			title="Solar Charger Mapping"
+			title="Solar charger mapping"
 			rows={rows}
 			emptyRow={() => ({ signalkId: "", instanceId: 0, panelInstanceId: 0 })}
 			onChange={setRows}
@@ -38,17 +39,18 @@ export default function SolarMappingEditor({
 					ariaLabel: "Signal K solar charger id",
 				}),
 				instanceIdColumn<Row>({
-					header: "NMEA 2000 Charger Instance Id",
-					ariaLabel: "NMEA 2000 solar charger instance id",
+					header: "NMEA 2000 charger instance",
+					ariaLabel: "NMEA 2000 solar charger instance",
 				}),
 				{
-					header: "NMEA 2000 Panel Instance Id",
+					header: "NMEA 2000 panel instance",
 					render: (r, set) => (
 						<NumberInput
 							value={r.panelInstanceId}
 							onChange={(n) => set({ ...r, panelInstanceId: n })}
 							min={0}
-							ariaLabel="NMEA 2000 solar panel instance id"
+							style={S.tableInput}
+							ariaLabel="NMEA 2000 solar panel instance"
 						/>
 					),
 				},

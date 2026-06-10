@@ -1,4 +1,5 @@
 import type * as React from "react";
+import { S } from "../../styles";
 import NumberInput from "../NumberInput";
 import { extraRows } from "./extraRows";
 import MappingTable, { signalkIdColumn } from "./MappingTable";
@@ -25,8 +26,8 @@ export default function ExhaustMappingEditor({
 	const { rows, setRows } = extraRows<Row>(value, "engines", onChange);
 	return (
 		<MappingTable<Row>
-			title="Exhaust Temperature Mapping"
-			helpText="Signal K engine id pairs with Engine Parameters / Engine Trip. Temperature Instance Id is independent of Engine Instance Id: PGN 130316 uses its own numbering."
+			title="Exhaust temperature mapping"
+			helpText="Signal K engine id pairs with Engine Parameters and Engine Trip. The temperature instance is independent of the engine instance: PGN 130316 uses its own numbering."
 			rows={rows}
 			emptyRow={() => ({ signalkId: "", tempInstanceId: 0 })}
 			onChange={setRows}
@@ -37,13 +38,14 @@ export default function ExhaustMappingEditor({
 					ariaLabel: "Signal K engine id for exhaust temperature",
 				}),
 				{
-					header: "NMEA 2000 Temperature Instance Id",
+					header: "NMEA 2000 temperature instance",
 					render: (r, set) => (
 						<NumberInput
 							value={r.tempInstanceId}
 							onChange={(n) => set({ ...r, tempInstanceId: n })}
 							min={0}
-							ariaLabel="NMEA 2000 exhaust temperature instance id"
+							style={S.tableInput}
+							ariaLabel="NMEA 2000 exhaust temperature instance"
 						/>
 					),
 				},

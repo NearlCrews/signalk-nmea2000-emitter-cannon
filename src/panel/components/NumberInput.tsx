@@ -9,6 +9,9 @@ interface BaseProps {
 	max?: number;
 	placeholder?: string;
 	ariaLabel: string;
+	// Style override for layout contexts where the default fixed-width
+	// S.input does not fit (e.g. S.tableInput inside mapping-table cells).
+	style?: React.CSSProperties;
 }
 
 // `allowEmpty` widens `onChange` to emit `undefined` for a cleared field.
@@ -24,7 +27,7 @@ type Props = BaseProps &
 // field can be cleared mid-edit instead of snapping back to a number on
 // every keystroke. Commits a clamped, truncated integer (or `undefined`).
 export default function NumberInput(props: Props): React.ReactElement {
-	const { value, min = 0, max, placeholder, ariaLabel } = props;
+	const { value, min = 0, max, placeholder, ariaLabel, style } = props;
 	const [draft, setDraft] = useState<string | null>(null);
 
 	const commit = (raw: string): void => {
@@ -46,7 +49,7 @@ export default function NumberInput(props: Props): React.ReactElement {
 			type="number"
 			min={min}
 			max={max}
-			style={S.input}
+			style={style ?? S.input}
 			value={draft ?? (value === undefined ? "" : String(value))}
 			placeholder={placeholder}
 			onChange={(e) => {

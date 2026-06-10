@@ -8,13 +8,6 @@ import { S } from "../styles";
 // restart, lost connection), so a dim "updated Xs ago" marker is shown.
 const STALE_AFTER_MS = 10000;
 
-// Error badge rendered as a real button (jump to first error). Inherits the
-// badge palette and adds button resets plus a pointer cursor.
-const ERROR_BADGE_BUTTON: CSSProperties = {
-	...S.errorBadge,
-	cursor: "pointer",
-	font: "inherit",
-};
 // Dim, right-aligned staleness marker.
 const STALE_MARKER: CSSProperties = {
 	marginLeft: "auto",
@@ -77,7 +70,7 @@ export default function StatusDashboard({
 			{errors > 0 ? (
 				<button
 					type="button"
-					style={ERROR_BADGE_BUTTON}
+					style={S.errorBadgeButton}
 					onClick={onErrorBadgeClick}
 					aria-label={`${errorLabel}. Jump to first error.`}
 				>

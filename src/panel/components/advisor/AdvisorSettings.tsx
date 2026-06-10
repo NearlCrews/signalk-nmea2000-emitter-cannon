@@ -1,6 +1,12 @@
 import type * as React from "react";
+import { useState } from "react";
+import type {
+	AdvisorQuestDbTestResponse,
+	AdvisorTestKeyResponse,
+} from "../../../api/types.js";
 import { DEFAULT_ADVISOR_CONFIG } from "../../../config/enums.js";
 import type { Config } from "../../../config/schema.js";
+import { fetchJson, friendlyApiError } from "../../api-base";
 import { useOpenRouterModels } from "../../hooks/useOpenRouterModels.js";
 import { S } from "../../styles";
 import NumberInput from "../NumberInput";
@@ -10,6 +16,64 @@ type AdvisorCfg = NonNullable<Config["advisor"]>;
 interface Props {
 	value: Config["advisor"];
 	onChange: (next: AdvisorCfg) => void;
+}
+
+// A whole checkbox row is one <label>, so tapping the text toggles the box.
+// S.fieldRow lays it out; the pointer cursor signals the row is clickable.
+const checkboxRow: React.CSSProperties = { ...S.fieldRow, cursor: "pointer" };
+// Compact secondary button sized to sit on the same row as a 6px-padded input
+// without towering over it.
+const testButtonStyle: React.CSSProperties = {
+	...S.btnSecondary,
+	padding: "6px 12px",
+	fontSize: 13,
+};
+
+type ProbeState =
+	| { phase: "idle" }
+	| { phase: "testing" }
+	| { phase: "ok"; message: string }
+	| { phase: "fail"; message: string };
+
+const probeBusyStyle: React.CSSProperties = {
+	fontSize: 12,
+	color: "var(--skn-text-muted)",
+};
+const probeOkStyle: React.CSSProperties = {
+	fontSize: 12,
+	fontWeight: 600,
+	color: "var(--skn-success-fg)",
+};
+const probeFailStyle: React.CSSProperties = {
+	fontSize: 12,
+	fontWeight: 600,
+	color: "var(--skn-danger-fg)",
+};
+
+/**
+ * Inline pass/fail readout for a connection probe. A persistent role="status"
+ * live region (so a screen reader announces the result when the phase flips);
+ * it stays mounted with empty text while idle so the region exists before the
+ * text changes.
+ */
+function ProbeStatus({ probe }: { probe: ProbeState }): React.ReactElement {
+	let style: React.CSSProperties | undefined;
+	let text = "";
+	if (probe.phase === "testing") {
+		style = probeBusyStyle;
+		text = "Testing...";
+	} else if (probe.phase === "ok") {
+		style = probeOkStyle;
+		text = probe.message;
+	} else if (probe.phase === "fail") {
+		style = probeFailStyle;
+		text = probe.message;
+	}
+	return (
+		<span role="status" style={style}>
+			{text}
+		</span>
+	);
 }
 
 /**
@@ -24,9 +88,56 @@ export default function AdvisorSettings({
 }: Props): React.ReactElement {
 	const cfg: AdvisorCfg = value ?? DEFAULT_ADVISOR_CONFIG;
 	const { models, modelsState, loadModels } = useOpenRouterModels();
+	const [keyTest, setKeyTest] = useState<ProbeState>({ phase: "idle" });
+	const [questdbTest, setQuestdbTest] = useState<ProbeState>({ phase: "idle" });
 
 	const patch = (part: Partial<AdvisorCfg>): void => {
 		onChange({ ...cfg, ...part });
+	};
+
+	// Both probes hit the live router, which reads the SAVED config (not this
+	// in-memory form), so the failure copy nudges the user to Save first. The
+	// guarded test-key route answers 403 on a server without admin middleware;
+	// friendlyApiError turns that into the admin-session next step.
+	const runKeyTest = async (): Promise<void> => {
+		setKeyTest({ phase: "testing" });
+		try {
+			const body = await fetchJson<AdvisorTestKeyResponse>(
+				"/advisor/test-key",
+				{ method: "POST" },
+			);
+			setKeyTest(
+				body.ok
+					? { phase: "ok", message: "Key accepted by OpenRouter." }
+					: {
+							phase: "fail",
+							message:
+								"OpenRouter rejected the key. Check the key, that OpenRouter is enabled, and that you saved.",
+						},
+			);
+		} catch (err) {
+			setKeyTest({ phase: "fail", message: friendlyApiError(err) });
+		}
+	};
+
+	const runQuestdbTest = async (): Promise<void> => {
+		setQuestdbTest({ phase: "testing" });
+		try {
+			const body = await fetchJson<AdvisorQuestDbTestResponse>(
+				"/advisor/questdb-test",
+			);
+			setQuestdbTest(
+				body.ok
+					? { phase: "ok", message: "Connected to QuestDB." }
+					: {
+							phase: "fail",
+							message:
+								"Could not reach QuestDB at that URL. Check the URL, that QuestDB is enabled, and that you saved.",
+						},
+			);
+		} catch (err) {
+			setQuestdbTest({ phase: "fail", message: friendlyApiError(err) });
+		}
 	};
 
 	let modelsHint: string;
@@ -42,31 +153,29 @@ export default function AdvisorSettings({
 
 	return (
 		<div>
-			<div style={S.fieldRow}>
+			<label style={checkboxRow}>
 				<input
 					type="checkbox"
 					style={S.checkbox}
 					checked={cfg.enabled}
 					onChange={(e) => patch({ enabled: e.target.checked })}
-					aria-label="Enable the Config Advisor"
 				/>
 				<span style={S.label}>Enable the Config Advisor</span>
-			</div>
+			</label>
 			<p style={S.helpHint}>
 				When enabled, the advisor can review on a schedule. The Review now
 				button below always works regardless of this toggle.
 			</p>
 
-			<div style={S.fieldRow}>
+			<label style={checkboxRow}>
 				<input
 					type="checkbox"
 					style={S.checkbox}
 					checked={cfg.autoApply}
 					onChange={(e) => patch({ autoApply: e.target.checked })}
-					aria-label="Apply recommended enables automatically"
 				/>
 				<span style={S.label}>Apply recommended enables automatically</span>
-			</div>
+			</label>
 			<p style={S.helpHint}>
 				When on, a review enables recommended conversions for you right away.
 				When off, those enables wait for your approval. Recommendations that
@@ -80,7 +189,7 @@ export default function AdvisorSettings({
 				recommendation's explanation in plainer language; it does not change
 				what is recommended.
 			</p>
-			<div style={S.fieldRow}>
+			<label style={checkboxRow}>
 				<input
 					type="checkbox"
 					style={S.checkbox}
@@ -90,10 +199,9 @@ export default function AdvisorSettings({
 							openRouter: { ...cfg.openRouter, enabled: e.target.checked },
 						})
 					}
-					aria-label="Use OpenRouter"
 				/>
 				<span style={S.label}>Use OpenRouter for explanations</span>
-			</div>
+			</label>
 			<div style={S.fieldRow}>
 				<span style={S.label}>OpenRouter API key</span>
 				<input
@@ -108,7 +216,19 @@ export default function AdvisorSettings({
 					}
 					aria-label="OpenRouter API key"
 				/>
+				<button
+					type="button"
+					style={testButtonStyle}
+					onClick={() => void runKeyTest()}
+					disabled={keyTest.phase === "testing"}
+				>
+					Test key
+				</button>
+				<ProbeStatus probe={keyTest} />
 			</div>
+			<p style={S.helpHint}>
+				Test key checks the saved key. If you just changed it, Save first.
+			</p>
 			<div style={S.fieldRow}>
 				<span style={S.label}>Model</span>
 				<input
@@ -154,7 +274,7 @@ export default function AdvisorSettings({
 				If you run QuestDB with Signal K history, the advisor can also see paths
 				that are not live right now. Leave disabled if you do not run QuestDB.
 			</p>
-			<div style={S.fieldRow}>
+			<label style={checkboxRow}>
 				<input
 					type="checkbox"
 					style={S.checkbox}
@@ -162,10 +282,9 @@ export default function AdvisorSettings({
 					onChange={(e) =>
 						patch({ questdb: { ...cfg.questdb, enabled: e.target.checked } })
 					}
-					aria-label="Use QuestDB history"
 				/>
 				<span style={S.label}>Use QuestDB history</span>
-			</div>
+			</label>
 			<div style={S.fieldRow}>
 				<span style={S.label}>QuestDB REST URL</span>
 				<input
@@ -177,7 +296,20 @@ export default function AdvisorSettings({
 					}
 					aria-label="QuestDB REST URL"
 				/>
+				<button
+					type="button"
+					style={testButtonStyle}
+					onClick={() => void runQuestdbTest()}
+					disabled={questdbTest.phase === "testing"}
+				>
+					Test connection
+				</button>
+				<ProbeStatus probe={questdbTest} />
 			</div>
+			<p style={S.helpHint}>
+				Test connection checks the saved URL. If you just changed it, Save
+				first.
+			</p>
 			<div style={S.fieldRow}>
 				<span style={S.label}>History look-back (days)</span>
 				<NumberInput
@@ -201,7 +333,7 @@ export default function AdvisorSettings({
 				Re-run the review automatically on an interval. The Review now button
 				always works on demand regardless of this setting.
 			</p>
-			<div style={S.fieldRow}>
+			<label style={checkboxRow}>
 				<input
 					type="checkbox"
 					style={S.checkbox}
@@ -211,10 +343,9 @@ export default function AdvisorSettings({
 							schedule: { ...cfg.schedule, periodic: e.target.checked },
 						})
 					}
-					aria-label="Review on a schedule"
 				/>
 				<span style={S.label}>Review on a schedule</span>
-			</div>
+			</label>
 			<div style={S.fieldRow}>
 				<span style={S.label}>Review every (days)</span>
 				<NumberInput

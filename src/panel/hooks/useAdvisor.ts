@@ -4,8 +4,7 @@ import type {
 	AdvisorPendingResponse,
 	AdvisorReviewResponse,
 } from "../../api/types.js";
-import { errMessage } from "../../utils/errorUtils.js";
-import { fetchJson } from "../api-base";
+import { fetchJson, friendlyApiError } from "../api-base";
 
 interface AdvisorState {
 	result: ReviewResult | null;
@@ -62,7 +61,7 @@ export function useAdvisor(): {
 			});
 			setState({ result: body.result, loading: false, error: null });
 		} catch (err) {
-			setState((s) => ({ ...s, loading: false, error: errMessage(err) }));
+			setState((s) => ({ ...s, loading: false, error: friendlyApiError(err) }));
 		}
 	}, []);
 
@@ -80,7 +79,7 @@ export function useAdvisor(): {
 			// rows and let the user re-apply them.
 			setState({ result: null, loading: false, error: null });
 		} catch (err) {
-			setState((s) => ({ ...s, loading: false, error: errMessage(err) }));
+			setState((s) => ({ ...s, loading: false, error: friendlyApiError(err) }));
 		}
 	}, []);
 

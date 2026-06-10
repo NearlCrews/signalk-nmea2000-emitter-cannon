@@ -4,6 +4,13 @@ export function isValidNumber(value: unknown): value is number {
 	return typeof value === "number" && Number.isFinite(value);
 }
 
+/** True for a non-null, non-array object literal. */
+export function isPlainObject(
+	value: unknown,
+): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 export function toValidNumber(value: unknown): number | null {
 	return isValidNumber(value) ? value : null;
 }
@@ -18,6 +25,20 @@ export function clamp(value: number, min: number, max: number): number {
 // inputs outside [-2π, 2π].
 export function normalizeAngle(angle: number): number {
 	return ((angle % TWO_PI) + TWO_PI) % TWO_PI;
+}
+
+// Unsigned NMEA 2000 angle fields (heading, COG, bearing, set) are uint16
+// values in [0, 2 pi): an out-of-range input wraps by the field modulus
+// (65536 raw units), not by 2 pi, so a negative or >2 pi angle would encode
+// as a wrong direction. Normalize before the field. null and undefined pass
+// through unchanged; a non-finite number returns undefined. Both null and
+// undefined encode as the "not available" sentinel on the wire.
+export function toUnsignedAngle(
+	value: number | null | undefined,
+): number | null | undefined {
+	if (value === null || value === undefined) return value;
+	if (!Number.isFinite(value)) return undefined;
+	return normalizeAngle(value);
 }
 
 // Truncates a string so it cannot overflow a fixed-width or length-prefixed

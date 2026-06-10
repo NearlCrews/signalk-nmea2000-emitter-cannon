@@ -4,7 +4,7 @@ import type {
 	N2KMessage,
 	SignalKApp,
 } from "../types/index.js";
-import { normalizeAngle, toValidNumber } from "../utils/validation.js";
+import { toUnsignedAngle, toValidNumber } from "../utils/validation.js";
 
 export default function createSetDriftConversion(
 	_app: SignalKApp,
@@ -31,9 +31,8 @@ export default function createSetDriftConversion(
 					pgn: 129291,
 					dst: N2K_BROADCAST_DST,
 					fields: {
-						// Set is an unsigned [0, 2pi) direction field: normalize so a
-						// negative or >2pi value does not wrap by the uint16 modulus.
-						set: setValue === null ? null : normalizeAngle(setValue),
+						// Set is an unsigned [0, 2pi) direction field; see toUnsignedAngle.
+						set: toUnsignedAngle(setValue),
 						drift: driftValue,
 						setReference: "True",
 					},

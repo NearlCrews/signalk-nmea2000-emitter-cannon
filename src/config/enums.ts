@@ -28,6 +28,38 @@ export const CategoryLabels: Record<ConversionCategory, string> = {
 	system: "System",
 };
 
+/**
+ * Group items by their conversion category, in canonical Categories order,
+ * dropping empty groups. Shared by the panel surfaces that render
+ * category-sectioned lists so the section order cannot drift between them.
+ */
+export function groupByCategory<T extends { category: ConversionCategory }>(
+	items: readonly T[],
+): Array<{ cat: ConversionCategory; list: T[] }> {
+	return Categories.flatMap((cat) => {
+		const list = items.filter((item) => item.category === cat);
+		return list.length > 0 ? [{ cat, list }] : [];
+	});
+}
+
+// canboat SEATALK_NETWORK_GROUP labels for the PGN 126720 `group` LOOKUP, in
+// canboat enum order. Shared by the runtime label-validation fallback in
+// conversions/raymarineBrightness.ts and the panel's group picker, so the two
+// cannot drift.
+export const SEATALK_NETWORK_GROUPS: readonly string[] = [
+	"None",
+	"Helm 1",
+	"Helm 2",
+	"Cockpit",
+	"Flybridge",
+	"Mast",
+	"Group 1",
+	"Group 2",
+	"Group 3",
+	"Group 4",
+	"Group 5",
+];
+
 export const PresetTags = [
 	"basic-nav",
 	"engine-set",
@@ -53,3 +85,9 @@ export const DEFAULT_ADVISOR_CONFIG = {
 	questdb: { enabled: false, url: "http://localhost:9000", lookbackDays: 7 },
 	schedule: { periodic: false, intervalDays: 7 },
 } as const;
+
+// Single source for the globalResendInterval help text: schema.ts uses it as
+// the TypeBox description and the panel's GlobalSettings renders it. It lives
+// here (not schema.ts) so the panel import stays typebox-free.
+export const GLOBAL_RESEND_HELP =
+	"Seconds between automatic re-emits of each conversion's most recent value. Set 0 to disable global resend; a conversion can still opt in with its own resend interval.";

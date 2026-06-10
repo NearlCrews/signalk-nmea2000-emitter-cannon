@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import type { ApplyDecision } from "../../../advisor/types.js";
 import type { Config } from "../../../config/schema.js";
 import { useAdvisor } from "../../hooks/useAdvisor.js";
+import { plural } from "../../recency";
 import { S } from "../../styles";
 import DisclosureCaret from "../DisclosureCaret.js";
 import AdvisorSettings from "./AdvisorSettings.js";
@@ -12,13 +13,6 @@ interface Props {
 	advisor: Config["advisor"];
 	onChangeAdvisor: (next: NonNullable<Config["advisor"]>) => void;
 	/**
-	 * Fired whenever the pending-approval list length changes, including back to
-	 * 0 once a review is applied or cleared. The integration owner uses this to
-	 * render a count pill on the (possibly collapsed) section header so parked
-	 * decisions stay visible. Optional: omit it and the panel behaves as before.
-	 */
-	onPendingCountChange?: (n: number) => void;
-	/**
 	 * True when the panel has unsaved configuration edits. A review rewrites the
 	 * saved config server-side, so while dirty the Review now button is disabled
 	 * with an inline note telling the user to save or discard first; otherwise
@@ -27,21 +21,19 @@ interface Props {
 	dirty?: boolean;
 	/**
 	 * True when the advisor settings specifically carry unsaved edits. Adds a
-	 * hint that those edits will not affect a review until saved, because the
-	 * server reads the persisted config, not the in-memory form.
+	 * hint that those edits will not affect a review until saved, and disables
+	 * the connection-test buttons, because the server reads the persisted
+	 * config, not the in-memory form.
 	 */
 	advisorSettingsDirty?: boolean;
-	/**
-	 * Extra non-interactive header content rendered at the trailing edge of the
-	 * "Config Advisor" header, visible whether the section is collapsed or open
-	 * (e.g. the pending-decision count pill the integration owner derives from
-	 * onPendingCountChange). Optional.
-	 */
-	headerExtra?: React.ReactNode;
 }
 
-// Pushes header extras to the trailing edge of the toggle row.
-const HEADER_EXTRA: React.CSSProperties = { marginLeft: "auto" };
+// Pending-decision count pill at the trailing edge of the toggle row, visible
+// whether the section is collapsed or open so parked decisions stay in sight.
+const PENDING_PILL: React.CSSProperties = {
+	...S.countPill,
+	marginLeft: "auto",
+};
 
 /**
  * Collapsible "Config Advisor" section: the settings form, a Review now
@@ -51,10 +43,8 @@ const HEADER_EXTRA: React.CSSProperties = { marginLeft: "auto" };
 export default function AdvisorPanel({
 	advisor,
 	onChangeAdvisor,
-	onPendingCountChange,
 	dirty = false,
 	advisorSettingsDirty = false,
-	headerExtra,
 }: Props): React.ReactElement {
 	const [open, setOpen] = useState(false);
 	const { state, review, apply, loadPending } = useAdvisor();
@@ -69,12 +59,6 @@ export default function AdvisorPanel({
 
 	const pending = state.result?.pending ?? [];
 	const pendingCount = pending.length;
-
-	// Surface the parked-count to the integration owner so a collapsed header can
-	// show a pill. Fires on every length change, including to 0 after an apply.
-	useEffect(() => {
-		onPendingCountChange?.(pendingCount);
-	}, [pendingCount, onPendingCountChange]);
 
 	let approvedCount = 0;
 	let rejectedCount = 0;
@@ -124,11 +108,23 @@ export default function AdvisorPanel({
 			>
 				<DisclosureCaret expanded={open} />
 				Config Advisor
-				{headerExtra ? <span style={HEADER_EXTRA}>{headerExtra}</span> : null}
+				{pendingCount > 0 ? (
+					<span
+						role="img"
+						style={PENDING_PILL}
+						aria-label={plural(pendingCount, "pending advisor decision")}
+					>
+						{pendingCount} pending
+					</span>
+				) : null}
 			</button>
 			{open && (
 				<div style={S.advisorBody}>
-					<AdvisorSettings value={advisor} onChange={onChangeAdvisor} />
+					<AdvisorSettings
+						value={advisor}
+						onChange={onChangeAdvisor}
+						advisorSettingsDirty={advisorSettingsDirty}
+					/>
 					<p style={S.advisorIntro}>
 						Reviews the Signal K paths your boat publishes and recommends which
 						conversions to enable or disable. Recommended enables apply

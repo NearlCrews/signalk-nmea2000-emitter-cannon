@@ -34,9 +34,8 @@ interface Props {
 	ensureLoaded: (p: string) => Promise<void>;
 	// Effective global resend interval in seconds, surfaced as the resend
 	// field's placeholder so the user sees the value a 0 (inherit) actually
-	// resolves to. Optional: the field falls back to no placeholder when the
-	// parent does not pass it.
-	globalResendSeconds?: number;
+	// resolves to.
+	globalResendSeconds: number;
 }
 
 const EMPTY_CFG: ConversionConfig = emptyConversionConfig();
@@ -139,11 +138,9 @@ function ConversionCard(props: Props): React.ReactElement {
 	// Resend placeholder shows what a 0 (inherit) resolves to: the global
 	// interval in seconds, or that global resend is disabled.
 	const resendPlaceholder =
-		props.globalResendSeconds === undefined
-			? undefined
-			: props.globalResendSeconds === 0
-				? "global resend disabled"
-				: `global: ${props.globalResendSeconds} s`;
+		props.globalResendSeconds === 0
+			? "global resend disabled"
+			: `global: ${props.globalResendSeconds} s`;
 
 	const errorAgeSuffix =
 		st?.lastErrorAgeMs !== undefined

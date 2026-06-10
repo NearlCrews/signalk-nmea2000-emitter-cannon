@@ -7,9 +7,12 @@ import { DEFAULT_GLOBAL_RESEND_SECONDS } from "../constants.js";
 export {
 	Categories,
 	type ConversionCategory,
+	GLOBAL_RESEND_HELP,
 	type PresetTag,
 	PresetTags,
 } from "./enums.js";
+
+import { GLOBAL_RESEND_HELP } from "./enums.js";
 
 // sources and extras are required with a {} default so every consumer can
 // rely on them being objects. The previous Type.Optional shape forced a
@@ -73,8 +76,7 @@ export const RootConfig = Type.Object({
 	globalResendInterval: Type.Integer({
 		default: DEFAULT_GLOBAL_RESEND_SECONDS,
 		minimum: 0,
-		description:
-			"Seconds between automatic re-emits of each conversion's most recent value. Set 0 to disable global resend; a conversion can still opt in with its own resend interval.",
+		description: GLOBAL_RESEND_HELP,
 	}),
 	conversions: Type.Record(Type.String(), Conversion, { default: {} }),
 	advisor: Type.Optional(AdvisorConfig),

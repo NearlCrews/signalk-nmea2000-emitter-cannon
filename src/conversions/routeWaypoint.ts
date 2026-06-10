@@ -7,13 +7,21 @@ import type { ConversionModule, N2KMessage } from "../types/index.js";
 import { clampString, isValidNumber } from "../utils/validation.js";
 import {
 	DEFAULT_ROUTE_NAME,
+	longNameWaypointEntries,
+	longNameWaypoints,
+	MAX_CANDIDATE_WAYPOINTS,
 	MAX_ROUTE_NAME_CHARS,
-	MAX_RPS_WAYPOINTS,
 	mapValidWaypoints,
 	type Position,
 	packWaypointsToBudget,
 	toWaypointEntry,
 } from "./routeTypes.js";
+
+// PGN 129285 fixed header: startRps, nItems, databaseId, routeId, the
+// direction-and-flags byte, the reserved byte, and the route name's
+// STRING_LAU length-and-control prefix. Each route-name character adds one
+// byte on top. Mirrors WP_LIST_HEADER_BYTES in routeWpList.ts.
+const RPS_HEADER_FIXED_BYTES = 12;
 
 export default function createRouteWaypointConversion(): ConversionModule {
 	return {
@@ -51,14 +59,11 @@ export default function createRouteWaypointConversion(): ConversionModule {
 			);
 
 			// Pack the waypoint list against the 223-byte fast-packet budget. The
-			// PGN 129285 fixed header is 12 bytes (startRps, nItems, databaseId,
-			// routeId, the direction-and-flags byte, the reserved byte, and the
-			// route name's STRING_LAU length-and-control prefix) plus the route
-			// name's characters, so the per-frame waypoint count shrinks as the
-			// route name grows.
+			// header grows with the route name, so the per-frame waypoint count
+			// shrinks as the route name grows.
 			const list = packWaypointsToBudget(
-				mapValidWaypoints(waypoints, MAX_RPS_WAYPOINTS, toWaypointEntry),
-				12 + clampedRouteName.length,
+				mapValidWaypoints(waypoints, MAX_CANDIDATE_WAYPOINTS, toWaypointEntry),
+				RPS_HEADER_FIXED_BYTES + clampedRouteName.length,
 			);
 
 			// PGN 129285 with nitems=0 is malformed per spec. Skip the emission
@@ -185,11 +190,7 @@ export default function createRouteWaypointConversion(): ConversionModule {
 				input: [
 					{ latitude: 40, longitude: -75 },
 					"R".repeat(32),
-					Array.from({ length: 8 }, (_, i) => ({
-						id: i + 1,
-						name: `WAYPOINT-LONG-0${i + 1}`,
-						position: { latitude: 39 + i, longitude: -76 - i },
-					})),
+					longNameWaypoints(8),
 				],
 				expected: [
 					{
@@ -204,12 +205,7 @@ export default function createRouteWaypointConversion(): ConversionModule {
 							navigationDirectionInRoute: "Forward",
 							supplementaryRouteWpDataAvailable: "On",
 							routeName: "R".repeat(32),
-							list: Array.from({ length: 6 }, (_, i) => ({
-								wpId: i + 1,
-								wpName: `WAYPOINT-LONG-0${i + 1}`,
-								wpLatitude: 39 + i,
-								wpLongitude: -76 - i,
-							})),
+							list: longNameWaypointEntries(6),
 						},
 					},
 				],

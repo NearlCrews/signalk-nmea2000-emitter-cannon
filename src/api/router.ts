@@ -3,6 +3,7 @@ import type { Advisor } from "../advisor/advisor.js";
 import type { PluginManager } from "../plugin-manager.js";
 import type { SignalKApp } from "../types/index.js";
 import { errMessage } from "../utils/errorUtils.js";
+import { isPlainObject } from "../utils/validation.js";
 import { enumerateActivePaths, enumerateSourcesForPath } from "./discovery.js";
 import type {
 	AdvisorApplyRequest,
@@ -24,11 +25,6 @@ const HTTP_STATUS = {
 	FORBIDDEN: 403,
 	SERVICE_UNAVAILABLE: 503,
 } as const;
-
-/** True for a non-null, non-array object literal. */
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 /**
  * Factory for the panel's HTTP API router. Returns the function that
@@ -147,15 +143,17 @@ export function createApiRouter(
 		// requests using the stored key), so they must not run unauthenticated.
 		// When addAdminMiddleware is unavailable they fail closed with a 403,
 		// while the read-only GETs stay open for older-server compatibility.
-		const guardedAdvisorRoute =
-			(
-				handler: (
-					advisor: Advisor,
-					req: Request,
-					res: Response,
-				) => Promise<void> | void,
-			) =>
-			async (req: Request, res: Response): Promise<void> => {
+		const guardedAdvisorRoute = (
+			handler: (
+				advisor: Advisor,
+				req: Request,
+				res: Response,
+			) => Promise<void> | void,
+		) => {
+			// Wrap once at registration; rebuilding the advisorRoute closure on
+			// every request would allocate per hit for no benefit.
+			const wrapped = advisorRoute(handler);
+			return async (req: Request, res: Response): Promise<void> => {
 				if (!adminGuarded) {
 					res.status(HTTP_STATUS.FORBIDDEN).json({
 						error:
@@ -163,8 +161,9 @@ export function createApiRouter(
 					});
 					return;
 				}
-				await advisorRoute(handler)(req, res);
+				await wrapped(req, res);
 			};
+		};
 
 		router.post(
 			"/api/advisor/review",

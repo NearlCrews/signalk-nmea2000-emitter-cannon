@@ -8,7 +8,11 @@ import type {
 	N2KMessage,
 	SignalKApp,
 } from "../types/index.js";
-import { isValidNumber, normalizeAngle } from "../utils/validation.js";
+import {
+	isValidNumber,
+	toUnsignedAngle,
+	toValidNumber,
+} from "../utils/validation.js";
 
 // Shared PGN 130306 (Wind Data) builder. Every wind-130306 module (apparent,
 // true-over-water, true-over-ground, weather-forecast apparent) differs only
@@ -43,7 +47,8 @@ export function createWind130306Conversion(
 					fields: {
 						sid: N2K_DEFAULT_SID,
 						windSpeed: isValidNumber(speed) ? speed : undefined,
-						windAngle: isValidNumber(angle) ? normalizeAngle(angle) : undefined,
+						// Unsigned [0, 2pi) field; see toUnsignedAngle.
+						windAngle: toUnsignedAngle(toValidNumber(angle)),
 						reference: config.reference,
 					},
 				},

@@ -347,6 +347,13 @@ S.btnDestructiveSm = {
 	padding: "6px 12px",
 	fontSize: "var(--skn-font-small)",
 };
+// Compact secondary button (e.g. the advisor connection-test buttons), sized
+// to sit on the same row as a 6px-padded input without towering over it.
+S.btnSecondarySm = {
+	...S.btnSecondary,
+	padding: "6px 12px",
+	fontSize: "var(--skn-font-small)",
+};
 // Armed confirm state for the table-row Remove button: inverted danger
 // colors so the second, destructive tap is visually unmistakable.
 S.btnDestructiveSmArmed = {
@@ -494,10 +501,10 @@ S.chip = {
 	cursor: "pointer",
 };
 
-// Theme toggle: a compact segmented control (Auto, Light, Dark, Night).
-// Buttons share a bordered pill-less container; the active segment fills
-// with the accent. 36px segments for marine touch use.
-S.themeToggle = {
+// Segmented control (the theme toggle and the Configure / Status view
+// switcher). Buttons share a bordered pill-less container; the active segment
+// fills with the accent. 36px segments for marine touch use.
+S.segmented = {
 	display: "inline-flex",
 	// Rendered as a <fieldset>: zero out the user-agent margin and padding
 	// so the segments sit flush inside the border.
@@ -508,7 +515,7 @@ S.themeToggle = {
 	overflow: "hidden",
 	background: "var(--skn-surface)",
 };
-S.themeToggleBtn = {
+S.segmentedBtn = {
 	padding: "6px 12px",
 	minHeight: 36,
 	background: "transparent",
@@ -517,8 +524,8 @@ S.themeToggleBtn = {
 	fontSize: "var(--skn-font-small)",
 	cursor: "pointer",
 };
-S.themeToggleBtnActive = {
-	...S.themeToggleBtn,
+S.segmentedBtnActive = {
+	...S.segmentedBtn,
 	background: "var(--skn-accent)",
 	color: "var(--skn-accent-text)",
 	fontWeight: 600,
@@ -704,7 +711,7 @@ S.cardDisclosure = {
 S.cardBody = { marginTop: 8 };
 
 // Top control row: the Configure / Status view toggle on the left, the theme
-// toggle on the right. Both reuse the segmented S.themeToggle* styles.
+// toggle on the right. Both are SegmentedControl instances (S.segmented*).
 S.controlBar = {
 	display: "flex",
 	alignItems: "center",
@@ -888,11 +895,6 @@ S.wizardRow = {
 S.wizardRowText = {
 	fontSize: "var(--skn-font-body)",
 	color: "var(--skn-text)",
-};
-S.wizardRowMeta = {
-	fontSize: "var(--skn-font-small)",
-	color: "var(--skn-text-faint)",
-	marginLeft: 6,
 };
 S.wizardSubhead = {
 	fontSize: "var(--skn-font-body)",

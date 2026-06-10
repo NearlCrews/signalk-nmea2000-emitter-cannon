@@ -8,7 +8,7 @@ import type {
 	N2KMessage,
 	SignalKApp,
 } from "../types/index.js";
-import { isValidNumber, normalizeAngle } from "../utils/validation.js";
+import { isValidNumber, toUnsignedAngle } from "../utils/validation.js";
 
 // Deliberately NOT in the basic-nav preset. heading.ts already emits PGN 127250
 // with reference "Magnetic" in basic-nav, and PGN 127250 has no instance field:
@@ -38,9 +38,8 @@ export default function createTrueHeadingConversion(
 					dst: N2K_BROADCAST_DST,
 					fields: {
 						sid: N2K_DEFAULT_SID,
-						// Unsigned [0, 2pi) field: normalize so a negative or >2pi
-						// heading does not wrap by the uint16 modulus.
-						heading: normalizeAngle(heading),
+						// Unsigned [0, 2pi) field; see toUnsignedAngle.
+						heading: toUnsignedAngle(heading),
 						reference: "True",
 					},
 				},

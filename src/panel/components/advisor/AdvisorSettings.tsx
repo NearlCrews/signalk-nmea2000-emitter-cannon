@@ -1,12 +1,9 @@
 import type * as React from "react";
 import { useState } from "react";
-import type {
-	AdvisorQuestDbTestResponse,
-	AdvisorTestKeyResponse,
-} from "../../../api/types.js";
 import { DEFAULT_ADVISOR_CONFIG } from "../../../config/enums.js";
 import type { Config } from "../../../config/schema.js";
 import { fetchJson, friendlyApiError } from "../../api-base";
+import { ADVISOR_UNAVAILABLE_503 } from "../../hooks/useAdvisor.js";
 import { useOpenRouterModels } from "../../hooks/useOpenRouterModels.js";
 import { S } from "../../styles";
 import NumberInput from "../NumberInput";
@@ -16,18 +13,15 @@ type AdvisorCfg = NonNullable<Config["advisor"]>;
 interface Props {
 	value: Config["advisor"];
 	onChange: (next: AdvisorCfg) => void;
+	// True when the advisor settings carry unsaved edits. The connection-test
+	// probes hit the live router, which reads the SAVED config, so the Test
+	// buttons are disabled while true (the inline hints explain why).
+	advisorSettingsDirty: boolean;
 }
 
 // A whole checkbox row is one <label>, so tapping the text toggles the box.
 // S.fieldRow lays it out; the pointer cursor signals the row is clickable.
 const checkboxRow: React.CSSProperties = { ...S.fieldRow, cursor: "pointer" };
-// Compact secondary button sized to sit on the same row as a 6px-padded input
-// without towering over it.
-const testButtonStyle: React.CSSProperties = {
-	...S.btnSecondary,
-	padding: "6px 12px",
-	fontSize: 13,
-};
 
 type ProbeState =
 	| { phase: "idle" }
@@ -36,16 +30,16 @@ type ProbeState =
 	| { phase: "fail"; message: string };
 
 const probeBusyStyle: React.CSSProperties = {
-	fontSize: 12,
+	fontSize: "var(--skn-font-small)",
 	color: "var(--skn-text-muted)",
 };
 const probeOkStyle: React.CSSProperties = {
-	fontSize: 12,
+	fontSize: "var(--skn-font-small)",
 	fontWeight: 600,
 	color: "var(--skn-success-fg)",
 };
 const probeFailStyle: React.CSSProperties = {
-	fontSize: 12,
+	fontSize: "var(--skn-font-small)",
 	fontWeight: 600,
 	color: "var(--skn-danger-fg)",
 };
@@ -85,6 +79,7 @@ function ProbeStatus({ probe }: { probe: ProbeState }): React.ReactElement {
 export default function AdvisorSettings({
 	value,
 	onChange,
+	advisorSettingsDirty,
 }: Props): React.ReactElement {
 	const cfg: AdvisorCfg = value ?? DEFAULT_ADVISOR_CONFIG;
 	const { models, modelsState, loadModels } = useOpenRouterModels();
@@ -96,49 +91,50 @@ export default function AdvisorSettings({
 	};
 
 	// Both probes hit the live router, which reads the SAVED config (not this
-	// in-memory form), so the failure copy nudges the user to Save first. The
-	// guarded test-key route answers 403 on a server without admin middleware;
-	// friendlyApiError turns that into the admin-session next step.
-	const runKeyTest = async (): Promise<void> => {
-		setKeyTest({ phase: "testing" });
+	// in-memory form), which is why the Test buttons are disabled while the
+	// advisor settings carry unsaved edits. The guarded routes answer 403 on a
+	// server without admin middleware; friendlyApiError turns that into the
+	// admin-session next step.
+	const runProbe = async (
+		setProbe: React.Dispatch<React.SetStateAction<ProbeState>>,
+		path: string,
+		init: RequestInit | undefined,
+		okMessage: string,
+		failMessage: string,
+	): Promise<void> => {
+		setProbe({ phase: "testing" });
 		try {
-			const body = await fetchJson<AdvisorTestKeyResponse>(
-				"/advisor/test-key",
-				{ method: "POST" },
-			);
-			setKeyTest(
+			const body = await fetchJson<{ ok: boolean }>(path, init);
+			setProbe(
 				body.ok
-					? { phase: "ok", message: "Key accepted by OpenRouter." }
-					: {
-							phase: "fail",
-							message:
-								"OpenRouter rejected the key. Check the key, that OpenRouter is enabled, and that you saved.",
-						},
+					? { phase: "ok", message: okMessage }
+					: { phase: "fail", message: failMessage },
 			);
 		} catch (err) {
-			setKeyTest({ phase: "fail", message: friendlyApiError(err) });
+			setProbe({
+				phase: "fail",
+				message: friendlyApiError(err, ADVISOR_UNAVAILABLE_503),
+			});
 		}
 	};
 
-	const runQuestdbTest = async (): Promise<void> => {
-		setQuestdbTest({ phase: "testing" });
-		try {
-			const body = await fetchJson<AdvisorQuestDbTestResponse>(
-				"/advisor/questdb-test",
-			);
-			setQuestdbTest(
-				body.ok
-					? { phase: "ok", message: "Connected to QuestDB." }
-					: {
-							phase: "fail",
-							message:
-								"Could not reach QuestDB at that URL. Check the URL, that QuestDB is enabled, and that you saved.",
-						},
-			);
-		} catch (err) {
-			setQuestdbTest({ phase: "fail", message: friendlyApiError(err) });
-		}
-	};
+	const runKeyTest = (): Promise<void> =>
+		runProbe(
+			setKeyTest,
+			"/advisor/test-key",
+			{ method: "POST" },
+			"Key accepted by OpenRouter.",
+			"OpenRouter rejected the key. Check the key, that OpenRouter is enabled, and that you saved.",
+		);
+
+	const runQuestdbTest = (): Promise<void> =>
+		runProbe(
+			setQuestdbTest,
+			"/advisor/questdb-test",
+			undefined,
+			"Connected to QuestDB.",
+			"Could not reach QuestDB at that URL. Check the URL, that QuestDB is enabled, and that you saved.",
+		);
 
 	let modelsHint: string;
 	if (modelsState === "loading") {
@@ -218,9 +214,9 @@ export default function AdvisorSettings({
 				/>
 				<button
 					type="button"
-					style={testButtonStyle}
+					style={S.btnSecondarySm}
 					onClick={() => void runKeyTest()}
-					disabled={keyTest.phase === "testing"}
+					disabled={keyTest.phase === "testing" || advisorSettingsDirty}
 				>
 					Test key
 				</button>
@@ -298,9 +294,9 @@ export default function AdvisorSettings({
 				/>
 				<button
 					type="button"
-					style={testButtonStyle}
+					style={S.btnSecondarySm}
 					onClick={() => void runQuestdbTest()}
-					disabled={questdbTest.phase === "testing"}
+					disabled={questdbTest.phase === "testing" || advisorSettingsDirty}
 				>
 					Test connection
 				</button>

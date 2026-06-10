@@ -1,3 +1,4 @@
+import { SEATALK_NETWORK_GROUPS } from "../config/enums.js";
 import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import type {
 	ConversionModule,
@@ -8,23 +9,12 @@ import type {
 } from "../types/index.js";
 import { isValidNumber } from "../utils/validation.js";
 
-// canboat SEATALK_NETWORK_GROUP labels for the PGN 126720 `group` LOOKUP. An
-// out-of-enum label would not match the lookup and canboatjs would write a
-// corrupt byte (the raw string falls through), so an unrecognized configured
-// label falls back to a safe default instead.
-const SEATALK_NETWORK_GROUPS: ReadonlySet<string> = new Set([
-	"None",
-	"Helm 1",
-	"Helm 2",
-	"Cockpit",
-	"Flybridge",
-	"Mast",
-	"Group 1",
-	"Group 2",
-	"Group 3",
-	"Group 4",
-	"Group 5",
-]);
+// Set view of the shared canboat SEATALK_NETWORK_GROUP label list for the O(1)
+// membership check below. An out-of-enum label would not match the PGN 126720
+// `group` LOOKUP and canboatjs would write a corrupt byte (the raw string
+// falls through), so an unrecognized configured label falls back to a safe
+// default instead.
+const SEATALK_GROUP_SET: ReadonlySet<string> = new Set(SEATALK_NETWORK_GROUPS);
 const DEFAULT_BRIGHTNESS_GROUP = "Helm 2";
 
 interface BrightnessGroup {
@@ -62,7 +52,7 @@ export default function createRaymarineBrightnessConversion(
 		return groups.map((group) => {
 			// Validate the configured label against the SEATALK_NETWORK_GROUP
 			// enum so an unknown value cannot reach canboatjs as a corrupt byte.
-			const n2kGroup = SEATALK_NETWORK_GROUPS.has(group.groupLabel)
+			const n2kGroup = SEATALK_GROUP_SET.has(group.groupLabel)
 				? group.groupLabel
 				: DEFAULT_BRIGHTNESS_GROUP;
 			return {

@@ -42,27 +42,21 @@ function mountRouterWithAdvisor(
 // Built per-test in beforeEach so each case starts with fresh mock state
 // (a shared module-scoped fakeApp would accumulate vi.fn() call history
 // across tests and let the addAdminMiddleware assertion succeed off prior
-// runs).
-function makeFakeApp(): SignalKApp {
+// runs). `security: false` simulates an older signalk-server build with no
+// addAdminMiddleware hook, so the router cannot admin-gate its routes.
+function makeFakeApp({
+	security = true,
+}: {
+	security?: boolean;
+} = {}): SignalKApp {
 	return {
 		streambundle: { getAvailablePaths: () => ["a", "b"] },
 		getSelfPath: (p: string) =>
 			p === "navigation.position"
 				? { $source: "gps1", values: { gps1: {} } }
 				: undefined,
-		securityStrategy: { addAdminMiddleware: vi.fn() },
+		...(security ? { securityStrategy: { addAdminMiddleware: vi.fn() } } : {}),
 		error: vi.fn(),
-	} as unknown as SignalKApp;
-}
-
-// Simulates an older signalk-server build with no addAdminMiddleware hook, so
-// the router cannot admin-gate its routes.
-function makeFakeAppNoSecurity(): SignalKApp {
-	return {
-		streambundle: { getAvailablePaths: () => [] },
-		getSelfPath: () => undefined,
-		error: vi.fn(),
-		// securityStrategy intentionally omitted.
 	} as unknown as SignalKApp;
 }
 
@@ -206,13 +200,7 @@ describe("API router", () => {
 	});
 
 	it("logs an error when securityStrategy.addAdminMiddleware is unavailable", async () => {
-		const localApp = {
-			streambundle: { getAvailablePaths: () => [] },
-			getSelfPath: () => undefined,
-			error: vi.fn(),
-			// securityStrategy intentionally undefined to simulate older
-			// signalk-server builds.
-		} as unknown as SignalKApp;
+		const localApp = makeFakeApp({ security: false });
 		mountRouter(localApp, () => null);
 		expect(
 			(localApp as unknown as { error: ReturnType<typeof vi.fn> }).error,
@@ -421,7 +409,7 @@ describe("API router", () => {
 	it("refuses mutating advisor routes with 403 when addAdminMiddleware is unavailable", async () => {
 		const advisor = makeAdvisorStub();
 		const ex = mountRouterWithAdvisor(
-			makeFakeAppNoSecurity(),
+			makeFakeApp({ security: false }),
 			() => null,
 			() => advisor,
 		);
@@ -442,7 +430,7 @@ describe("API router", () => {
 	it("keeps read-only advisor GETs open when addAdminMiddleware is unavailable", async () => {
 		const advisor = makeAdvisorStub();
 		const ex = mountRouterWithAdvisor(
-			makeFakeAppNoSecurity(),
+			makeFakeApp({ security: false }),
 			() => null,
 			() => advisor,
 		);

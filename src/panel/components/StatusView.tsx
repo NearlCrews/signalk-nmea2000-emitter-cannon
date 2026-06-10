@@ -5,17 +5,20 @@ import type {
 	PerConversionStatus,
 	StatusSnapshot,
 } from "../../api/types.js";
+import { stripSubIndex } from "../../utils/pathUtils.js";
 import { extractPgnsFromTitle } from "../../utils/pgnUtils.js";
-import { humanizeAgo } from "../recency";
+import { humanizeAgo, plural } from "../recency";
 import { S } from "../styles";
+import { StatusLoading } from "./StatusDashboard";
 
 interface Props {
 	// Live status snapshot, or null before the first poll resolves.
 	status: StatusSnapshot | null;
-	// Conversion catalog, used to resolve each enabled row's PGN list. Rows
-	// fall back to PGNs parsed from the title when a key has no catalog match
-	// (e.g. factory sub-conversions).
-	meta: ConversionMetadata[];
+	// Conversion catalog keyed by option key (the parent's memoized map), used
+	// to resolve each enabled row's PGN list. Factory sub-conversion rows
+	// (`BATTERY[0]`) resolve via their parent key; the title parse is the
+	// fallback only when no catalog entry exists at all.
+	metaByKey: Map<string, ConversionMetadata>;
 }
 
 // Touch-friendly table cell: taller rows than the dense advisor table so a
@@ -49,11 +52,10 @@ const HEADER_ROW: CSSProperties = {
 	gap: 18,
 	alignItems: "center",
 	marginBottom: 12,
-	fontSize: 13,
+	fontSize: "var(--skn-font-body)",
 };
 const EMPTY_TEXT: CSSProperties = {
-	color: "var(--skn-text-muted)",
-	fontSize: 13,
+	...S.loadingText,
 	padding: "12px 0",
 };
 
@@ -61,7 +63,7 @@ function pgnsFor(
 	row: PerConversionStatus,
 	byKey: Map<string, ConversionMetadata>,
 ): string {
-	const m = byKey.get(row.key);
+	const m = byKey.get(row.key) ?? byKey.get(stripSubIndex(row.key));
 	const pgns =
 		m && m.pgns.length > 0 ? m.pgns : extractPgnsFromTitle(row.title);
 	return pgns.join(", ");
@@ -69,20 +71,12 @@ function pgnsFor(
 
 export default function StatusView({
 	status,
-	meta,
+	metaByKey,
 }: Props): React.ReactElement {
 	if (!status) {
-		return (
-			<div style={S.statusBar} role="status">
-				<span style={{ ...S.dot, ...S.dotOff }} aria-hidden="true" />
-				<span>Loading status...</span>
-			</div>
-		);
+		return <StatusLoading />;
 	}
 
-	const byKey = new Map<string, ConversionMetadata>(
-		meta.map((m) => [m.key, m]),
-	);
 	const enabledRows = status.perConversion.filter((c) => c.enabled);
 	const errorCount = enabledRows.filter((c) => c.lastErrorMessage).length;
 	const totalEmits = enabledRows.reduce((n, c) => n + c.emitCount, 0);
@@ -111,9 +105,7 @@ export default function StatusView({
 					<span style={S.statValue}>{totalEmits}</span>
 				</span>
 				{errorCount > 0 ? (
-					<span style={S.errorBadge}>
-						{errorCount} error{errorCount > 1 ? "s" : ""}
-					</span>
+					<span style={S.errorBadge}>{plural(errorCount, "error")}</span>
 				) : null}
 			</div>
 
@@ -143,7 +135,7 @@ export default function StatusView({
 								return (
 									<tr key={row.key}>
 										<td style={CELL}>{row.title}</td>
-										<td style={PGN_CELL}>{pgnsFor(row, byKey) || "-"}</td>
+										<td style={PGN_CELL}>{pgnsFor(row, metaByKey) || "-"}</td>
 										<td style={NUM_CELL}>{row.emitCount}</td>
 										<td style={CELL}>
 											{row.emitCount > 0 ? (

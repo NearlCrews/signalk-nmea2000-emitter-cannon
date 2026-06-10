@@ -5,7 +5,9 @@ import {
 	Categories,
 	CategoryLabels,
 	type ConversionCategory,
+	groupByCategory,
 } from "../config/enums";
+import { stripSubIndex } from "../utils/pathUtils.js";
 import AdvisorPanel from "./components/advisor/AdvisorPanel";
 import CategoryTabs from "./components/CategoryTabs";
 import CollapsibleSection from "./components/CollapsibleSection";
@@ -14,6 +16,7 @@ import FirstRunWizard from "./components/FirstRunWizard";
 import FooterBar from "./components/FooterBar";
 import GlobalSettings from "./components/GlobalSettings";
 import PresetChips from "./components/PresetChips";
+import SegmentedControl from "./components/SegmentedControl";
 import StatusDashboard from "./components/StatusDashboard";
 import StatusView from "./components/StatusView";
 import ThemeToggle from "./components/ThemeToggle";
@@ -21,6 +24,7 @@ import { useConfig } from "./hooks/useConfig";
 import { useMeta } from "./hooks/useMeta";
 import { useSources } from "./hooks/useSources";
 import { useStatus } from "./hooks/useStatus";
+import { plural } from "./recency";
 import { S, THEME_STYLE } from "./styles";
 
 interface Props {
@@ -31,11 +35,10 @@ interface Props {
 
 type PanelView = "configure" | "status";
 
-// Status keys for factory sub-conversions carry a `[N]` index suffix
-// (e.g. `BATTERY[0]`); strip it to recover the parent catalog key.
-function stripSubIndex(key: string): string {
-	return key.replace(/\[\d+\]$/, "");
-}
+const VIEW_CHOICES: ReadonlyArray<{ value: PanelView; label: string }> = [
+	{ value: "configure", label: "Configure" },
+	{ value: "status", label: "Status" },
+];
 
 // A conversion matches the catalog search when the needle (already lower-cased)
 // appears in its title, one of its PGN numbers, or one of its Signal K paths.
@@ -58,11 +61,6 @@ export default function PluginConfigurationPanel({
 	const [view, setView] = useState<PanelView>("configure");
 	const [justSavedAt, setJustSavedAt] = useState<number | null>(null);
 	const [wizardOpen, setWizardOpen] = useState(false);
-	const [advisorPending, setAdvisorPending] = useState(0);
-	// Raw search box value plus its debounced echo. Filtering keys off the
-	// debounced value so a fast typist does not re-filter the whole catalog on
-	// every keystroke.
-	const [searchInput, setSearchInput] = useState("");
 	const [search, setSearch] = useState("");
 	// Disclosure state, persisted across tab switches within the session. An
 	// absent key falls back to a default (sections to their `defaultExpanded`,
@@ -71,6 +69,8 @@ export default function PluginConfigurationPanel({
 	const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>(
 		{},
 	);
+
+	const clearSearch = useCallback(() => setSearch(""), []);
 
 	const toggleSection = (key: string): void => {
 		setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -87,12 +87,6 @@ export default function PluginConfigurationPanel({
 		const t = setTimeout(() => setJustSavedAt(null), 2500);
 		return () => clearTimeout(t);
 	}, [justSavedAt]);
-
-	// Debounce the search box.
-	useEffect(() => {
-		const t = setTimeout(() => setSearch(searchInput), 200);
-		return () => clearTimeout(t);
-	}, [searchInput]);
 
 	// Reducer cases always return a new object on change, so identity equality
 	// against the last-saved snapshot is a sound dirty check. Replaces a deep
@@ -175,8 +169,7 @@ export default function PluginConfigurationPanel({
 		if (!first) return;
 		const m = metaByKey.get(stripSubIndex(first.key));
 		if (!m) return;
-		setSearchInput("");
-		setSearch("");
+		clearSearch();
 		setView("configure");
 		setTab(m.category);
 		const group = m.legacy ? "legacy" : "modern";
@@ -191,7 +184,7 @@ export default function PluginConfigurationPanel({
 					?.scrollIntoView({ behavior: "smooth", block: "center" });
 			});
 		});
-	}, [status, metaByKey]);
+	}, [status, metaByKey, clearSearch]);
 
 	// The active category split into a Modern section (expanded by default)
 	// and a Legacy section (collapsed).
@@ -216,19 +209,12 @@ export default function PluginConfigurationPanel({
 
 	// When searching, flatten matches across every category, grouped by category
 	// for orientation. Null when the search box is empty.
-	const searchGroups = useMemo(() => {
+	const searchResult = useMemo(() => {
 		const q = search.trim().toLowerCase();
 		if (!q) return null;
 		const matched = meta.filter((m) => matchesQuery(m, q));
-		return Categories.map((cat) => ({
-			cat,
-			list: matched.filter((m) => m.category === cat),
-		})).filter((g) => g.list.length > 0);
+		return { groups: groupByCategory(matched), matchCount: matched.length };
 	}, [search, meta]);
-	const searchActive = searchGroups !== null;
-	const searchMatchCount = searchGroups
-		? searchGroups.reduce((n, g) => n + g.list.length, 0)
-		: 0;
 
 	const renderCard = (m: ConversionMetadata): React.ReactElement => (
 		<ConversionCard
@@ -245,220 +231,178 @@ export default function PluginConfigurationPanel({
 		/>
 	);
 
-	const showFirstRunCallout =
-		view === "configure" && status !== null && status.enabledCount === 0;
-	const advisorPill =
-		advisorPending > 0 ? (
-			<span
-				role="img"
-				style={S.countPill}
-				aria-label={`${advisorPending} pending advisor decision${
-					advisorPending === 1 ? "" : "s"
-				}`}
-			>
-				{advisorPending} pending
-			</span>
-		) : null;
+	const showFirstRunCallout = status !== null && status.enabledCount === 0;
 
 	return (
 		<div className="skn-panel" style={S.root}>
 			<style>{THEME_STYLE}</style>
 			<div style={S.controlBar}>
-				<fieldset style={S.themeToggle}>
-					<legend style={S.visuallyHidden}>View</legend>
-					<button
-						type="button"
-						aria-pressed={view === "configure"}
-						style={
-							view === "configure" ? S.themeToggleBtnActive : S.themeToggleBtn
-						}
-						onClick={() => setView("configure")}
-					>
-						Configure
-					</button>
-					<button
-						type="button"
-						aria-pressed={view === "status"}
-						style={
-							view === "status" ? S.themeToggleBtnActive : S.themeToggleBtn
-						}
-						onClick={() => setView("status")}
-					>
-						Status
-					</button>
-				</fieldset>
+				<SegmentedControl
+					legend="View"
+					choices={VIEW_CHOICES}
+					value={view}
+					onChange={setView}
+				/>
 				<ThemeToggle />
 			</div>
 
-			{view === "status" ? (
-				<StatusView status={status} meta={meta} />
-			) : (
-				<>
-					<StatusDashboard
-						status={status}
-						onErrorBadgeClick={jumpToFirstError}
-						lastUpdatedMs={lastUpdatedMs ?? undefined}
-					/>
-					<AdvisorPanel
-						advisor={state.advisor}
-						onChangeAdvisor={(advisor) =>
-							dispatch({ type: "setAdvisor", advisor })
-						}
-						onPendingCountChange={setAdvisorPending}
-						dirty={dirty}
-						advisorSettingsDirty={advisorSettingsDirty}
-						headerExtra={advisorPill}
-					/>
-					{error ? (
-						<div role="alert" style={S.errorBanner}>
-							<span>
-								Status: {error}. The next poll will retry automatically.
-							</span>
-						</div>
-					) : null}
-					{metaError ? (
-						<div role="alert" style={S.errorBanner}>
-							<span>Conversion catalog failed to load: {metaError}.</span>
-							<button type="button" style={S.btnRetry} onClick={reloadMeta}>
-								Retry
-							</button>
-						</div>
-					) : null}
-					{metaLoading && meta.length === 0 && !metaError ? (
-						<p role="status" style={S.loadingText}>
-							Loading conversions...
-						</p>
-					) : null}
-					{showFirstRunCallout ? (
-						<div style={S.calloutFirstRun}>
-							<span style={S.calloutText}>
-								Nothing is emitting yet. Apply a preset below, open the setup
-								wizard, or let the Config Advisor scan your boat's live data.
-							</span>
-							<button
-								type="button"
-								style={S.btnPrimary}
-								onClick={() => setWizardOpen(true)}
-							>
-								Open setup wizard
-							</button>
-						</div>
-					) : null}
-					<PresetChips
-						onApply={(p) => dispatch({ type: "applyPreset", preset: p, meta })}
-						meta={meta}
-					/>
-					<GlobalSettings
-						value={state.globalResendInterval}
-						onChange={(ms) => dispatch({ type: "setGlobalResend", ms })}
-					/>
-					<div style={S.searchRow}>
-						<input
-							type="search"
-							style={S.searchInput}
-							value={searchInput}
-							placeholder="Search conversions by name, PGN, or path"
-							aria-label="Search conversions by name, PGN, or path"
-							onChange={(e) => setSearchInput(e.target.value)}
-							onKeyDown={(e) => {
-								if (e.key === "Escape") {
-									setSearchInput("");
-									setSearch("");
-								}
-							}}
-						/>
-						{searchInput ? (
-							<button
-								type="button"
-								style={S.searchClear}
-								onClick={() => {
-									setSearchInput("");
-									setSearch("");
-								}}
-							>
-								Clear
-							</button>
-						) : null}
+			{/* Both views stay mounted; the inactive one is hidden. Unmounting on
+			    every switch dropped AdvisorPanel state and refetched its pending
+			    list each time the user peeked at Status. */}
+			<div hidden={view !== "status"}>
+				<StatusView status={status} metaByKey={metaByKey} />
+			</div>
+			<div hidden={view !== "configure"}>
+				<StatusDashboard
+					status={status}
+					onErrorBadgeClick={jumpToFirstError}
+					lastUpdatedMs={lastUpdatedMs ?? undefined}
+				/>
+				<AdvisorPanel
+					advisor={state.advisor}
+					onChangeAdvisor={(advisor) =>
+						dispatch({ type: "setAdvisor", advisor })
+					}
+					dirty={dirty}
+					advisorSettingsDirty={advisorSettingsDirty}
+				/>
+				{error ? (
+					<div role="alert" style={S.errorBanner}>
+						<span>
+							Status: {error}. The next poll will retry automatically.
+						</span>
 					</div>
+				) : null}
+				{metaError ? (
+					<div role="alert" style={S.errorBanner}>
+						<span>Conversion catalog failed to load: {metaError}.</span>
+						<button type="button" style={S.btnRetry} onClick={reloadMeta}>
+							Retry
+						</button>
+					</div>
+				) : null}
+				{metaLoading && meta.length === 0 && !metaError ? (
+					<p role="status" style={S.loadingText}>
+						Loading conversions...
+					</p>
+				) : null}
+				{showFirstRunCallout ? (
+					<div style={S.calloutFirstRun}>
+						<span style={S.calloutText}>
+							Nothing is emitting yet. Apply a preset below, open the setup
+							wizard, or let the Config Advisor scan your boat's live data.
+						</span>
+						<button
+							type="button"
+							style={S.btnPrimary}
+							onClick={() => setWizardOpen(true)}
+						>
+							Open setup wizard
+						</button>
+					</div>
+				) : null}
+				<PresetChips
+					onApply={(p) => dispatch({ type: "applyPreset", preset: p, meta })}
+					meta={meta}
+				/>
+				<GlobalSettings
+					value={state.globalResendInterval}
+					onChange={(ms) => dispatch({ type: "setGlobalResend", ms })}
+				/>
+				<div style={S.searchRow}>
+					<input
+						type="search"
+						style={S.searchInput}
+						value={search}
+						placeholder="Search conversions by name, PGN, or path"
+						aria-label="Search conversions by name, PGN, or path"
+						onChange={(e) => setSearch(e.target.value)}
+						onKeyDown={(e) => {
+							if (e.key === "Escape") clearSearch();
+						}}
+					/>
+					{search ? (
+						<button type="button" style={S.searchClear} onClick={clearSearch}>
+							Clear
+						</button>
+					) : null}
+				</div>
 
-					{searchActive ? (
-						<div>
-							<p style={S.searchSummary} role="status">
-								{searchMatchCount} match
-								{searchMatchCount === 1 ? "" : "es"} across all categories
+				{searchResult ? (
+					<div>
+						<p style={S.searchSummary} role="status">
+							{plural(searchResult.matchCount, "match")} across all categories
+						</p>
+						{searchResult.matchCount === 0 ? (
+							<p style={S.loadingText}>
+								No conversions match "{search.trim()}".
 							</p>
-							{searchMatchCount === 0 ? (
-								<p style={S.loadingText}>
-									No conversions match "{search.trim()}".
-								</p>
-							) : null}
-							{searchGroups?.map((g) => (
-								<CollapsibleSection
-									key={g.cat}
-									id={`skn-search-${g.cat}`}
-									title={CategoryLabels[g.cat]}
-									count={g.list.length}
-									enabledCount={g.list.reduce(
-										(n, m) => n + (state.conversions[m.key]?.enabled ? 1 : 0),
-										0,
-									)}
-									errorCount={g.list.reduce(
-										(n, m) => n + (errorKeys.has(m.key) ? 1 : 0),
-										0,
-									)}
-									expanded={openSections[`search:${g.cat}`] ?? true}
-									onToggle={() => toggleSection(`search:${g.cat}`)}
-								>
-									{g.list.map(renderCard)}
-								</CollapsibleSection>
-							))}
-						</div>
-					) : (
-						<>
-							<CategoryTabs
-								active={tab}
-								onChange={setTab}
-								countsByCategory={counts}
-								errorCountByCategory={errorCountByCategory}
-							/>
-							<div
-								role="tabpanel"
-								id={`skn-panel-${tab}`}
-								aria-labelledby={`skn-tab-${tab}`}
+						) : null}
+						{searchResult.groups.map((g) => (
+							<CollapsibleSection
+								key={g.cat}
+								id={`skn-search-${g.cat}`}
+								title={CategoryLabels[g.cat]}
+								count={g.list.length}
+								enabledCount={g.list.reduce(
+									(n, m) => n + (state.conversions[m.key]?.enabled ? 1 : 0),
+									0,
+								)}
+								errorCount={g.list.reduce(
+									(n, m) => n + (errorKeys.has(m.key) ? 1 : 0),
+									0,
+								)}
+								expanded={openSections[`search:${g.cat}`] ?? true}
+								onToggle={() => toggleSection(`search:${g.cat}`)}
 							>
-								{!hasConversions && !metaLoading ? (
-									<p style={S.loadingText}>No conversions in this category.</p>
-								) : null}
-								{sections.map((s) => {
-									if (s.list.length === 0) return null;
-									const sectionKey = `${tab}:${s.group}`;
-									return (
-										<CollapsibleSection
-											key={s.group}
-											id={`skn-section-${tab}-${s.group}`}
-											title={s.title}
-											count={s.list.length}
-											enabledCount={s.list.reduce(
-												(n, m) =>
-													n + (state.conversions[m.key]?.enabled ? 1 : 0),
-												0,
-											)}
-											errorCount={s.list.reduce(
-												(n, m) => n + (errorKeys.has(m.key) ? 1 : 0),
-												0,
-											)}
-											expanded={openSections[sectionKey] ?? s.defaultExpanded}
-											onToggle={() => toggleSection(sectionKey)}
-										>
-											{s.list.map(renderCard)}
-										</CollapsibleSection>
-									);
-								})}
-							</div>
-						</>
-					)}
-				</>
-			)}
+								{g.list.map(renderCard)}
+							</CollapsibleSection>
+						))}
+					</div>
+				) : (
+					<>
+						<CategoryTabs
+							active={tab}
+							onChange={setTab}
+							countsByCategory={counts}
+							errorCountByCategory={errorCountByCategory}
+						/>
+						<div
+							role="tabpanel"
+							id={`skn-panel-${tab}`}
+							aria-labelledby={`skn-tab-${tab}`}
+						>
+							{!hasConversions && !metaLoading ? (
+								<p style={S.loadingText}>No conversions in this category.</p>
+							) : null}
+							{sections.map((s) => {
+								if (s.list.length === 0) return null;
+								const sectionKey = `${tab}:${s.group}`;
+								return (
+									<CollapsibleSection
+										key={s.group}
+										id={`skn-section-${tab}-${s.group}`}
+										title={s.title}
+										count={s.list.length}
+										enabledCount={s.list.reduce(
+											(n, m) => n + (state.conversions[m.key]?.enabled ? 1 : 0),
+											0,
+										)}
+										errorCount={s.list.reduce(
+											(n, m) => n + (errorKeys.has(m.key) ? 1 : 0),
+											0,
+										)}
+										expanded={openSections[sectionKey] ?? s.defaultExpanded}
+										onToggle={() => toggleSection(sectionKey)}
+									>
+										{s.list.map(renderCard)}
+									</CollapsibleSection>
+								);
+							})}
+						</div>
+					</>
+				)}
+			</div>
 			<FooterBar
 				dirty={dirty}
 				justSavedAt={justSavedAt}

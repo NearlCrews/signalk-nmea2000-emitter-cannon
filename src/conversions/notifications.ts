@@ -363,10 +363,14 @@ export default function createNotificationsConversion(
 				// in usedAlertIds) could later hand the same number to a different
 				// path and silently overwrite this alert's cached PGNs. nextAlertIdHint
 				// starts at 1 and providers commonly use alertId 1, so the collision
-				// is reachable on the first auto-allocated alert.
-				usedAlertIds.add(alertId);
-				ids.set(update.path, alertId);
-				alertIdToPath.set(alertId, update.path);
+				// is reachable on the first auto-allocated alert. The guard skips
+				// the rewrite on the common path where the same id arrives on
+				// every delta.
+				if (ids.get(update.path) !== alertId) {
+					usedAlertIds.add(alertId);
+					ids.set(update.path, alertId);
+					alertIdToPath.set(alertId, update.path);
+				}
 
 				setAlertPgns(
 					alertId,

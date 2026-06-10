@@ -6,6 +6,13 @@ import type {
 } from "../../api/types.js";
 import { fetchJson, friendlyApiError } from "../api-base";
 
+// Advisor-specific 503 wording for friendlyApiError, shared by every advisor
+// call site (this hook and the AdvisorSettings probes).
+export const ADVISOR_UNAVAILABLE_503 = {
+	serviceUnavailable:
+		"The Config Advisor is not available yet. Wait for the plugin to finish starting, then try again.",
+} as const;
+
 interface AdvisorState {
 	result: ReviewResult | null;
 	loading: boolean;
@@ -61,7 +68,11 @@ export function useAdvisor(): {
 			});
 			setState({ result: body.result, loading: false, error: null });
 		} catch (err) {
-			setState((s) => ({ ...s, loading: false, error: friendlyApiError(err) }));
+			setState((s) => ({
+				...s,
+				loading: false,
+				error: friendlyApiError(err, ADVISOR_UNAVAILABLE_503),
+			}));
 		}
 	}, []);
 
@@ -79,7 +90,11 @@ export function useAdvisor(): {
 			// rows and let the user re-apply them.
 			setState({ result: null, loading: false, error: null });
 		} catch (err) {
-			setState((s) => ({ ...s, loading: false, error: friendlyApiError(err) }));
+			setState((s) => ({
+				...s,
+				loading: false,
+				error: friendlyApiError(err, ADVISOR_UNAVAILABLE_503),
+			}));
 		}
 	}, []);
 

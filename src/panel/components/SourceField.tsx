@@ -10,9 +10,8 @@ interface Props {
 	ensureLoaded: (path: string) => Promise<void>;
 	// Disambiguates the datalist id when two rendered fields share a path
 	// (e.g. two expanded conversion cards subscribing to the same Signal K
-	// key). Pass the conversion option key. Omitting it preserves the
-	// original `sources-<path>` id.
-	idScope?: string;
+	// key). Pass the conversion option key.
+	idScope: string;
 }
 
 export default function SourceField({
@@ -28,8 +27,7 @@ export default function SourceField({
 		if (touched) void ensureLoaded(path);
 	}, [path, touched, ensureLoaded]);
 	const sources = sourcesFor(path);
-	const listId =
-		idScope === undefined ? `sources-${path}` : `sources-${idScope}-${path}`;
+	const listId = `sources-${idScope}-${path}`;
 
 	// A single <input> with a <datalist> rather than swapping between an
 	// <input> and a <select>: swapping element types unmounts the focused node

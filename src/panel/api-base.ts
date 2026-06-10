@@ -3,6 +3,7 @@
 // src/api/router.ts: a divergence would 404 the panel's fetches against
 // the live router.
 import { errMessage } from "../utils/errorUtils.js";
+import { isPlainObject } from "../utils/validation.js";
 
 export const PLUGIN_API_BASE = "/plugins/signalk-nmea2000-emitter-cannon/api";
 
@@ -54,12 +55,8 @@ export async function fetchJson<T>(
 async function readErrorBody(res: Response): Promise<string | undefined> {
 	try {
 		const body: unknown = await res.json();
-		if (
-			typeof body === "object" &&
-			body !== null &&
-			typeof (body as { error?: unknown }).error === "string"
-		) {
-			return (body as { error: string }).error;
+		if (isPlainObject(body) && typeof body.error === "string") {
+			return body.error;
 		}
 	} catch {
 		// Non-JSON body: nothing to surface beyond the status.
@@ -68,14 +65,17 @@ async function readErrorBody(res: Response): Promise<string | undefined> {
 }
 
 /**
- * Maps a thrown value to plain-language text with a next step. ApiError 403 and
- * 503 get advisor-specific guidance. For 403 the server's own message is
- * preferred when present (the router explains an unsupported server build),
- * falling back to the admin-session next step. 503 always uses the friendly
- * default because the router's 503 bodies ("advisor unavailable", "request
- * failed") carry no next step.
+ * Maps a thrown value to plain-language text with a next step. For 403 the
+ * server's own message is preferred when present (the router explains an
+ * unsupported server build), falling back to the admin-session next step. 503
+ * always uses the friendly `serviceUnavailable` text because the router's 503
+ * bodies ("advisor unavailable", "request failed") carry no next step;
+ * feature-specific call sites (the advisor) pass their own wording.
  */
-export function friendlyApiError(err: unknown): string {
+export function friendlyApiError(
+	err: unknown,
+	options?: { serviceUnavailable?: string },
+): string {
 	if (err instanceof ApiError) {
 		if (err.status === 403) {
 			return (
@@ -84,7 +84,10 @@ export function friendlyApiError(err: unknown): string {
 			);
 		}
 		if (err.status === 503) {
-			return "The Config Advisor is not available yet. Wait for the plugin to finish starting, then try again.";
+			return (
+				options?.serviceUnavailable ??
+				"This feature is not available yet. Wait for the plugin to finish starting, then try again."
+			);
 		}
 		return err.serverMessage ?? `Request failed (HTTP ${err.status}).`;
 	}

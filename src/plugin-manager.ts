@@ -34,7 +34,7 @@ import { isConversionOptions } from "./types/index.js";
 import { isDebugEnabled } from "./utils/debugUtils.js";
 import { errMessage } from "./utils/errorUtils.js";
 import { formatN2KMessage, validateN2KMessage } from "./utils/messageUtils.js";
-import { isDefined, pathToPropName } from "./utils/pathUtils.js";
+import { isDefined, pathToPropName, stripSubIndex } from "./utils/pathUtils.js";
 import { extractPgnsFromTitle } from "./utils/pgnUtils.js";
 import { clearAllSmoothers } from "./utils/smoothing.js";
 
@@ -85,16 +85,6 @@ interface PerConversionState {
  */
 let activeManager: PluginManager | null = null;
 let deltaHandlerRegistered = false;
-
-/**
- * Strip the `[N]` sub-conversion suffix from an option key
- * (`BATTERY[0]` -> `BATTERY`). Returns the key unchanged when there is no
- * suffix (the single-PGN path: no substring allocation).
- */
-function stripSubIndex(key: string): string {
-	const bracket = key.indexOf("[");
-	return bracket === -1 ? key : key.substring(0, bracket);
-}
 
 // Not idempotent on a reused instance: stop() clears this.conversions and
 // removes the constructor-installed listener, so a subsequent start() on the

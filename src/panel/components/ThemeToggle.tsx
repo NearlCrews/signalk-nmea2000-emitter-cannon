@@ -1,6 +1,6 @@
 import type * as React from "react";
 import { useEffect, useRef, useState } from "react";
-import { S } from "../styles";
+import SegmentedControl from "./SegmentedControl";
 
 // "auto" follows the host admin UI theme; the explicit choices pin a theme
 // by setting `data-skn-theme` on the `.skn-panel` root, which the THEME_STYLE
@@ -19,8 +19,7 @@ const CHOICES: ReadonlyArray<{ value: ThemeChoice; label: string }> = [
 function readStoredChoice(): ThemeChoice {
 	try {
 		const raw = window.localStorage.getItem(STORAGE_KEY);
-		if (raw === "auto" || raw === "light" || raw === "dark" || raw === "night")
-			return raw;
+		if (CHOICES.some((c) => c.value === raw)) return raw as ThemeChoice;
 	} catch {
 		// Storage can be unavailable (private mode, blocked third-party
 		// storage); fall through to following the host.
@@ -28,11 +27,11 @@ function readStoredChoice(): ThemeChoice {
 	return "auto";
 }
 
-// Compact segmented control that pins the panel theme: Auto (follow host),
-// Light, Dark, or the red-preserving Night mode for night vision at the
-// helm. The choice persists in localStorage under `skn-theme` and is applied
-// to the nearest `.skn-panel` ancestor, so the control works wherever it is
-// mounted inside the panel tree. Each segment is a 36px touch target.
+// Segmented control that pins the panel theme: Auto (follow host), Light,
+// Dark, or the red-preserving Night mode for night vision at the helm. The
+// choice persists in localStorage under `skn-theme` and is applied to the
+// nearest `.skn-panel` ancestor, so the control works wherever it is mounted
+// inside the panel tree.
 export default function ThemeToggle(): React.ReactElement {
 	const [choice, setChoice] = useState<ThemeChoice>(readStoredChoice);
 	const groupRef = useRef<HTMLFieldSetElement>(null);
@@ -50,19 +49,12 @@ export default function ThemeToggle(): React.ReactElement {
 	}, [choice]);
 
 	return (
-		<fieldset ref={groupRef} style={S.themeToggle}>
-			<legend style={S.visuallyHidden}>Panel theme</legend>
-			{CHOICES.map((c) => (
-				<button
-					key={c.value}
-					type="button"
-					aria-pressed={choice === c.value}
-					style={choice === c.value ? S.themeToggleBtnActive : S.themeToggleBtn}
-					onClick={() => setChoice(c.value)}
-				>
-					{c.label}
-				</button>
-			))}
-		</fieldset>
+		<SegmentedControl
+			legend="Panel theme"
+			choices={CHOICES}
+			value={choice}
+			onChange={setChoice}
+			fieldsetRef={groupRef}
+		/>
 	);
 }

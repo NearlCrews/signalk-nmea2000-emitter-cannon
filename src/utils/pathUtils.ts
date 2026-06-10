@@ -12,6 +12,16 @@ export function getSelfValue(app: SignalKApp, path: string): unknown {
 	return (app.getSelfPath(path) as { value?: unknown } | undefined)?.value;
 }
 
+/**
+ * Strip the `[N]` sub-conversion suffix from an option key
+ * (`BATTERY[0]` -> `BATTERY`). Returns the key unchanged when there is no
+ * suffix (the single-PGN path: no substring allocation).
+ */
+export function stripSubIndex(key: string): string {
+	const bracket = key.indexOf("[");
+	return bracket === -1 ? key : key.substring(0, bracket);
+}
+
 // First-prefix-match lookup. Iterates `table` in order and returns the value
 // paired with the first prefix that `path.startsWith`. List longer/more
 // specific prefixes earlier to control precedence.

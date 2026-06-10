@@ -1,4 +1,5 @@
 import type * as React from "react";
+import { SEATALK_NETWORK_GROUPS } from "../../../config/enums.js";
 import { S } from "../../styles";
 import { extraRows } from "./extraRows";
 import MappingTable from "./MappingTable";
@@ -45,15 +46,33 @@ export default function BrightnessMappingEditor({
 				},
 				{
 					header: "NMEA 2000 Group Label",
+					// A select over the canboat SEATALK_NETWORK_GROUP labels: the
+					// runtime silently falls back on an unknown label, so free text
+					// invited typos that quietly mapped to the default group. A
+					// stored value outside the list (or empty) still displays as its
+					// own option so an existing config is not silently rewritten.
 					render: (r, set) => (
-						<input
-							type="text"
-							style={S.input}
+						<select
+							style={S.select}
 							value={r.groupLabel}
-							placeholder="Helm 1"
 							onChange={(e) => set({ ...r, groupLabel: e.target.value })}
 							aria-label="NMEA 2000 brightness group label"
-						/>
+						>
+							{r.groupLabel === "" ? (
+								<option value="">Select a group</option>
+							) : null}
+							{!SEATALK_NETWORK_GROUPS.includes(r.groupLabel) &&
+							r.groupLabel !== "" ? (
+								<option value={r.groupLabel}>
+									{r.groupLabel} (not a known group)
+								</option>
+							) : null}
+							{SEATALK_NETWORK_GROUPS.map((g) => (
+								<option key={g} value={g}>
+									{g}
+								</option>
+							))}
+						</select>
 					),
 				},
 			]}

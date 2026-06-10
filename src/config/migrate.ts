@@ -1,4 +1,5 @@
 import { DEFAULT_GLOBAL_RESEND_SECONDS } from "../constants.js";
+import { isPlainObject } from "../utils/validation.js";
 import type { Config, ConversionConfig } from "./schema.js";
 
 /**
@@ -35,10 +36,24 @@ function flattenConfigEnvelope(raw: unknown): Record<string, unknown> {
 	return merged;
 }
 
-/** True for a non-null, non-array object literal. */
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+/**
+ * Non-conversion settings blocks that live at the config root: every
+ * RootConfig property except `conversions`. The legacy flat shape interleaves
+ * conversion entries with these at the root, so the lift-to-nested loop must
+ * skip them. Typed as an exhaustive Record so adding a settings block to
+ * RootConfig without listing it here is a compile error; no further per-key
+ * special case is needed in the loop.
+ */
+const NON_CONVERSION_ROOT_KEYS: Record<
+	Exclude<keyof Config, "conversions">,
+	true
+> = {
+	globalResendInterval: true,
+	advisor: true,
+};
+const RESERVED_ROOT_KEYS: ReadonlySet<string> = new Set(
+	Object.keys(NON_CONVERSION_ROOT_KEYS),
+);
 
 /** Keep only the string-valued entries of an object; everything else is dropped. */
 function toStringRecord(value: unknown): Record<string, string> {
@@ -85,17 +100,17 @@ export function migrateLegacyConfig(raw: unknown): Config {
 		migrated = { ...flat, conversions } as Config;
 	} else {
 		const conversions: Record<string, ConversionConfig> = {};
-		let globalResendInterval: number = DEFAULT_GLOBAL_RESEND_SECONDS;
+		const globalResendInterval: number =
+			typeof flat.globalResendInterval === "number"
+				? flat.globalResendInterval
+				: DEFAULT_GLOBAL_RESEND_SECONDS;
 
 		for (const [key, value] of Object.entries(flat)) {
-			if (key === "globalResendInterval") {
-				if (typeof value === "number") globalResendInterval = value;
-				continue;
-			}
-			// `advisor` is a settings block, not a conversion: skip it so it is
-			// never misread into a bogus conversion entry. It is carried over
-			// verbatim below if present.
-			if (key === "advisor") continue;
+			// Settings blocks (globalResendInterval, advisor) are not conversions:
+			// skip them so they are never misread into bogus conversion entries.
+			// globalResendInterval is read above; advisor is carried over verbatim
+			// below if present.
+			if (RESERVED_ROOT_KEYS.has(key)) continue;
 			if (!value || typeof value !== "object") continue;
 			const entry = value as Record<string, unknown>;
 			const sources: Record<string, string> = {};

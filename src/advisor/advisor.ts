@@ -4,7 +4,7 @@ import {
 	emptyConversionConfig,
 } from "../config/schema.js";
 import { errMessage } from "../utils/errorUtils.js";
-import { isValidNumber } from "../utils/validation.js";
+import { isPlainObject, isValidNumber } from "../utils/validation.js";
 import { mergeHistoric } from "./inventory.js";
 import { recommend } from "./recommender.js";
 import type {
@@ -55,23 +55,22 @@ const DEFAULT_LOOKBACK_DAYS = 7;
 
 /**
  * True when a decision is a well-formed approval for a known conversion. The
- * apply endpoint forwards untrusted request JSON (and on older signalk-server
- * builds the route may be unauthenticated), so each element is re-validated at
- * runtime rather than trusted to match the ApplyDecision type: it must be a
- * non-null object, `approved === true`, and carry an optionKey string naming a
- * loaded conversion. Malformed or unknown-key entries are dropped so they
- * neither throw nor inject a junk key into the saved config.
+ * apply endpoint already shape-checks its request body and fails closed with
+ * a 403 when admin gating is unavailable, so this re-validation is deliberate
+ * defense in depth for any future caller of the public applyReview API: each
+ * element must be a plain object with `approved === true` and an optionKey
+ * string naming a loaded conversion. Malformed or unknown-key entries are
+ * dropped so they neither throw nor inject a junk key into the saved config.
  */
 function isApplicableDecision(
 	d: unknown,
 	knownKeys: ReadonlySet<string>,
 ): d is ApplyDecision {
-	if (d === null || typeof d !== "object") return false;
-	const o = d as Record<string, unknown>;
+	if (!isPlainObject(d)) return false;
 	return (
-		o.approved === true &&
-		typeof o.optionKey === "string" &&
-		knownKeys.has(o.optionKey)
+		d.approved === true &&
+		typeof d.optionKey === "string" &&
+		knownKeys.has(d.optionKey)
 	);
 }
 

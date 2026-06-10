@@ -19,7 +19,7 @@ import {
 import {
 	clampString,
 	isValidNumber,
-	normalizeAngle,
+	toUnsignedAngle,
 } from "../utils/validation.js";
 import type { Position as GeoPosition } from "./routeTypes.js";
 
@@ -100,12 +100,12 @@ export default function createAisExtendedConversions(
 							positionAccuracy: "Low",
 							raim: "not in use",
 							timeStamp: "0",
-							cog: isValidNumber(cog) ? normalizeAngle(cog) : undefined,
+							// COG and heading are unsigned [0, 2pi) fields; see
+							// toUnsignedAngle.
+							cog: toUnsignedAngle(cog),
 							sog: isValidNumber(sog) ? sog : undefined,
 							aisTransceiverInformation: "Channel A VDL reception",
-							heading: isValidNumber(heading)
-								? normalizeAngle(heading)
-								: undefined,
+							heading: toUnsignedAngle(heading),
 							regionalApplication: 0,
 							unitType: "SOTDMA",
 							integratedDisplay: "No",
@@ -237,12 +237,12 @@ export default function createAisExtendedConversions(
 							positionAccuracy: "Low",
 							raim: "not in use",
 							timeStamp: "0",
-							cog: isValidNumber(cog) ? normalizeAngle(cog) : undefined,
+							// COG and true heading are unsigned [0, 2pi) fields; see
+							// toUnsignedAngle.
+							cog: toUnsignedAngle(cog),
 							sog: isValidNumber(sog) ? sog : undefined,
 							aisTransceiverInformation: "Channel A VDL reception",
-							trueHeading: isValidNumber(heading)
-								? normalizeAngle(heading)
-								: undefined,
+							trueHeading: toUnsignedAngle(heading),
 							typeOfShip,
 							length: isValidNumber(length) ? length : undefined,
 							beam: isValidNumber(beam) ? beam : undefined,
@@ -375,7 +375,8 @@ export default function createAisExtendedConversions(
 							positionAccuracy: "High",
 							raim: "in use",
 							timeStamp: "0",
-							cog: isValidNumber(cog) ? normalizeAngle(cog) : undefined,
+							// COG is an unsigned [0, 2pi) field; see toUnsignedAngle.
+							cog: toUnsignedAngle(cog),
 							sog: isValidNumber(sog) ? sog : undefined,
 							aisTransceiverInformation: "Channel A VDL reception",
 							altitude: isValidNumber(altitude) ? altitude : undefined,

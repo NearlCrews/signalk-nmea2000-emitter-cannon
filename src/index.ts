@@ -185,14 +185,17 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 			pluginManager = null;
 		}
 		try {
-			pluginManager = new PluginManager(app, plugin, () => nmea2000Ready);
-			pluginManager.start(options);
-			// Read the scheduler config from the migrated/flattened shape, the same
-			// as PluginManager.start() and the advisor's readConfig do. Reading raw
-			// `options` would miss advisor.schedule on a config that still carries
+			// Migrate once and share. PluginManager.start re-runs
+			// migrateLegacyConfig on its input, which is idempotent (and tested as
+			// such), so passing the migrated object through is a no-op there. The
+			// scheduler must read advisor.schedule from the same flattened shape:
+			// reading raw `options` would miss it on a config that still carries
 			// the historical `configuration`-envelope nesting, so the periodic
 			// review would silently never arm even though conversions still emit.
-			const schedule = migrateLegacyConfig(options).advisor?.schedule;
+			const migrated = migrateLegacyConfig(options);
+			pluginManager = new PluginManager(app, plugin, () => nmea2000Ready);
+			pluginManager.start(migrated);
+			const schedule = migrated.advisor?.schedule;
 			advisorScheduler.configure(
 				schedule?.periodic === true,
 				isValidNumber(schedule?.intervalDays) ? schedule.intervalDays : 7,

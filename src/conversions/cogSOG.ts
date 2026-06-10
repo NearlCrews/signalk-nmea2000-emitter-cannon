@@ -8,7 +8,7 @@ import type {
 	ConversionModule,
 	SignalKApp,
 } from "../types/index.js";
-import { normalizeAngle, toValidNumber } from "../utils/validation.js";
+import { toUnsignedAngle, toValidNumber } from "../utils/validation.js";
 
 export default function createCogSogConversion(
 	_app: SignalKApp,
@@ -35,9 +35,8 @@ export default function createCogSogConversion(
 					fields: {
 						sid: N2K_DEFAULT_SID,
 						cogReference: "True",
-						// COG is an unsigned [0, 2pi) field: normalize so a negative or
-						// >2pi course does not wrap by the uint16 modulus.
-						cog: validCourse === null ? null : normalizeAngle(validCourse),
+						// COG is an unsigned [0, 2pi) field; see toUnsignedAngle.
+						cog: toUnsignedAngle(validCourse),
 						sog: validSpeed,
 					},
 				},

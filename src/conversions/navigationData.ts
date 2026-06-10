@@ -7,7 +7,11 @@ import {
 import type { ConversionModule, N2KMessage } from "../types/index.js";
 import { toN2KDateTime } from "../utils/dateUtils.js";
 import { isClearState } from "../utils/notificationUtils.js";
-import { isValidNumber, normalizeAngle } from "../utils/validation.js";
+import {
+	isValidNumber,
+	toUnsignedAngle,
+	toValidNumber,
+} from "../utils/validation.js";
 import type { Position } from "./routeTypes.js";
 
 // PGN 129284 uses a fixed sequence identifier per common implementations.
@@ -117,16 +121,13 @@ function createNavDataConversion(
 						calculationType,
 						etaTime,
 						etaDate,
-						// Both bearings are unsigned [0, 2pi) fields: normalize so a
-						// negative or >2pi bearing does not wrap by the uint16 modulus.
-						bearingOriginToDestinationWaypoint: isValidNumber(
-							bearingOriginToDest,
-						)
-							? normalizeAngle(bearingOriginToDest)
-							: undefined,
-						bearingPositionToDestinationWaypoint: isValidNumber(bearingToDest)
-							? normalizeAngle(bearingToDest)
-							: undefined,
+						// Both bearings are unsigned [0, 2pi) fields; see toUnsignedAngle.
+						bearingOriginToDestinationWaypoint: toUnsignedAngle(
+							toValidNumber(bearingOriginToDest),
+						),
+						bearingPositionToDestinationWaypoint: toUnsignedAngle(
+							toValidNumber(bearingToDest),
+						),
 						destinationWaypointNumber: wpid,
 						destinationLatitude: destination?.position?.latitude,
 						destinationLongitude: destination?.position?.longitude,

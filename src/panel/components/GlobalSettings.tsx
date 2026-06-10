@@ -1,4 +1,5 @@
 import type * as React from "react";
+import { GLOBAL_RESEND_HELP } from "../../config/enums.js";
 import { S } from "../styles";
 import NumberInput from "./NumberInput";
 
@@ -22,11 +23,7 @@ export default function GlobalSettings({
 					ariaLabel="Global resend interval in seconds"
 				/>
 			</div>
-			<p style={S.helpHint}>
-				Seconds between automatic re-emits of each conversion's most recent
-				value. Set 0 to disable global resend; a conversion can still opt in
-				with its own resend interval.
-			</p>
+			<p style={S.helpHint}>{GLOBAL_RESEND_HELP}</p>
 		</div>
 	);
 }

@@ -1,21 +1,24 @@
 import type * as React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { recommend } from "../../advisor/recommender.js";
+import type { PathInventory } from "../../advisor/types.js";
 import type { ConversionMetadata, PathsResponse } from "../../api/types.js";
 import {
-	Categories,
 	CategoryLabels,
+	groupByCategory,
 	type PresetTag,
 } from "../../config/enums.js";
 import type { Config } from "../../config/schema.js";
 import { errMessage } from "../../utils/errorUtils.js";
 import { fetchJson } from "../api-base";
+import { plural } from "../recency";
 import { S } from "../styles";
 import PresetChips from "./PresetChips";
 
 interface Props {
 	// Conversion catalog from /api/conversions.
 	meta: ConversionMetadata[];
-	// Current config, used to flag conversions already enabled.
+	// Current config; conversions already enabled are not proposed.
 	config: Config;
 	// Stage the given conversion keys as enabled through the reducer. Marks the
 	// panel dirty; the user reviews and Saves afterward.
@@ -26,27 +29,13 @@ interface Props {
 }
 
 /**
- * A conversion "has live data" when at least one of its declared Signal K paths
- * is currently published: either the path itself is in the observed set, or an
- * observed path sits beneath it (e.g. the conversion declares
- * `electrical.batteries` and the bus publishes `electrical.batteries.0.voltage`).
- */
-function hasLiveData(m: ConversionMetadata, observed: Set<string>): boolean {
-	return m.paths.some((cp) => {
-		if (observed.has(cp)) return true;
-		const prefix = `${cp}.`;
-		for (const o of observed) if (o.startsWith(prefix)) return true;
-		return false;
-	});
-}
-
-/**
- * Guided first-run setup. Fetches the observed Signal K paths, matches them
- * against each conversion's declared paths, and proposes the conversions that
- * have live data, grouped by category and pre-checked. One Apply button stages
- * the checked enables through the reducer; the user then reviews and Saves.
- * Preset shortcuts cover the rest. The dialog closes on the X button, the
- * Escape key, or a click on the backdrop.
+ * Guided first-run setup. Fetches the observed Signal K paths and runs them
+ * through the advisor's pure recommender, proposing the not-yet-enabled
+ * conversions whose declared paths have live data, grouped by category and
+ * pre-checked. One Apply button stages the checked enables through the
+ * reducer; the user then reviews and Saves. Preset shortcuts cover the rest.
+ * The dialog closes on the X button, the Escape key, or a click on the
+ * backdrop.
  */
 export default function FirstRunWizard({
 	meta,
@@ -57,7 +46,9 @@ export default function FirstRunWizard({
 }: Props): React.ReactElement {
 	const [paths, setPaths] = useState<string[] | null>(null);
 	const [loadError, setLoadError] = useState<string | null>(null);
-	const [checked, setChecked] = useState<Record<string, boolean>>({});
+	// Unchecked-by-the-user overrides; every proposed conversion is checked
+	// unless overridden, so no state sync with the proposal list is needed.
+	const [overrides, setOverrides] = useState<Record<string, boolean>>({});
 	const [stagedCount, setStagedCount] = useState<number | null>(null);
 	const dialogRef = useRef<HTMLDivElement>(null);
 	const titleId = "skn-wizard-title";
@@ -93,28 +84,33 @@ export default function FirstRunWizard({
 		dialogRef.current?.focus();
 	}, []);
 
-	const observed = useMemo(() => new Set(paths ?? []), [paths]);
-	const proposed = useMemo(
-		() => (paths ? meta.filter((m) => hasLiveData(m, observed)) : []),
-		[meta, paths, observed],
-	);
-	const grouped = useMemo(
-		() =>
-			Categories.map((cat) => ({
-				cat,
-				list: proposed.filter((m) => m.category === cat),
-			})).filter((g) => g.list.length > 0),
-		[proposed],
-	);
+	// The advisor's deterministic recommender over the live path scan. The
+	// wizard has no per-path source data, so liveSources stays empty and the
+	// echo-guard ("already on the bus") branch never suppresses a proposal.
+	// Only "enable" recommendations are proposed, which also excludes
+	// conversions that are already enabled.
+	const proposed = useMemo(() => {
+		if (!paths) return [];
+		const inventory: PathInventory = paths.map((path) => ({
+			path,
+			live: true,
+			liveSources: [],
+		}));
+		const recs = recommend({
+			inventory,
+			metadata: meta,
+			currentConfig: config.conversions,
+		});
+		const enableKeys = new Set(
+			recs.filter((r) => r.action === "enable").map((r) => r.optionKey),
+		);
+		return meta.filter((m) => enableKeys.has(m.key));
+	}, [paths, meta, config.conversions]);
+	const grouped = useMemo(() => groupByCategory(proposed), [proposed]);
 
-	// Pre-check every proposed conversion once the path scan resolves.
-	useEffect(() => {
-		const init: Record<string, boolean> = {};
-		for (const m of proposed) init[m.key] = true;
-		setChecked(init);
-	}, [proposed]);
-
-	const checkedKeys = proposed.filter((m) => checked[m.key]).map((m) => m.key);
+	const checkedKeys = proposed
+		.filter((m) => overrides[m.key] ?? true)
+		.map((m) => m.key);
 
 	const handleApply = (): void => {
 		if (checkedKeys.length > 0) onEnableKeys(checkedKeys);
@@ -160,9 +156,9 @@ export default function FirstRunWizard({
 				<div style={S.wizardBody}>
 					<p style={S.wizardIntro}>
 						This scans the Signal K paths your boat is publishing right now and
-						proposes the conversions that have live data. Review the pre-checked
-						list, then Apply to stage them. Nothing is saved until you Save in
-						the main panel.
+						proposes the not-yet-enabled conversions that have live data. Review
+						the pre-checked list, then Apply to stage them. Nothing is saved
+						until you Save in the main panel.
 					</p>
 
 					{scanning ? (
@@ -180,36 +176,31 @@ export default function FirstRunWizard({
 
 					{paths !== null && grouped.length === 0 && !loadError ? (
 						<p style={S.helpHint}>
-							No conversions matched live data yet. Apply a preset below, or
-							close this wizard and enable conversions manually.
+							No new conversions matched live data; conversions already enabled
+							are not listed. Apply a preset below, or close this wizard and
+							enable conversions manually.
 						</p>
 					) : null}
 
 					{grouped.map((g) => (
 						<div key={g.cat} style={S.wizardGroup}>
 							<h3 style={S.wizardGroupTitle}>{CategoryLabels[g.cat]}</h3>
-							{g.list.map((m) => {
-								const already = config.conversions[m.key]?.enabled ?? false;
-								return (
-									<label key={m.key} style={S.wizardRow}>
-										<input
-											type="checkbox"
-											style={S.checkbox}
-											checked={checked[m.key] ?? false}
-											onChange={(e) =>
-												setChecked((c) => ({
-													...c,
-													[m.key]: e.target.checked,
-												}))
-											}
-										/>
-										<span style={S.wizardRowText}>{m.title}</span>
-										{already ? (
-											<span style={S.wizardRowMeta}>already enabled</span>
-										) : null}
-									</label>
-								);
-							})}
+							{g.list.map((m) => (
+								<label key={m.key} style={S.wizardRow}>
+									<input
+										type="checkbox"
+										style={S.checkbox}
+										checked={overrides[m.key] ?? true}
+										onChange={(e) =>
+											setOverrides((c) => ({
+												...c,
+												[m.key]: e.target.checked,
+											}))
+										}
+									/>
+									<span style={S.wizardRowText}>{m.title}</span>
+								</label>
+							))}
 						</div>
 					))}
 
@@ -221,9 +212,7 @@ export default function FirstRunWizard({
 					<span style={S.wizardFooterHint} role="status">
 						{stagedCount === null
 							? "Applying stages your selection. Close, review the checked conversions, then Save."
-							: `Staged ${stagedCount} conversion${
-									stagedCount === 1 ? "" : "s"
-								}. Close, review the checked conversions, then Save.`}
+							: `Staged ${plural(stagedCount, "conversion")}. Close, review the checked conversions, then Save.`}
 					</span>
 					<button
 						type="button"

@@ -6,6 +6,7 @@ import {
 	CategoryLabels,
 	type ConversionCategory,
 } from "../../config/enums";
+import { plural } from "../recency";
 import { S } from "../styles";
 
 // Small danger-colored count badge on a tab whose category has conversions
@@ -15,10 +16,10 @@ const TAB_ERROR_DOT: CSSProperties = {
 	minWidth: 16,
 	marginLeft: 6,
 	padding: "0 5px",
-	borderRadius: 999,
+	borderRadius: "var(--skn-radius-pill)",
 	background: "var(--skn-danger-fg)",
 	color: "var(--skn-surface)",
-	fontSize: 11,
+	fontSize: "var(--skn-font-small)",
 	fontWeight: 700,
 	lineHeight: "16px",
 	textAlign: "center",
@@ -83,9 +84,7 @@ export default function CategoryTabs({
 							<span
 								role="img"
 								style={TAB_ERROR_DOT}
-								aria-label={`${errorCount} error${
-									errorCount > 1 ? "s" : ""
-								} in ${CategoryLabels[c]}`}
+								aria-label={`${plural(errorCount, "error")} in ${CategoryLabels[c]}`}
 							>
 								{errorCount}
 							</span>

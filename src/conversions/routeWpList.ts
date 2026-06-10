@@ -1,7 +1,9 @@
 import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import type { ConversionModule, N2KMessage } from "../types/index.js";
 import {
-	MAX_WP_LIST_WAYPOINTS,
+	longNameWaypointEntries,
+	longNameWaypoints,
+	MAX_CANDIDATE_WAYPOINTS,
 	mapValidWaypoints,
 	packWaypointsToBudget,
 	toWaypointEntry,
@@ -37,7 +39,7 @@ export default function createRouteWpListConversion(): ConversionModule {
 			// 223-byte fast-packet budget so a long route never emits an
 			// untransmittable frame.
 			const wpList = packWaypointsToBudget(
-				mapValidWaypoints(waypoints, MAX_WP_LIST_WAYPOINTS, toWaypointEntry),
+				mapValidWaypoints(waypoints, MAX_CANDIDATE_WAYPOINTS, toWaypointEntry),
 				WP_LIST_HEADER_BYTES,
 			);
 
@@ -158,15 +160,7 @@ export default function createRouteWpListConversion(): ConversionModule {
 				// budget. Eight 16-char-named waypoints would encode to 234 bytes
 				// (8 rows * 28 + 10 header); only seven fit (7 * 28 + 10 = 206), so
 				// the eighth is dropped and nitems tracks the packed count.
-				input: [
-					Array.from({ length: 8 }, (_, i) => ({
-						id: i + 1,
-						name: `WAYPOINT-LONG-0${i + 1}`,
-						position: { latitude: 39 + i, longitude: -76 - i },
-					})),
-					"Long Route",
-					false,
-				],
+				input: [longNameWaypoints(8), "Long Route", false],
 				expected: [
 					{
 						prio: 2,
@@ -177,12 +171,7 @@ export default function createRouteWpListConversion(): ConversionModule {
 							nitems: 7,
 							numberOfValidWpsInTheWpList: 7,
 							startWpId: 0,
-							list: Array.from({ length: 7 }, (_, i) => ({
-								wpId: i + 1,
-								wpName: `WAYPOINT-LONG-0${i + 1}`,
-								wpLatitude: 39 + i,
-								wpLongitude: -76 - i,
-							})),
+							list: longNameWaypointEntries(7),
 						},
 					},
 				],

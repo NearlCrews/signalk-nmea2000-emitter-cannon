@@ -1,5 +1,6 @@
 import type * as React from "react";
 import type { CSSProperties } from "react";
+import { plural } from "../recency";
 import { S } from "../styles";
 import DisclosureCaret from "./DisclosureCaret";
 
@@ -14,21 +15,16 @@ interface Props {
 	// Number of conversions in this section reporting an error, shown next to
 	// the enabled count. Optional: omitted or 0 renders nothing.
 	errorCount?: number;
-	// Extra header content rendered at the right of the header row (e.g. the
-	// advisor pending pill). Optional.
-	headerExtra?: React.ReactNode;
 }
 
 // Error count rendered in the section header. Danger-colored so it reads as a
 // problem, sitting alongside the muted count text.
 const SECTION_ERROR_COUNT: CSSProperties = {
 	fontWeight: 600,
-	fontSize: 12,
+	fontSize: "var(--skn-font-small)",
 	color: "var(--skn-danger-fg)",
 	marginLeft: 6,
 };
-// Pushes header extras to the trailing edge of the header row.
-const SECTION_HEADER_EXTRA: CSSProperties = { marginLeft: "auto" };
 
 /**
  * A disclosure section grouping conversion cards (Modern or Legacy). The
@@ -43,7 +39,6 @@ export default function CollapsibleSection({
 	onToggle,
 	children,
 	errorCount,
-	headerExtra,
 }: Props): React.ReactElement {
 	const bodyId = `${id}-body`;
 	return (
@@ -58,16 +53,11 @@ export default function CollapsibleSection({
 				<DisclosureCaret expanded={expanded} />
 				{title}
 				<span style={S.sectionCount}>
-					{count} {count === 1 ? "conversion" : "conversions"}
+					{plural(count, "conversion")}
 					{enabledCount > 0 ? ` · ${enabledCount} enabled` : ""}
 				</span>
 				{errorCount && errorCount > 0 ? (
-					<span style={SECTION_ERROR_COUNT}>
-						{errorCount} error{errorCount > 1 ? "s" : ""}
-					</span>
-				) : null}
-				{headerExtra ? (
-					<span style={SECTION_HEADER_EXTRA}>{headerExtra}</span>
+					<span style={SECTION_ERROR_COUNT}>{plural(errorCount, "error")}</span>
 				) : null}
 			</button>
 			{expanded ? (

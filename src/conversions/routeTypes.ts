@@ -24,13 +24,13 @@ export const DEFAULT_ROUTE_NAME = "ACTIVE_ROUTE";
 export const markTypeFor = (t: unknown): "Waypoint" | "Reference" =>
 	t === "waypoint" ? "Waypoint" : "Reference";
 
-// Upper bound on candidate waypoints considered per frame, before the
-// fast-packet byte budget trims further. A single fast-packet route frame holds
-// at most ~17 waypoints even with empty names, so these ceilings only cap how
-// many raw entries we process; packWaypointsToBudget is the authoritative
-// on-wire bound. See FAST_PACKET_MAX_BYTES.
-export const MAX_RPS_WAYPOINTS = 18;
-export const MAX_WP_LIST_WAYPOINTS = 18;
+// Upper bound on candidate waypoints considered per frame (PGN 129285 and
+// 130074), before the fast-packet byte budget trims further. A single
+// fast-packet route frame holds at most ~17 waypoints even with empty names,
+// so this ceiling only caps how many raw entries we process;
+// packWaypointsToBudget is the authoritative on-wire bound. See
+// FAST_PACKET_MAX_BYTES.
+export const MAX_CANDIDATE_WAYPOINTS = 18;
 
 // Waypoint and route names are STRING_LAU fields. 16 chars bounds each name so
 // a frame holds a useful number of waypoints within the fast-packet limit and
@@ -84,6 +84,25 @@ export function toWaypointEntry(wp: Waypoint, index: number): WaypointEntry {
 		wpLatitude: wp.position?.latitude,
 		wpLongitude: wp.position?.longitude,
 	};
+}
+
+// Test-fixture builders for the fast-packet budget regression tests shared by
+// routeWaypoint.ts (PGN 129285) and routeWpList.ts (PGN 130074). Every
+// waypoint gets a 16-char name ("WAYPOINT-LONG-0N", exactly MAX_WP_NAME_CHARS)
+// so the per-row byte cost is fixed and the packed-count expectations are
+// exact.
+export function longNameWaypoints(count: number): Waypoint[] {
+	return Array.from({ length: count }, (_, i) => ({
+		id: i + 1,
+		name: `WAYPOINT-LONG-0${i + 1}`,
+		position: { latitude: 39 + i, longitude: -76 - i },
+	}));
+}
+
+// The expected decoded `list` rows for the first `count` longNameWaypoints,
+// built through the same toWaypointEntry the conversions use.
+export function longNameWaypointEntries(count: number): WaypointEntry[] {
+	return longNameWaypoints(count).map(toWaypointEntry);
 }
 
 // Fixed bytes per waypoint row in both PGN 129285 and 130074: wpId(2) +

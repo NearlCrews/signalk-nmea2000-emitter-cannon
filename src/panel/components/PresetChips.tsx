@@ -2,6 +2,7 @@ import type * as React from "react";
 import { useMemo, useState } from "react";
 import type { ConversionMetadata } from "../../api/types.js";
 import { type PresetTag, PresetTags } from "../../config/enums";
+import { plural } from "../recency";
 import { S } from "../styles";
 
 const LABELS: Record<PresetTag, string> = {
@@ -19,9 +20,8 @@ const ZWSP = "​";
 interface Props {
 	onApply: (preset: PresetTag) => void;
 	// Conversion catalog, used to count how many conversions each preset
-	// enables (those whose `presets` include the tag). Optional: when omitted
-	// the chips render without a count and the announce omits the number.
-	meta?: ConversionMetadata[];
+	// enables (those whose `presets` include the tag).
+	meta: ConversionMetadata[];
 }
 
 export default function PresetChips({
@@ -34,10 +34,8 @@ export default function PresetChips({
 	const countByPreset = useMemo(() => {
 		const counts = {} as Record<PresetTag, number>;
 		for (const p of PresetTags) counts[p] = 0;
-		if (meta) {
-			for (const m of meta) {
-				for (const p of m.presets) counts[p]++;
-			}
+		for (const m of meta) {
+			for (const p of m.presets) counts[p]++;
 		}
 		return counts;
 	}, [meta]);
@@ -51,10 +49,7 @@ export default function PresetChips({
 
 	const handleApply = (p: PresetTag): void => {
 		onApply(p);
-		const n = countByPreset[p];
-		const text = meta
-			? `Enabled ${n} conversion${n === 1 ? "" : "s"}, not yet saved.`
-			: "Enabled preset conversions, not yet saved.";
+		const text = `Enabled ${plural(countByPreset[p], "conversion")}, not yet saved.`;
 		setAnnounce((prev) => ({ text, seq: prev.seq + 1 }));
 	};
 
@@ -63,19 +58,15 @@ export default function PresetChips({
 			<div style={S.chipRow}>
 				{PresetTags.map((p) => {
 					const n = countByPreset[p];
-					const title = meta
-						? `${LABELS[p]}: ${n} conversion${n === 1 ? "" : "s"}`
-						: LABELS[p];
 					return (
 						<button
 							key={p}
 							type="button"
 							style={S.chip}
-							title={title}
+							title={`${LABELS[p]}: ${plural(n, "conversion")}`}
 							onClick={() => handleApply(p)}
 						>
-							+ {LABELS[p]}
-							{meta ? ` (${n})` : ""}
+							+ {LABELS[p]} ({n})
 						</button>
 					);
 				})}

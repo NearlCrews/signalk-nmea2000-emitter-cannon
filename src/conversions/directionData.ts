@@ -8,7 +8,7 @@ import type {
 	ConversionModule,
 	SignalKApp,
 } from "../types/index.js";
-import { normalizeAngle, toValidNumber } from "../utils/validation.js";
+import { toUnsignedAngle, toValidNumber } from "../utils/validation.js";
 
 export default function createDirectionDataConversion(
 	_app: SignalKApp,
@@ -58,10 +58,9 @@ export default function createDirectionDataConversion(
 						sid: N2K_SID_ZERO,
 						dataMode: "Autonomous",
 						cogReference,
-						// COG and heading are unsigned [0, 2pi) fields: normalize so a
-						// negative or >2pi value does not wrap by the uint16 modulus.
-						cog: cog === null ? null : normalizeAngle(cog),
-						heading: heading === null ? null : normalizeAngle(heading),
+						// COG and heading are unsigned [0, 2pi) fields; see toUnsignedAngle.
+						cog: toUnsignedAngle(cog),
+						heading: toUnsignedAngle(heading),
 					},
 				},
 			];

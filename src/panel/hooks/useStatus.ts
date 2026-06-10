@@ -8,9 +8,14 @@ const POLL_MS = 3000;
 export function useStatus(): {
 	status: StatusSnapshot | null;
 	error: string | null;
+	// Wall-clock timestamp (ms) of the last successful poll, or null before the
+	// first success. Lets the dashboard show a staleness marker when polling
+	// stalls.
+	lastUpdatedMs: number | null;
 } {
 	const [status, setStatus] = useState<StatusSnapshot | null>(null);
 	const [error, setError] = useState<string | null>(null);
+	const [lastUpdatedMs, setLastUpdatedMs] = useState<number | null>(null);
 	const cancelled = useRef(false);
 
 	useEffect(() => {
@@ -22,6 +27,7 @@ export function useStatus(): {
 				if (!cancelled.current) {
 					setStatus(body);
 					setError(null);
+					setLastUpdatedMs(Date.now());
 				}
 			} catch (e) {
 				if (!cancelled.current) setError(errMessage(e));
@@ -45,5 +51,5 @@ export function useStatus(): {
 		};
 	}, []);
 
-	return { status, error };
+	return { status, error, lastUpdatedMs };
 }

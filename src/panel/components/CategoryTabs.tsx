@@ -1,29 +1,43 @@
 import type * as React from "react";
+import type { CSSProperties } from "react";
 import { useRef } from "react";
-import { Categories, type ConversionCategory } from "../../config/enums";
+import {
+	Categories,
+	CategoryLabels,
+	type ConversionCategory,
+} from "../../config/enums";
 import { S } from "../styles";
 
-const LABELS: Record<ConversionCategory, string> = {
-	navigation: "Navigation",
-	engine: "Engine",
-	electrical: "Electrical",
-	tanks: "Tanks",
-	environment: "Environment",
-	ais: "AIS",
-	comms: "Comms",
-	system: "System",
+// Small danger-colored count badge on a tab whose category has conversions
+// reporting errors. Inline-block so it sits after the tab's count.
+const TAB_ERROR_DOT: CSSProperties = {
+	display: "inline-block",
+	minWidth: 16,
+	marginLeft: 6,
+	padding: "0 5px",
+	borderRadius: 999,
+	background: "var(--skn-danger-fg)",
+	color: "var(--skn-surface)",
+	fontSize: 11,
+	fontWeight: 700,
+	lineHeight: "16px",
+	textAlign: "center",
 };
 
 interface Props {
 	active: ConversionCategory;
 	onChange: (next: ConversionCategory) => void;
 	countsByCategory: Record<ConversionCategory, number>;
+	// Per-category count of conversions currently reporting an error. Optional:
+	// a missing or 0 entry renders no error badge on that tab.
+	errorCountByCategory?: Record<string, number>;
 }
 
 export default function CategoryTabs({
 	active,
 	onChange,
 	countsByCategory,
+	errorCountByCategory,
 }: Props): React.ReactElement {
 	const refs = useRef<(HTMLButtonElement | null)[]>([]);
 
@@ -46,6 +60,7 @@ export default function CategoryTabs({
 		<div style={S.tabs} role="tablist" aria-label="Conversion categories">
 			{Categories.map((c, i) => {
 				const isActive = active === c;
+				const errorCount = errorCountByCategory?.[c] ?? 0;
 				return (
 					<button
 						key={c}
@@ -62,8 +77,19 @@ export default function CategoryTabs({
 						aria-selected={isActive}
 						tabIndex={isActive ? 0 : -1}
 					>
-						{LABELS[c]}{" "}
+						{CategoryLabels[c]}{" "}
 						<span style={S.tabCount}>({countsByCategory[c] ?? 0})</span>
+						{errorCount > 0 ? (
+							<span
+								role="img"
+								style={TAB_ERROR_DOT}
+								aria-label={`${errorCount} error${
+									errorCount > 1 ? "s" : ""
+								} in ${CategoryLabels[c]}`}
+							>
+								{errorCount}
+							</span>
+						) : null}
 					</button>
 				);
 			})}

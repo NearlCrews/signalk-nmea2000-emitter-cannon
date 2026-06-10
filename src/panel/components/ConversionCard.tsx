@@ -12,6 +12,7 @@ import {
 import { pathToPropName } from "../../utils/pathUtils.js";
 import { splitPgnTitle } from "../../utils/pgnUtils.js";
 import type { Action } from "../hooks/useConfig";
+import { humanizeAgo } from "../recency";
 import { S } from "../styles";
 import DisclosureCaret from "./DisclosureCaret";
 import ExtrasEditor from "./ExtrasEditor";
@@ -31,6 +32,11 @@ interface Props {
 	toggleCard: (key: string) => void;
 	sourcesFor: (p: string) => string[];
 	ensureLoaded: (p: string) => Promise<void>;
+	// Effective global resend interval in seconds, surfaced as the resend
+	// field's placeholder so the user sees the value a 0 (inherit) actually
+	// resolves to. Optional: the field falls back to no placeholder when the
+	// parent does not pass it.
+	globalResendSeconds?: number;
 }
 
 const EMPTY_CFG: ConversionConfig = emptyConversionConfig();
@@ -117,6 +123,33 @@ function ConversionCard(props: Props): React.ReactElement {
 
 	const bodyId = `skn-card-${props.meta.key}`;
 
+	// Emit recency for the card header. "N emits, last Xs ago" once the
+	// conversion has emitted; a neutral, dimmed "no recent output" when it is
+	// enabled but has produced nothing yet. The wording stays neutral on
+	// purpose: legitimately quiet conversions (event-driven AIS, resend
+	// disabled) should not read as a fault.
+	const st = props.status;
+	let recencyLabel: string | null = null;
+	if (st && st.emitCount > 0) {
+		recencyLabel = `${st.emitCount} emits, last ${humanizeAgo(st.lastEmitMs)}`;
+	} else if (st?.enabled) {
+		recencyLabel = "no recent output";
+	}
+
+	// Resend placeholder shows what a 0 (inherit) resolves to: the global
+	// interval in seconds, or that global resend is disabled.
+	const resendPlaceholder =
+		props.globalResendSeconds === undefined
+			? undefined
+			: props.globalResendSeconds === 0
+				? "global resend disabled"
+				: `global: ${props.globalResendSeconds} s`;
+
+	const errorAgeSuffix =
+		st?.lastErrorAgeMs !== undefined
+			? ` (${humanizeAgo(st.lastErrorAgeMs)})`
+			: "";
+
 	return (
 		<div style={S.card}>
 			<div style={S.cardHeader}>
@@ -158,9 +191,7 @@ function ConversionCard(props: Props): React.ReactElement {
 						Legacy
 					</span>
 				) : null}
-				{props.status?.emitCount ? (
-					<span style={S.cardMeta}>{props.status.emitCount} emits</span>
-				) : null}
+				{recencyLabel ? <span style={S.cardMeta}>{recencyLabel}</span> : null}
 				{props.status?.lastErrorMessage ? (
 					<span
 						role="img"
@@ -182,18 +213,47 @@ function ConversionCard(props: Props): React.ReactElement {
 			) : null}
 			{props.expanded ? (
 				<div id={bodyId} style={S.cardBody}>
+					{/* Inline error banner: the same message the header's ⚠ marks,
+					    shown in full for touchscreens where the title tooltip is
+					    unreachable. */}
+					{props.status?.lastErrorMessage ? (
+						<div role="alert" style={S.errorBanner}>
+							<span>
+								Error: {props.status.lastErrorMessage}
+								{errorAgeSuffix}
+							</span>
+						</div>
+					) : null}
 					{props.meta.purpose ? (
 						<p style={S.cardPurpose}>{props.meta.purpose}</p>
+					) : null}
+					{/* Compatibility and legacy notes as visible body text so the
+					    information in the header badges' tooltips is reachable
+					    without a mouse hover. */}
+					{compatStyle ? (
+						<p style={S.cardPurpose}>
+							{compatStyle.label}
+							{compatibility?.note ? `. ${compatibility.note}` : ""}
+						</p>
+					) : null}
+					{props.meta.legacy ? (
+						<p style={S.cardPurpose}>
+							Legacy: {props.meta.legacy.note} Superseded by{" "}
+							{props.meta.legacy.supersededBy}.
+						</p>
 					) : null}
 					{/* Options stay visible whether or not the conversion is
 					    enabled, so a source or resend can be set up before the
 					    enable checkbox is ticked. */}
 					<div style={S.fieldRow}>
-						<span style={S.label}>Resend (seconds, 0 = global)</span>
+						<span style={S.label}>
+							Resend interval (seconds, 0 = use global setting)
+						</span>
 						<NumberInput
 							value={cfg.resend}
 							onChange={onSetResend}
 							min={0}
+							placeholder={resendPlaceholder}
 							ariaLabel={`Resend interval seconds for ${props.meta.title}`}
 						/>
 					</div>
@@ -201,6 +261,10 @@ function ConversionCard(props: Props): React.ReactElement {
 						<SourceField
 							key={p}
 							path={p}
+							// Scope the datalist id by this conversion's option key so
+							// two cards sharing a Signal K path do not emit duplicate
+							// element ids.
+							idScope={key}
 							// Read both the panel's native dotted-SK-path key and
 							// the dotless propName legacy form: migrateLegacyConfig
 							// stores underscored legacy keys verbatim, so for users
@@ -219,7 +283,12 @@ function ConversionCard(props: Props): React.ReactElement {
 						onChange={onSetExtras}
 					/>
 				</div>
-			) : null}
+			) : (
+				// Placeholder carrying the body id while collapsed so the
+				// header button's aria-controls always resolves to a real node,
+				// without mounting the full body for all 75 cards.
+				<div id={bodyId} hidden />
+			)}
 		</div>
 	);
 }

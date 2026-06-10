@@ -23,12 +23,11 @@ interface Props {
 // S.fieldRow lays it out; the pointer cursor signals the row is clickable.
 const checkboxRow: React.CSSProperties = { ...S.fieldRow, cursor: "pointer" };
 
-// Primary toggle labels get full text color (S.label's muted gray read as
-// disabled next to a live checkbox) and flex with the row instead of holding
-// a fixed column, so tablets do not get a dead gutter.
+// Primary toggle labels reuse the wizard row text (full text color: S.label's
+// muted gray read as disabled next to a live checkbox) and flex with the row
+// instead of holding a fixed column, so tablets do not get a dead gutter.
 const toggleLabel: React.CSSProperties = {
-	fontSize: "var(--skn-font-body)",
-	color: "var(--skn-text)",
+	...S.wizardRowText,
 	flex: "1 1 auto",
 	minWidth: 160,
 };

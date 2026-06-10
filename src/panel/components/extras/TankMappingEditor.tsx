@@ -36,7 +36,7 @@ export default function TankMappingEditor({
 					render: (r, set) => (
 						<input
 							type="text"
-							style={S.tableInput}
+							style={S.input}
 							value={r.signalkPath}
 							placeholder="tanks.fuel.0"
 							onChange={(e) => set({ ...r, signalkPath: e.target.value })}
@@ -52,7 +52,6 @@ export default function TankMappingEditor({
 							onChange={(n) => set({ ...r, instanceId: n })}
 							min={0}
 							max={MAX_TANK_INSTANCE}
-							style={S.tableInput}
 							ariaLabel="NMEA 2000 tank instance"
 						/>
 					),

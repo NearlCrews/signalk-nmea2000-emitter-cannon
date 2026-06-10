@@ -40,6 +40,12 @@ interface Props {
 
 const EMPTY_CFG: ConversionConfig = emptyConversionConfig();
 
+// Card header with the pointer cursor for the row-level click delegation.
+const CLICKABLE_HEADER: React.CSSProperties = {
+	...S.cardHeader,
+	cursor: "pointer",
+};
+
 // Compatibility badge colors reference theme tokens so the badge stays
 // readable in both light and dark host themes.
 const COMPATIBILITY_STYLES: Record<
@@ -114,11 +120,9 @@ function ConversionCard(props: Props): React.ReactElement {
 		() => toggleCard(key),
 		[toggleCard, key],
 	);
-	// The whole header row is a disclosure target, delegating to the real
-	// disclosure button's semantics. Clicks that originate on an interactive
-	// element (the enable checkbox, the disclosure button itself, a future
-	// link) are ignored so the row handler never double-fires or swallows
-	// them; no nested buttons are introduced.
+	// Whole-row disclosure delegation: clicks that originate on an interactive
+	// element are ignored so the row handler never double-fires or swallows
+	// them.
 	const onHeaderClick = useCallback(
 		(e: React.MouseEvent<HTMLDivElement>) => {
 			if ((e.target as HTMLElement).closest("input, button, select, a, label"))
@@ -135,8 +139,8 @@ function ConversionCard(props: Props): React.ReactElement {
 	// Header badge only for the deviation cases (partial, ignores). The common
 	// "displays" case is unremarkable and already spelled out in the expanded
 	// body, so a badge for it would just be header noise on most cards.
-	const showCompatBadge =
-		compatStyle !== null && compatibility?.garmin !== "consumes";
+	const headerCompatStyle =
+		compatibility?.garmin === "consumes" ? null : compatStyle;
 
 	const bodyId = `skn-card-${props.meta.key}`;
 
@@ -169,10 +173,7 @@ function ConversionCard(props: Props): React.ReactElement {
 		<div style={S.card}>
 			{/* biome-ignore lint/a11y/useKeyWithClickEvents: the row click only delegates to the disclosure button, which carries the keyboard semantics itself. */}
 			{/* biome-ignore lint/a11y/noStaticElementInteractions: pointer convenience only; the nested disclosure button remains the accessible control, so the row must NOT take a role of its own. */}
-			<div
-				style={{ ...S.cardHeader, cursor: "pointer" }}
-				onClick={onHeaderClick}
-			>
+			<div style={CLICKABLE_HEADER} onClick={onHeaderClick}>
 				<input
 					type="checkbox"
 					style={S.checkbox}
@@ -190,17 +191,17 @@ function ConversionCard(props: Props): React.ReactElement {
 					<DisclosureCaret expanded={props.expanded} />
 					<h3 style={S.cardTitle}>{renderCardTitle(props.meta.title)}</h3>
 				</button>
-				{showCompatBadge && compatStyle ? (
+				{headerCompatStyle ? (
 					<span
 						style={{
 							...S.cardCompatibility,
-							background: compatStyle.background,
-							color: compatStyle.color,
-							border: compatStyle.border,
+							background: headerCompatStyle.background,
+							color: headerCompatStyle.color,
+							border: headerCompatStyle.border,
 						}}
 						title={compatibility?.note}
 					>
-						{compatStyle.label}
+						{headerCompatStyle.label}
 					</span>
 				) : null}
 				{props.meta.legacy ? (

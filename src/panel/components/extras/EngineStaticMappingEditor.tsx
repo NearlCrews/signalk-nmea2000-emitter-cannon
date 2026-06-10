@@ -45,11 +45,9 @@ export default function EngineStaticMappingEditor({
 				signalkIdColumn<Row>({
 					header: "Signal K engine id",
 					placeholder: "main, port, starboard",
-					ariaLabel: "Signal K engine id",
 				}),
 				instanceIdColumn<Row>({
 					header: "NMEA 2000 engine instance",
-					ariaLabel: "NMEA 2000 engine instance",
 				}),
 				{
 					header: "Rated engine speed (RPM)",
@@ -60,7 +58,6 @@ export default function EngineStaticMappingEditor({
 							min={0}
 							placeholder="3600"
 							allowEmpty
-							style={S.tableInput}
 							ariaLabel="Rated engine speed in RPM"
 						/>
 					),
@@ -70,7 +67,7 @@ export default function EngineStaticMappingEditor({
 					render: (r, set) => (
 						<input
 							type="text"
-							style={S.tableInput}
+							style={S.input}
 							value={r.VIN ?? ""}
 							onChange={(e) => set({ ...r, VIN: e.target.value })}
 							aria-label="Vehicle identification number"
@@ -82,7 +79,7 @@ export default function EngineStaticMappingEditor({
 					render: (r, set) => (
 						<input
 							type="text"
-							style={S.tableInput}
+							style={S.input}
 							value={r.softwareVersion ?? ""}
 							onChange={(e) => set({ ...r, softwareVersion: e.target.value })}
 							aria-label="Engine software version"

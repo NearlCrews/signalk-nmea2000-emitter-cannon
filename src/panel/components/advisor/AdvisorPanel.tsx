@@ -6,7 +6,7 @@ import type { Config } from "../../../config/schema.js";
 import { useAdvisor } from "../../hooks/useAdvisor.js";
 import { plural } from "../../recency";
 import { S } from "../../styles";
-import DisclosureCaret from "../DisclosureCaret.js";
+import Disclosure from "../Disclosure.js";
 import AdvisorSettings from "./AdvisorSettings.js";
 import ReviewResultView from "./ReviewResultView.js";
 
@@ -34,13 +34,6 @@ interface Props {
 	metaByKey: Map<string, ConversionMetadata>;
 }
 
-// Pending-decision count pill at the trailing edge of the toggle row, visible
-// whether the section is collapsed or open so parked decisions stay in sight.
-const PENDING_PILL: React.CSSProperties = {
-	...S.countPill,
-	marginLeft: "auto",
-};
-
 /**
  * Collapsible "Config Advisor" section: an intro, the Review now button, the
  * result with per-item Approve/Reject, and the settings form behind its own
@@ -56,7 +49,6 @@ export default function AdvisorPanel({
 	metaByKey,
 }: Props): React.ReactElement {
 	const [open, setOpen] = useState(false);
-	const [settingsOpen, setSettingsOpen] = useState(false);
 	const { state, review, apply, loadPending } = useAdvisor();
 	const [decisions, setDecisions] = useState<Record<string, boolean>>({});
 
@@ -110,109 +102,94 @@ export default function AdvisorPanel({
 
 	return (
 		<section style={S.card}>
-			<button
-				type="button"
-				style={S.advisorToggle}
-				aria-expanded={open}
-				onClick={() => setOpen((o) => !o)}
-			>
-				<DisclosureCaret expanded={open} />
-				Config Advisor
-				{pendingCount > 0 ? (
-					<span
-						role="img"
-						style={PENDING_PILL}
-						aria-label={plural(pendingCount, "pending advisor decision")}
-					>
-						{pendingCount} pending
-					</span>
-				) : null}
-			</button>
-			{open && (
-				<div style={S.advisorBody}>
-					<p style={S.advisorIntro}>
-						Reviews the Signal K paths your boat publishes and recommends which
-						conversions to enable or disable. Recommended enables apply
-						automatically unless you turn that off in Advisor settings below;
-						disables always wait for your approval.
-					</p>
-					<button
-						type="button"
-						style={S.btnPrimary}
-						onClick={handleReview}
-						disabled={state.loading || dirty}
-					>
-						{state.loading ? "Reviewing..." : "Review now"}
-					</button>
-					{dirty && (
-						<p style={S.note}>
-							<span style={S.notePrefix}>Heads up:</span>
-							Save or discard your changes first. A review rewrites the saved
-							configuration.
-						</p>
-					)}
-					{advisorSettingsDirty && (
-						<p style={S.helpHint}>
-							Unsaved advisor settings above will not affect a review until you
-							Save.
-						</p>
-					)}
-					{state.error && (
-						<div role="alert" style={S.errorBanner}>
-							<span>{state.error}</span>
-						</div>
-					)}
-					{state.result && (
-						<div style={S.advisorBody}>
-							<ReviewResultView
-								result={state.result}
-								decisions={decisions}
-								metaByKey={metaByKey}
-								onApprove={(k) => decide(k, true)}
-								onReject={(k) => decide(k, false)}
-							/>
-							{pendingCount > 0 && (
-								<button
-									type="button"
-									style={S.btnSecondary}
-									onClick={applyDecided}
-									disabled={state.loading || decidedCount === 0}
-								>
-									{`Apply decisions: ${approvedCount} approved, ${rejectedCount} rejected, ${undecidedCount} undecided`}
-								</button>
-							)}
-						</div>
-					)}
-					{/* Settings last, behind their own disclosure: the form (toggle,
-					    API key, QuestDB) is one-time setup and should not greet the
-					    user ahead of the review action. */}
-					<div style={S.advisorBody}>
-						<button
-							type="button"
-							style={S.advisorToggle}
-							aria-expanded={settingsOpen}
-							aria-controls="skn-advisor-settings"
-							onClick={() => setSettingsOpen((o) => !o)}
+			<Disclosure
+				id="skn-advisor-body"
+				label="Config Advisor"
+				lazy
+				open={open}
+				onToggle={() => setOpen((o) => !o)}
+				// Pending-decision count pill in the trailing summary slot, visible
+				// whether the section is collapsed or open so parked decisions stay
+				// in sight.
+				summary={
+					pendingCount > 0 ? (
+						<span
+							role="img"
+							style={S.countPill}
+							aria-label={plural(pendingCount, "pending advisor decision")}
 						>
-							<DisclosureCaret expanded={settingsOpen} />
-							Advisor settings
-						</button>
-						{settingsOpen ? (
-							<div id="skn-advisor-settings" style={S.advisorBody}>
-								<AdvisorSettings
-									value={advisor}
-									onChange={onChangeAdvisor}
-									advisorSettingsDirty={advisorSettingsDirty}
-								/>
-							</div>
-						) : (
-							// Placeholder keeps the aria-controls target present
-							// while collapsed.
-							<div id="skn-advisor-settings" hidden />
+							{pendingCount} pending
+						</span>
+					) : null
+				}
+			>
+				<p style={S.advisorIntro}>
+					Reviews the Signal K paths your boat publishes and recommends which
+					conversions to enable or disable. Recommended enables apply
+					automatically unless you turn that off in Advisor settings below;
+					disables always wait for your approval.
+				</p>
+				<button
+					type="button"
+					style={S.btnPrimary}
+					onClick={handleReview}
+					disabled={state.loading || dirty}
+				>
+					{state.loading ? "Reviewing..." : "Review now"}
+				</button>
+				{dirty && (
+					<p style={S.note}>
+						<span style={S.notePrefix}>Heads up:</span>
+						Save or discard your changes first. A review rewrites the saved
+						configuration.
+					</p>
+				)}
+				{advisorSettingsDirty && (
+					<p style={S.helpHint}>
+						Unsaved advisor settings above will not affect a review until you
+						Save.
+					</p>
+				)}
+				{state.error && (
+					<div role="alert" style={S.errorBanner}>
+						<span>{state.error}</span>
+					</div>
+				)}
+				{state.result && (
+					<div style={S.disclosureBody}>
+						<ReviewResultView
+							result={state.result}
+							decisions={decisions}
+							metaByKey={metaByKey}
+							onApprove={(k) => decide(k, true)}
+							onReject={(k) => decide(k, false)}
+						/>
+						{pendingCount > 0 && (
+							<button
+								type="button"
+								style={S.btnSecondary}
+								onClick={applyDecided}
+								disabled={state.loading || decidedCount === 0}
+							>
+								{`Apply decisions: ${approvedCount} approved, ${rejectedCount} rejected, ${undecidedCount} undecided`}
+							</button>
 						)}
 					</div>
+				)}
+				{/* Settings last, behind their own disclosure: the form (toggle,
+				    API key, QuestDB) is one-time setup and should not greet the
+				    user ahead of the review action. The wrapper div keeps the
+				    spacing between the review area and the settings toggle. */}
+				<div style={S.disclosureBody}>
+					<Disclosure id="skn-advisor-settings" label="Advisor settings">
+						<AdvisorSettings
+							value={advisor}
+							onChange={onChangeAdvisor}
+							advisorSettingsDirty={advisorSettingsDirty}
+						/>
+					</Disclosure>
 				</div>
-			)}
+			</Disclosure>
 		</section>
 	);
 }

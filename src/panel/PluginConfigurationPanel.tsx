@@ -40,6 +40,13 @@ const VIEW_CHOICES: ReadonlyArray<{ value: PanelView; label: string }> = [
 	{ value: "status", label: "Status" },
 ];
 
+// The Quick presets heading sits directly under the status bar, which already
+// carries the gap, so the subhead's own top margin is dropped.
+const PRESETS_HEADING: React.CSSProperties = {
+	...S.advisorSubhead,
+	marginTop: 0,
+};
+
 // A conversion matches the catalog search when the needle (already lower-cased)
 // appears in its title, one of its PGN numbers, or one of its Signal K paths.
 function matchesQuery(m: ConversionMetadata, needle: string): boolean {
@@ -72,10 +79,13 @@ export default function PluginConfigurationPanel({
 	);
 
 	const clearSearch = useCallback(() => setSearch(""), []);
+	// Stable identity so the wizard's document keydown listener (keyed on
+	// onClose) does not detach and reattach on every 3 second status poll
+	// re-render while the wizard is open.
+	const closeWizard = useCallback(() => setWizardOpen(false), []);
 
-	// Both views stay mounted (switching via `hidden`), so a deep scroll offset
-	// in one view would otherwise persist into the other. Bring the panel top
-	// back into view on every switch.
+	// Bring the panel top back into view on every switch (see the hidden view
+	// containers below for why both views stay mounted).
 	const changeView = useCallback((v: PanelView): void => {
 		setView(v);
 		rootRef.current?.scrollIntoView({ block: "start" });
@@ -269,7 +279,9 @@ export default function PluginConfigurationPanel({
 
 			{/* Both views stay mounted; the inactive one is hidden. Unmounting on
 			    every switch dropped AdvisorPanel state and refetched its pending
-			    list each time the user peeked at Status. */}
+			    list each time the user peeked at Status. Because both stay
+			    mounted, a deep scroll offset in one view would persist into the
+			    other, so changeView scrolls the panel top back into view. */}
 			<div hidden={view !== "status"}>
 				<StatusView
 					status={status}
@@ -329,9 +341,7 @@ export default function PluginConfigurationPanel({
 				) : null}
 				{/* One-line heading so the chips read as bulk-enable shortcuts,
 				    not as filters for the catalog below. */}
-				<h3 style={{ ...S.advisorSubhead, marginTop: 0 }}>
-					Quick presets: enable a group at once
-				</h3>
+				<h3 style={PRESETS_HEADING}>Quick presets: enable a group at once</h3>
 				<PresetChips
 					onApply={(p) => dispatch({ type: "applyPreset", preset: p, meta })}
 					meta={meta}
@@ -453,7 +463,7 @@ export default function PluginConfigurationPanel({
 					onApplyPreset={(p) =>
 						dispatch({ type: "applyPreset", preset: p, meta })
 					}
-					onClose={() => setWizardOpen(false)}
+					onClose={closeWizard}
 				/>
 			) : null}
 		</div>

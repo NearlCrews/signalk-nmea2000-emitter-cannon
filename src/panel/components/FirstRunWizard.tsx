@@ -28,6 +28,9 @@ interface Props {
 	onClose: () => void;
 }
 
+// Shared next-steps sentence for the footer hint in all its states.
+const REVIEW_THEN_SAVE = "Close, review the checked conversions, then Save.";
+
 /**
  * Guided first-run setup. Fetches the observed Signal K paths and runs them
  * through the advisor's pure recommender, proposing the not-yet-enabled
@@ -142,16 +145,7 @@ export default function FirstRunWizard({
 	const handleApply = (): void => {
 		if (checkedKeys.length > 0) onEnableKeys(checkedKeys);
 		setHint(
-			`Staged ${plural(checkedKeys.length, "conversion")}. Close, review the checked conversions, then Save.`,
-		);
-	};
-
-	// Preset chips apply instantly (no separate Apply step), so reflect that
-	// in the footer hint right away.
-	const handlePreset = (p: PresetTag): void => {
-		onApplyPreset(p);
-		setHint(
-			"Preset applied and staged. Close, review the checked conversions, then Save.",
+			`Staged ${plural(checkedKeys.length, "conversion")}. ${REVIEW_THEN_SAVE}`,
 		);
 	};
 
@@ -247,13 +241,16 @@ export default function FirstRunWizard({
 						Preset chips stage their conversions the moment you tap one; there
 						is no separate Apply step.
 					</p>
-					<PresetChips onApply={handlePreset} meta={meta} />
+					{/* Preset chips show their own "Enabled N conversions, not yet
+					    saved." confirmation, so a chip tap does not also rewrite the
+					    footer hint. */}
+					<PresetChips onApply={onApplyPreset} meta={meta} />
 				</div>
 
 				<div style={S.wizardFooter}>
 					<span style={S.wizardFooterHint} role="status">
 						{hint ??
-							"Apply stages your selection; preset chips stage instantly. Close, review the checked conversions, then Save."}
+							`Apply stages your selection; preset chips stage instantly. ${REVIEW_THEN_SAVE}`}
 					</span>
 					<button
 						type="button"

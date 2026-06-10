@@ -175,10 +175,15 @@ ${NIGHT_TOKENS}}
 /* Pointer feedback. Inline styles cannot express :hover or :active, so the
    interactive elements get a shared brightness response here: a touch darker
    on hover, darker still while pressed, with a short transition so the shift
-   reads as a response rather than a flicker. Disabled buttons opt out. */
-.skn-panel button,
+   reads as a response rather than a flicker. Disabled buttons opt out. Only
+   buttons transition filter: inputs and selects never receive one. */
 .skn-panel input,
 .skn-panel select {
+	transition:
+		background-color 120ms ease,
+		border-color 120ms ease;
+}
+.skn-panel button {
 	transition:
 		background-color 120ms ease,
 		border-color 120ms ease,
@@ -189,6 +194,17 @@ ${NIGHT_TOKENS}}
 }
 .skn-panel button:active:not(:disabled) {
 	filter: brightness(0.9);
+}
+/* Inputs and selects inside mapping-table cells flex with the column instead
+   of holding the fixed 220px of S.input / S.select, so the table fits a phone
+   without forcing horizontal scroll. min-width keeps each field usable when
+   columns compress. !important is required because the base S.input and
+   S.select widths arrive as inline styles, which outrank this rule. */
+.skn-panel td input:not([type="checkbox"]),
+.skn-panel td select {
+	width: 100% !important;
+	min-width: 120px !important;
+	box-sizing: border-box !important;
 }
 `;
 
@@ -579,10 +595,12 @@ S.segmentedBtnActive = {
 	fontWeight: 600,
 };
 
-// Config Advisor section. The section reuses S.card; these cover the
-// collapsible header, the auto-applied / pending result blocks, and the
-// per-item approve/reject controls, all on the existing panel palette.
-S.advisorToggle = {
+// Generic disclosure styles: the borderless caret-toggle header button and
+// its body, shared via the Disclosure component (Global settings, Config
+// Advisor, Advisor settings). The remaining advisor* styles cover the
+// auto-applied / pending result blocks and the per-item approve/reject
+// controls, all on the existing panel palette.
+S.disclosureToggle = {
 	display: "flex",
 	alignItems: "center",
 	gap: 8,
@@ -597,7 +615,7 @@ S.advisorToggle = {
 	cursor: "pointer",
 	textAlign: "left",
 };
-S.advisorBody = { marginTop: 10 };
+S.disclosureBody = { marginTop: 10 };
 S.advisorIntro = {
 	fontSize: "var(--skn-font-small)",
 	color: "var(--skn-text-muted)",
@@ -707,21 +725,6 @@ S.tableTitle = {
 	color: "var(--skn-text)",
 };
 S.tableCell = { padding: 6 };
-// Inputs inside mapping-table cells flex with the column instead of holding
-// the fixed 220px of S.input, so the table fits a phone without forcing
-// horizontal scroll. minWidth keeps each field usable when columns compress.
-S.tableInput = {
-	...S.input,
-	width: "100%",
-	minWidth: 120,
-	boxSizing: "border-box",
-};
-S.tableSelect = {
-	...S.select,
-	width: "100%",
-	minWidth: 120,
-	boxSizing: "border-box",
-};
 // Actions column: extra left padding keeps the destructive Remove button
 // clear of the editable cells so a wet-finger tap cannot straddle both.
 S.tableActionCell = { padding: 6, paddingLeft: 16 };
@@ -783,8 +786,7 @@ S.controlBar = {
 	gap: "var(--skn-space-1)",
 	marginBottom: "var(--skn-space-2)",
 };
-// Right-hand cluster of the control bar: the Setup wizard shortcut and the
-// theme toggle.
+// Right-hand cluster of the control bar.
 S.controlBarGroup = {
 	display: "flex",
 	alignItems: "center",

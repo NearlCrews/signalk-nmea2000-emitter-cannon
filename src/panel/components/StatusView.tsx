@@ -7,8 +7,9 @@ import type {
 } from "../../api/types.js";
 import { stripSubIndex } from "../../utils/pathUtils.js";
 import { extractPgnsFromTitle } from "../../utils/pgnUtils.js";
-import { humanizeAgo, plural } from "../recency";
+import { humanizeAgo } from "../recency";
 import { S } from "../styles";
+import ErrorBadgeButton from "./ErrorBadgeButton";
 import { StatusLoading } from "./StatusDashboard";
 
 interface Props {
@@ -20,9 +21,9 @@ interface Props {
 	// fallback only when no catalog entry exists at all.
 	metaByKey: Map<string, ConversionMetadata>;
 	// Jump to the first conversion reporting an error (the parent switches to
-	// the Configure view and scrolls the card into view). When provided, the
-	// error badge renders as a button, matching StatusDashboard's behavior.
-	onErrorClick?: () => void;
+	// the Configure view and scrolls the card into view). The error badge is a
+	// button wired to this, matching StatusDashboard's behavior.
+	onErrorClick: () => void;
 }
 
 // Touch-friendly table cell: taller rows than the dense advisor table so a
@@ -112,18 +113,7 @@ export default function StatusView({
 					<span style={S.statValue}>{totalEmits}</span>
 				</span>
 				{errorCount > 0 ? (
-					onErrorClick ? (
-						<button
-							type="button"
-							style={S.errorBadgeButton}
-							onClick={onErrorClick}
-							aria-label={`${plural(errorCount, "error")}. Jump to first error.`}
-						>
-							{plural(errorCount, "error")}
-						</button>
-					) : (
-						<span style={S.errorBadge}>{plural(errorCount, "error")}</span>
-					)
+					<ErrorBadgeButton count={errorCount} onClick={onErrorClick} />
 				) : null}
 			</div>
 

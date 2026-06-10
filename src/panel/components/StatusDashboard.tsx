@@ -1,8 +1,9 @@
 import type * as React from "react";
 import type { CSSProperties } from "react";
 import type { StatusSnapshot } from "../../api/types.js";
-import { humanizeAgo, plural } from "../recency";
+import { humanizeAgo } from "../recency";
 import { S } from "../styles";
+import ErrorBadgeButton from "./ErrorBadgeButton";
 
 // Snapshots older than this read as stale: the poll has likely stalled (server
 // restart, lost connection), so a dim "updated Xs ago" marker is shown.
@@ -46,7 +47,6 @@ export default function StatusDashboard({
 	const ready = status.nmea2000Ready;
 	const dot = ready ? S.dotOk : S.dotWait;
 	const errors = status.perConversion.filter((c) => c.lastErrorMessage).length;
-	const errorLabel = plural(errors, "error");
 	const staleAgeMs =
 		lastUpdatedMs !== undefined ? Date.now() - lastUpdatedMs : undefined;
 	const stale = staleAgeMs !== undefined && staleAgeMs > STALE_AFTER_MS;
@@ -68,14 +68,7 @@ export default function StatusDashboard({
 				<span style={S.statValue}>{ready ? "ready" : "waiting"}</span>
 			</span>
 			{errors > 0 ? (
-				<button
-					type="button"
-					style={S.errorBadgeButton}
-					onClick={onErrorBadgeClick}
-					aria-label={`${errorLabel}. Jump to first error.`}
-				>
-					{errorLabel}
-				</button>
+				<ErrorBadgeButton count={errors} onClick={onErrorBadgeClick} />
 			) : null}
 			{stale ? (
 				<span style={STALE_MARKER}>updated {humanizeAgo(staleAgeMs)}</span>

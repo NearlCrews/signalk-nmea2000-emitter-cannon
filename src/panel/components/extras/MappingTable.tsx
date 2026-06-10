@@ -19,24 +19,26 @@ export interface Column<T> {
 // Standard "Signal K id" text column used by every per-instance mapping
 // editor (engines, batteries, solar chargers, exhaust). The id is the final
 // segment of the SK key (e.g. "main", "house", "0"), not the full path.
+// ariaLabel defaults to the header; pass it only when the accessible name
+// needs more context than the visible header.
 export function signalkIdColumn<R extends { signalkId: string }>(opts: {
 	header: string;
 	placeholder: string;
-	ariaLabel: string;
+	ariaLabel?: string;
 }): Column<R> {
 	return {
 		header: opts.header,
 		render: (r, onRow) => (
 			<input
 				type="text"
-				style={S.tableInput}
+				style={S.input}
 				// ?? "" keeps the input controlled: a malformed persisted row can
 				// carry an undefined id, which would otherwise flip the field
 				// controlled -> uncontrolled and warn.
 				value={r.signalkId ?? ""}
 				placeholder={opts.placeholder}
 				onChange={(e) => onRow({ ...r, signalkId: e.target.value } as R)}
-				aria-label={opts.ariaLabel}
+				aria-label={opts.ariaLabel ?? opts.header}
 			/>
 		),
 	};
@@ -44,10 +46,11 @@ export function signalkIdColumn<R extends { signalkId: string }>(opts: {
 
 // Standard NMEA 2000 instance-id number column. Reused for engine, battery,
 // charger, exhaust instance fields. Clamps negatives to 0; the `min={0}`
-// attribute is advisory only and the wire format is unsigned.
+// attribute is advisory only and the wire format is unsigned. ariaLabel
+// defaults to the header.
 export function instanceIdColumn<R extends { instanceId: number }>(opts: {
 	header: string;
-	ariaLabel: string;
+	ariaLabel?: string;
 }): Column<R> {
 	return {
 		header: opts.header,
@@ -56,8 +59,7 @@ export function instanceIdColumn<R extends { instanceId: number }>(opts: {
 				value={r.instanceId}
 				onChange={(n) => onRow({ ...r, instanceId: n } as R)}
 				min={0}
-				style={S.tableInput}
-				ariaLabel={opts.ariaLabel}
+				ariaLabel={opts.ariaLabel ?? opts.header}
 			/>
 		),
 	};

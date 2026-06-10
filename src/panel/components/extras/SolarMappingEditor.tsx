@@ -1,5 +1,4 @@
 import type * as React from "react";
-import { S } from "../../styles";
 import NumberInput from "../NumberInput";
 import { extraRows } from "./extraRows";
 import MappingTable, {
@@ -49,7 +48,6 @@ export default function SolarMappingEditor({
 							value={r.panelInstanceId}
 							onChange={(n) => set({ ...r, panelInstanceId: n })}
 							min={0}
-							style={S.tableInput}
 							ariaLabel="NMEA 2000 solar panel instance"
 						/>
 					),

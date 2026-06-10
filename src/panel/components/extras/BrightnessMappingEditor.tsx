@@ -36,7 +36,7 @@ export default function BrightnessMappingEditor({
 					render: (r, set) => (
 						<input
 							type="text"
-							style={S.tableInput}
+							style={S.input}
 							value={r.signalkId}
 							placeholder="helm, nav, cabin"
 							onChange={(e) => set({ ...r, signalkId: e.target.value })}
@@ -53,7 +53,7 @@ export default function BrightnessMappingEditor({
 					// own option so an existing config is not silently rewritten.
 					render: (r, set) => (
 						<select
-							style={S.tableSelect}
+							style={S.select}
 							value={r.groupLabel}
 							onChange={(e) => set({ ...r, groupLabel: e.target.value })}
 							aria-label="NMEA 2000 brightness group label"

@@ -34,7 +34,6 @@ export default function BatteryMappingEditor({
 				signalkIdColumn<Row>({
 					header: "Signal K battery id",
 					placeholder: "house, starter, 0",
-					ariaLabel: "Signal K battery id",
 				}),
 				instanceIdColumn<Row>({
 					header: "NMEA 2000 instance",

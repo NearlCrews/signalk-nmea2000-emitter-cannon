@@ -23,7 +23,7 @@ const ANNOUNCE_TEXT: CSSProperties = {
 	fontSize: "var(--skn-font-small)",
 	fontWeight: 600,
 	color: "var(--skn-success-fg)",
-	margin: "-8px 0 8px",
+	margin: "calc(-1 * var(--skn-space-1)) 0 var(--skn-space-1)",
 };
 
 // Zero-width space. Appended/removed on each apply so re-applying the same
@@ -60,8 +60,10 @@ export default function PresetChips({
 		seq: 0,
 	});
 
-	// The visible confirmation clears after a few seconds. Keyed on the whole
-	// announce object so a re-apply restarts the timer.
+	// The visible confirmation clears after a few seconds. Keyed on the seq
+	// counter, which increments on every apply, so a re-apply restarts the
+	// timer without the effect also re-running when the text clears.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: seq-keying is deliberate; announce.text is only a guard and the clear sets it with an unchanged seq, so depending on it (or the whole object) would just re-run the effect on the clear.
 	useEffect(() => {
 		if (!announce.text) return;
 		const t = setTimeout(
@@ -69,7 +71,7 @@ export default function PresetChips({
 			ANNOUNCE_VISIBLE_MS,
 		);
 		return () => clearTimeout(t);
-	}, [announce]);
+	}, [announce.seq]);
 
 	const handleApply = (p: PresetTag): void => {
 		onApply(p);

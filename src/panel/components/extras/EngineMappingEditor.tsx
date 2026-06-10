@@ -34,11 +34,9 @@ export default function EngineMappingEditor({
 				signalkIdColumn<Row>({
 					header: "Signal K engine id",
 					placeholder: "main, port, starboard",
-					ariaLabel: "Signal K engine id",
 				}),
 				instanceIdColumn<Row>({
 					header: "NMEA 2000 engine instance",
-					ariaLabel: "NMEA 2000 engine instance",
 				}),
 			]}
 		/>

@@ -16,9 +16,8 @@ interface Props {
 
 // The raw option key as small secondary text after the conversion title.
 const KEY_SUFFIX: CSSProperties = {
-	fontSize: "var(--skn-font-small)",
+	...S.cardMeta,
 	fontWeight: 400,
-	color: "var(--skn-text-faint)",
 	marginLeft: 6,
 };
 

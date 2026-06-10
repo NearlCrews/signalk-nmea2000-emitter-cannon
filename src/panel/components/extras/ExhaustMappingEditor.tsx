@@ -1,5 +1,4 @@
 import type * as React from "react";
-import { S } from "../../styles";
 import NumberInput from "../NumberInput";
 import { extraRows } from "./extraRows";
 import MappingTable, { signalkIdColumn } from "./MappingTable";
@@ -44,7 +43,6 @@ export default function ExhaustMappingEditor({
 							value={r.tempInstanceId}
 							onChange={(n) => set({ ...r, tempInstanceId: n })}
 							min={0}
-							style={S.tableInput}
 							ariaLabel="NMEA 2000 exhaust temperature instance"
 						/>
 					),

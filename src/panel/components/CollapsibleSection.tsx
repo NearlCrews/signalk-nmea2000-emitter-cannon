@@ -2,7 +2,7 @@ import type * as React from "react";
 import type { CSSProperties } from "react";
 import { plural } from "../recency";
 import { S } from "../styles";
-import DisclosureCaret from "./DisclosureCaret";
+import Disclosure from "./Disclosure";
 
 interface Props {
 	id: string;
@@ -40,35 +40,30 @@ export default function CollapsibleSection({
 	children,
 	errorCount,
 }: Props): React.ReactElement {
-	const bodyId = `${id}-body`;
 	return (
 		<div style={S.section}>
-			<button
-				type="button"
-				style={S.sectionHeader}
-				aria-expanded={expanded}
-				aria-controls={bodyId}
-				onClick={onToggle}
+			<Disclosure
+				id={`${id}-body`}
+				label={title}
+				headerStyle={S.sectionHeader}
+				bodyStyle={S.sectionBody}
+				lazy
+				open={expanded}
+				onToggle={onToggle}
+				summary={
+					<>
+						{plural(count, "conversion")}
+						{enabledCount > 0 ? ` · ${enabledCount} enabled` : ""}
+						{errorCount && errorCount > 0 ? (
+							<span style={SECTION_ERROR_COUNT}>
+								{plural(errorCount, "error")}
+							</span>
+						) : null}
+					</>
+				}
 			>
-				<DisclosureCaret expanded={expanded} />
-				{title}
-				<span style={S.sectionCount}>
-					{plural(count, "conversion")}
-					{enabledCount > 0 ? ` · ${enabledCount} enabled` : ""}
-				</span>
-				{errorCount && errorCount > 0 ? (
-					<span style={SECTION_ERROR_COUNT}>{plural(errorCount, "error")}</span>
-				) : null}
-			</button>
-			{expanded ? (
-				<div id={bodyId} style={S.sectionBody}>
-					{children}
-				</div>
-			) : (
-				// Placeholder keeps the header's aria-controls target present
-				// while the section is collapsed and its cards are unmounted.
-				<div id={bodyId} hidden />
-			)}
+				{children}
+			</Disclosure>
 		</div>
 	);
 }

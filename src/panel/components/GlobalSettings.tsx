@@ -22,6 +22,11 @@ export default function GlobalSettings({
 					ariaLabel="Global resend interval in seconds"
 				/>
 			</div>
+			<p style={S.helpHint}>
+				Seconds between automatic re-emits of each conversion's most recent
+				value. Set 0 to disable global resend; a conversion can still opt in
+				with its own resend interval.
+			</p>
 		</div>
 	);
 }

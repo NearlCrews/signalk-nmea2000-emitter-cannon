@@ -1,5 +1,5 @@
 import type * as React from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ApplyDecision } from "../../../advisor/types.js";
 import type { Config } from "../../../config/schema.js";
 import { useAdvisor } from "../../hooks/useAdvisor.js";
@@ -23,8 +23,15 @@ export default function AdvisorPanel({
 	onChangeAdvisor,
 }: Props): React.ReactElement {
 	const [open, setOpen] = useState(false);
-	const { state, review, apply } = useAdvisor();
+	const { state, review, apply, loadPending } = useAdvisor();
 	const [decisions, setDecisions] = useState<Record<string, boolean>>({});
+
+	// Load any parked decisions from a prior (e.g. scheduled) review on mount so
+	// they are visible without clicking Review now. loadPending is stable, so
+	// this runs once.
+	useEffect(() => {
+		void loadPending();
+	}, [loadPending]);
 
 	const handleReview = (): void => {
 		// Drop any prior Approve/Reject choices: the new review's pending list

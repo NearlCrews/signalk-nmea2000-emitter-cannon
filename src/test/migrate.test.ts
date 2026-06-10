@@ -170,6 +170,77 @@ describe("migrateLegacyConfig", () => {
 		});
 	});
 
+	describe("nested-shape entry normalization", () => {
+		it("backfills sources and extras for a nested entry that omits them", () => {
+			// A config saved while sources/extras were Type.Optional: the nested
+			// shape is present, but a conversion entry lacks both. Without the
+			// backfill the panel would dereference cfg.sources/cfg.extras and throw.
+			const out = migrateLegacyConfig({
+				globalResendInterval: 5,
+				conversions: { DEPTH: { enabled: true, resend: 0 } },
+			});
+			expect(out.conversions.DEPTH).toEqual({
+				enabled: true,
+				resend: 0,
+				sources: {},
+				extras: {},
+			});
+		});
+
+		it("backfills enabled and resend for a bare nested entry", () => {
+			const out = migrateLegacyConfig({
+				conversions: { DEPTH: {} },
+			});
+			expect(out.conversions.DEPTH).toEqual({
+				enabled: false,
+				resend: 0,
+				sources: {},
+				extras: {},
+			});
+		});
+
+		it("drops non-string source values when normalizing a nested entry", () => {
+			const out = migrateLegacyConfig({
+				conversions: {
+					WIND: {
+						enabled: true,
+						resend: 0,
+						sources: { angle: "gps1", speed: 5 },
+						extras: {},
+					},
+				},
+			});
+			expect(out.conversions.WIND?.sources).toEqual({ angle: "gps1" });
+		});
+
+		it("preserves the advisor block when normalizing a nested config", () => {
+			const out = migrateLegacyConfig({
+				conversions: { DEPTH: { enabled: true, resend: 0 } },
+				advisor: { enabled: true, autoApply: false },
+			});
+			expect(out.advisor).toEqual({ enabled: true, autoApply: false });
+		});
+
+		it("is idempotent on a partial nested entry", () => {
+			const input = {
+				globalResendInterval: 5,
+				conversions: { DEPTH: { enabled: true, resend: 0 } },
+			};
+			const once = migrateLegacyConfig(input);
+			const twice = migrateLegacyConfig(once);
+			expect(twice).toEqual(once);
+		});
+
+		it("does not misclassify a top-level advisor block as a conversion (legacy-flat)", () => {
+			const out = migrateLegacyConfig({
+				advisor: { enabled: true },
+				WIND: { enabled: true, resend: 0 },
+			});
+			expect(Object.keys(out.conversions)).toEqual(["WIND"]);
+			expect(out.advisor).toEqual({ enabled: true });
+		});
+	});
+
 	describe("ENGINE_STATIC v1.5.4 -> v1.5.5 extras migration", () => {
 		it("upgrades flat-scalar extras to a single-engine table", () => {
 			const legacy: Config = {

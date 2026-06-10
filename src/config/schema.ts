@@ -73,6 +73,8 @@ export const RootConfig = Type.Object({
 	globalResendInterval: Type.Integer({
 		default: DEFAULT_GLOBAL_RESEND_SECONDS,
 		minimum: 0,
+		description:
+			"Seconds between automatic re-emits of each conversion's most recent value. Set 0 to disable global resend; a conversion can still opt in with its own resend interval.",
 	}),
 	conversions: Type.Record(Type.String(), Conversion, { default: {} }),
 	advisor: Type.Optional(AdvisorConfig),

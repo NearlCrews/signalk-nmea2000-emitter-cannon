@@ -1,6 +1,9 @@
 import { useCallback, useState } from "react";
 import type { ApplyDecision, ReviewResult } from "../../advisor/types.js";
-import type { AdvisorReviewResponse } from "../../api/types.js";
+import type {
+	AdvisorPendingResponse,
+	AdvisorReviewResponse,
+} from "../../api/types.js";
 import { errMessage } from "../../utils/errorUtils.js";
 import { fetchJson } from "../api-base";
 
@@ -15,12 +18,41 @@ export function useAdvisor(): {
 	state: AdvisorState;
 	review: () => Promise<void>;
 	apply: (decisions: ApplyDecision[]) => Promise<void>;
+	loadPending: () => Promise<void>;
 } {
 	const [state, setState] = useState<AdvisorState>({
 		result: null,
 		loading: false,
 		error: null,
 	});
+
+	// Seed the parked-decision list from a prior (e.g. scheduled) review so the
+	// user can approve items without clicking Review now first. Called once on
+	// mount by AdvisorPanel. A disabled advisor answers 503, which fetchJson
+	// throws on; that is swallowed so the panel just shows nothing parked.
+	const loadPending = useCallback(async () => {
+		try {
+			const body = await fetchJson<AdvisorPendingResponse>("/advisor/pending");
+			const r = body.result;
+			if (r.pending.length === 0) return;
+			setState((s) => {
+				// Do not clobber a review the user already ran or is running.
+				if (s.result !== null || s.loading) return s;
+				return {
+					result: {
+						ranAt: r.ranAt ?? "",
+						autoApplied: r.autoApplied ?? [],
+						pending: r.pending,
+						notes: r.notes ?? [],
+					},
+					loading: false,
+					error: null,
+				};
+			});
+		} catch {
+			// Advisor disabled (503) or unreachable: stay quiet.
+		}
+	}, []);
 
 	const review = useCallback(async () => {
 		setState((s) => ({ ...s, loading: true, error: null }));
@@ -52,5 +84,5 @@ export function useAdvisor(): {
 		}
 	}, []);
 
-	return { state, review, apply };
+	return { state, review, apply, loadPending };
 }

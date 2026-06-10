@@ -21,8 +21,14 @@ const API_PREFIX = "/plugins/signalk-nmea2000-emitter-cannon/api";
 
 const HTTP_STATUS = {
 	BAD_REQUEST: 400,
+	FORBIDDEN: 403,
 	SERVICE_UNAVAILABLE: 503,
 } as const;
+
+/** True for a non-null, non-array object literal. */
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 /**
  * Factory for the panel's HTTP API router. Returns the function that
@@ -47,11 +53,12 @@ export function createApiRouter(
 		// addAdminMiddleware, but absence is logged once (not silently
 		// no-op'd) so operators can see why the routes are unauthenticated.
 		const addMw = app.securityStrategy?.addAdminMiddleware;
-		if (typeof addMw === "function") {
+		const adminGuarded = typeof addMw === "function";
+		if (adminGuarded) {
 			addMw.call(app.securityStrategy, API_PREFIX);
 		} else {
 			app.error(
-				`securityStrategy.addAdminMiddleware unavailable; ${API_PREFIX}/* routes will be unauthenticated. Update signalk-server to >= 2.x.`,
+				`securityStrategy.addAdminMiddleware unavailable; read-only ${API_PREFIX}/* routes will be unauthenticated and the mutating advisor routes (review, apply, test-key) will be refused with 403. Update signalk-server to >= 2.x.`,
 			);
 		}
 
@@ -136,9 +143,32 @@ export function createApiRouter(
 				}
 			};
 
+		// Mutating advisor routes have side effects (config writes, outbound
+		// requests using the stored key), so they must not run unauthenticated.
+		// When addAdminMiddleware is unavailable they fail closed with a 403,
+		// while the read-only GETs stay open for older-server compatibility.
+		const guardedAdvisorRoute =
+			(
+				handler: (
+					advisor: Advisor,
+					req: Request,
+					res: Response,
+				) => Promise<void> | void,
+			) =>
+			async (req: Request, res: Response): Promise<void> => {
+				if (!adminGuarded) {
+					res.status(HTTP_STATUS.FORBIDDEN).json({
+						error:
+							"This action requires an authenticated admin session, which this Signal K server build does not support. Update signalk-server to >= 2.x.",
+					});
+					return;
+				}
+				await advisorRoute(handler)(req, res);
+			};
+
 		router.post(
 			"/api/advisor/review",
-			advisorRoute(async (advisor, _req, res) => {
+			guardedAdvisorRoute(async (advisor, _req, res) => {
 				const body: AdvisorReviewResponse = {
 					result: await advisor.runReview(),
 				};
@@ -165,9 +195,36 @@ export function createApiRouter(
 
 		router.post(
 			"/api/advisor/apply",
-			advisorRoute(async (advisor, req, res) => {
+			guardedAdvisorRoute(async (advisor, req, res) => {
+				// Validate the request shape before touching the advisor: a
+				// malformed body must not reach applyReview, which writes config.
+				// Reject anything that is not an array of plain objects each
+				// carrying a non-empty string optionKey. This also turns the
+				// `[null]` case into a clean 400 instead of a thrown 503, and
+				// blocks a missing-optionKey decision from injecting a
+				// `conversions["undefined"]` entry. (The advisor additionally
+				// allow-lists optionKey against known conversions.)
 				const body = (req.body ?? {}) as Partial<AdvisorApplyRequest>;
-				const decisions = Array.isArray(body.decisions) ? body.decisions : [];
+				const rawDecisions: unknown = body.decisions;
+				if (!Array.isArray(rawDecisions)) {
+					res
+						.status(HTTP_STATUS.BAD_REQUEST)
+						.json({ error: "decisions must be an array" });
+					return;
+				}
+				const allValid = rawDecisions.every(
+					(d) =>
+						isPlainObject(d) &&
+						typeof d.optionKey === "string" &&
+						d.optionKey.length > 0,
+				);
+				if (!allValid) {
+					res.status(HTTP_STATUS.BAD_REQUEST).json({
+						error: "each decision must be an object with a non-empty optionKey",
+					});
+					return;
+				}
+				const decisions = rawDecisions as AdvisorApplyRequest["decisions"];
 				await advisor.applyReview(decisions);
 				const response: AdvisorApplyResponse = {
 					applied: decisions.filter((d) => d.approved).length,
@@ -186,7 +243,7 @@ export function createApiRouter(
 
 		router.post(
 			"/api/advisor/test-key",
-			advisorRoute(async (advisor, _req, res) => {
+			guardedAdvisorRoute(async (advisor, _req, res) => {
 				const body: AdvisorTestKeyResponse = await advisor.testKey();
 				res.json(body);
 			}),

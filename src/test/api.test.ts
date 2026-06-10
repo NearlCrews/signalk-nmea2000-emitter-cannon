@@ -55,6 +55,35 @@ function makeFakeApp(): SignalKApp {
 	} as unknown as SignalKApp;
 }
 
+// Simulates an older signalk-server build with no addAdminMiddleware hook, so
+// the router cannot admin-gate its routes.
+function makeFakeAppNoSecurity(): SignalKApp {
+	return {
+		streambundle: { getAvailablePaths: () => [] },
+		getSelfPath: () => undefined,
+		error: vi.fn(),
+		// securityStrategy intentionally omitted.
+	} as unknown as SignalKApp;
+}
+
+// Minimal advisor stub honouring every method createApiRouter may call.
+function makeAdvisorStub(
+	overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+	return {
+		runReview: async () => ({
+			ranAt: "",
+			autoApplied: [],
+			pending: [],
+			notes: [],
+		}),
+		getPending: () => [],
+		applyReview: async () => {},
+		testKey: async () => ({ ok: true }),
+		...overrides,
+	};
+}
+
 describe("API router", () => {
 	let fakeApp: SignalKApp;
 
@@ -336,5 +365,91 @@ describe("API router", () => {
 			"/plugins/signalk-nmea2000-emitter-cannon/api/advisor/pending",
 		);
 		expect(res.status).toBe(503);
+	});
+
+	it("POST /api/advisor/apply rejects a non-array decisions body with 400", async () => {
+		const calls: unknown[] = [];
+		const advisor = makeAdvisorStub({
+			applyReview: async (d: unknown) => {
+				calls.push(d);
+			},
+		});
+		const ex = mountRouterWithAdvisor(
+			fakeApp,
+			() => null,
+			() => advisor,
+		);
+		const res = await request(ex)
+			.post("/plugins/signalk-nmea2000-emitter-cannon/api/advisor/apply")
+			.send({ decisions: "nope" });
+		expect(res.status).toBe(400);
+		expect(calls).toHaveLength(0);
+	});
+
+	it("POST /api/advisor/apply rejects a null decision element with 400", async () => {
+		const calls: unknown[] = [];
+		const advisor = makeAdvisorStub({
+			applyReview: async (d: unknown) => {
+				calls.push(d);
+			},
+		});
+		const ex = mountRouterWithAdvisor(
+			fakeApp,
+			() => null,
+			() => advisor,
+		);
+		const res = await request(ex)
+			.post("/plugins/signalk-nmea2000-emitter-cannon/api/advisor/apply")
+			.send({ decisions: [null] });
+		expect(res.status).toBe(400);
+		expect(calls).toHaveLength(0);
+	});
+
+	it("POST /api/advisor/apply rejects a decision missing optionKey with 400", async () => {
+		const advisor = makeAdvisorStub();
+		const ex = mountRouterWithAdvisor(
+			fakeApp,
+			() => null,
+			() => advisor,
+		);
+		const res = await request(ex)
+			.post("/plugins/signalk-nmea2000-emitter-cannon/api/advisor/apply")
+			.send({ decisions: [{ approved: true }] });
+		expect(res.status).toBe(400);
+	});
+
+	it("refuses mutating advisor routes with 403 when addAdminMiddleware is unavailable", async () => {
+		const advisor = makeAdvisorStub();
+		const ex = mountRouterWithAdvisor(
+			makeFakeAppNoSecurity(),
+			() => null,
+			() => advisor,
+		);
+		const review = await request(ex).post(
+			"/plugins/signalk-nmea2000-emitter-cannon/api/advisor/review",
+		);
+		expect(review.status).toBe(403);
+		const apply = await request(ex)
+			.post("/plugins/signalk-nmea2000-emitter-cannon/api/advisor/apply")
+			.send({ decisions: [] });
+		expect(apply.status).toBe(403);
+		const testKey = await request(ex).post(
+			"/plugins/signalk-nmea2000-emitter-cannon/api/advisor/test-key",
+		);
+		expect(testKey.status).toBe(403);
+	});
+
+	it("keeps read-only advisor GETs open when addAdminMiddleware is unavailable", async () => {
+		const advisor = makeAdvisorStub();
+		const ex = mountRouterWithAdvisor(
+			makeFakeAppNoSecurity(),
+			() => null,
+			() => advisor,
+		);
+		const res = await request(ex).get(
+			"/plugins/signalk-nmea2000-emitter-cannon/api/advisor/pending",
+		);
+		expect(res.status).toBe(200);
+		expect(res.body.result.pending).toEqual([]);
 	});
 });

@@ -35,12 +35,54 @@ function flattenConfigEnvelope(raw: unknown): Record<string, unknown> {
 	return merged;
 }
 
+/** True for a non-null, non-array object literal. */
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** Keep only the string-valued entries of an object; everything else is dropped. */
+function toStringRecord(value: unknown): Record<string, string> {
+	const out: Record<string, string> = {};
+	if (isPlainObject(value)) {
+		for (const [k, v] of Object.entries(value)) {
+			if (typeof v === "string") out[k] = v;
+		}
+	}
+	return out;
+}
+
+/**
+ * Normalize one already-nested conversion entry to the current required shape,
+ * backfilling enabled, resend, sources, and extras with their defaults. A
+ * config saved while sources/extras were Type.Optional can carry an entry that
+ * omits them; without this backfill the panel read sites (ConversionCard, the
+ * mapping editors, FieldEditor) would dereference an undefined sources/extras
+ * and throw on card expand.
+ */
+function normalizeNestedEntry(value: unknown): ConversionConfig {
+	const entry = isPlainObject(value) ? value : {};
+	return {
+		enabled: typeof entry.enabled === "boolean" ? entry.enabled : false,
+		resend: typeof entry.resend === "number" ? entry.resend : 0,
+		sources: toStringRecord(entry.sources),
+		extras: isPlainObject(entry.extras) ? entry.extras : {},
+	};
+}
+
 export function migrateLegacyConfig(raw: unknown): Config {
 	const flat = flattenConfigEnvelope(raw);
 	let migrated: Config;
 
-	if (flat.conversions && typeof flat.conversions === "object") {
-		migrated = flat as unknown as Config;
+	if (isPlainObject(flat.conversions)) {
+		// Already in the nested shape. Normalize each entry so an on-disk config
+		// saved during the Type.Optional era (which could omit sources or extras)
+		// still loads with the required {} defaults in place. Spread `flat` first
+		// so sibling top-level blocks (notably `advisor`) survive.
+		const conversions: Record<string, ConversionConfig> = {};
+		for (const [key, value] of Object.entries(flat.conversions)) {
+			conversions[key] = normalizeNestedEntry(value);
+		}
+		migrated = { ...flat, conversions } as Config;
 	} else {
 		const conversions: Record<string, ConversionConfig> = {};
 		let globalResendInterval: number = DEFAULT_GLOBAL_RESEND_SECONDS;
@@ -50,6 +92,10 @@ export function migrateLegacyConfig(raw: unknown): Config {
 				if (typeof value === "number") globalResendInterval = value;
 				continue;
 			}
+			// `advisor` is a settings block, not a conversion: skip it so it is
+			// never misread into a bogus conversion entry. It is carried over
+			// verbatim below if present.
+			if (key === "advisor") continue;
 			if (!value || typeof value !== "object") continue;
 			const entry = value as Record<string, unknown>;
 			const sources: Record<string, string> = {};
@@ -68,6 +114,11 @@ export function migrateLegacyConfig(raw: unknown): Config {
 		}
 
 		migrated = { globalResendInterval, conversions };
+		// Preserve an advisor block that somehow rode in on a pre-conversions
+		// config so its settings are not lost on migration.
+		if (isPlainObject(flat.advisor)) {
+			migrated.advisor = flat.advisor as NonNullable<Config["advisor"]>;
+		}
 	}
 
 	// The envelope-flatten path can land on a config whose layers never

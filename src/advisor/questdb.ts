@@ -1,4 +1,5 @@
 import type { HistoricPaths } from "./types.js";
+import { withTimeout } from "./withTimeout.js";
 
 export interface QuestDBConfig {
 	url: string;
@@ -33,17 +34,13 @@ export class QuestDBClient {
 
 	/** Run a SQL query. Throws on a non-OK response or transport failure. */
 	async query(sql: string): Promise<QueryResult> {
-		const ctrl = new AbortController();
-		const timer = setTimeout(() => ctrl.abort(), QUERY_TIMEOUT_MS);
-		try {
+		return withTimeout(QUERY_TIMEOUT_MS, async (signal) => {
 			const url = `${this.cfg.url}/exec?query=${encodeURIComponent(sql)}`;
-			const res = await this.fetchImpl(url, { signal: ctrl.signal });
+			const res = await this.fetchImpl(url, { signal });
 			if (!res.ok) throw new Error(`HTTP ${res.status}`);
 			const body = (await res.json()) as Partial<QueryResult>;
 			return { columns: body.columns ?? [], dataset: body.dataset ?? [] };
-		} finally {
-			clearTimeout(timer);
-		}
+		});
 	}
 }
 

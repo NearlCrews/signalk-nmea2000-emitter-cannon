@@ -111,8 +111,8 @@ export function migrateLegacyConfig(raw: unknown): Config {
 			// globalResendInterval is read above; advisor is carried over verbatim
 			// below if present.
 			if (RESERVED_ROOT_KEYS.has(key)) continue;
-			if (!value || typeof value !== "object") continue;
-			const entry = value as Record<string, unknown>;
+			if (!isPlainObject(value)) continue;
+			const entry = value;
 			const sources: Record<string, string> = {};
 			const extras: Record<string, unknown> = {};
 			for (const [k, v] of Object.entries(entry)) {

@@ -203,8 +203,9 @@ export function createApiRouter(
 				// blocks a missing-optionKey decision from injecting a
 				// `conversions["undefined"]` entry. (The advisor additionally
 				// allow-lists optionKey against known conversions.)
-				const body = (req.body ?? {}) as Partial<AdvisorApplyRequest>;
-				const rawDecisions: unknown = body.decisions;
+				const rawDecisions: unknown = isPlainObject(req.body)
+					? req.body.decisions
+					: undefined;
 				if (!Array.isArray(rawDecisions)) {
 					res
 						.status(HTTP_STATUS.BAD_REQUEST)

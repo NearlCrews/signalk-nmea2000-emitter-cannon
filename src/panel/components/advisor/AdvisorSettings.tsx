@@ -38,21 +38,6 @@ type ProbeState =
 	| { phase: "ok"; message: string }
 	| { phase: "fail"; message: string };
 
-const probeBusyStyle: React.CSSProperties = {
-	fontSize: "var(--skn-font-small)",
-	color: "var(--skn-text-muted)",
-};
-const probeOkStyle: React.CSSProperties = {
-	fontSize: "var(--skn-font-small)",
-	fontWeight: 600,
-	color: "var(--skn-success-fg)",
-};
-const probeFailStyle: React.CSSProperties = {
-	fontSize: "var(--skn-font-small)",
-	fontWeight: 600,
-	color: "var(--skn-danger-fg)",
-};
-
 /**
  * Inline pass/fail readout for a connection probe. A persistent role="status"
  * live region (so a screen reader announces the result when the phase flips);
@@ -63,13 +48,13 @@ function ProbeStatus({ probe }: { probe: ProbeState }): React.ReactElement {
 	let style: React.CSSProperties | undefined;
 	let text = "";
 	if (probe.phase === "testing") {
-		style = probeBusyStyle;
+		style = S.textSmallMuted;
 		text = "Testing...";
 	} else if (probe.phase === "ok") {
-		style = probeOkStyle;
+		style = S.textSmallSuccess;
 		text = probe.message;
 	} else if (probe.phase === "fail") {
-		style = probeFailStyle;
+		style = S.textSmallDanger;
 		text = probe.message;
 	}
 	return (

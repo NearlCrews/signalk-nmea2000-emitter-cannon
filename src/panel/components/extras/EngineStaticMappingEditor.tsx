@@ -1,10 +1,10 @@
 import type * as React from "react";
-import { S } from "../../styles";
 import NumberInput from "../NumberInput";
 import { extraRows } from "./extraRows";
 import MappingTable, {
 	instanceIdColumn,
 	signalkIdColumn,
+	textColumn,
 } from "./MappingTable";
 
 // PGN 127498 (Engine Configuration / Static) carries identity metadata per
@@ -62,30 +62,15 @@ export default function EngineStaticMappingEditor({
 						/>
 					),
 				},
-				{
+				textColumn<Row>({
 					header: "Vehicle identification number",
-					render: (r, set) => (
-						<input
-							type="text"
-							style={S.input}
-							value={r.VIN ?? ""}
-							onChange={(e) => set({ ...r, VIN: e.target.value })}
-							aria-label="Vehicle identification number"
-						/>
-					),
-				},
-				{
+					field: "VIN",
+				}),
+				textColumn<Row>({
 					header: "Software version",
-					render: (r, set) => (
-						<input
-							type="text"
-							style={S.input}
-							value={r.softwareVersion ?? ""}
-							onChange={(e) => set({ ...r, softwareVersion: e.target.value })}
-							aria-label="Engine software version"
-						/>
-					),
-				},
+					field: "softwareVersion",
+					ariaLabel: "Engine software version",
+				}),
 			]}
 		/>
 	);

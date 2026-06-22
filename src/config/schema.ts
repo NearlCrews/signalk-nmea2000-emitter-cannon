@@ -12,7 +12,7 @@ export {
 	PresetTags,
 } from "./enums.js";
 
-import { GLOBAL_RESEND_HELP } from "./enums.js";
+import { DEFAULT_OPENROUTER_MODEL, GLOBAL_RESEND_HELP } from "./enums.js";
 
 // sources and extras are required with a {} default so every consumer can
 // rely on them being objects. The previous Type.Optional shape forced a
@@ -48,7 +48,7 @@ const AdvisorConfig = Type.Object(
 			{
 				enabled: Type.Boolean({ default: false }),
 				apiKey: Type.String({ default: "" }),
-				model: Type.String({ default: "anthropic/claude-haiku-4.5" }),
+				model: Type.String({ default: DEFAULT_OPENROUTER_MODEL }),
 				maxCallsPerDay: Type.Integer({ default: 25, minimum: 0 }),
 			},
 			{ default: {} },
@@ -84,6 +84,9 @@ export const RootConfig = Type.Object({
 
 export type Config = Static<typeof RootConfig>;
 export type ConversionConfig = Static<typeof Conversion>;
+
+/** Per-conversion config keyed by each module's optionKey. */
+export type ConversionMap = Record<string, ConversionConfig>;
 
 /** A fresh disabled conversion entry with empty sources and extras. */
 export function emptyConversionConfig(): ConversionConfig {

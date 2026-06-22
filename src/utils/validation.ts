@@ -15,6 +15,13 @@ export function toValidNumber(value: unknown): number | null {
 	return isValidNumber(value) ? value : null;
 }
 
+// The undefined-returning analogue of toValidNumber, for the many NMEA 2000
+// fields that omit a value by leaving it undefined rather than encoding a null
+// sentinel. A non-number or non-finite input returns undefined.
+export function toFiniteOrUndefined(value: unknown): number | undefined {
+	return isValidNumber(value) ? value : undefined;
+}
+
 // Clamps a number into the inclusive [min, max] range. Replaces the hand-rolled
 // Math.max(min, Math.min(max, x)) idiom used across the codebase.
 export function clamp(value: number, min: number, max: number): number {

@@ -56,6 +56,9 @@ export default function Disclosure({
 	onToggle,
 	children,
 }: Props): React.ReactElement {
+	// Controlled mode requires BOTH open and onToggle. Passing only one mixes
+	// modes (a no-op toggle, or an open that the local toggle ignores); no caller
+	// does that today.
 	const [localOpen, setLocalOpen] = useState(defaultOpen);
 	const open = openProp ?? localOpen;
 	const toggle = onToggle ?? ((): void => setLocalOpen((o) => !o));

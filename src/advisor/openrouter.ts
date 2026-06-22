@@ -1,5 +1,6 @@
 import { errMessage } from "../utils/errorUtils.js";
 import type { Recommendation } from "./types.js";
+import { withTimeout } from "./withTimeout.js";
 
 export interface OpenRouterConfig {
 	apiKey: string;
@@ -56,32 +57,34 @@ export class OpenRouterClient {
 	}
 
 	private async attempt(args: CompleteArgs, n: number): Promise<string> {
-		const ctrl = new AbortController();
-		const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
 		try {
-			const res = await this.fetchImpl(`${this.cfg.baseUrl}/chat/completions`, {
-				method: "POST",
-				signal: ctrl.signal,
-				headers: {
-					Authorization: `Bearer ${this.cfg.apiKey}`,
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify(this.requestBody(args)),
-			});
-			if (res.status === 200) {
-				const body = (await res.json()) as ApiResponse;
-				const text = body.choices?.[0]?.message?.content ?? "";
-				if (text.trim() === "") {
-					throw new OpenRouterError(200, "empty completion");
+			return await withTimeout(TIMEOUT_MS, async (signal) => {
+				const res = await this.fetchImpl(
+					`${this.cfg.baseUrl}/chat/completions`,
+					{
+						method: "POST",
+						signal,
+						headers: {
+							Authorization: `Bearer ${this.cfg.apiKey}`,
+							"Content-Type": "application/json",
+						},
+						body: JSON.stringify(this.requestBody(args)),
+					},
+				);
+				if (res.status === 200) {
+					const body = (await res.json()) as ApiResponse;
+					const text = body.choices?.[0]?.message?.content ?? "";
+					if (text.trim() === "") {
+						throw new OpenRouterError(200, "empty completion");
+					}
+					return text;
 				}
-				return text;
-			}
-			const body = (await res.json().catch(() => ({}))) as ApiResponse;
-			const message = body.error?.message ?? `HTTP ${res.status}`;
-			if (TERMINAL.has(res.status)) {
+				const body = (await res.json().catch(() => ({}))) as ApiResponse;
+				const message = body.error?.message ?? `HTTP ${res.status}`;
+				// Throw for any non-200; the catch below retries unless the status
+				// is terminal. A terminal status throws straight through.
 				throw new OpenRouterError(res.status, message);
-			}
-			return this.retry(args, n, new OpenRouterError(res.status, message));
+			});
 		} catch (err) {
 			if (err instanceof OpenRouterError && TERMINAL.has(err.status)) throw err;
 			return this.retry(
@@ -91,8 +94,6 @@ export class OpenRouterClient {
 					? err
 					: new OpenRouterError(0, errMessage(err)),
 			);
-		} finally {
-			clearTimeout(timer);
 		}
 	}
 
@@ -141,19 +142,15 @@ export async function fetchOpenRouterModels(
 	baseUrl: string,
 	fetchImpl: typeof fetch = fetch,
 ): Promise<string[]> {
-	const ctrl = new AbortController();
-	const timer = setTimeout(() => ctrl.abort(), MODELS_TIMEOUT_MS);
-	try {
-		const res = await fetchImpl(`${baseUrl}/models`, { signal: ctrl.signal });
+	return withTimeout(MODELS_TIMEOUT_MS, async (signal) => {
+		const res = await fetchImpl(`${baseUrl}/models`, { signal });
 		if (!res.ok) throw new Error(`HTTP ${res.status}`);
 		const body = (await res.json()) as { data?: { id?: unknown }[] };
 		return (body.data ?? [])
 			.map((m) => m.id)
 			.filter((id): id is string => typeof id === "string")
 			.sort();
-	} finally {
-		clearTimeout(timer);
-	}
+	});
 }
 
 /** Minimal surface enrichRationales needs, so tests can pass a fake. */

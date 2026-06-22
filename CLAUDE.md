@@ -72,10 +72,10 @@ The registry `src/conversions/index.ts` imports all factories and exports `creat
 
 ### Utilities
 - `src/utils/messageUtils.ts` - N2K message validation (`validateN2KMessage`), formatting (`formatN2KMessage`), cleaning (`cleanN2KMessage`)
-- `src/utils/pathUtils.ts` - `pathToPropName()` for config keys, `isDefined()` type guard, `stripSubIndex()` (strips the `[N]` sub-conversion suffix; shared by plugin-manager and the panel so the key format lives in one place), `matchPathPrefix<T>(path, table)` first-prefix-match lookup used by `notifications.ts` (alertCategory routing) and `raymarineAlarms.ts` (alarmId mapping)
+- `src/utils/pathUtils.ts` - `pathToPropName()` for config keys, `isDefined()` type guard, `stripSubIndex()` (strips the `[N]` sub-conversion suffix) and its inverse `subIndexKey(parent, idx)` (builds `PARENT[idx]`), kept side by side so the suffix format lives in one place and is shared by plugin-manager and the panel; `matchPathPrefix<T>(path, table)` first-prefix-match lookup used by `notifications.ts` (alertCategory routing) and `raymarineAlarms.ts` (alarmId mapping)
 - `src/utils/dateUtils.ts` - NMEA 2000 date/time conversions (`toN2KDate`, `toN2KTime`, `toN2KDateTime`)
 - `src/utils/errorUtils.ts` - `errMessage(err)` coercion helper for `unknown`-typed thrown values
-- `src/utils/validation.ts` - Input validation (`isValidNumber`, `toValidNumber` - rejects NaN/Infinity), `normalizeAngle()`, `toUnsignedAngle()` (the single choke point for unsigned uint16 angle fields: nullish passes through, non-finite returns undefined, everything else is wrapped to [0, 2pi); the encoder otherwise wraps negatives by the field modulus, not 2 pi), `isPlainObject()` (shared unknown-narrowing guard used by migrate, the router, the advisor, and the panel), `clampString()` (truncates a value so it cannot overflow an NMEA 2000 string field)
+- `src/utils/validation.ts` - Input validation (`isValidNumber`, `toValidNumber` - rejects NaN/Infinity to null, `toFiniteOrUndefined` - the same coercion but to undefined for fields that are omitted rather than nulled), `normalizeAngle()`, `toUnsignedAngle()` (the single choke point for unsigned uint16 angle fields: nullish passes through, non-finite returns undefined, everything else is wrapped to [0, 2pi); the encoder otherwise wraps negatives by the field modulus, not 2 pi), `isPlainObject()` (shared unknown-narrowing guard used by migrate, the router, the advisor, and the panel), `clampString()` (truncates a value so it cannot overflow an NMEA 2000 string field)
 - `src/utils/notificationUtils.ts` - `isClearState(state)`: true for the non-alert Signal K states (`normal`, `nominal`); shared by `notifications.ts` and `raymarineAlarms.ts`
 - `src/utils/aisUtils.ts` - AIS shared helpers: `starboardOffset()` (NaN-safe beam/offset to from-starboard conversion), `parseMmsi()`, `parseImo()`, `AisShipType` interface, and string-length caps (`AIS_NAME_CHARS`, `AIS_CALLSIGN_CHARS`, `AIS_DESTINATION_CHARS`, `AIS_SAFETY_TEXT_CHARS`, `ATON_NAME_CHARS`); imported by `ais.ts`, `aisExtended.ts`, and `dscCalls.ts`
 - `src/utils/pgnUtils.ts` - `extractPgnsFromTitle(title)` parses PGN numbers out of a conversion title string (used by the conversion registry to derive the 126464 transmit list and by the panel's PGN summary lookup); `splitPgnTitle(title)` splits a title into its description and PGN array for display
@@ -154,7 +154,7 @@ AIS (`ais.ts`) is the only `ON_DELTA` module: it runs off the process-wide delta
 Per-callback errors route through `PluginManager.throttledError(key, message)` with a per-key 60s window. Use `bucketKey(prefix, conversion, suffix?)` to build the key: it normalizes the `optionKey ?? title ?? "?"` fallback chain. Apply uniformly to every error path (callback, processOutput, resend, subscription, RxJS stream `error`); asymmetric coverage leaves a log-flood surface open. `start()` and `stop()` both clear `errorBuckets` so the next lifecycle begins fresh.
 
 ### Sub-Conversion Identity (factory-returned children)
-Modules that expose `conversions: (options) => [...]` (BATTERY per-id, ENGINE_PARAMETERS per-engine, TANKS per-path, SOLAR per-charger, EXHAUST_TEMPERATURE per-engine, RAYMARINE_BRIGHTNESS per-group, TEMPERATURE_*/TEMPERATURE2_*) return `SubConversionModule` objects that lack `optionKey` and may lack `title`. The plugin-manager start() loop spreads each into a fresh `ConversionModule` with derived identity:
+Modules that expose `conversions: (options) => [...]` (BATTERY per-id, ENGINE_PARAMETERS per-engine, TANKS per-path, SOLAR per-charger, EXHAUST_TEMPERATURE per-engine, RAYMARINE_BRIGHTNESS per-group, TEMPERATURE_*/TEMPERATURE2_*) return `SubConversionModule` objects that lack `optionKey` and may lack `title`. The plugin-manager's `wireConversion()` helper (called from the start() enablement loop) spreads each into a fresh `ConversionModule` with derived identity:
 
 ```typescript
 const labeled: ConversionModule =
@@ -162,7 +162,7 @@ const labeled: ConversionModule =
     ? conv
     : {
         ...subConversion,
-        optionKey: `${conv.optionKey}[${idx}]`,
+        optionKey: subIndexKey(conv.optionKey, idx),
         title: subConversion.title ?? `${conv.title} #${idx}`,
         category: conv.category,
         ...(conv.presets ? { presets: conv.presets } : {}),
@@ -231,7 +231,7 @@ Optional subsystem (added v1.6.0) that reviews observed Signal K paths and recom
 - `recommender.ts` is the deterministic core: it matches inventory paths to conversions by each module's declared `keys`. Pure, no app, no network. It owns the `action` (`enable` / `disable` / `keep`); the LLM never changes it.
 - `busSource.ts` `isN2KSource(label)` flags a `$source` already on the NMEA 2000 bus (trailing `.<digits>` or the bare `NMEA2000` echo-guard label). It errs toward classifying a source as N2K: a false positive only suppresses a recommendation, a false negative would recommend a conversion that echoes bus data.
 - `inventory.ts` builds the live `PathInventory` (reusing `discovery.ts`) and `mergeHistoric` folds in QuestDB history.
-- `questdb.ts` / `openrouter.ts` are zero-dependency HTTP clients (Node 22 global `fetch`). QuestDB and OpenRouter are both optional; every failure falls back to the deterministic result plus a `ReviewResult` note, never a throw.
+- `questdb.ts` / `openrouter.ts` are zero-dependency HTTP clients (Node 22 global `fetch`) that share the `withTimeout()` abort-timeout helper in `withTimeout.ts` (one AbortController plus timer per request; retry and backoff stay with each client). QuestDB and OpenRouter are both optional; every failure falls back to the deterministic result plus a `ReviewResult` note, never a throw.
 - `advisor.ts` `Advisor` orchestrates via an injected `AdvisorDeps` seam (testable without `SignalKApp`). When `advisor.autoApply` is true (the default) `runReview` auto-applies confident enables and parks disables for approval; when false, enables are parked too. `applyReview` applies each approved decision in the direction its `action` names.
 - `schedule.ts` `AdvisorScheduler` drives the optional periodic review; `index.ts` reconfigures it on every `startPlugin`.
 - The advisor writes config via `app.savePluginOptions` then calls `startPlugin` to reload, because `savePluginOptions` only writes the file. `readPluginOptions` returns the full options envelope; the advisor's `readConfig` unwraps `.configuration` and runs it through `migrateLegacyConfig` so any `configuration`-envelope nesting is flattened. A single unwrap would leave a deeply nested config's `conversions` key buried, and the recommender would then rebuild from an apparently empty config, stranding every factory-module conversion.

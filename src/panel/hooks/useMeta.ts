@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
 	ConversionMetadata,
 	ConversionsResponse,
@@ -20,24 +20,32 @@ export function useMeta(): {
 	const [meta, setMeta] = useState<ConversionMetadata[]>([]);
 	const [metaError, setMetaError] = useState<string | null>(null);
 	const [metaLoading, setMetaLoading] = useState(true);
+	// Matches the sibling fetch hooks (useStatus, useSources): a fetch in flight
+	// when the panel unmounts must not setState on a gone component.
+	const cancelled = useRef(false);
 
 	const reload = useCallback(() => {
 		setMetaLoading(true);
 		fetchJson<ConversionsResponse>("/conversions")
 			.then((d) => {
+				if (cancelled.current) return;
 				setMeta(d.conversions);
 				setMetaError(null);
 			})
 			.catch((e) => {
-				setMetaError(errMessage(e));
+				if (!cancelled.current) setMetaError(errMessage(e));
 			})
 			.finally(() => {
-				setMetaLoading(false);
+				if (!cancelled.current) setMetaLoading(false);
 			});
 	}, []);
 
 	useEffect(() => {
+		cancelled.current = false;
 		reload();
+		return () => {
+			cancelled.current = true;
+		};
 	}, [reload]);
 
 	return { meta, metaError, metaLoading, reload };

@@ -49,8 +49,6 @@ const NUM_CELL: CSSProperties = {
 	textAlign: "right",
 	fontVariantNumeric: "tabular-nums",
 };
-const QUIET_TEXT: CSSProperties = { color: "var(--skn-text-faint)" };
-const ERROR_TEXT: CSSProperties = { color: "var(--skn-danger-fg)" };
 const HEADER_ROW: CSSProperties = {
 	display: "flex",
 	flexWrap: "wrap",
@@ -149,12 +147,12 @@ export default function StatusView({
 											{row.emitCount > 0 ? (
 												recency
 											) : (
-												<span style={QUIET_TEXT}>{recency}</span>
+												<span style={S.textFaint}>{recency}</span>
 											)}
 										</td>
 										<td style={CELL}>
 											{row.lastErrorMessage ? (
-												<span style={ERROR_TEXT}>
+												<span style={S.textDanger}>
 													<span aria-hidden="true">⚠ </span>
 													{row.lastErrorMessage}
 													{row.lastErrorAgeMs !== undefined
@@ -162,7 +160,7 @@ export default function StatusView({
 														: ""}
 												</span>
 											) : (
-												<span style={QUIET_TEXT}>ok</span>
+												<span style={S.textFaint}>ok</span>
 											)}
 										</td>
 									</tr>

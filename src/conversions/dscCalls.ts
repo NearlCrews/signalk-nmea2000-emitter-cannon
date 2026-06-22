@@ -84,6 +84,11 @@ export default function createDscCallsConversion(
 						dscMessageAddress: parseMmsi(mmsi),
 						natureOfDistress: distressMapping[natureString] ?? "Undesignated",
 						subsequentCommunicationModeOr2ndTelecommand: "No information",
+						// Emit the optional/repeating fields explicitly (empty channel,
+						// phone, and list) so the frame carries the full PGN 129808
+						// shape. canboatjs 3.20 variant matching for this PGN is
+						// presence-sensitive (see the dscCategory note above), so these
+						// are not safe to omit even though they are empty.
 						proposedTxFrequencyChannel: "",
 						telephoneNumber: "",
 						list: [],

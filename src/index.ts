@@ -9,6 +9,7 @@ import {
 import { fetchHistoricPaths, QuestDBClient } from "./advisor/questdb.js";
 import { AdvisorScheduler } from "./advisor/schedule.js";
 import { createApiRouter } from "./api/router.js";
+import { DEFAULT_OPENROUTER_MODEL } from "./config/enums.js";
 import { migrateLegacyConfig } from "./config/migrate.js";
 import { RootConfig } from "./config/schema.js";
 import { PluginManager } from "./plugin-manager.js";
@@ -75,7 +76,7 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 	}): OpenRouterClient =>
 		new OpenRouterClient({
 			apiKey: o.apiKey,
-			model: o.model || "anthropic/claude-haiku-4.5",
+			model: o.model || DEFAULT_OPENROUTER_MODEL,
 			baseUrl: OPENROUTER_BASE_URL,
 		});
 
@@ -176,14 +177,9 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 		options: unknown,
 		_restartPlugin?: (cfg: object) => void,
 	): void {
-		if (pluginManager) {
-			try {
-				pluginManager.stop();
-			} catch (e) {
-				app.error(errMessage(e));
-			}
-			pluginManager = null;
-		}
+		// Tear down any prior instance (and the scheduler) before re-wiring;
+		// the configure() call below re-arms the scheduler from fresh config.
+		stopPlugin();
 		try {
 			// Migrate once and share. PluginManager.start re-runs
 			// migrateLegacyConfig on its input, which is idempotent (and tested as

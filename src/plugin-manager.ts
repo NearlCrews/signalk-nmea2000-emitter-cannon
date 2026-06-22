@@ -12,7 +12,6 @@ import type { ConversionMetadata } from "./api/types.js";
 import { migrateLegacyConfig } from "./config/migrate.js";
 import {
 	DEFAULT_GLOBAL_RESEND_SECONDS,
-	OUTPUT_TYPE,
 	SOURCE_TYPE,
 	STREAM_DEBOUNCE_MS,
 	VESSELS_SELF_CONTEXT,
@@ -22,7 +21,6 @@ import type {
 	ConversionModule,
 	ConversionOptions,
 	N2KMessage,
-	OutputTypeProcessor,
 	PluginOptions,
 	ProcessingOptions,
 	SignalKApp,
@@ -34,7 +32,12 @@ import { isConversionOptions } from "./types/index.js";
 import { isDebugEnabled } from "./utils/debugUtils.js";
 import { errMessage } from "./utils/errorUtils.js";
 import { formatN2KMessage, validateN2KMessage } from "./utils/messageUtils.js";
-import { isDefined, pathToPropName, stripSubIndex } from "./utils/pathUtils.js";
+import {
+	isDefined,
+	pathToPropName,
+	stripSubIndex,
+	subIndexKey,
+} from "./utils/pathUtils.js";
 import { extractPgnsFromTitle } from "./utils/pgnUtils.js";
 import { clearAllSmoothers } from "./utils/smoothing.js";
 
@@ -328,6 +331,93 @@ export class PluginManager {
 		}
 	}
 
+	/**
+	 * Migrate the raw options (legacy flat shape or the typed new shape), then
+	 * flatten each conversion's sources+extras back into the wide
+	 * ConversionOptions surface the downstream mappers read.
+	 */
+	private buildPluginOptions(rawOptions: unknown): PluginOptions {
+		const migrated = migrateLegacyConfig(rawOptions);
+		const conversions: Record<string, ConversionOptions> = {};
+		for (const [key, value] of Object.entries(migrated.conversions)) {
+			// value.sources / value.extras can be undefined: the nested
+			// early-return branch in migrateLegacyConfig passes a config through
+			// without backfilling them. Spreading undefined is a no-op, so the
+			// spread stays safe without `?? {}` guards.
+			conversions[key] = {
+				enabled: value.enabled,
+				resend: value.resend,
+				...value.sources,
+				...value.extras,
+			};
+		}
+		return {
+			globalResendInterval: migrated.globalResendInterval,
+			conversions,
+		};
+	}
+
+	/**
+	 * Expand one enabled conversion into its sub-conversions (factory modules
+	 * return one per engine, battery, tank, etc), give each a derived identity,
+	 * and dispatch it through the source-type mapper. A single-PGN module wires
+	 * as itself; a factory module's children each get a `PARENT[idx]` optionKey
+	 * and a useful log label so per-instance errors do not collapse into one
+	 * throttle bucket.
+	 */
+	private wireConversion(
+		conv: ConversionModule,
+		convOptions: ConversionOptions,
+	): void {
+		const rawConversions = conv.conversions;
+		let subConversions: SubConversionModule[] | null;
+		if (rawConversions === undefined) {
+			subConversions = [conv];
+		} else if (typeof rawConversions === "function") {
+			subConversions = rawConversions(convOptions);
+		} else {
+			subConversions = rawConversions;
+		}
+
+		if (!subConversions) {
+			this.app.debug(`No subconversions for ${conv.title}`);
+			return;
+		}
+
+		for (let idx = 0; idx < subConversions.length; idx++) {
+			const subConversion = subConversions[idx];
+			if (subConversion === undefined) continue;
+
+			const sourceType =
+				subConversion.sourceType ?? SOURCE_TYPE.ON_VALUE_CHANGE;
+			const mapper = this.sourceTypes[sourceType];
+
+			if (!mapper) {
+				this.app.error(`Unknown conversion type: ${sourceType}`);
+				continue;
+			}
+
+			// Sub-conversions from a factory lack optionKey and may lack title,
+			// so without this each per-instance error would log as "<unnamed>"
+			// and collapse into a shared "?" throttle bucket (e.g. 3 batteries
+			// merging into one). Spread into a fresh ConversionModule per
+			// sub-conversion; mutating the source would persist annotations
+			// across start/stop cycles.
+			const labeled: ConversionModule =
+				subConversion === conv
+					? conv
+					: {
+							...subConversion,
+							optionKey: subIndexKey(conv.optionKey, idx),
+							title: subConversion.title ?? `${conv.title} #${idx}`,
+							category: conv.category,
+							...(conv.presets ? { presets: conv.presets } : {}),
+						};
+
+			mapper(labeled, convOptions);
+		}
+	}
+
 	start(rawOptions: unknown): void {
 		try {
 			this.stopped = false;
@@ -354,30 +444,7 @@ export class PluginManager {
 					"NMEA 2000 output already available at start (factory-latched flag)",
 				);
 			}
-			// Migrate from the legacy flat shape (or pass through the typed
-			// new shape) before flattening each conversion's sources+extras
-			// back into the wide ConversionOptions surface that the existing
-			// downstream loops read. Milestone 2 replaces this re-flatten with
-			// metadata-driven access through `conversions[key].sources` and
-			// `conversions[key].extras`.
-			const migrated = migrateLegacyConfig(rawOptions);
-			const conversions: Record<string, ConversionOptions> = {};
-			for (const [key, value] of Object.entries(migrated.conversions)) {
-				// value.sources / value.extras can be undefined: the nested
-				// early-return branch in migrateLegacyConfig passes a config
-				// through without backfilling them. Spreading undefined is a
-				// no-op, so the spread stays safe without `?? {}` guards.
-				conversions[key] = {
-					enabled: value.enabled,
-					resend: value.resend,
-					...value.sources,
-					...value.extras,
-				};
-			}
-			const options: PluginOptions = {
-				globalResendInterval: migrated.globalResendInterval,
-				conversions,
-			};
+			const options = this.buildPluginOptions(rawOptions);
 			// Nullish-coalesce, not `||`: a configured 0 is a meaningful value
 			// (disable global resend) and must survive. `migrateLegacyConfig`
 			// already guarantees a number here, so `??` only fills a genuinely
@@ -406,53 +473,7 @@ export class PluginManager {
 					conv.onOptionsLoaded(convOptions);
 				}
 
-				const rawConversions = conv.conversions;
-				let subConversions: SubConversionModule[] | null;
-				if (rawConversions === undefined) {
-					subConversions = [conv];
-				} else if (typeof rawConversions === "function") {
-					subConversions = rawConversions(convOptions);
-				} else {
-					subConversions = rawConversions;
-				}
-
-				if (!subConversions) {
-					this.app.debug(`No subconversions for ${conv.title}`);
-					continue;
-				}
-
-				for (let idx = 0; idx < subConversions.length; idx++) {
-					const subConversion = subConversions[idx];
-					if (subConversion === undefined) continue;
-
-					const sourceType =
-						subConversion.sourceType ?? SOURCE_TYPE.ON_VALUE_CHANGE;
-					const mapper = this.sourceTypes[sourceType];
-
-					if (!mapper) {
-						this.app.error(`Unknown conversion type: ${sourceType}`);
-						continue;
-					}
-
-					// Sub-conversions from a factory lack optionKey and may lack
-					// title, so without this each per-instance error would log as
-					// "<unnamed>" and collapse into a shared "?" throttle bucket
-					// (e.g. 3 batteries merging into one). Spread into a fresh
-					// ConversionModule per sub-conversion; mutating the source
-					// would persist annotations across start/stop cycles.
-					const labeled: ConversionModule =
-						subConversion === conv
-							? conv
-							: {
-									...subConversion,
-									optionKey: `${conv.optionKey}[${idx}]`,
-									title: subConversion.title ?? `${conv.title} #${idx}`,
-									category: conv.category,
-									...(conv.presets ? { presets: conv.presets } : {}),
-								};
-
-					mapper(labeled, convOptions);
-				}
+				this.wireConversion(conv, convOptions);
 			}
 
 			this.lastEnabledCount = enabledCount;
@@ -596,10 +617,7 @@ export class PluginManager {
 		try {
 			if (output !== undefined) {
 				const values = await Promise.resolve(output);
-				const processor = this.outputTypes[OUTPUT_TYPE.TO_N2K];
-				if (processor) {
-					await processor(values, conversion.optionKey);
-				}
+				await this.processToN2K(values, conversion.optionKey);
 			}
 		} catch (err) {
 			const message = errMessage(err);
@@ -649,10 +667,7 @@ export class PluginManager {
 
 					const values = await Promise.resolve(raw);
 					if (this.stopped) return;
-					const processor = this.outputTypes[OUTPUT_TYPE.TO_N2K];
-					if (processor) {
-						await processor(values, conversion.optionKey);
-					}
+					await this.processToN2K(values, conversion.optionKey);
 				} catch (err) {
 					const message = errMessage(err);
 					this.throttledError(
@@ -670,13 +685,14 @@ export class PluginManager {
 		conversion: ConversionModule,
 		options: ConversionOptions,
 	): void {
-		const processingOptions = options as ProcessingOptions;
 		if (!conversion.callback) {
 			this.app.error(`Delta conversion ${conversion.title} missing callback`);
 			return;
 		}
 
-		this.deltaConversions.push({ conversion, options: processingOptions });
+		// ConversionOptions structurally satisfies ProcessingOptions (only
+		// `resend` is read downstream), so it stores without a cast.
+		this.deltaConversions.push({ conversion, options });
 
 		// Install the process-wide delta input handler exactly once.
 		// registerDeltaInputHandler has no unregister API, so registering one
@@ -713,6 +729,8 @@ export class PluginManager {
 			// The process-wide delta handler fires on every server-wide delta;
 			// the AIS callback returns [] for the overwhelming majority that
 			// are not AIS. Skip the processOutput promise chain for that no-op.
+			// Array.isArray screens out a Promise result (a Promise is not an
+			// array), so an async callback still falls through to processOutput.
 			if (
 				result === undefined ||
 				(Array.isArray(result) && result.length === 0)
@@ -727,7 +745,6 @@ export class PluginManager {
 		conversion: ConversionModule,
 		options: ConversionOptions,
 	): void {
-		const pluginOptions = options;
 		const keys = resolveKeys(conversion.keys, options);
 		const timeouts = conversion.timeouts || [];
 
@@ -762,8 +779,9 @@ export class PluginManager {
 			// Panel writes use the dotted Signal K path as the source key; legacy
 			// on-disk configs and migrate.ts use the dotless propName form. Reading
 			// both keeps source-locks working regardless of how the config landed.
-			const sourceRef = (pluginOptions[skKey] ??
-				pluginOptions[pathToPropName(skKey)]) as string | undefined;
+			const sourceRef = (options[skKey] ?? options[pathToPropName(skKey)]) as
+				| string
+				| undefined;
 
 			let bus = this.app.streambundle.getSelfBus(skKey as Path);
 
@@ -817,7 +835,7 @@ export class PluginManager {
 						BUCKET_PREFIX.STREAM,
 					);
 					if (result === undefined) return;
-					void this.processOutput(conversion, pluginOptions, result);
+					void this.processOutput(conversion, options, result);
 				},
 				error: (err) => {
 					this.throttledError(
@@ -837,7 +855,6 @@ export class PluginManager {
 		conversion: ConversionModule,
 		options: ConversionOptions,
 	): void {
-		const pluginOptions = options;
 		const keys = resolveKeys(conversion.keys, options);
 
 		// Event-like sources (notifications, alarms) need policy:"instant" so
@@ -870,7 +887,7 @@ export class PluginManager {
 					BUCKET_PREFIX.SUBSCRIPTION,
 				);
 				if (result === undefined) return;
-				void this.processOutput(conversion, pluginOptions, result);
+				void this.processOutput(conversion, options, result);
 			},
 		);
 	}
@@ -879,7 +896,6 @@ export class PluginManager {
 		conversion: ConversionModule,
 		options: ConversionOptions,
 	): void {
-		const processingOptions = options as ProcessingOptions;
 		if (!conversion.interval) {
 			this.app.error(`Timer conversion ${conversion.title} missing interval`);
 			return;
@@ -896,7 +912,7 @@ export class PluginManager {
 			this.lastInputs.set(conversion, args);
 			const result = this.invokeCallback(conversion, args, BUCKET_PREFIX.TIMER);
 			if (result === undefined) return;
-			void this.processOutput(conversion, processingOptions, result);
+			void this.processOutput(conversion, options, result);
 		}, conversion.interval);
 
 		this.timers.push(timer);
@@ -1058,8 +1074,4 @@ export class PluginManager {
 			return entry;
 		});
 	}
-
-	private outputTypes: Record<string, OutputTypeProcessor> = {
-		[OUTPUT_TYPE.TO_N2K]: (...args) => this.processToN2K(...args),
-	};
 }

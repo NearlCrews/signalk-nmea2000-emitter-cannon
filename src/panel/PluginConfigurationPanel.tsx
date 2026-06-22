@@ -47,6 +47,23 @@ const PRESETS_HEADING: React.CSSProperties = {
 	marginTop: 0,
 };
 
+// Per-section enabled and error tallies. The search branch and the tab branch
+// both render category/group sections, so the two counts are derived the same
+// way in one place rather than as four inline reducers recomputed every render.
+function sectionCounts(
+	list: ConversionMetadata[],
+	conversions: Record<string, { enabled: boolean } | undefined>,
+	errorKeys: ReadonlySet<string>,
+): { enabled: number; errors: number } {
+	let enabled = 0;
+	let errors = 0;
+	for (const m of list) {
+		if (conversions[m.key]?.enabled) enabled++;
+		if (errorKeys.has(m.key)) errors++;
+	}
+	return { enabled, errors };
+}
+
 // A conversion matches the catalog search when the needle (already lower-cased)
 // appears in its title, one of its PGN numbers, or one of its Signal K paths.
 function matchesQuery(m: ConversionMetadata, needle: string): boolean {
@@ -189,6 +206,8 @@ export default function PluginConfigurationPanel({
 		const m = metaByKey.get(stripSubIndex(first.key));
 		if (!m) return;
 		clearSearch();
+		// setView directly, not changeView: changeView scrolls the panel top
+		// into view, but here we want to scroll to the error card below.
 		setView("configure");
 		setTab(m.category);
 		const group = m.legacy ? "legacy" : "modern";
@@ -384,26 +403,27 @@ export default function PluginConfigurationPanel({
 								No conversions match "{search.trim()}".
 							</p>
 						) : null}
-						{searchResult.groups.map((g) => (
-							<CollapsibleSection
-								key={g.cat}
-								id={`skn-search-${g.cat}`}
-								title={CategoryLabels[g.cat]}
-								count={g.list.length}
-								enabledCount={g.list.reduce(
-									(n, m) => n + (state.conversions[m.key]?.enabled ? 1 : 0),
-									0,
-								)}
-								errorCount={g.list.reduce(
-									(n, m) => n + (errorKeys.has(m.key) ? 1 : 0),
-									0,
-								)}
-								expanded={openSections[`search:${g.cat}`] ?? true}
-								onToggle={() => toggleSection(`search:${g.cat}`)}
-							>
-								{g.list.map(renderCard)}
-							</CollapsibleSection>
-						))}
+						{searchResult.groups.map((g) => {
+							const counts = sectionCounts(
+								g.list,
+								state.conversions,
+								errorKeys,
+							);
+							return (
+								<CollapsibleSection
+									key={g.cat}
+									id={`skn-search-${g.cat}`}
+									title={CategoryLabels[g.cat]}
+									count={g.list.length}
+									enabledCount={counts.enabled}
+									errorCount={counts.errors}
+									expanded={openSections[`search:${g.cat}`] ?? true}
+									onToggle={() => toggleSection(`search:${g.cat}`)}
+								>
+									{g.list.map(renderCard)}
+								</CollapsibleSection>
+							);
+						})}
 					</div>
 				) : (
 					<>
@@ -424,20 +444,19 @@ export default function PluginConfigurationPanel({
 							{sections.map((s) => {
 								if (s.list.length === 0) return null;
 								const sectionKey = `${tab}:${s.group}`;
+								const counts = sectionCounts(
+									s.list,
+									state.conversions,
+									errorKeys,
+								);
 								return (
 									<CollapsibleSection
 										key={s.group}
 										id={`skn-section-${tab}-${s.group}`}
 										title={s.title}
 										count={s.list.length}
-										enabledCount={s.list.reduce(
-											(n, m) => n + (state.conversions[m.key]?.enabled ? 1 : 0),
-											0,
-										)}
-										errorCount={s.list.reduce(
-											(n, m) => n + (errorKeys.has(m.key) ? 1 : 0),
-											0,
-										)}
+										enabledCount={counts.enabled}
+										errorCount={counts.errors}
 										expanded={openSections[sectionKey] ?? s.defaultExpanded}
 										onToggle={() => toggleSection(sectionKey)}
 									>

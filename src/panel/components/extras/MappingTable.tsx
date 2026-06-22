@@ -16,6 +16,31 @@ export interface Column<T> {
 	) => React.ReactElement;
 }
 
+// Single-line text column keyed by an arbitrary string field of the row.
+// The `?? ""` keeps the input controlled: a malformed persisted row can carry
+// an undefined value, which would otherwise flip the field controlled ->
+// uncontrolled and warn. ariaLabel defaults to the header.
+export function textColumn<R>(opts: {
+	header: string;
+	field: keyof R & string;
+	placeholder?: string;
+	ariaLabel?: string;
+}): Column<R> {
+	return {
+		header: opts.header,
+		render: (r, onRow) => (
+			<input
+				type="text"
+				style={S.input}
+				value={(r[opts.field] as string | undefined) ?? ""}
+				placeholder={opts.placeholder}
+				onChange={(e) => onRow({ ...r, [opts.field]: e.target.value } as R)}
+				aria-label={opts.ariaLabel ?? opts.header}
+			/>
+		),
+	};
+}
+
 // Standard "Signal K id" text column used by every per-instance mapping
 // editor (engines, batteries, solar chargers, exhaust). The id is the final
 // segment of the SK key (e.g. "main", "house", "0"), not the full path.
@@ -26,22 +51,7 @@ export function signalkIdColumn<R extends { signalkId: string }>(opts: {
 	placeholder: string;
 	ariaLabel?: string;
 }): Column<R> {
-	return {
-		header: opts.header,
-		render: (r, onRow) => (
-			<input
-				type="text"
-				style={S.input}
-				// ?? "" keeps the input controlled: a malformed persisted row can
-				// carry an undefined id, which would otherwise flip the field
-				// controlled -> uncontrolled and warn.
-				value={r.signalkId ?? ""}
-				placeholder={opts.placeholder}
-				onChange={(e) => onRow({ ...r, signalkId: e.target.value } as R)}
-				aria-label={opts.ariaLabel ?? opts.header}
-			/>
-		),
-	};
+	return textColumn<R>({ field: "signalkId", ...opts });
 }
 
 // Standard NMEA 2000 instance-id number column. Reused for engine, battery,
@@ -108,7 +118,7 @@ export default function MappingTable<T>(props: Props<T>): React.ReactElement {
 	};
 
 	return (
-		<div style={{ marginTop: 8 }}>
+		<div style={{ marginTop: "var(--skn-space-1)" }}>
 			<div style={S.tableTitle}>{props.title}</div>
 			{props.helpText ? <div style={S.helpHint}>{props.helpText}</div> : null}
 			<div style={S.tableWrap}>
@@ -174,7 +184,7 @@ export default function MappingTable<T>(props: Props<T>): React.ReactElement {
 			</div>
 			<button
 				type="button"
-				style={{ ...S.btnSecondary, marginTop: 6 }}
+				style={{ ...S.btnSecondary, marginTop: "var(--skn-space-1)" }}
 				onClick={() => props.onChange([...props.rows, props.emptyRow()])}
 			>
 				+ Add row

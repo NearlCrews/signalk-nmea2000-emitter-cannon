@@ -1,4 +1,5 @@
 import type { SignalKApp } from "../types/index.js";
+import { isPlainObject } from "../utils/validation.js";
 
 /**
  * Sorted unique list of Signal K paths the local server currently publishes.
@@ -29,13 +30,13 @@ export function enumerateSourcesForPath(
 ): string[] {
 	if (!path) return [];
 	const node = app.getSelfPath?.(path);
-	if (!node || typeof node !== "object") return [];
+	if (!isPlainObject(node)) return [];
 	const out = new Set<string>();
-	const single = (node as { $source?: unknown }).$source;
+	const single = node.$source;
 	if (typeof single === "string" && single.length > 0) out.add(single);
-	const values = (node as { values?: unknown }).values;
-	if (values && typeof values === "object" && !Array.isArray(values)) {
-		for (const k of Object.keys(values as Record<string, unknown>)) {
+	const values = node.values;
+	if (isPlainObject(values)) {
+		for (const k of Object.keys(values)) {
 			if (k.length > 0) out.add(k);
 		}
 	}

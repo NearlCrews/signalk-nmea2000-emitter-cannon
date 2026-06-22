@@ -1,12 +1,13 @@
 import type { ConversionMetadata } from "../api/types.js";
-import type { ConversionConfig } from "../config/schema.js";
+import type { ConversionMap } from "../config/schema.js";
+import { isDefined } from "../utils/pathUtils.js";
 import { isN2KSource } from "./busSource.js";
 import type { PathInventory, Recommendation } from "./types.js";
 
 export interface RecommendInput {
 	inventory: PathInventory;
 	metadata: ConversionMetadata[];
-	currentConfig: Record<string, ConversionConfig>;
+	currentConfig: ConversionMap;
 }
 
 /**
@@ -22,19 +23,22 @@ export function recommend(input: RecommendInput): Recommendation[] {
 
 	for (const conv of metadata) {
 		if (conv.paths.length === 0) continue;
-		const matched = conv.paths.filter((p) => byPath.has(p));
+		// Resolve each declared path to its inventory entry once, then read
+		// live/liveSources off the entries instead of re-walking the Map.
+		const matched = conv.paths.map((p) => byPath.get(p)).filter(isDefined);
 		if (matched.length === 0) continue;
+		const matchedPaths = matched.map((e) => e.path);
 
 		const enabled = currentConfig[conv.key]?.enabled ?? false;
 		// A match backed by at least one live path is high-confidence; a match
 		// seen only in QuestDB history is low-confidence historic origin.
-		const anyLive = matched.some((p) => byPath.get(p)?.live === true);
+		const anyLive = matched.some((e) => e.live === true);
 		const origin: Recommendation["origin"] = anyLive ? "live" : "historic";
 		const confidence: Recommendation["confidence"] = anyLive ? "high" : "low";
 		// "On the bus" when every matched path's every live source is an N2K
 		// device. A path with one native source makes the data native.
-		const allBusOrigin = matched.every((p) => {
-			const sources = byPath.get(p)?.liveSources ?? [];
+		const allBusOrigin = matched.every((e) => {
+			const sources = e.liveSources ?? [];
 			return sources.length > 0 && sources.every(isN2KSource);
 		});
 
@@ -43,11 +47,11 @@ export function recommend(input: RecommendInput): Recommendation[] {
 				optionKey: conv.key,
 				action: enabled ? "disable" : "keep",
 				currentlyEnabled: enabled,
-				matchedPaths: matched,
+				matchedPaths,
 				confidence,
 				origin,
 				reason: enabled
-					? `${conv.title}: ${matched.join(", ")} is already published from the NMEA 2000 bus; emitting it would echo.`
+					? `${conv.title}: ${matchedPaths.join(", ")} is already published from the NMEA 2000 bus; emitting it would echo.`
 					: `${conv.title}: data already on the bus, left disabled.`,
 			});
 			continue;
@@ -57,12 +61,12 @@ export function recommend(input: RecommendInput): Recommendation[] {
 			optionKey: conv.key,
 			action: enabled ? "keep" : "enable",
 			currentlyEnabled: enabled,
-			matchedPaths: matched,
+			matchedPaths,
 			confidence,
 			origin,
 			reason: enabled
 				? `${conv.title}: live and emitting, no change.`
-				: `${conv.title}: ${matched.join(", ")} ${
+				: `${conv.title}: ${matchedPaths.join(", ")} ${
 						origin === "historic" ? "was seen in history" : "is live"
 					} from a non-N2K source; enabling sends it to the bus.`,
 		});

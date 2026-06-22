@@ -156,7 +156,7 @@ export default function AdvisorPanel({
 					</div>
 				)}
 				{state.result && (
-					<div style={S.disclosureBody}>
+					<div style={S.advisorStackGap}>
 						<ReviewResultView
 							result={state.result}
 							decisions={decisions}
@@ -180,7 +180,7 @@ export default function AdvisorPanel({
 				    API key, QuestDB) is one-time setup and should not greet the
 				    user ahead of the review action. The wrapper div keeps the
 				    spacing between the review area and the settings toggle. */}
-				<div style={S.disclosureBody}>
+				<div style={S.advisorStackGap}>
 					<Disclosure id="skn-advisor-settings" label="Advisor settings">
 						<AdvisorSettings
 							value={advisor}

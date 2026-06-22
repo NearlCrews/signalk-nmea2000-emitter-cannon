@@ -257,6 +257,47 @@ S.errorBadgeButton = {
 	font: "inherit",
 };
 
+// Small (12px) semantic text utilities. Components spread these and add only
+// layout tweaks (margins), so the small-text color treatments live in one
+// place instead of being re-declared per component.
+S.textSmallMuted = {
+	fontSize: "var(--skn-font-small)",
+	color: "var(--skn-text-muted)",
+};
+S.textSmallFaint = {
+	fontSize: "var(--skn-font-small)",
+	color: "var(--skn-text-faint)",
+};
+S.textSmallSuccess = {
+	fontSize: "var(--skn-font-small)",
+	fontWeight: 600,
+	color: "var(--skn-success-fg)",
+};
+S.textSmallDanger = {
+	fontSize: "var(--skn-font-small)",
+	fontWeight: 600,
+	color: "var(--skn-danger-fg)",
+};
+// Color-only utilities for cells that already carry their own font size
+// (e.g. the status table cells).
+S.textFaint = { color: "var(--skn-text-faint)" };
+S.textDanger = { color: "var(--skn-danger-fg)" };
+// Danger count badge in a section header, sitting after the muted count text.
+S.sectionErrorCount = { ...S.textSmallDanger, marginLeft: 6 };
+// Danger count pill on a category tab. Inline-block so it sits after the count.
+S.tabErrorDot = {
+	display: "inline-block",
+	minWidth: 16,
+	marginLeft: 6,
+	padding: "0 5px",
+	borderRadius: "var(--skn-radius-pill)",
+	background: "var(--skn-danger-fg)",
+	color: "var(--skn-surface)",
+	fontSize: "var(--skn-font-small)",
+	fontWeight: 700,
+	lineHeight: "16px",
+	textAlign: "center",
+};
 S.fieldRow = {
 	display: "flex",
 	alignItems: "center",
@@ -616,6 +657,10 @@ S.disclosureToggle = {
 	textAlign: "left",
 };
 S.disclosureBody = { marginTop: 10 };
+// Vertical gap between the advisor's stacked blocks (result area, settings
+// disclosure). Named for its own purpose so these spacers do not borrow the
+// disclosure-body token while sitting outside any Disclosure.
+S.advisorStackGap = { marginTop: 10 };
 S.advisorIntro = {
 	fontSize: "var(--skn-font-small)",
 	color: "var(--skn-text-muted)",

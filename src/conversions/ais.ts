@@ -20,7 +20,12 @@ import {
 	parseMmsi,
 	starboardOffset,
 } from "../utils/aisUtils.js";
-import { clampString, isValidNumber } from "../utils/validation.js";
+import {
+	clamp,
+	clampString,
+	isValidNumber,
+	toFiniteOrUndefined,
+} from "../utils/validation.js";
 import type { Position } from "./routeTypes.js";
 
 // AIS Message 1 spec value for "Not defined". canboat NAV_STATUS lookup
@@ -765,6 +770,11 @@ function generatePosition(
 	const mappedStatus = state ? navStatusMapping[state] : undefined;
 	const status = mappedStatus ?? NAV_STATUS_NOT_DEFINED;
 
+	// Received AIS COG/heading: drop an out-of-range value rather than wrap it
+	// with toUnsignedAngle. A garbage bearing from a remote vessel should read
+	// as "not available" on the MFD, not as a plausible-but-wrong heading.
+	// (aisExtended.ts wraps the same fields because those are own-vessel sensor
+	// values, which can legitimately sit a hair outside [0, 2pi).)
 	const validCog =
 		isValidNumber(cog) && cog >= 0 && cog <= Math.PI * 2 ? cog : undefined;
 	const validHeading =
@@ -773,8 +783,8 @@ function generatePosition(
 			: undefined;
 	// Guard sog/rot like cog/heading: a NaN or Infinity from a flaky provider
 	// must not reach the encoder.
-	const validSog = isValidNumber(sog) ? sog : undefined;
-	const validRot = isValidNumber(rot) ? rot : undefined;
+	const validSog = toFiniteOrUndefined(sog);
+	const validRot = toFiniteOrUndefined(rot);
 
 	const mmsiNumber = parseMmsi(mmsi);
 
@@ -846,19 +856,22 @@ function generateAtoN(
 	// canboatjs round-trips plain SI meters, so pass fromBow unscaled to match
 	// the sibling geometry fields (lengthDiameter, beamDiameter,
 	// positionReferenceFromStarboardEdge), which are all the same spec.
-	const fromBowMeters = isValidNumber(fromBow) ? fromBow : undefined;
+	const fromBowMeters = toFiniteOrUndefined(fromBow);
 	const mmsiNumber = parseMmsi(mmsi);
 
 	// SK atons.* contexts publish atonType.id as the canonical AIS Message
-	// 21 type code (0..31), aligned with canboat's ATON_TYPE lookup. Pass
-	// the numeric id straight through; default to 0 ("not specified") when
+	// 21 type code (0..31), aligned with canboat's ATON_TYPE lookup. atonType
+	// is a 5-bit field, so clamp to [0, 31] before the encoder: a value above
+	// 31 would otherwise wrap on the wire. Default to 0 ("not specified") when
 	// missing.
 	const atonTypeObj = indexedFindValue<{ id?: number }>(
 		index,
 		vessel,
 		"atonType",
 	);
-	const atonType = isValidNumber(atonTypeObj?.id) ? atonTypeObj.id : 0;
+	const atonType = isValidNumber(atonTypeObj?.id)
+		? clamp(atonTypeObj.id, 0, 31)
+		: 0;
 
 	return {
 		prio: N2K_DEFAULT_PRIORITY,

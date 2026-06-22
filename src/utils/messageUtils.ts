@@ -53,7 +53,9 @@ export function isValidN2KFieldValue(value: unknown): value is N2KFieldValue {
 	if (Array.isArray(value)) {
 		return value.every(isValidN2KFieldValue);
 	}
-	if (typeof value === "object" && value !== null) {
+	// null and undefined already returned true above, so any remaining object
+	// here is a non-null, non-array record.
+	if (typeof value === "object") {
 		const obj = value as Record<string, unknown>;
 		return Object.values(obj).every(isValidN2KFieldValue);
 	}

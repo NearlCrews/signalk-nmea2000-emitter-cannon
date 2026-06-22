@@ -19,6 +19,7 @@ import {
 import {
 	clampString,
 	isValidNumber,
+	toFiniteOrUndefined,
 	toUnsignedAngle,
 } from "../utils/validation.js";
 import type { Position as GeoPosition } from "./routeTypes.js";
@@ -48,6 +49,35 @@ export default function createAisExtendedConversions(
 		return typeof n === "string" ? n : "";
 	};
 
+	// Key lists for the position reports. Each conversion's `timeouts` derives
+	// its length from its key list via .map, so adding a key cannot leave a
+	// trailing field without a freshness window.
+	const classBPositionKeys = [
+		"sensors.ais.class",
+		"navigation.position",
+		"navigation.courseOverGroundTrue",
+		"navigation.speedOverGround",
+		"navigation.headingTrue",
+	];
+	const classBExtendedKeys = [
+		"sensors.ais.class",
+		"navigation.position",
+		"navigation.courseOverGroundTrue",
+		"navigation.speedOverGround",
+		"navigation.headingTrue",
+		"design.aisShipType",
+		"sensors.ais.fromCenter",
+		"sensors.ais.fromBow",
+		"design.length",
+		"design.beam",
+	];
+	const sarAircraftKeys = [
+		"sensors.ais.class",
+		"navigation.position",
+		"navigation.courseOverGroundTrue",
+		"navigation.speedOverGround",
+	];
+
 	return [
 		// AIS Class B Position Report (PGN 129039)
 		{
@@ -55,14 +85,8 @@ export default function createAisExtendedConversions(
 			optionKey: "AIS_CLASS_B_POSITION",
 			category: "ais",
 			presets: ["full-ais"],
-			keys: [
-				"sensors.ais.class",
-				"navigation.position",
-				"navigation.courseOverGroundTrue",
-				"navigation.speedOverGround",
-				"navigation.headingTrue",
-			],
-			timeouts: Array(5).fill(DEFAULT_DATA_TIMEOUT_MS),
+			keys: classBPositionKeys,
+			timeouts: classBPositionKeys.map(() => DEFAULT_DATA_TIMEOUT_MS),
 			callback: ((
 				aisClass: string | null,
 				position: Position | null,
@@ -103,7 +127,7 @@ export default function createAisExtendedConversions(
 							// COG and heading are unsigned [0, 2pi) fields; see
 							// toUnsignedAngle.
 							cog: toUnsignedAngle(cog),
-							sog: isValidNumber(sog) ? sog : undefined,
+							sog: toFiniteOrUndefined(sog),
 							aisTransceiverInformation: "Channel A VDL reception",
 							heading: toUnsignedAngle(heading),
 							regionalApplication: 0,
@@ -175,19 +199,8 @@ export default function createAisExtendedConversions(
 			optionKey: "AIS_CLASS_B_EXTENDED",
 			category: "ais",
 			presets: ["full-ais"],
-			keys: [
-				"sensors.ais.class",
-				"navigation.position",
-				"navigation.courseOverGroundTrue",
-				"navigation.speedOverGround",
-				"navigation.headingTrue",
-				"design.aisShipType",
-				"sensors.ais.fromCenter",
-				"sensors.ais.fromBow",
-				"design.length",
-				"design.beam",
-			],
-			timeouts: Array(10).fill(DEFAULT_DATA_TIMEOUT_MS),
+			keys: classBExtendedKeys,
+			timeouts: classBExtendedKeys.map(() => DEFAULT_DATA_TIMEOUT_MS),
 			callback: ((
 				aisClass: string | null,
 				position: Position | null,
@@ -219,9 +232,7 @@ export default function createAisExtendedConversions(
 				// canboat SHIP_TYPE is a numeric LOOKUP. Passing the SK
 				// `shipType.id` directly avoids the silent-encode-as-zero
 				// failure mode of passing an unmatched string label.
-				const typeOfShip = isValidNumber(shipType?.id)
-					? shipType.id
-					: undefined;
+				const typeOfShip = toFiniteOrUndefined(shipType?.id);
 
 				return [
 					{
@@ -240,16 +251,14 @@ export default function createAisExtendedConversions(
 							// COG and true heading are unsigned [0, 2pi) fields; see
 							// toUnsignedAngle.
 							cog: toUnsignedAngle(cog),
-							sog: isValidNumber(sog) ? sog : undefined,
+							sog: toFiniteOrUndefined(sog),
 							aisTransceiverInformation: "Channel A VDL reception",
 							trueHeading: toUnsignedAngle(heading),
 							typeOfShip,
-							length: isValidNumber(length) ? length : undefined,
-							beam: isValidNumber(beam) ? beam : undefined,
+							length: toFiniteOrUndefined(length),
+							beam: toFiniteOrUndefined(beam),
 							positionReferenceFromStarboard: fromStarboard,
-							positionReferenceFromBow: isValidNumber(fromBow)
-								? fromBow
-								: undefined,
+							positionReferenceFromBow: toFiniteOrUndefined(fromBow),
 							name: clampString(selfName(), AIS_NAME_CHARS),
 							dte: "Available",
 							aisMode: "Assigned",
@@ -332,13 +341,8 @@ export default function createAisExtendedConversions(
 			presets: ["full-ais"],
 			// Altitude is read from the position value (position.altitude),
 			// not a non-canonical navigation.altitude top-level path.
-			keys: [
-				"sensors.ais.class",
-				"navigation.position",
-				"navigation.courseOverGroundTrue",
-				"navigation.speedOverGround",
-			],
-			timeouts: Array(4).fill(DEFAULT_DATA_TIMEOUT_MS),
+			keys: sarAircraftKeys,
+			timeouts: sarAircraftKeys.map(() => DEFAULT_DATA_TIMEOUT_MS),
 			callback: ((
 				aisClass: string | null,
 				position: Position | null,
@@ -377,9 +381,9 @@ export default function createAisExtendedConversions(
 							timeStamp: "0",
 							// COG is an unsigned [0, 2pi) field; see toUnsignedAngle.
 							cog: toUnsignedAngle(cog),
-							sog: isValidNumber(sog) ? sog : undefined,
+							sog: toFiniteOrUndefined(sog),
 							aisTransceiverInformation: "Channel A VDL reception",
-							altitude: isValidNumber(altitude) ? altitude : undefined,
+							altitude: toFiniteOrUndefined(altitude),
 							dte: "Available",
 						},
 					},

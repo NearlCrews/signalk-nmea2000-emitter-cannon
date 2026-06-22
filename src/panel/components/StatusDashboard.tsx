@@ -9,12 +9,9 @@ import ErrorBadgeButton from "./ErrorBadgeButton";
 // restart, lost connection), so a dim "updated Xs ago" marker is shown.
 const STALE_AFTER_MS = 10000;
 
-// Dim, right-aligned staleness marker.
-const STALE_MARKER: CSSProperties = {
-	marginLeft: "auto",
-	color: "var(--skn-text-faint)",
-	fontSize: "var(--skn-font-small)",
-};
+// Dim, right-aligned staleness marker: the shared small-faint text pushed to
+// the trailing edge of the status bar.
+const STALE_MARKER: CSSProperties = { ...S.textSmallFaint, marginLeft: "auto" };
 
 // Placeholder shown before the first status poll resolves. Shared by
 // StatusDashboard and StatusView so the two views stay byte-identical.

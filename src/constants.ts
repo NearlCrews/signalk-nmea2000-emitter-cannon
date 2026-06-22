@@ -29,8 +29,8 @@ export const STREAM_DEBOUNCE_MS = 10;
 export const M3_TO_L = 1000;
 export const M3PS_TO_LPH = 3600 * 1000;
 
-// Source/output dispatch keys. Centralised so the union types in plugin.ts
-// and the runtime dispatch in plugin-manager.ts stay in lockstep.
+// Source dispatch keys. Centralised so the SourceType union in plugin.ts and
+// the runtime dispatch table in plugin-manager.ts stay in lockstep.
 export const SOURCE_TYPE = {
 	ON_DELTA: "onDelta",
 	ON_VALUE_CHANGE: "onValueChange",
@@ -38,7 +38,3 @@ export const SOURCE_TYPE = {
 	TIMER: "timer",
 } as const;
 export type SourceType = (typeof SOURCE_TYPE)[keyof typeof SOURCE_TYPE];
-
-export const OUTPUT_TYPE = {
-	TO_N2K: "to-n2k",
-} as const;

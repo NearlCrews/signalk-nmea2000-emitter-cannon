@@ -1,6 +1,7 @@
 import type { ConversionMetadata } from "../api/types.js";
 import {
 	type ConversionConfig,
+	type ConversionMap,
 	emptyConversionConfig,
 } from "../config/schema.js";
 import { errMessage } from "../utils/errorUtils.js";
@@ -42,8 +43,6 @@ export interface AdvisorDeps {
 	/** Optional OpenRouter model-list fetch for the panel's autocomplete. */
 	listModelsFn?: () => Promise<string[]>;
 }
-
-type ConversionMap = Record<string, ConversionConfig>;
 
 // Runtime fallback for advisor.questdb.lookbackDays when the configured value
 // is missing or not a positive number: fetchHistoricPaths builds a SQL
@@ -235,7 +234,7 @@ export class Advisor {
 
 	private conversionsOf(config: Record<string, unknown>): ConversionMap {
 		const c = config.conversions;
-		return c && typeof c === "object" ? (c as ConversionMap) : {};
+		return isPlainObject(c) ? (c as ConversionMap) : {};
 	}
 
 	/** The `advisor` config block as an object, or null when absent. */
@@ -243,9 +242,7 @@ export class Advisor {
 		config: Record<string, unknown>,
 	): Record<string, unknown> | null {
 		const advisor = config.advisor;
-		return advisor && typeof advisor === "object"
-			? (advisor as Record<string, unknown>)
-			: null;
+		return isPlainObject(advisor) ? advisor : null;
 	}
 
 	/** The advisor.autoApply flag; defaults to true when unset. */
@@ -258,8 +255,8 @@ export class Advisor {
 		config: Record<string, unknown>,
 	): { enabled: boolean; url: string; lookbackDays: number } | null {
 		const q = this.advisorSection(config)?.questdb;
-		if (!q || typeof q !== "object") return null;
-		const { enabled, url, lookbackDays } = q as Record<string, unknown>;
+		if (!isPlainObject(q)) return null;
+		const { enabled, url, lookbackDays } = q;
 		if (typeof url !== "string") return null;
 		const days =
 			isValidNumber(lookbackDays) && lookbackDays > 0
@@ -272,8 +269,8 @@ export class Advisor {
 		config: Record<string, unknown>,
 	): { apiKey: string; model: string } | null {
 		const o = this.advisorSection(config)?.openRouter;
-		if (!o || typeof o !== "object") return null;
-		const { enabled, apiKey, model } = o as Record<string, unknown>;
+		if (!isPlainObject(o)) return null;
+		const { enabled, apiKey, model } = o;
 		if (enabled !== true) return null;
 		if (typeof apiKey !== "string" || apiKey.trim() === "") return null;
 		return { apiKey, model: typeof model === "string" ? model : "" };

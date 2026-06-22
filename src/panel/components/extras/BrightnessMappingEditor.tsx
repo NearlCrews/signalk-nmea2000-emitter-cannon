@@ -2,7 +2,7 @@ import type * as React from "react";
 import { SEATALK_NETWORK_GROUPS } from "../../../config/enums.js";
 import { S } from "../../styles";
 import { extraRows } from "./extraRows";
-import MappingTable from "./MappingTable";
+import MappingTable, { signalkIdColumn } from "./MappingTable";
 
 // signalkId is the final segment of the SK Raymarine brightness group key
 // (e.g. "helm", "nav", "cabin"), not the full SK path. Tank rows use
@@ -31,19 +31,11 @@ export default function BrightnessMappingEditor({
 			emptyRow={() => ({ signalkId: "", groupLabel: "" })}
 			onChange={setRows}
 			columns={[
-				{
+				signalkIdColumn<Row>({
 					header: "Signal K group id",
-					render: (r, set) => (
-						<input
-							type="text"
-							style={S.input}
-							value={r.signalkId}
-							placeholder="helm, nav, cabin"
-							onChange={(e) => set({ ...r, signalkId: e.target.value })}
-							aria-label="Signal K Raymarine brightness group id"
-						/>
-					),
-				},
+					placeholder: "helm, nav, cabin",
+					ariaLabel: "Signal K Raymarine brightness group id",
+				}),
 				{
 					header: "NMEA 2000 group label",
 					// A select over the canboat SEATALK_NETWORK_GROUP labels: the

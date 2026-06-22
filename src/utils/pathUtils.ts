@@ -22,6 +22,15 @@ export function stripSubIndex(key: string): string {
 	return bracket === -1 ? key : key.substring(0, bracket);
 }
 
+/**
+ * Build the `[N]` sub-conversion option key (`BATTERY` + 0 -> `BATTERY[0]`).
+ * Inverse of stripSubIndex; kept beside it so the suffix format lives in one
+ * place and the writer and the stripper cannot drift.
+ */
+export function subIndexKey(parent: string, idx: number): string {
+	return `${parent}[${idx}]`;
+}
+
 // First-prefix-match lookup. Iterates `table` in order and returns the value
 // paired with the first prefix that `path.startsWith`. List longer/more
 // specific prefixes earlier to control precedence.

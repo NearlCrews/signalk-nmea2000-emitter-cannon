@@ -1,5 +1,4 @@
 import type * as React from "react";
-import type { CSSProperties } from "react";
 import { plural } from "../recency";
 import { S } from "../styles";
 import Disclosure from "./Disclosure";
@@ -16,15 +15,6 @@ interface Props {
 	// the enabled count. Optional: omitted or 0 renders nothing.
 	errorCount?: number;
 }
-
-// Error count rendered in the section header. Danger-colored so it reads as a
-// problem, sitting alongside the muted count text.
-const SECTION_ERROR_COUNT: CSSProperties = {
-	fontWeight: 600,
-	fontSize: "var(--skn-font-small)",
-	color: "var(--skn-danger-fg)",
-	marginLeft: 6,
-};
 
 /**
  * A disclosure section grouping conversion cards (Modern or Legacy). The
@@ -55,7 +45,7 @@ export default function CollapsibleSection({
 						{plural(count, "conversion")}
 						{enabledCount > 0 ? ` · ${enabledCount} enabled` : ""}
 						{errorCount && errorCount > 0 ? (
-							<span style={SECTION_ERROR_COUNT}>
+							<span style={S.sectionErrorCount}>
 								{plural(errorCount, "error")}
 							</span>
 						) : null}

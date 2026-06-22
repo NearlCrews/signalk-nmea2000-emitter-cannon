@@ -1,5 +1,4 @@
 import type * as React from "react";
-import type { CSSProperties } from "react";
 import { useRef } from "react";
 import {
 	Categories,
@@ -8,22 +7,6 @@ import {
 } from "../../config/enums";
 import { plural } from "../recency";
 import { S } from "../styles";
-
-// Small danger-colored count badge on a tab whose category has conversions
-// reporting errors. Inline-block so it sits after the tab's count.
-const TAB_ERROR_DOT: CSSProperties = {
-	display: "inline-block",
-	minWidth: 16,
-	marginLeft: 6,
-	padding: "0 5px",
-	borderRadius: "var(--skn-radius-pill)",
-	background: "var(--skn-danger-fg)",
-	color: "var(--skn-surface)",
-	fontSize: "var(--skn-font-small)",
-	fontWeight: 700,
-	lineHeight: "16px",
-	textAlign: "center",
-};
 
 interface Props {
 	active: ConversionCategory;
@@ -83,7 +66,7 @@ export default function CategoryTabs({
 						{errorCount > 0 ? (
 							<span
 								role="img"
-								style={TAB_ERROR_DOT}
+								style={S.tabErrorDot}
 								aria-label={`${plural(errorCount, "error")} in ${CategoryLabels[c]}`}
 							>
 								{errorCount}

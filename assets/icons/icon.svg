@@ -11,6 +11,8 @@
   This variant's badge: orange (#FB8C00) with three concentric arcs
   radiating from a transmitter dot in the badge's lower-left corner,
   signaling directional emission of NMEA 2000 frames onto the bus.
+  Strokes and dot are drawn bolder than the original cut so the glyph
+  holds up at thumbnail size.
 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="NMEA2000 Emitter Cannon plugin icon">
   <defs>
@@ -37,10 +39,10 @@
        concentric arcs radiating up-and-right (directional broadcast).
        Reads as "emit / send", distinct from up-arrow upload glyphs.
        Sized to occupy most of the badge interior. -->
-  <g fill="none" stroke="#1B3A4B" stroke-width="12" stroke-linecap="round">
+  <g fill="none" stroke="#1B3A4B" stroke-width="13" stroke-linecap="round">
     <path d="M 392,416 A 32,32 0 0 0 360,384"/>
     <path d="M 418,416 A 58,58 0 0 0 360,358"/>
     <path d="M 444,416 A 84,84 0 0 0 360,332"/>
   </g>
-  <circle cx="360" cy="416" r="12" fill="#1B3A4B"/>
+  <circle cx="360" cy="416" r="13" fill="#1B3A4B"/>
 </svg>

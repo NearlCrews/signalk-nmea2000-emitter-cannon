@@ -15,25 +15,23 @@ Garmin ECHOMAP, GPSMAP, and GMI specifications and the canboatjs encoder.
 > Built on the foundation of [`signalk-to-nmea2000`](https://github.com/SignalK/signalk-to-nmea2000)
 > by Scott Bender and the Signal K community.
 
-## What's new in 1.7.2
+## What's new in 1.7.3
 
-- **Mapping-editor input fix.** The tank and Raymarine brightness mapping
-  tables no longer drop a text cell from controlled to uncontrolled when a
-  saved row is missing a value.
-- **PGN 129041 AtoN type is bounded.** The Aid to Navigation type now clamps
-  to its valid 0 to 31 range, so an out-of-range value cannot wrap on the wire.
-- **Internal consolidation.** Duplicated logic across the conversions, plugin
-  manager, Config Advisor, and admin panel was hoisted into shared helpers and
-  utilities, with no change to the emitted PGNs.
-- **Dependencies refreshed.** Biome, @signalk/server-api, the Vitest
-  toolchain, and others were updated to their latest compatible versions, the
-  unused signalk-server devDependency was dropped, and the runtime audit stays
-  clean.
-- **Bolder app-store icon.** The radiating-arcs transmit glyph was redrawn for
-  better legibility at thumbnail size.
+- **Config panel works before the plugin is enabled.** A freshly installed
+  plugin showed every conversion category with a `(0)` count and nothing to
+  configure; the panel now loads the full catalog of all 75 conversions
+  whether or not the plugin has been enabled yet.
+- **Root cause.** signalk-server mounts a plugin's API routes at load but only
+  calls `start()` once the plugin is enabled, so the catalog endpoint had no
+  running plugin manager and returned an empty list at the one moment the
+  catalog is needed: choosing conversions to save and enable.
+- **Manager-independent catalog.** The conversion-to-metadata mapping moved
+  into a shared `buildConversionMetadata()` helper feeding one catalog provider
+  used by both the API router and the Config Advisor, so each serves the live
+  catalog when the plugin is running and a standalone copy otherwise.
 
-No breaking changes; the test suite stays at 141 tests. See the
-[v1.7.2 changelog entry](CHANGELOG.md#v172) and the
+No breaking changes; the test suite grows to 142 tests. See the
+[v1.7.3 changelog entry](CHANGELOG.md#v173) and the
 [full release history](CHANGELOG.md).
 
 ## What it does

@@ -5,6 +5,14 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+<a id="v173"></a>
+
+## [1.7.3] - 2026-06-22
+
+**A bug fix: the admin config panel now loads the full conversion catalog before the plugin is enabled, so a freshly installed plugin no longer shows every category at zero with nothing to configure. No breaking changes.**
+
+On a plugin that had not been enabled yet, the config panel showed all eight conversion categories with a `(0)` count and offered nothing to turn on. signalk-server mounts a plugin's API routes as soon as it loads but only calls the plugin's `start()` once it is enabled, so the panel's `/api/conversions` endpoint had no running plugin manager to read from and returned an empty catalog until the first enable, which is the one moment the catalog is needed to choose conversions to save. The catalog is pure module metadata with no runtime state, so it is now built from a manager-independent source: the conversion-to-metadata mapping moved into a shared `buildConversionMetadata()` helper, and a single catalog provider feeds both the API router and the Config Advisor, returning the running plugin manager's catalog when started and a standalone copy built once otherwise. A freshly installed plugin now shows all 75 conversions across their categories so they can be configured and the configuration saved to enable the plugin. The suite grew from 141 to 142 tests, covering the disabled-plugin catalog path.
+
 <a id="v172"></a>
 
 ## [1.7.2] - 2026-06-21

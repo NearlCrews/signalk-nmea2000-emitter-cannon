@@ -1,66 +1,79 @@
-## Change Log
+# Changelog
+
+All notable changes to NMEA 2000 Emitter Cannon are documented here. The
+format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+
+## [Unreleased]
+
+### Changed
+
+- Plugin icon badge refresh: the radiating-arcs transmit glyph keeps its
+  design but the arcs and transmitter dot are drawn bolder so the badge
+  reads better at app-store thumbnail size. The family base (deep-ocean
+  gradient and three wave lines) is unchanged, and all PNG sizes are
+  regenerated from the updated SVG.
 
 <a id="v171"></a>
 
-### v1.7.1 (2026/06/10) - route fast-packet fix, angle normalization, advisor hardening, and a config-panel UX overhaul
+## [1.7.1] - 2026-06-10
 
-**Patch release from a five-agent code review with NMEA 2000 and Garmin specialists, every finding cross-verified against the canboatjs encoder, plus a full UX overhaul of the admin config panel from a design audit and a four-angle cleanup pass. Two wire-correctness fixes lead: route PGNs no longer overflow the fast-packet transport, and unsigned angle fields are normalized before encoding. No breaking changes.**
+**Two wire-correctness fixes lead this patch release: route PGNs no longer overflow the fast-packet transport, and unsigned angle fields are normalized before encoding. The Config Advisor's apply path is hardened, and the admin config panel gets a ground-up UX overhaul. No breaking changes.**
 
 The route PGNs 129285 (Navigation Route/WP Information) and 130074 (Route and WP Service, WP List) sized their waypoint caps against the canboatjs 500-byte encode buffer, but the NMEA 2000 fast-packet transport maxes out at 223 bytes; a 16-waypoint list encoded to 458 bytes, the frame-0 length byte wrapped, and the MFD silently dropped or garbled the route. A shared `packWaypointsToBudget()` now trims the waypoint list against the real per-PGN header and each name's actual encoded length, so every emitted frame stays transmittable. Seven modules (heading, true heading, COG and SOG, set and drift, navigation data, direction data, and the extended AIS reports) passed Signal K angles straight into unsigned fields, where the encoder wraps a negative by the uint16 modulus instead of 2 pi, so a heading of -0.001 rad went on the wire as roughly 15 degrees; every unsigned angle field now runs through `normalizeAngle()`. TRUE_HEADING left the basic-nav preset (it stays available) because two PGN 127250 frames from one source that differ only in reference make naive consumers flicker by the magnetic variation; the canonical default is Magnetic 127250 plus the 127258 variation PGN. Raymarine pilot alarms (Pilot Watch, Pilot Off Course, and Pilot Wind Shift) now carry the Autopilot alarm group instead of Instrument. Smaller wire fixes: a negative (astern) speed through water is dropped before the unsigned PGN 128259 field, an unconfigured depth transducer offset is emitted as not-available instead of asserting 0, PGN 126992 declares its time source as GPS, and an out-of-enum Raymarine brightness group label can no longer encode a corrupt byte. The Config Advisor's apply path is hardened on both layers: the HTTP route rejects malformed decision payloads with 400 and `applyReview` allow-lists option keys against the loaded conversions, so an arbitrary key can no longer be persisted to the saved config; on servers without `addAdminMiddleware` the mutating advisor routes now fail closed with 403 while the read-only endpoints keep the old-server compat fallback. The advisor also reads its schedule through the same config migration as everything else (a nested legacy envelope no longer silently disables periodic reviews), parked decisions from a scheduled review now load when the panel opens instead of only after a manual review, a review with no actionable recommendations no longer consumes a day's OpenRouter budget, and unknown-model responses fail fast instead of retrying. A notification alert id supplied by an upstream provider is now registered in the allocator so a later auto-allocated alert cannot collide with it. The config migration backfills partially-saved legacy entries, fixing a panel crash on configs written before sources and extras became required. Setting the global resend interval to 0 now genuinely disables global resend (it was silently coerced back to 5 seconds) and the panel documents it. Tooling: the `prepack` lifecycle script is gone (the publish workflow builds explicitly), dev dependencies were refreshed with `npm outdated` now empty, and the runtime audit stays clean.
 
-The admin config panel got a ground-up UX overhaul. Marine ergonomics: touch targets grew to 36 px or more (this panel gets used with wet fingers at the helm), faint text now meets WCAG AA contrast in every theme, and a new theme toggle adds a red-preserving Night mode alongside Auto, Light, and Dark. Trust and data safety: the Save bar is sticky so the unsaved-changes indicator is always visible, a `beforeunload` guard protects unsaved edits, and config saves are now conflict-safe: when the advisor or a scheduled review rewrites the saved config while the panel holds edits, a three-way merge adopts the external changes for untouched keys and keeps the user's edits on conflict, so neither side silently clobbers the other. Findability: a catalog search filters all 75 conversions by title, PGN number, or Signal K path, category tabs show per-tab error counts, the dashboard error badge jumps straight to the offending card, and expanded cards now show their last error, compatibility notes, and emit recency ("42 emits, last 2 s ago") inline instead of in hover tooltips a touchscreen never sees. New capabilities: a first-run setup wizard proposes conversions backed by the boat's live data using the advisor's own recommender, a Status view renders a live emit table for post-setup monitoring, advisor recommendations apply only the decisions the user actually made (undecided items are no longer silently rejected), the OpenRouter key and QuestDB connection got working Test buttons, and API errors surface the server's explanation instead of a bare HTTP status. A follow-up design-critic pass polished the result: pinned Dark and Night themes now paint the whole panel surface and native widgets (`color-scheme`), buttons gained hover and pressed states, the advisor section leads with Review now and folds its integrations into a collapsed settings disclosure, advisor results show conversion titles instead of raw config keys, the setup wizard stays reachable from the control bar after first run, card headers shed badge clutter and became fully tappable, mapping tables flex to phone widths, and the type and spacing scales were snapped to tokens; a closing cleanup consolidated the caret-disclosure rows into one shared component and moved table-cell input sizing into the stylesheet. The panel work was finished with a four-angle cleanup pass (reuse, simplification, efficiency, and altitude) that deduplicated helpers into single sources of truth, removed dead props and derived state, and kept the hot paths allocation-free. The test suite grew from 118 to 141 tests, adding coverage for the event-driven NMEA 2000 readiness flip, the error-throttle window, the config three-way merge, and every fix above.
+The admin config panel got a ground-up UX overhaul. Marine ergonomics: touch targets grew to 36 px or more (this panel gets used with wet fingers at the helm), faint text now meets WCAG AA contrast in every theme, and a new theme toggle adds a red-preserving Night mode alongside Auto, Light, and Dark. Trust and data safety: the Save bar is sticky so the unsaved-changes indicator is always visible, a `beforeunload` guard protects unsaved edits, and config saves are now conflict-safe: when the advisor or a scheduled review rewrites the saved config while the panel holds edits, a three-way merge adopts the external changes for untouched keys and keeps the user's edits on conflict, so neither side silently clobbers the other. Findability: a catalog search filters all 75 conversions by title, PGN number, or Signal K path, category tabs show per-tab error counts, the dashboard error badge jumps straight to the offending card, and expanded cards now show their last error, compatibility notes, and emit recency ("42 emits, last 2 s ago") inline instead of in hover tooltips a touchscreen never sees. New capabilities: a first-run setup wizard proposes conversions backed by the boat's live data using the advisor's own recommender, a Status view renders a live emit table for post-setup monitoring, advisor recommendations apply only the decisions the user actually made (undecided items are no longer silently rejected), the OpenRouter key and QuestDB connection got working Test buttons, and API errors surface the server's explanation instead of a bare HTTP status. Follow-up polish: pinned Dark and Night themes now paint the whole panel surface and native widgets (`color-scheme`), buttons gained hover and pressed states, the advisor section leads with Review now and folds its integrations into a collapsed settings disclosure, advisor results show conversion titles instead of raw config keys, the setup wizard stays reachable from the control bar after first run, card headers shed badge clutter and became fully tappable, mapping tables flex to phone widths, and the type and spacing scales were snapped to tokens; a closing cleanup consolidated the caret-disclosure rows into one shared component and moved table-cell input sizing into the stylesheet. The panel work finished with helpers deduplicated into single sources of truth, dead props and derived state removed, and the hot paths kept allocation-free. The test suite grew from 118 to 141 tests, adding coverage for the event-driven NMEA 2000 readiness flip, the error-throttle window, the config three-way merge, and every fix above.
 
 <a id="v170"></a>
 
-### v1.7.0 (2026/05/30) - three wire-correctness fixes, event-driven AIS, and a whole-repo cleanup
+## [1.7.0] - 2026-05-30
 
 **Three wire-correctness fixes, all previously masked by dead or missing tests, plus a non-behavioral cleanup across the whole codebase. One behavior change: AIS no longer periodically re-emits.**
 
-The correctness fixes: NMEA 2000 readiness could latch false forever when the plugin was enabled or installed after the one-shot `nmea2000OutAvailable` event had already fired, silently dropping every PGN; readiness is now also seeded from the registration-time `app.isNmea2000OutAvailable` snapshot, not only the latched event. PGN 129041 (Aid to Navigation) emitted `positionReferenceFromTrueNorthFacingEdge` at ten times the correct distance, so a 9 m offset went on the wire as 90 m; the field is now passed in SI metres like its sibling geometry fields. PGN 126720 (Raymarine display brightness) emitted a field set that matched no canboat variant, so the frame was undecodable and a real Raymarine MFD ignored it; it now uses the SeaTalk1 Display Brightness variant. The AIS conversion, the only on-delta module, no longer arms a resend timer: re-broadcasting one stale target on a timer could make a dead AIS contact look live on an MFD, so AIS stays purely event-driven. The rest is non-behavioral cleanup from a multi-agent audit: dead code removed (the `JSONSchema` type, `STATIC_DATA_TIMEOUT_MS`, `ExponentialSmoother.clearKey`, and the advisor `origin` "none" member); shared helpers extracted to cut duplication (`instanceList` for per-instance option arrays with a uniform `Array.isArray` guard so a malformed config can no longer crash a conversion, `markTypeFor` and `toWaypointEntry` for the route PGNs, `starboardOffset` and `AisShipType` shared between the AIS modules, `stripSubIndex` in the plugin manager, the wind builder moved to its own `windData.ts`, and a shared `extraRows` accessor plus a memoized `ConversionCard` in the admin panel); the `ENGINE_PARAMETERS` title no longer advertises PGN 130312 (which only its sibling `EXHAUST_TEMPERATURE` emits); the admin panel's source field no longer drops keyboard focus mid-edit, and its duplicate Save control was removed; the advisor now prunes applied recommendations from its pending list, enriches only actionable recommendations, and surfaces periodic-review failures instead of swallowing them. The test suite grew from 113 to 118 with new readiness, smoothing-math, and AtoN and brightness round-trip coverage.
+The correctness fixes: NMEA 2000 readiness could latch false forever when the plugin was enabled or installed after the one-shot `nmea2000OutAvailable` event had already fired, silently dropping every PGN; readiness is now also seeded from the registration-time `app.isNmea2000OutAvailable` snapshot, not only the latched event. PGN 129041 (Aid to Navigation) emitted `positionReferenceFromTrueNorthFacingEdge` at ten times the correct distance, so a 9 m offset went on the wire as 90 m; the field is now passed in SI metres like its sibling geometry fields. PGN 126720 (Raymarine display brightness) emitted a field set that matched no canboat variant, so the frame was undecodable and a real Raymarine MFD ignored it; it now uses the SeaTalk1 Display Brightness variant. The AIS conversion, the only on-delta module, no longer arms a resend timer: re-broadcasting one stale target on a timer could make a dead AIS contact look live on an MFD, so AIS stays purely event-driven. The rest is non-behavioral cleanup: dead code removed (the `JSONSchema` type, `STATIC_DATA_TIMEOUT_MS`, `ExponentialSmoother.clearKey`, and the advisor `origin` "none" member); shared helpers extracted to cut duplication (`instanceList` for per-instance option arrays with a uniform `Array.isArray` guard so a malformed config can no longer crash a conversion, `markTypeFor` and `toWaypointEntry` for the route PGNs, `starboardOffset` and `AisShipType` shared between the AIS modules, `stripSubIndex` in the plugin manager, the wind builder moved to its own `windData.ts`, and a shared `extraRows` accessor plus a memoized `ConversionCard` in the admin panel); the `ENGINE_PARAMETERS` title no longer advertises PGN 130312 (which only its sibling `EXHAUST_TEMPERATURE` emits); the admin panel's source field no longer drops keyboard focus mid-edit, and its duplicate Save control was removed; the advisor now prunes applied recommendations from its pending list, enriches only actionable recommendations, and surfaces periodic-review failures instead of swallowing them. The test suite grew from 113 to 118 with new readiness, smoothing-math, and AtoN and brightness round-trip coverage.
 
 <a id="v168"></a>
 
-### v1.6.8 (2026/05/29) - canboat 3.20 alignment, a load-time bundling fix, and a dependency refresh
+## [1.6.8] - 2026-05-29
 
 **Maintenance release: dependencies refreshed to current (including canboat 3.20), the emitted PGNs aligned with canboat 3.20 and enriched with several Garmin-relevant fields, and a fix for a load-time failure an ESM-bundling regression could trigger. No breaking changes.**
 
-The load fix: the notification conversion imported a value (`hasValues`) from `@signalk/server-api`, which forced esbuild to bundle the entire package; under `@signalk/server-api` 2.25.0 that bundle reached a dynamic `require("events")` that throws on load ("Dynamic require of events is not supported"). The plugin now keeps `@signalk/server-api` a type-only import behind a local guard, so the package is no longer bundled: the runtime bundle dropped from about 510 KB to about 350 KB, and `@signalk/server-api` moved to devDependencies since it is compile-time only. Dependencies were refreshed (canboatjs 3.18 to 3.20, plus `@signalk/server-api`, Biome, Babel, and webpack). Reviewed against canboat 3.20's definitions, two AIS fields that had been emitting reserved-sentinel defaults are now set correctly (PGN 129038 `specialManeuverIndicator` is "Not available" and PGN 129794 `repeatIndicator` is "Initial"), and five Garmin-relevant fields the plugin already had data for are now emitted: PGN 129794 `imoNumber` (from `registrations.imo`), PGN 129029 `pdop` (from `navigation.gnss.positionDilution`), PGN 127506 `remainingCapacity` (from `capacity.remaining`), PGN 129041 `aisTransceiverInformation`, and a SID on PGNs 130313 and 130314. A correctness fix: the PGN 127505 tank instance is a 4-bit field (0 to 13), and an out-of-range mapping silently wrapped onto a different gauge (for example 20 became 4); the encoder now clamps it and the admin panel caps the input at 13. An internal `/simplify` pass added a shared `clamp()` helper that replaces four hand-rolled clamps, co-located `parseImo` beside `parseMmsi`, and removed dead code. Git hooks no longer auto-install on `npm install` (the husky `prepare` lifecycle broke the app-store install simulation on Node 22's npm 10); run `npm run hooks` once after cloning. The test suite remains 113 tests across 13 files.
+The load fix: the notification conversion imported a value (`hasValues`) from `@signalk/server-api`, which forced esbuild to bundle the entire package; under `@signalk/server-api` 2.25.0 that bundle reached a dynamic `require("events")` that throws on load ("Dynamic require of events is not supported"). The plugin now keeps `@signalk/server-api` a type-only import behind a local guard, so the package is no longer bundled: the runtime bundle dropped from about 510 KB to about 350 KB, and `@signalk/server-api` moved to devDependencies since it is compile-time only. Dependencies were refreshed (canboatjs 3.18 to 3.20, plus `@signalk/server-api`, Biome, Babel, and webpack). Reviewed against canboat 3.20's definitions, two AIS fields that had been emitting reserved-sentinel defaults are now set correctly (PGN 129038 `specialManeuverIndicator` is "Not available" and PGN 129794 `repeatIndicator` is "Initial"), and five Garmin-relevant fields the plugin already had data for are now emitted: PGN 129794 `imoNumber` (from `registrations.imo`), PGN 129029 `pdop` (from `navigation.gnss.positionDilution`), PGN 127506 `remainingCapacity` (from `capacity.remaining`), PGN 129041 `aisTransceiverInformation`, and a SID on PGNs 130313 and 130314. A correctness fix: the PGN 127505 tank instance is a 4-bit field (0 to 13), and an out-of-range mapping silently wrapped onto a different gauge (for example 20 became 4); the encoder now clamps it and the admin panel caps the input at 13. A cleanup added a shared `clamp()` helper that replaces four hand-rolled clamps, co-located `parseImo` beside `parseMmsi`, and removed dead code. Git hooks no longer auto-install on `npm install` (the husky `prepare` lifecycle broke the app-store install simulation on Node 22's npm 10); run `npm run hooks` once after cloning. The test suite remains 113 tests across 13 files.
 
 <a id="v167"></a>
 
-### v1.6.7 (2026/05/29) - App store listing, cross-platform plugin CI, and a code-simplification pass
+## [1.6.7] - 2026-05-29
 
 **Maintenance release: a richer Signal K app store listing, an official cross-platform plugin CI workflow, and an internal code-simplification pass. No on-the-wire output changes.**
 
-The Signal K app store page now shows screenshots and a "Works well with" section. `package.json` declares `signalk.screenshots` with three admin-panel captures (the conversion config panel, the Environment category, and the Config Advisor) shipped in the npm tarball, and `signalk.recommends` lists the companion plugins it pairs with: [`signalk-virtual-weather-sensors`](https://github.com/NearlCrews/signalk-virtual-weather-sensors), the source of the `environment.*` forecast paths this plugin puts on the bus, and [`signalk-openrouter-companion`](https://github.com/NearlCrews/signalk-openrouter-companion). A new `.github/workflows/plugin-ci.yml` calls the official SignalK reusable plugin-ci workflow, exercising install, build, and the full test suite on Linux x64, Linux arm64, macOS, and Windows across Node 22 and 24; the build's `clean` step was rewritten as a small Node script so it runs on Windows runners instead of a unix-only `rm`. An internal `/simplify` pass tidied the code without changing behavior: it removed the dead exported types `OutputType` and `AdvisorConfigType` and two unused `errorBuckets` fields, added a shared `emptyConversionConfig()` factory used by the admin panel and the advisor, extracted a NaN-safe `starboardOffset()` helper so the AIS static-data and AtoN paths share one guard, routed the advisor and OpenRouter client error handling through the shared `errMessage()` helper, and corrected two import paths missing their `.js` extension. The test suite remains 113 tests across 13 files.
+The Signal K app store page now shows screenshots and a "Works well with" section. `package.json` declares `signalk.screenshots` with three admin-panel captures (the conversion config panel, the Environment category, and the Config Advisor) shipped in the npm tarball, and `signalk.recommends` lists the companion plugins it pairs with: [`signalk-virtual-weather-sensors`](https://github.com/NearlCrews/signalk-virtual-weather-sensors), the source of the `environment.*` forecast paths this plugin puts on the bus, and [`signalk-openrouter-companion`](https://github.com/NearlCrews/signalk-openrouter-companion). A new `.github/workflows/plugin-ci.yml` calls the official SignalK reusable plugin-ci workflow, exercising install, build, and the full test suite on Linux x64, Linux arm64, macOS, and Windows across Node 22 and 24; the build's `clean` step was rewritten as a small Node script so it runs on Windows runners instead of a unix-only `rm`. An internal cleanup tidied the code without changing behavior: it removed the dead exported types `OutputType` and `AdvisorConfigType` and two unused `errorBuckets` fields, added a shared `emptyConversionConfig()` factory used by the admin panel and the advisor, extracted a NaN-safe `starboardOffset()` helper so the AIS static-data and AtoN paths share one guard, routed the advisor and OpenRouter client error handling through the shared `errMessage()` helper, and corrected two import paths missing their `.js` extension. The test suite remains 113 tests across 13 files.
 
 <a id="v166"></a>
 
-### v1.6.6 (2026/05/24) - Audit pass: two more clamped PGNs, hardened helpers, tighter API types
+## [1.6.6] - 2026-05-24
 
 **Bug-fix release: hardening clamps on two more PGNs, a non-string-safe `clampString`, stricter advisor response types, dead-code removal, and refreshed internal docs. No on-the-wire output changes for healthy inputs.**
 
-A three-lens multi-agent audit (plugin core, conversions, panel/advisor/tests/docs), a cross-check pass, and a follow-up code review found and fixed defects that the v1.6.5 audit did not reach. Two more PGNs gained `clampString` guards against the canboatjs 500-byte buffer overflow that signalk-server re-raises as an uncatchable process crash: PGN 129041 `atonName` (clamped to 18 chars, matching canboatjs's hardcoded per-field cap for this STRING_LAU) and PGN 127498 `vin` / `softwareId` (clamped to 17 chars per SAE J1939 / ISO 3779 and 32 chars per project convention; canboat itself declares both fields as length-prefixed with no cap). Each clamp is paired with a regression test that drives an over-long input through the encoder; the engine-static oracle uses an independent `.slice` truncation rather than calling `clampString` itself, so a regression in `clampString` shows up as a test failure instead of slipping through both producer and expected in lockstep. `clampString` itself is now hardened against non-string input: a Signal K provider that publishes a number or object where a name is expected returns `undefined` instead of crashing at `.slice`. The plugin's `getModuleVersion` hook was removed: signalk-server's plugin loader reads the version directly from `package.json` and never calls this method, and the upstream `@signalk/server-api` `Plugin` type does not declare it. `isConversionOptions` is now correctly typed against the call site (`ConversionOptions | undefined` rather than the dead `| number` branch left over from a previous wire shape). The admin-panel HTTP router now types every advisor response body through dedicated interfaces, with `AdvisorPendingResponse` separated from `AdvisorReviewResponse` so the synthetic pending payload omits `ranAt` rather than carrying an empty string the panel would mis-parse, and the QuestDB / test-key / models response types track the `Advisor` class via `Awaited<ReturnType<...>>` so they cannot drift. The panel's `useAdvisor` and `useOpenRouterModels` hooks now use the same response types as the router. Documentation drift was cleaned up: the CLAUDE.md "Notification PGNs" section now describes the actual `emitTracker` + per-entry-digest rate-limited emit gate (the prior text described a removed `cachedFlat` array) and calls out the gate's allocation profile, the engineStatic.ts inline comment now correctly identifies PGN 127498's `vin` / `softwareId` as STRING_LAU rather than STRING_FIX, the troubleshooting doc picked up an Oxford comma, and the dead `signalk: { on: () => {} }` field was removed from every test mock that carried it. The test suite remains 113 tests across 13 files.
+This release fixes defects in the plugin core, the conversions, the panel, the advisor, the tests, and the docs that v1.6.5 did not reach. Two more PGNs gained `clampString` guards against the canboatjs 500-byte buffer overflow that signalk-server re-raises as an uncatchable process crash: PGN 129041 `atonName` (clamped to 18 chars, matching canboatjs's hardcoded per-field cap for this STRING_LAU) and PGN 127498 `vin` / `softwareId` (clamped to 17 chars per SAE J1939 / ISO 3779 and 32 chars per project convention; canboat itself declares both fields as length-prefixed with no cap). Each clamp is paired with a regression test that drives an over-long input through the encoder; the engine-static oracle uses an independent `.slice` truncation rather than calling `clampString` itself, so a regression in `clampString` shows up as a test failure instead of slipping through both producer and expected in lockstep. `clampString` itself is now hardened against non-string input: a Signal K provider that publishes a number or object where a name is expected returns `undefined` instead of crashing at `.slice`. The plugin's `getModuleVersion` hook was removed: signalk-server's plugin loader reads the version directly from `package.json` and never calls this method, and the upstream `@signalk/server-api` `Plugin` type does not declare it. `isConversionOptions` is now correctly typed against the call site (`ConversionOptions | undefined` rather than the dead `| number` branch left over from a previous wire shape). The admin-panel HTTP router now types every advisor response body through dedicated interfaces, with `AdvisorPendingResponse` separated from `AdvisorReviewResponse` so the synthetic pending payload omits `ranAt` rather than carrying an empty string the panel would mis-parse, and the QuestDB / test-key / models response types track the `Advisor` class via `Awaited<ReturnType<...>>` so they cannot drift. The panel's `useAdvisor` and `useOpenRouterModels` hooks now use the same response types as the router. Documentation drift was cleaned up: the CLAUDE.md "Notification PGNs" section now describes the actual `emitTracker` + per-entry-digest rate-limited emit gate (the prior text described a removed `cachedFlat` array) and calls out the gate's allocation profile, the engineStatic.ts inline comment now correctly identifies PGN 127498's `vin` / `softwareId` as STRING_LAU rather than STRING_FIX, the troubleshooting doc picked up an Oxford comma, and the dead `signalk: { on: () => {} }` field was removed from every test mock that carried it. The test suite remains 113 tests across 13 files.
 
 <a id="v165"></a>
 
-### v1.6.5 (2026/05/21) - Config panel loads on every Signal K 2.x server
+## [1.6.5] - 2026-05-21
 
-**Bug-fix release: the admin config panel works again on Signal K servers older than 2.27.0, plus a batch of audit and PGN-alignment fixes.**
+**Bug-fix release: the admin config panel works again on Signal K servers older than 2.27.0, plus a batch of correctness and PGN-alignment fixes.**
 
-Since v1.5.4 the configuration panel shipped as an ESM Module Federation remote, which only the Signal K admin UI bundled with signalk-server 2.27.0 and newer can load; every older server showed a bare "Error loading component" with no settings page while the conversions still ran. The panel is now built as a classic container that loads on every signalk-server 2.x. A multi-agent audit fixed further defects: PGN 129284 kept its perpendicular-crossed and arrival-circle flags raised for up to a minute after a notification cleared; the NMEA 2000 emit path logged errors without the per-key throttle, so one bad PGN could flood the server log; and the Config Advisor consumed its OpenRouter daily budget on failed calls, sent its apply request without session credentials, and never retried a failed model-list fetch. Two conversions mis-encoded PGNs because they used enum strings absent from the canboat lookup tables: a "fault" transmission gear (PGN 127493) and several DSC call formats (PGN 129808). In the admin panel, expanding a disabled conversion card now shows its options so a source or resend can be set before enabling. The dev toolchain was updated to current releases; the test suite remains 113 tests across 13 files.
+Since v1.5.4 the configuration panel shipped as an ESM Module Federation remote, which only the Signal K admin UI bundled with signalk-server 2.27.0 and newer can load; every older server showed a bare "Error loading component" with no settings page while the conversions still ran. The panel is now built as a classic container that loads on every signalk-server 2.x. Further defects are fixed: PGN 129284 kept its perpendicular-crossed and arrival-circle flags raised for up to a minute after a notification cleared; the NMEA 2000 emit path logged errors without the per-key throttle, so one bad PGN could flood the server log; and the Config Advisor consumed its OpenRouter daily budget on failed calls, sent its apply request without session credentials, and never retried a failed model-list fetch. Two conversions mis-encoded PGNs because they used enum strings absent from the canboat lookup tables: a "fault" transmission gear (PGN 127493) and several DSC call formats (PGN 129808). In the admin panel, expanding a disabled conversion card now shows its options so a source or resend can be set before enabling. The dev toolchain was updated to current releases; the test suite remains 113 tests across 13 files.
 
 <a id="v164"></a>
 
-### v1.6.4 (2026/05/19) - Thirteen bug fixes across conversions, lifecycle, and the panel
+## [1.6.4] - 2026-05-19
 
-**Bug-fix release: a multi-agent audit found and fixed thirteen code and logic bugs.**
+**Bug-fix release: thirteen code and logic bugs fixed across conversions, lifecycle, the advisor, and the panel.**
 
 Two affected data on the wire. Water Depth (PGN 128267) encoded its transducer `offset` with the sign inverted on both the surface and keel branches, so a chartplotter computed depth below the surface or keel from the wrong datum. The Raymarine alarms conversion crashed its callback on a cleared notification (Signal K sends `value: null`), so those alarms never cleared and the failure flooded the log. The plugin lifecycle had two leaks: the delta input handler was re-registered on every restart with no way to unregister it, pinning every retired manager in memory, and a resend timer armed by an in-flight `processOutput` could survive a concurrent `stop()`. A nested config carrying an `ENGINE_STATIC` entry with no `extras` threw during migration and stopped the plugin from starting. The remaining fixes harden the Config Advisor (model-list fetch timeout, NaN review interval, QuestDB lookback validation, accurate recommendation text) and the admin panel: it now adopts a config the advisor wrote server-side, keeps a stale `$source` value selectable, and clears stale Approve/Reject choices between reviews. The GNSS satellites PGN now reports a satellite count that always matches the list it emits.
 
 <a id="v163"></a>
 
-### v1.6.3 (2026/05/16) - Advisor reads nested configs correctly
+## [1.6.3] - 2026-05-16
 
 **Bug fix: the Config Advisor no longer wipes settings when the saved config is nested.**
 
@@ -68,7 +81,7 @@ A historical save bug could wrap the plugin's saved options under repeated `conf
 
 <a id="v162"></a>
 
-### v1.6.2 (2026/05/16) - Disabled buttons look disabled
+## [1.6.2] - 2026-05-16
 
 **Bug fix: a disabled button now visibly greys out.**
 
@@ -76,7 +89,7 @@ The admin panel's buttons set their background as an inline style, which outrank
 
 <a id="v161"></a>
 
-### v1.6.1 (2026/05/16) - Dark mode, collapsible panels, and advisor refinements
+## [1.6.1] - 2026-05-16
 
 **The admin panel now supports the Signal K admin's dark theme.**
 
@@ -96,7 +109,7 @@ A new "Apply recommended enables automatically" setting controls review behavior
 
 <a id="v160"></a>
 
-### v1.6.0 (2026/05/16) - Config Advisor
+## [1.6.0] - 2026-05-16
 
 **New feature: the Config Advisor.**
 
@@ -116,7 +129,7 @@ An opt-in conversion bridges the synthetic apparent wind that `signalk-virtual-w
 
 <a id="v157"></a>
 
-### v1.5.7 (2026/05/16) - Notification crash fix and string-field clamping
+## [1.5.7] - 2026-05-16
 
 **Bug fix: an over-long notification message no longer crashes signalk-server.**
 
@@ -126,7 +139,9 @@ A Signal K notification with a long `message` (for example a multi-sentence anal
 
 `nominal` is a valid Signal K notification state meaning "no alert", but it was unhandled: the notification conversion emitted it as a "Caution" alert and the Raymarine alarm conversion (PGN 65288) encoded it as an active alarm condition. Both now treat `nominal` like `normal`, clearing the alert and emitting no PGN.
 
-### v1.5.6 (2026/05/15) - Admin panel polish and NMEA 2000 brand spacing
+<a id="v156"></a>
+
+## [1.5.6] - 2026-05-15
 
 **Brand: "NMEA 2000" is now spelled with a space everywhere.**
 
@@ -140,7 +155,9 @@ A conversion whose PGN has a more modern replacement now carries a "Legacy" badg
 
 Each PGN number in a conversion card's title is now individually hoverable and shows a one-line plain-language summary of what that message carries, verified against canboat's PGN definitions. A build-time test guards against a conversion introducing a PGN with no summary. Test count is now 57.
 
-### v1.5.5 (2026/05/15) - Garmin recognition and PGN 126464 correctness
+<a id="v155"></a>
+
+## [1.5.5] - 2026-05-15
 
 **Bug fix: PGN 126464 (Transmit/Receive PGN List) is now actually delivered.**
 
@@ -186,7 +203,9 @@ The federated config panel gained Garmin compatibility badges per conversion car
 - 126464 is now emitted as a Fast Packet message every 300 s plus on every ISO Request from a peer.
 - 56 of 56 tests pass; typecheck and biome clean; both esbuild and webpack panel builds clean.
 
-### v1.5.4 (2026/05/12) - Notifications ping-pong fix and bus-rate throttle
+<a id="v154"></a>
+
+## [1.5.4] - 2026-05-12
 
 **Bug fix: ping-pong loop with signalk-server's notifications API**
 
@@ -212,7 +231,9 @@ signalk-schema's `getSourceId(source)` appends the literal string `.XX` to the s
 
 **Verification**: live-tested against a synthetic notification probe on signalk-server v2.x. Pre-fix: 48 round-trips/sec, 97 PGN/s on the wire while one alert active. Post-fix: 0 round-trips, 2 PGN/s on the wire (1 Hz per alert as designed). Idle (no active alerts): 0 PGN/s. 52/52 tests pass, typecheck / biome / build clean. Bundle 464 KB (was 466 KB).
 
-### v1.5.3 (2026/05/12) - Post-save lifecycle fix
+<a id="v153"></a>
+
+## [1.5.3] - 2026-05-12
 
 **Bug fix: plugin stuck on "Waiting for NMEA 2000 output" after every Save**
 
@@ -229,7 +250,9 @@ Fix: the plugin's factory closure (which outlives PluginManager instances) insta
 
 **Verification**: 5 rapid back-to-back saves all recover correctly (was: all stuck). 52/52 tests pass, typecheck / biome / build clean. Bundle unchanged (~466 KB).
 
-### v1.5.2 (2026/05/12) - React Config Panel
+<a id="v152"></a>
+
+## [1.5.2] - 2026-05-12
 
 The hand-rolled JSON-Schema admin UI is replaced with a federated React panel built on webpack 5 Module Federation. The plugin keeps its esbuild runtime bundle untouched; the panel is a second build target that produces `public/remoteEntry.js` plus chunked `public/*.mjs`. The config payload moves from a flat shape to a nested `conversions: { KEY: { enabled, resend, sources, extras } }` shape with a load-time migration from v1.4.x, so existing installs upgrade transparently. The migration is backwards-compatible at load: downgrading back to v1.4.4 keeps the original `plugin-config.json` intact if no save has occurred under v1.5.2. No wire-level (PGN) changes.
 
@@ -309,7 +332,9 @@ The hand-rolled JSON-Schema admin UI is replaced with a federated React panel bu
 
 **Verification**: `npm run typecheck` clean (root + panel tsconfigs), `npm test` 52/52 pass, `npm run check` (Biome) clean, `npm run build` clean (esbuild plugin bundle 466 KB + webpack federation panel total 54 KiB). No em dashes in source or docs.
 
-### v1.4.4 (2026/05/12) - Plugin Restart Lifecycle Fix and Supply Chain Hygiene
+<a id="v144"></a>
+
+## [1.4.4] - 2026-05-12
 
 **Bug fix: plugin permanently stuck after restart (Issue #5)**
 
@@ -333,9 +358,11 @@ Two underlying causes addressed in `src/plugin-manager.ts`:
 
 **Verification**: `npm run typecheck` clean, `npm test` 21/21 pass, `npm run check` (Biome) clean, `npm run build` 340.3 KB. No em dashes in new content.
 
-### v1.4.3 (2026/05/12) - Notification PGN Correctness and Repo Hygiene
+<a id="v143"></a>
 
-A read-only Signal K agent scan surfaced gaps in the notification PGN family (126983/126985) and a handful of secondary issues across the conversion modules. This release fixes the actionable findings; PGN 126984 (inbound Alert Response) is intentionally deferred because the typed Signal K server API does not expose an inbound NMEA 2000 hook, so closing the alert-acknowledgement round-trip needs a separate design pass.
+## [1.4.3] - 2026-05-12
+
+This release closes gaps in the notification PGN family (126983/126985) and a handful of secondary issues across the conversion modules. This release fixes the actionable findings; PGN 126984 (inbound Alert Response) is intentionally deferred because the typed Signal K server API does not expose an inbound NMEA 2000 hook, so closing the alert-acknowledgement round-trip needs a separate design pass.
 
 **Notification PGNs 126983 / 126985 (`src/conversions/notifications.ts`)**:
 - `alertCategory` is now derived from the Signal K path instead of hardcoded to "Technical". Path prefixes `notifications.mob`, `notifications.navigation`, `notifications.anchor`, `notifications.arrival`, and `notifications.gnss` route to "Navigational" so Garmin and B&G chartplotters surface them on the chart screen instead of the alarm-list tab. Everything else still falls through to "Technical".
@@ -366,7 +393,7 @@ A read-only Signal K agent scan surfaced gaps in the notification PGN family (12
 
 **Repo hygiene (no source changes)**:
 - Apache 2.0 LICENSE appendix filled in (Copyright 2026 Nearl Crews); the boilerplate `{yyyy} {name}` placeholders are no longer in the published license.
-- `.gitignore` hardened: broader `.env.*` coverage with `!.env.example` exception, `.npmrc` ignored (can hold publish auth tokens), key/cert patterns (`*.pem`, `*.key`, `*.crt`, `*.cer`, `*.p12`, `*.pfx`, `id_rsa*`, `id_ed25519*`), generic secrets (`secrets/`, `secrets.json`, `credentials.json`, `*.secret(s)`, `*.credentials`), and local agent state (`.claude/`, `.remember/`).
+- `.gitignore` hardened: broader `.env.*` coverage with `!.env.example` exception, `.npmrc` ignored (can hold publish auth tokens), key/cert patterns (`*.pem`, `*.key`, `*.crt`, `*.cer`, `*.p12`, `*.pfx`, `id_rsa*`, `id_ed25519*`), generic secrets (`secrets/`, `secrets.json`, `credentials.json`, `*.secret(s)`, `*.credentials`), and local tooling state (`.claude/`, `.remember/`).
 - `SECURITY.md` supported-versions table refreshed to 1.4.x.
 - Community health: added `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1, link-only to avoid duplicating the full text in-repo), `.github/CODEOWNERS`, and `.github/ISSUE_TEMPLATE/config.yml` that disables blank issues and routes questions to Discussions and security reports to Security Advisories.
 - Issue templates converted from markdown to structured YAML issue forms with required fields.
@@ -384,9 +411,11 @@ A read-only Signal K agent scan surfaced gaps in the notification PGN family (12
 
 **Verification**: `npm run typecheck` clean, `npm test` 21/21 pass, `npm run check` (Biome) clean, `npm run build` 340.1 KB. No em dashes in source.
 
-### v1.4.2 (2026/05/11) - Admin UI, Status Lifecycle, and Error Throttling
+<a id="v142"></a>
 
-A four-expert team review of the plugin's user-visible surfaces (admin schema, plugin status messages, conversion module titles) followed by a three-lane simplify pass (reuse, quality, efficiency). All 47 source files touched; behaviour changes are additive and conservative.
+## [1.4.2] - 2026-05-11
+
+A rework of the plugin's user-visible surfaces: the admin schema, the plugin status messages, and the conversion module titles. All 47 source files were touched; behavior changes are additive and conservative.
 
 **Admin UI (`src/schema.ts`)**:
 - Top-level title and description rewritten; brand normalized to "NMEA 2000" (was "NMEA2000") across every title, description, status string, and comment.
@@ -419,9 +448,11 @@ A four-expert team review of the plugin's user-visible surfaces (admin schema, p
 
 **Verification**: `npm run typecheck` clean, `npm test` 21/21 pass, `npm run build` 337.8 KB clean. No em dashes in source.
 
-### v1.4.0 (2026/05/10) - Multi-agent Compliance Review, Fix Pass, and Simplify Pass
+<a id="v140"></a>
 
-A four-expert Signal K compliance review surfaced about thirty findings spanning lifecycle, conversions, schema, types, and utilities. A six-agent fix team then resolved them, followed by a four-lane simplify pass (reuse, quality, efficiency, Signal K compliance) that caught two BLOCKER regressions introduced during the fix pass.
+## [1.4.0] - 2026-05-10
+
+This release resolves about thirty findings spanning lifecycle, conversions, schema, types, and utilities, including two blocker regressions introduced and caught during the fix work itself.
 
 **Wire-level correctness (PGN encoding bugs)**:
 - `magneticVariance.ts`: `ageOfService` now treats the SK value as Unix epoch seconds (the canonical spec interpretation: "seconds since 1 Jan 1970 that the variation calculation was made"), not as a delta. Previously the fix pass mis-interpreted it as "seconds since last update" and produced a 1970 date on the wire.
@@ -488,7 +519,9 @@ A four-expert Signal K compliance review surfaced about thirty findings spanning
 - Conversions with no Signal K source for their path are inert. They cost a little startup work but otherwise do nothing. If you know a path will not be published on your boat (for example, your hardware has no rate-of-turn sensor), disable the conversion to keep the admin UI honest.
 - The v1.4.0 schema renamed the `MAGNETIC_VARIANCE` source-filter propname from `navigationmagneticVariance` (pre-v1.4.0 typo) to `navigationmagneticVariation` (canonical Signal K path). Configurations saved against the old name carry a stale key that no schema-driven UI control writes to. Delete the stale `navigationmagneticVariance` key from `~/.signalk/plugin-config-data/signalk-nmea2000-emitter-cannon.json` and re-save through the admin UI if needed.
 
-### v1.3.2 (2026/05/09) - Full-Codebase Simplify Pass and CI Publish
+<a id="v132"></a>
+
+## [1.3.2] - 2026-05-09
 
 **Schema correctness (admin UI / config persistence)**:
 - `src/schema.ts` GNSS DOPs entry: typo `navigationgnsstitimeDilution` corrected to `navigationgnsstimeDilution`. Source-filter for `navigation.gnss.timeDilution` was silently inert because the schema key never matched the runtime `pathToPropName` output.
@@ -541,7 +574,9 @@ A four-expert Signal K compliance review surfaced about thirty findings spanning
 
 ---
 
-### v1.3.1 (2026/05/08) - Spec 1.8.2 Compliance and Wire-Output Corrections
+<a id="v131"></a>
+
+## [1.3.1] - 2026-05-08
 
 **NMEA 2000 wire-output corrections (real bugs on the wire)**:
 - PGN 127489 / 127488 engine pressures: `oilPressure`, `coolantPressure`, `fuelPressure`, and `boostPressure` were divided by 100 before being passed to canboatjs. Pa is the spec unit and the encoder applies `Resolution` internally, so a real Garmin saw a 102733 Pa Signal K input as 1000 Pa on the wire. The companion conversions `pressure.ts`, `environmentParameters.ts`, and `seaTemp.ts` already passed Pa unmodified. Embedded test expected values updated to the correct round-trip (`oilPressure: 102700`, `coolantPressure: 202100`, `fuelPressure: 11111000`, `boostPressure: 20300`).
@@ -577,7 +612,9 @@ A four-expert Signal K compliance review surfaced about thirty findings spanning
 
 ---
 
-### v1.3.0 (2026/05/05) - Bus Correctness, Hot-Path Cleanup, Toolchain Modernization
+<a id="v130"></a>
+
+## [1.3.0] - 2026-05-05
 
 **NMEA 2000 Bus Correctness (real bugs on the wire)**:
 - AIS PGNs 129039, 129040, 129798: position guard used `!position.latitude || !position.longitude`, which rejects vessels exactly on the equator (latitude 0) or the prime meridian (longitude 0). Switched to `isValidNumber` so a legitimate `0` passes through. Same class of bug fixed in `routeWaypoint`/`routeWpList` in v1.2.5.
@@ -618,7 +655,7 @@ A four-expert Signal K compliance review surfaced about thirty findings spanning
 - `aisExtended.ts`: `shipType?.name || "Sailing"` switched to `??` (an empty-string ship type name no longer silently becomes "Sailing").
 - `aisExtended.ts`: removed redundant `const pos = position as Position` aliases at the three position-PGN call sites.
 
-**Toolchain & dependencies**:
+**Toolchain and dependencies**:
 - TypeScript bumped 5.9 to 6.0. `tsconfig.json`: removed unused `baseUrl` and `paths` (no `@/...` imports in the codebase); added `"types": ["node"]` because TypeScript 6 changed the default to `[]`, which dropped `@types/node` from auto-include and broke `NodeJS.Timeout` references.
 - esbuild bumped 0.27 to 0.28. Bundle output is byte-identical.
 - lint-staged bumped 15 to 16. No config changes required.
@@ -631,7 +668,9 @@ A four-expert Signal K compliance review surfaced about thirty findings spanning
 
 ---
 
-### v1.2.5 (2026/05/03) - Codebase Simplification and Documentation Accuracy
+<a id="v125"></a>
+
+## [1.2.5] - 2026-05-03
 
 **NMEA 2000 Bus Correctness**:
 - PGN 126983/126985 notifications: restored the `source: { label: plugin.id, type: "plugin" }`
@@ -639,7 +678,7 @@ A four-expert Signal K compliance review surfaced about thirty findings spanning
   Signal K schema compliance and silently dropped during a later refactor;
   schema-strict consumers could reject the malformed delta.
 - PGN 126464 transmit-PGN list no longer advertises 128275 (Distance Log) or
-  129033 (Time & Date). The plugin has no module that emits them, so any
+  129033 (Time and Date). The plugin has no module that emits them, so any
   receiver requesting these PGNs got nothing.
 
 **Validation hardening (NaN/Infinity rejection)**:
@@ -691,7 +730,9 @@ A four-expert Signal K compliance review surfaced about thirty findings spanning
 - Bundle size reference updated from ~207 KB to ~211 KB.
 - CLAUDE.md PGN count corrected (57 → 53).
 
-### v1.2.4 (2026/04/19) - Humidity Path Compatibility
+<a id="v124"></a>
+
+## [1.2.4] - 2026-04-19
 
 - PGN 130313 outside humidity now subscribes to both
   `environment.outside.relativeHumidity` and `environment.outside.humidity`.
@@ -701,7 +742,9 @@ A four-expert Signal K compliance review surfaced about thirty findings spanning
   so the Garmin showed no reading. `relativeHumidity` still wins when both
   are present. Inside humidity is unchanged (no sibling `.humidity` path).
 
-### v1.2.3 (2026/04/19) - Bus Correctness, Lifecycle Hardening, Type Safety
+<a id="v123"></a>
+
+## [1.2.3] - 2026-04-19
 
 **NMEA 2000 Bus Correctness (wrong data on the wire, fix first)**:
 - PGN 127245 rudder `directionOrder` now emits the canboat enum values
@@ -781,7 +824,7 @@ A four-expert Signal K compliance review surfaced about thirty findings spanning
 - Replaced `isFunction` (from es-toolkit, erases to `any`) with
   `typeof x === "function"`: TypeScript narrows properly.
 
-**Test & Build Hardening**:
+**Test and Build Hardening**:
 - Coverage thresholds wired into `vitest.config.ts`
   (statements 70, branches 55, functions 80, lines 70) so PRs can't
   silently tank coverage.
@@ -806,7 +849,9 @@ A four-expert Signal K compliance review surfaced about thirty findings spanning
 
 ---
 
-### v1.2.2 (2026/04/18) - Schema Fix, Resend Correctness, Type Tightening
+<a id="v122"></a>
+
+## [1.2.2] - 2026-04-18
 
 **Critical Bug Fixes**:
 - Fixed temperature schema generation: 20 of 22 temperature optionKeys (engine room, cabin, refrigerator, freezer, dewpoint, wind chill, heat index, and the PGN-130316 variants of every source) were unreachable from the Signal K admin UI. Schema entries are now generated from the same temperatures table the conversions use.
@@ -817,12 +862,12 @@ A four-expert Signal K compliance review surfaced about thirty findings spanning
 - `ExponentialSmoother` instances self-register; smoother state is cleared on plugin stop so smoothed values don't carry across restart.
 - Centralized callback error handling in `PluginManager.invokeCallback()`.
 
-**Type & Code Quality**:
+**Type and Code Quality**:
 - Tightened `ConversionModule<any>` to `ConversionModule<unknown[]>` at the registry boundary; `ConversionCallback` is now a method-style declaration so narrow modules type-check under the unknown umbrella without `any` casts.
 - Replaced default-value priority/SID literals with named constants in temperature, timeToMark, and bearingDistanceBetweenMarks.
 - Re-enabled biome rules `noExplicitAny` and `noApproximativeNumericConstant`.
 
-**Tooling & Release**:
+**Tooling and Release**:
 - Added `@vitest/coverage-v8`; `npm run test:coverage` now works.
 - Replaced `github-create-release` with `gh release create` in the release script.
 - Guarded the release script against silently re-tagging existing versions.
@@ -841,7 +886,9 @@ A four-expert Signal K compliance review surfaced about thirty findings spanning
 
 ---
 
-### v1.2.1 (2026/04/18) - Global Resend Interval
+<a id="v121"></a>
+
+## [1.2.1] - 2026-04-18
 
 **Configuration Simplification**:
 - Added top-level `globalResendInterval` setting (default 5s) that controls resend frequency for all conversions
@@ -850,7 +897,9 @@ A four-expert Signal K compliance review surfaced about thirty findings spanning
 
 ---
 
-### v1.2.0 (2026/04/08) - Codebase Simplification & Bug Fixes
+<a id="v120"></a>
+
+## [1.2.0] - 2026-04-08
 
 **Critical Bug Fixes**:
 - Fixed duplicate `design.draft` entry in AIS `staticKeys` that corrupted positional argument mapping for `fromBow` and `imo` fields
@@ -873,7 +922,7 @@ A four-expert Signal K compliance review surfaced about thirty findings spanning
 - Extracted shared `createWindTrueConversion()` factory for `windTrueWater` and `windTrueGround`
 - Added `normalizeAngle()` utility to consolidate triplicated wind angle normalization
 
-**Consistency & Cleanup**:
+**Consistency and Cleanup**:
 - Replaced `es-toolkit` `isUndefined` import in `depth.ts` with local utilities
 - Added `isValidNumber` guards (rejects NaN/Infinity) to 8 conversion modules
 - Replaced magic numbers with constants (`N2K_SID_ZERO`, `N2K_DEFAULT_INSTANCE`, `N2K_BROADCAST_DST`, `N2K_DEFAULT_SID`) across 8 modules
@@ -897,9 +946,11 @@ A four-expert Signal K compliance review surfaced about thirty findings spanning
 
 ---
 
-### v1.1.0 (2026/01/20) - Code Quality & Developer Experience
+<a id="v110"></a>
 
-**Constants & Code Consistency**:
+## [1.1.0] - 2026-01-20
+
+**Constants and Code Consistency**:
 - Introduced centralized constants (`N2K_DEFAULT_PRIORITY`, `N2K_BROADCAST_DST`, `N2K_DEFAULT_SID`) used across all 45 conversion modules
 - Eliminated hardcoded magic numbers throughout the codebase
 - Improved code maintainability and consistency
@@ -951,7 +1002,9 @@ A four-expert Signal K compliance review surfaced about thirty findings spanning
 
 ---
 
-### v1.0.1 (2025/10/11) - Repository Best Practices Update
+<a id="v101"></a>
+
+## [1.0.1] - 2025-10-11
 
 **GitHub Community Files**:
 - Added CONTRIBUTING.md with comprehensive contribution guidelines
@@ -969,7 +1022,9 @@ This release improves contributor experience and aligns with open source best pr
 
 ---
 
-### v1.0.0 (2025/10/11) - Initial Release as Signal K NMEA 2000 Emitter Cannon
+<a id="v100"></a>
+
+## [1.0.0] - 2025-10-11
 
 **Project Renamed**: Formerly known as sk-n2k-emitter, now released as signalk-nmea2000-emitter-cannon v1.0.0
 
@@ -986,21 +1041,21 @@ This is a mature Signal K NMEA 2000 plugin with 92% Garmin PGN coverage, built o
 - **Advanced type definitions** - Comprehensive Signal K and NMEA 2000 type system
 
 **Garmin PGN Specification Alignment (92% Coverage)**:
-- **Navigation & Positioning** (15+ PGNs): GPS, GNSS, AIS, waypoints, routes, cross-track error
-  - PGN 129026 (COG & SOG), 129029 (GNSS Position), 129285 (Route/Waypoint Info)
+- **Navigation and Positioning** (15+ PGNs): GPS, GNSS, AIS, waypoints, routes, cross-track error
+  - PGN 129026 (COG and SOG), 129029 (GNSS Position), 129285 (Route/Waypoint Info)
   - PGN 129301 (Time to/from Mark), 129302 (Bearing/Distance Between Marks)
   - PGN 129539 (GNSS DOPs), 129540 (GNSS Satellites in View), 130074 (Route WP List)
   - PGN 130577 (Direction Data), AIS Class A/B/SAR/AtoN (129038-129041, 129798, 129802)
-- **Engine & Propulsion** (8+ PGNs): Parameters, transmission, static data, small craft status
+- **Engine and Propulsion** (8+ PGNs): Parameters, transmission, static data, small craft status
   - PGN 127245 (Rudder), 127488 (Engine Rapid Update), 127489 (Engine Dynamic)
   - PGN 127493 (Transmission Parameters), 127498 (Engine Static), 130576 (Small Craft Status)
 - **Environmental** (10+ PGNs): Wind variants, temperature, pressure, humidity, sea conditions
   - PGN 130306/130310/130313/130314 (Wind variants), 130310 (Sea/Air Temperature)
   - PGN 130311 (Atmospheric Pressure), 130313/130314 (Humidity), 128267 (Depth)
-- **Safety & Communications** (12+ PGNs): Alerts, notifications, DSC calls, radio
+- **Safety and Communications** (12+ PGNs): Alerts, notifications, DSC calls, radio
   - PGN 126983/126985 (Alerts), 129799 (Radio Frequency), 129808 (DSC Calls)
   - PGN 126464 (PGN List), 126996 (Product Information)
-- **Battery & Power** (4+ PGNs): Battery status, solar chargers, DC detailed status
+- **Battery and Power** (4+ PGNs): Battery status, solar chargers, DC detailed status
   - PGN 127506 (DC Detailed Status), 127508 (Battery Status)
 - **Vessel Systems** (8+ PGNs): Tanks, attitude, system time, magnetic variance
   - PGN 127251 (Rate of Turn), 127252 (Heave), 127257 (Attitude), 127258 (Magnetic Variance)
@@ -1014,7 +1069,7 @@ This is a mature Signal K NMEA 2000 plugin with 92% Garmin PGN coverage, built o
 - **PGN List Format**: Changed PGN 126464 format to array of objects with `pgn` properties
 - **Removed ISO Messages**: Deleted PGNs 59392, 59904, 60928 (not in Garmin spec)
 
-**Performance & Dependencies**:
+**Performance and Dependencies**:
 - **RxJS Integration** - Replaced BaconJS with RxJS for better TypeScript support and reactive streams
 - **ES Toolkit** - Replaced Lodash with ES Toolkit for 2-3x performance improvement
 - **esbuild Optimization** - Fast compilation producing 200kb+ optimized bundle
@@ -1051,7 +1106,7 @@ This is a mature Signal K NMEA 2000 plugin with 92% Garmin PGN coverage, built o
 - **Multi-PGN Support** - Advanced patterns for complex conversions (battery, GPS, AIS)
 - **Simple Pattern Architecture** - Reliable patterns avoiding timeout issues
 
-**Testing & Validation**:
+**Testing and Validation**:
 - **190+ Test Cases**: Comprehensive test coverage for all PGN conversions
 - **CANboat Integration**: Full compatibility with canboatjs v3.11.0
 - **Edge Case Coverage**: Robust handling of null values and boundary conditions

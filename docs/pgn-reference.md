@@ -4,7 +4,7 @@
 the 126464 transmit list. All PGNs are aligned with Garmin specifications
 (corrected priorities, SID fields, field names, reference enums).
 
-## Navigation & Positioning
+## Navigation and Positioning
 
 | PGN | Description | Module |
 |--------|-------------|--------|
@@ -18,14 +18,14 @@ the 126464 transmit list. All PGNs are aligned with Garmin specifications
 | 128259 | Speed Through Water | `speed.ts` |
 | 128267 | Water Depth | `depth.ts` |
 | 129025 | Position (lat/lon) | `gps.ts` |
-| 129026 | COG & SOG Rapid Update | `cogSOG.ts` |
+| 129026 | COG and SOG Rapid Update | `cogSOG.ts` |
 | 129029 | GNSS Position Data | `gps.ts` |
 | 129283 | Cross Track Error | `navigationData.ts` |
 | 129284 | Navigation Data (waypoint) | `navigationData.ts` |
 | 129285 | Route/Waypoint Information | `routeWaypoint.ts` |
-| 129291 | Set & Drift | `setdrift.ts` |
+| 129291 | Set and Drift | `setdrift.ts` |
 | 129301 | Time to/from Mark | `timeToMark.ts` |
-| 129302 | Bearing & Distance Between Marks | `bearingDistanceBetweenMarks.ts` |
+| 129302 | Bearing and Distance Between Marks | `bearingDistanceBetweenMarks.ts` |
 | 129539 | GNSS DOPs | `gnssData.ts` |
 | 129540 | GNSS Satellites in View | `gnssData.ts` |
 | 130074 | Route WP List | `routeWpList.ts` |
@@ -39,7 +39,7 @@ the 126464 transmit list. All PGNs are aligned with Garmin specifications
 | 129039 | Class B Position Report | `aisExtended.ts` |
 | 129040 | Class B Extended Position Report | `aisExtended.ts` |
 | 129041 | AtoN (Aids to Navigation) | `ais.ts` |
-| 129794 | Static & Voyage Data | `ais.ts` |
+| 129794 | Static and Voyage Data | `ais.ts` |
 | 129798 | SAR Aircraft Position | `aisExtended.ts` |
 | 129802 | Safety Related Broadcast (regulated transmission, see note below) | `aisExtended.ts` |
 
@@ -52,7 +52,7 @@ the 126464 transmit list. All PGNs are aligned with Garmin specifications
 > publishing `communication.ais.safetyMessage` and a self MMSI on the vessel
 > before any PGN 129802 frame is emitted.
 
-## Engine & Propulsion
+## Engine and Propulsion
 
 | PGN | Description | Module |
 |--------|-------------|--------|
@@ -99,7 +99,7 @@ data browser read PGN 127506 for state-of-charge, state-of-health, and
 time-remaining. Leave both enabled unless a downstream display reacts badly to
 one of them.
 
-## Safety & Communications
+## Safety and Communications
 
 | PGN | Description | Module |
 |--------|-------------|--------|

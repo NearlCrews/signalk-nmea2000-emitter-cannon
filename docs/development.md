@@ -77,13 +77,16 @@ src/
 │   ├── plugin.ts         # ConversionModule, SubConversionModule, plugin types
 │   └── index.ts          # Re-exports
 ├── utils/
-│   ├── pathUtils.ts      # Signal K path utilities
-│   ├── messageUtils.ts   # NMEA 2000 message utilities
-│   ├── dateUtils.ts      # Date/time conversions
-│   ├── errorUtils.ts     # errMessage() coercion helper
-│   ├── validation.ts     # Input validation (NaN/Infinity checks)
-│   ├── smoothing.ts      # Exponential smoothing for sensor data
-│   └── debugUtils.ts     # Debug-flag check
+│   ├── pathUtils.ts          # Signal K path utilities
+│   ├── messageUtils.ts       # NMEA 2000 message utilities
+│   ├── dateUtils.ts          # Date/time conversions
+│   ├── errorUtils.ts         # errMessage() coercion helper
+│   ├── validation.ts         # Input validation (NaN/Infinity checks)
+│   ├── smoothing.ts          # Exponential smoothing for sensor data
+│   ├── debugUtils.ts         # Debug-flag check
+│   ├── aisUtils.ts           # AIS helpers: starboardOffset, parseMmsi, parseImo, AisShipType, string-length caps
+│   ├── pgnUtils.ts           # extractPgnsFromTitle, splitPgnTitle (shared by conversions and panel)
+│   └── notificationUtils.ts  # isClearState: true for non-alert SK states (normal, nominal)
 ├── conversions/          # 46 PGN conversion modules
 │   ├── index.ts          # Module loader / registry
 │   ├── routeTypes.ts     # Shared Position/Waypoint types
@@ -91,7 +94,7 @@ src/
 │   ├── depth.ts          # Depth conversion
 │   ├── battery.ts        # Battery status conversion
 │   └── ...               # 43 more conversions
-└── test/                 # Vitest test suites (118 tests, 13 files)
+└── test/                 # Vitest test suites (141 tests, 13 files)
     ├── index.test.ts          # All conversion-module test cases (round-trip via canboatjs)
     ├── advisor.test.ts        # Config Advisor: recommender, inventory, QuestDB/OpenRouter, orchestrator
     ├── advisor-config.test.ts # Advisor config defaults vs schema
@@ -115,6 +118,7 @@ tsconfig.test.json        # TypeScript config for the src/test/ suite
 .github/
 └── workflows/
     ├── ci.yml            # GitHub Actions CI pipeline (lint, typecheck, test, build)
+    ├── plugin-ci.yml     # Official SignalK reusable plugin-ci workflow (cross-platform)
     └── publish.yml       # Auto-publish to npm on GitHub release (with provenance)
 ```
 
@@ -122,7 +126,7 @@ tsconfig.test.json        # TypeScript config for the src/test/ suite
 
 All conversion modules include embedded test cases that validate correct PGN
 message format, CanboatJS encoding/decoding compatibility, Signal K data path
-mapping, and edge case handling. The full suite is 118 tests across 13 files.
+mapping, and edge case handling. The full suite is 141 tests across 13 files.
 
 `npm run typecheck` runs three `tsc` passes: the plugin runtime
 (`tsconfig.json`, which excludes test files), the React panel

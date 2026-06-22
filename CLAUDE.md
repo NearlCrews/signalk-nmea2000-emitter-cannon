@@ -22,7 +22,7 @@ The `package.json` `description` is the npm subtitle and search snippet: keep it
 
 ### Release notes rule
 
-`README.md` has a single **What's New in vX.Y.Z** section, placed right after the intro paragraph and before Features. It carries ONLY the most recent release and is overwritten on every release (never an accumulating list). Its body is a 2-4 sentence prose summary sourced from the new `CHANGELOG.md` entry's lead paragraph, ending with links to the CHANGELOG version anchor and the GitHub release tag. Overwriting this section is a step in the release checklist at `docs/maintainers/releasing.md`.
+`README.md` has a single **What's new in X.Y.Z** section, placed right after the intro and upstream-credit blockquote and before "What it does". It carries ONLY the most recent release and is overwritten on every release (never an accumulating list). Its body is 3 to 5 bolded bullets sourced from the new `CHANGELOG.md` entry, ending with a line that links the CHANGELOG version anchor and the full release history. `CHANGELOG.md` uses Keep a Changelog headers: H1 `# Changelog`, `## [Unreleased]`, and releases as `## [X.Y.Z] - YYYY-MM-DD` with an `<a id="vXYZ"></a>` anchor above each. Overwriting the README section is a step in the release checklist at `docs/maintainers/releasing.md`.
 
 ## Project Overview
 
@@ -44,7 +44,7 @@ npm run check          # Full Biome check
 
 ## Architecture
 
-### Entry Point & Plugin Lifecycle
+### Entry Point and Plugin Lifecycle
 - `src/index.ts` - Factory function `createPlugin(app)` returns `SignalKPlugin` with `start()`, `stop()`, `schema()`
 - `src/plugin-manager.ts` - Core lifecycle manager that loads conversions, sets up Signal K subscriptions, handles resend timers
 
@@ -77,6 +77,8 @@ The registry `src/conversions/index.ts` imports all factories and exports `creat
 - `src/utils/errorUtils.ts` - `errMessage(err)` coercion helper for `unknown`-typed thrown values
 - `src/utils/validation.ts` - Input validation (`isValidNumber`, `toValidNumber` - rejects NaN/Infinity), `normalizeAngle()`, `toUnsignedAngle()` (the single choke point for unsigned uint16 angle fields: nullish passes through, non-finite returns undefined, everything else is wrapped to [0, 2pi); the encoder otherwise wraps negatives by the field modulus, not 2 pi), `isPlainObject()` (shared unknown-narrowing guard used by migrate, the router, the advisor, and the panel), `clampString()` (truncates a value so it cannot overflow an NMEA 2000 string field)
 - `src/utils/notificationUtils.ts` - `isClearState(state)`: true for the non-alert Signal K states (`normal`, `nominal`); shared by `notifications.ts` and `raymarineAlarms.ts`
+- `src/utils/aisUtils.ts` - AIS shared helpers: `starboardOffset()` (NaN-safe beam/offset to from-starboard conversion), `parseMmsi()`, `parseImo()`, `AisShipType` interface, and string-length caps (`AIS_NAME_CHARS`, `AIS_CALLSIGN_CHARS`, `AIS_DESTINATION_CHARS`, `AIS_SAFETY_TEXT_CHARS`, `ATON_NAME_CHARS`); imported by `ais.ts`, `aisExtended.ts`, and `dscCalls.ts`
+- `src/utils/pgnUtils.ts` - `extractPgnsFromTitle(title)` parses PGN numbers out of a conversion title string (used by the conversion registry to derive the 126464 transmit list and by the panel's PGN summary lookup); `splitPgnTitle(title)` splits a title into its description and PGN array for display
 - `src/utils/smoothing.ts` - `ExponentialSmoother` class for sensor data smoothing
 - `src/constants.ts` - Standard N2K values (`N2K_DEFAULT_PRIORITY`, `N2K_BROADCAST_DST`, `N2K_DEFAULT_SID`, `N2K_SID_ZERO`, `N2K_DEFAULT_INSTANCE`, `DEFAULT_DATA_TIMEOUT_MS`, `VESSELS_SELF_CONTEXT`, `STREAM_DEBOUNCE_MS`)
 - `src/conversions/routeTypes.ts` - Shared `Position`/`Waypoint` interfaces, `DEFAULT_ROUTE_NAME`, the waypoint candidate ceiling (`MAX_CANDIDATE_WAYPOINTS`, shared by both route PGNs), name-length caps (`MAX_WP_NAME_CHARS`, `MAX_ROUTE_NAME_CHARS`), the shared `markTypeFor()` mark-type mapping (PGN 129301/129302), `toWaypointEntry()` (the shared 0-based waypoint-list row builder for PGN 129285/130074), and `packWaypointsToBudget()` plus `FAST_PACKET_MAX_BYTES`. PGN 129285 and 130074 are variable-length fast-packet route frames, so the on-wire waypoint count is bounded by the encoded byte size (<= 223 bytes), not a fixed constant: `packWaypointsToBudget()` greedily trims the list against the per-PGN header (10 bytes for 130074, `12 + routeName.length` for 129285) and the real STRING_LAU name lengths so a long route never emits an untransmittable frame. `MAX_CANDIDATE_WAYPOINTS` is just the upper candidate ceiling before the byte budget. The module also exports the `longNameWaypoints()` and `longNameWaypointEntries()` fixture builders used by both route modules' embedded budget-regression tests.
@@ -195,7 +197,7 @@ PGN 126984 (Alert Response, inbound) is NOT handled. Acknowledgements from an MF
 
 ## Admin UI: federated React panel
 
-As of v1.5.4 the plugin's admin config UI is a webpack 5 Module Federation remote built into `public/remoteEntry.js` plus chunked `public/*.js` from `src/panel/`. The Signal K admin loads it because `package.json` `keywords` include `signalk-plugin-configurator`. Component contract: default export `PluginConfigurationPanel({ configuration, save })`. `save` is fire-and-forget, returns void; the next `configuration` prop reflects the saved state.
+As of v1.6.5 the plugin's admin config UI is a webpack 5 Module Federation remote built into `public/remoteEntry.js` plus chunked `public/*.js` from `src/panel/`. The Signal K admin loads it because `package.json` `keywords` include `signalk-plugin-configurator`. Component contract: default export `PluginConfigurationPanel({ configuration, save })`. `save` is fire-and-forget, returns void; the next `configuration` prop reflects the saved state.
 
 Live data comes from an Express router mounted via `Plugin.registerWithRouter` under `/plugins/signalk-nmea2000-emitter-cannon/api/` with these endpoints: `/status`, `/conversions`, `/paths`, `/sources`. The router calls `app.securityStrategy.addAdminMiddleware` on the API prefix so unauthenticated requests are rejected. If the running server does not expose that hook, the router logs a warning and only the read-only GET endpoints stay open (compat fallback for older signalk-server builds); the mutating advisor routes (`/advisor/review`, `/advisor/apply`, `/advisor/test-key`) fail closed with 403.
 

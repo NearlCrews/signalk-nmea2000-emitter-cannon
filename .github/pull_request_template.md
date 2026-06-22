@@ -18,6 +18,7 @@
 - [ ] `npm test` passes
 - [ ] `npm run typecheck` passes
 - [ ] `npm run check` (Biome) passes
+- [ ] `npm run build` passes
 
 ## PGN / Signal K paths affected
 

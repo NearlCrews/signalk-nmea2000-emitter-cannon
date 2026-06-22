@@ -51,6 +51,12 @@ See [CLAUDE.md](../CLAUDE.md) for the full set of project conventions and
 [docs/development.md](../docs/development.md) for the conversion-module
 walkthrough and project structure.
 
+## Architecture rule
+
+One plugin, modular TypeScript files under `src/`, never split into multiple
+npm packages. New functionality is a new module (for example a new conversion
+under `src/conversions/`), not a new package or a monorepo split.
+
 ## Commit messages
 
 Use conventional-commit prefixes that match the actual diff scope:

@@ -119,7 +119,7 @@ function createMockSignalKApp(): MockSignalKApp {
 
 	const app = {
 		// ServerAPI surface used by PluginManager
-		debug: (() => {}) as SignalKApp["debug"],
+		debug: Object.assign(() => {}, { enabled: false }) as SignalKApp["debug"],
 		error: ((msg: string) => {
 			loggedErrors.push(msg);
 		}) as SignalKApp["error"],

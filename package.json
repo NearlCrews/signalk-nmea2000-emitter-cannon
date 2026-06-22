@@ -65,7 +65,6 @@
 	],
 	"license": "Apache-2.0",
 	"dependencies": {
-		"@sinclair/typebox": "^0.34.49",
 		"rxjs": "^7.8.2"
 	},
 	"repository": {
@@ -87,6 +86,7 @@
 		"@biomejs/biome": "^2.4.16",
 		"@canboat/canboatjs": "^3.20.0",
 		"@signalk/server-api": "^2.25.0",
+		"@sinclair/typebox": "^0.34.49",
 		"@types/express": "^5.0.6",
 		"@types/json-schema": "^7.0.15",
 		"@types/node": "^25.7.0",

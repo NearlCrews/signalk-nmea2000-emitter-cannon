@@ -25,9 +25,10 @@ Garmin ECHOMAP, GPSMAP, and GMI specifications and the canboatjs encoder.
 - **Internal consolidation.** Duplicated logic across the conversions, plugin
   manager, Config Advisor, and admin panel was hoisted into shared helpers and
   utilities, with no change to the emitted PGNs.
-- **Dependencies refreshed.** Biome, @signalk/server-api, signalk-server, the
-  Vitest toolchain, and others were updated to their latest compatible
-  versions; the runtime audit stays clean.
+- **Dependencies refreshed.** Biome, @signalk/server-api, the Vitest
+  toolchain, and others were updated to their latest compatible versions, the
+  unused signalk-server devDependency was dropped, and the runtime audit stays
+  clean.
 - **Bolder app-store icon.** The radiating-arcs transmit glyph was redrawn for
   better legibility at thumbnail size.
 

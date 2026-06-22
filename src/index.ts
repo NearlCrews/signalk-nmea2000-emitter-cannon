@@ -8,10 +8,13 @@ import {
 } from "./advisor/openrouter.js";
 import { fetchHistoricPaths, QuestDBClient } from "./advisor/questdb.js";
 import { AdvisorScheduler } from "./advisor/schedule.js";
+import { buildConversionMetadata } from "./api/conversion-metadata.js";
 import { createApiRouter } from "./api/router.js";
+import type { ConversionMetadata } from "./api/types.js";
 import { DEFAULT_OPENROUTER_MODEL } from "./config/enums.js";
 import { migrateLegacyConfig } from "./config/migrate.js";
 import { RootConfig } from "./config/schema.js";
+import { createConversionModules } from "./conversions/index.js";
 import { PluginManager } from "./plugin-manager.js";
 import type { SignalKApp, SignalKPlugin } from "./types/index.js";
 import { errMessage } from "./utils/errorUtils.js";
@@ -66,6 +69,27 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 		stop: stopPlugin,
 	};
 
+	// The conversion catalog is pure module metadata, independent of the plugin
+	// lifecycle. signalk-server mounts registerWithRouter for a disabled plugin
+	// but only calls start() (which builds pluginManager) once it is enabled, so
+	// a manager-free catalog is what lets the config panel show and configure
+	// conversions before the first enable. Use the running manager's catalog when
+	// present (it already holds the modules), else build a standalone copy once
+	// and reuse it. Shared by the API router and the advisor, which both saw an
+	// empty catalog while the plugin was disabled.
+	let conversionCatalog: ConversionMetadata[] | null = null;
+	const getMetadata = (): ConversionMetadata[] => {
+		if (pluginManager) {
+			return pluginManager.getConversionMetadata();
+		}
+		if (!conversionCatalog) {
+			conversionCatalog = buildConversionMetadata(
+				createConversionModules(app, plugin),
+			);
+		}
+		return conversionCatalog;
+	};
+
 	// Counts OpenRouter calls per UTC day across reviews for this plugin run.
 	// The per-day cap is read from config at call time, so enrichReasons
 	// enforces the configured maxCallsPerDay against this count.
@@ -97,13 +121,12 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 	};
 
 	// The Config Advisor reviews live Signal K paths and recommends which
-	// conversions to enable. It outlives PluginManager restarts: getMetadata
-	// reads through the `pluginManager` closure so it always sees the current
-	// instance (or an empty catalog before the first start).
+	// conversions to enable. It outlives PluginManager restarts: the shared
+	// getMetadata reads through the `pluginManager` closure so it always sees the
+	// current instance (or the standalone catalog before the first start).
 	const advisor = new Advisor({
 		buildInventory: () => buildLiveInventory(app),
-		getMetadata: () =>
-			pluginManager ? pluginManager.getConversionMetadata() : [],
+		getMetadata,
 		readConfig,
 		writeConfig: (config) => {
 			app.savePluginOptions(config, (err) => {
@@ -170,6 +193,7 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 	plugin.registerWithRouter = createApiRouter(
 		app,
 		() => pluginManager,
+		getMetadata,
 		() => advisor,
 	);
 

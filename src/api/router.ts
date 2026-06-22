@@ -13,6 +13,7 @@ import type {
 	AdvisorQuestDbTestResponse,
 	AdvisorReviewResponse,
 	AdvisorTestKeyResponse,
+	ConversionMetadata,
 	ConversionsResponse,
 	PathsResponse,
 	SourcesResponse,
@@ -34,12 +35,18 @@ const HTTP_STATUS = {
  * PluginManager. PluginManager is recreated on every start/stop cycle, so
  * holding a direct reference here would go stale after the first restart.
  *
+ * `getMetadata` returns the conversion catalog independently of the manager:
+ * signalk-server mounts this router for a disabled plugin but never calls
+ * start(), so the catalog must come from a manager-free source until the user
+ * enables the plugin, otherwise the panel shows every category at zero.
+ *
  * All `/api/*` routes are admin-gated via `securityStrategy.addAdminMiddleware`
  * registered on the parent Express app at router setup time.
  */
 export function createApiRouter(
 	app: SignalKApp,
 	getManager: () => PluginManager | null,
+	getMetadata: () => ConversionMetadata[],
 	getAdvisor: () => Advisor | null,
 ): (router: IRouter) => void {
 	return (router) => {
@@ -74,10 +81,7 @@ export function createApiRouter(
 		});
 
 		router.get("/api/conversions", (_req: Request, res: Response) => {
-			const pm = getManager();
-			const body: ConversionsResponse = {
-				conversions: pm ? pm.getConversionMetadata() : [],
-			};
+			const body: ConversionsResponse = { conversions: getMetadata() };
 			res.json(body);
 		});
 

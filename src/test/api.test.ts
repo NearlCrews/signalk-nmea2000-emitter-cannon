@@ -15,13 +15,26 @@ type MockPluginManager = Pick<
 	"getStatusSnapshot" | "getConversionMetadata"
 >;
 
+// Mirrors index.ts: the catalog comes from the running manager when present,
+// else from a manager-free source (an empty list stands in for the standalone
+// catalog the real factory builds while the plugin is disabled).
+const metadataFromPm =
+	(getPm: () => PluginManager | null) =>
+	(): ReturnType<PluginManager["getConversionMetadata"]> =>
+		getPm()?.getConversionMetadata() ?? [];
+
+// Tests pass an explicit getMetadata to cover the disabled-plugin case where
+// getPm() is null but the catalog must still come back.
 function mountRouter(
 	app: SignalKApp,
 	getPm: () => PluginManager | null,
+	getMetadata: () => ReturnType<
+		PluginManager["getConversionMetadata"]
+	> = metadataFromPm(getPm),
 ): express.Express {
 	const expressApp = express();
 	const router: IRouter = express.Router();
-	createApiRouter(app, getPm, () => null)(router);
+	createApiRouter(app, getPm, getMetadata, () => null)(router);
 	expressApp.use("/plugins/signalk-nmea2000-emitter-cannon", router);
 	return expressApp;
 }
@@ -34,7 +47,12 @@ function mountRouterWithAdvisor(
 	const expressApp = express();
 	expressApp.use(express.json());
 	const router: IRouter = express.Router();
-	createApiRouter(app, getPm, getAdvisor as never)(router);
+	createApiRouter(
+		app,
+		getPm,
+		metadataFromPm(getPm),
+		getAdvisor as never,
+	)(router);
 	expressApp.use("/plugins/signalk-nmea2000-emitter-cannon", router);
 	return expressApp;
 }
@@ -132,6 +150,33 @@ describe("API router", () => {
 		const res = await request(ex).get(
 			"/plugins/signalk-nmea2000-emitter-cannon/api/conversions",
 		);
+		expect(res.body.conversions).toHaveLength(1);
+		expect(res.body.conversions[0].key).toBe("WIND");
+	});
+
+	it("GET /api/conversions serves the catalog when the manager is null", async () => {
+		// A disabled plugin mounts the router (registerWithRouter) but never runs
+		// start(), so getManager() is null. The catalog must still come back, else
+		// the panel shows every category at zero and nothing can be configured.
+		const ex = mountRouter(
+			fakeApp,
+			() => null,
+			() => [
+				{
+					key: "WIND",
+					title: "Wind",
+					pgns: [],
+					category: "navigation",
+					presets: [],
+					paths: [],
+					extras: { type: "none" },
+				},
+			],
+		);
+		const res = await request(ex).get(
+			"/plugins/signalk-nmea2000-emitter-cannon/api/conversions",
+		);
+		expect(res.status).toBe(200);
 		expect(res.body.conversions).toHaveLength(1);
 		expect(res.body.conversions[0].key).toBe("WIND");
 	});

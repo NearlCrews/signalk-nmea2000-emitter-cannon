@@ -1,13 +1,7 @@
 import type { Context, NormalizedDelta, Path } from "@signalk/server-api";
 import { debounceTime, Subject } from "rxjs";
-import {
-	compatibilityFor,
-	descriptionFor,
-	findOrphanExtrasMetaKeys,
-	lifecycleFor,
-	metaFor,
-	purposeFor,
-} from "./api/extras-meta.js";
+import { buildConversionMetadata } from "./api/conversion-metadata.js";
+import { findOrphanExtrasMetaKeys } from "./api/extras-meta.js";
 import type { ConversionMetadata } from "./api/types.js";
 import { migrateLegacyConfig } from "./config/migrate.js";
 import {
@@ -38,7 +32,6 @@ import {
 	stripSubIndex,
 	subIndexKey,
 } from "./utils/pathUtils.js";
-import { extractPgnsFromTitle } from "./utils/pgnUtils.js";
 import { clearAllSmoothers } from "./utils/smoothing.js";
 
 function resolveKeys(
@@ -1042,36 +1035,11 @@ export class PluginManager {
 	 * Catalog of loaded conversion modules for the panel's `/api/conversions`
 	 * endpoint. One entry per module loaded at construction. `paths` is empty
 	 * for modules whose keys are a function of runtime config (e.g. per-engine
-	 * factories): the panel falls back to free-text in that case.
+	 * factories): the panel falls back to free-text in that case. The mapping is
+	 * pure module metadata, so it lives in buildConversionMetadata and is shared
+	 * with the disabled-plugin catalog path in index.ts.
 	 */
 	public getConversionMetadata(): ConversionMetadata[] {
-		return this.conversions.map((c) => {
-			const entry: ConversionMetadata = {
-				key: c.optionKey,
-				title: c.title,
-				pgns: extractPgnsFromTitle(c.title),
-				category: c.category,
-				presets: c.presets ?? [],
-				paths: typeof c.keys === "function" ? [] : (c.keys ?? []),
-				extras: metaFor(c),
-			};
-			const description = descriptionFor(c.optionKey);
-			if (description !== undefined) {
-				entry.description = description;
-			}
-			const purpose = purposeFor(c.optionKey);
-			if (purpose !== undefined) {
-				entry.purpose = purpose;
-			}
-			const compatibility = compatibilityFor(c.optionKey);
-			if (compatibility !== undefined) {
-				entry.compatibility = compatibility;
-			}
-			const legacy = lifecycleFor(c.optionKey);
-			if (legacy !== undefined) {
-				entry.legacy = legacy;
-			}
-			return entry;
-		});
+		return buildConversionMetadata(this.conversions);
 	}
 }

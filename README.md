@@ -15,26 +15,24 @@ Garmin ECHOMAP, GPSMAP, and GMI specifications and the canboatjs encoder.
 > Built on the foundation of [`signalk-to-nmea2000`](https://github.com/SignalK/signalk-to-nmea2000)
 > by Scott Bender and the Signal K community.
 
-## What's new in 1.7.1
+## What's new in 1.7.2
 
-- **Route PGNs fit the fast-packet limit.** PGNs 129285 and 130074 now pack
-  waypoints against the real 223-byte fast-packet budget instead of silently
-  emitting frames an MFD cannot reassemble.
-- **Unsigned angle fields are normalized before encoding.** Heading, COG, set
-  and drift, navigation data, direction data, and the extended AIS reports
-  wrap negative angles to the unsigned range, so a heading of -0.001 rad no
-  longer appears roughly 15 degrees off on the display.
-- **Config panel overhaul.** A red-preserving Night theme, helm-sized touch
-  targets, catalog search, a first-run setup wizard driven by the boat's live
-  data, and a live Status view.
-- **Conflict-safe saves.** A three-way merge stops the Config Advisor and a
-  dirty panel from clobbering each other's changes.
-- **Config Advisor hardening.** Apply requests are validated and allow-listed,
-  the mutating advisor routes fail closed on servers without admin gating, and
-  scheduled reviews read nested legacy configs correctly.
+- **Mapping-editor input fix.** The tank and Raymarine brightness mapping
+  tables no longer drop a text cell from controlled to uncontrolled when a
+  saved row is missing a value.
+- **PGN 129041 AtoN type is bounded.** The Aid to Navigation type now clamps
+  to its valid 0 to 31 range, so an out-of-range value cannot wrap on the wire.
+- **Internal consolidation.** Duplicated logic across the conversions, plugin
+  manager, Config Advisor, and admin panel was hoisted into shared helpers and
+  utilities, with no change to the emitted PGNs.
+- **Dependencies refreshed.** Biome, @signalk/server-api, signalk-server, the
+  Vitest toolchain, and others were updated to their latest compatible
+  versions; the runtime audit stays clean.
+- **Bolder app-store icon.** The radiating-arcs transmit glyph was redrawn for
+  better legibility at thumbnail size.
 
-No breaking changes; the test suite grew from 118 to 141. See the
-[v1.7.1 changelog entry](CHANGELOG.md#v171) and the
+No breaking changes; the test suite stays at 141 tests. See the
+[v1.7.2 changelog entry](CHANGELOG.md#v172) and the
 [full release history](CHANGELOG.md).
 
 ## What it does

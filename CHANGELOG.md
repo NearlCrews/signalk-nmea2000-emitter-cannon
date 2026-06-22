@@ -5,13 +5,15 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-### Changed
+<a id="v172"></a>
 
-- Plugin icon badge refresh: the radiating-arcs transmit glyph keeps its
-  design but the arcs and transmitter dot are drawn bolder so the badge
-  reads better at app-store thumbnail size. The family base (deep-ocean
-  gradient and three wave lines) is unchanged, and all PNG sizes are
-  regenerated from the updated SVG.
+## [1.7.2] - 2026-06-21
+
+**A maintenance release: internal code consolidation that leaves the emitted PGNs unchanged, two small admin-panel and wire-format fixes, refreshed dependencies, and a bolder app-store icon. No breaking changes.**
+
+Two fixes lead the release. The tank-mapping and Raymarine brightness-group mapping editors could drop a text cell from controlled to uncontrolled when a saved row was missing its value, producing a React warning; both now render through a shared text-column helper that keeps the field controlled. PGN 129041 (Aid to Navigation) now clamps `atonType` to the 0 to 31 range of its 5-bit field, so an out-of-range value from an upstream provider can no longer wrap on the wire.
+
+The rest is non-behavioral cleanup with no change to the emitted PGNs. Duplicated logic was consolidated into single sources of truth: a numeric coercion that omits a field rather than nulling it (`toFiniteOrUndefined`), the `[N]` sub-conversion key builder (`subIndexKey`), one abort-timeout wrapper shared by the OpenRouter and QuestDB clients, and the OpenRouter default-model id. The plugin manager's start path was split into smaller focused methods (`buildPluginOptions`, `wireConversion`) and its single-entry output-dispatch table collapsed to a direct call; several hand-rolled object guards were replaced with the shared `isPlainObject`; and the admin panel's repeated small-text and error-badge styles, its mapping-table text columns, and its per-section enabled and error tallies were hoisted into shared utilities. Dependencies were refreshed to their latest compatible versions (Biome 2.5, @signalk/server-api and signalk-server 2.28, the Vitest 4.1.9 toolchain, esbuild, sharp, and lint-staged), and the runtime audit stays clean. The plugin icon badge was redrawn bolder so the radiating-arcs transmit glyph reads better at app-store thumbnail size, with the deep-ocean gradient and three wave lines unchanged and every PNG size regenerated from the updated SVG. The suite stays at 141 tests, green.
 
 <a id="v171"></a>
 

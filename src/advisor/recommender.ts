@@ -29,7 +29,8 @@ export function recommend(input: RecommendInput): Recommendation[] {
 		if (matched.length === 0) continue;
 		const matchedPaths = matched.map((e) => e.path);
 
-		const enabled = currentConfig[conv.key]?.enabled ?? false;
+		const cfg = currentConfig[conv.key];
+		const enabled = cfg?.enabled ?? false;
 		// A match backed by at least one live path is high-confidence; a match
 		// seen only in QuestDB history is low-confidence historic origin.
 		const anyLive = matched.some((e) => e.live === true);
@@ -55,6 +56,46 @@ export function recommend(input: RecommendInput): Recommendation[] {
 					: `${conv.title}: data already on the bus, left disabled.`,
 			});
 			continue;
+		}
+
+		// An enabled conversion can carry a per-path `$source` pin that names a
+		// source no longer publishing that path (a renamed provider or a
+		// re-enumerated sensor). The pin then matches no incoming delta, so the
+		// conversion is enabled yet emits nothing, with no error. Flag it only
+		// when the path is live from some OTHER source: an empty liveSources
+		// means the path is historic-only, where "the pin is stale" is not a
+		// claim we can make.
+		if (enabled) {
+			const pins = cfg?.sources ?? {};
+			const staleSources = matched.flatMap((e) => {
+				const pinned = pins[e.path];
+				const live = e.liveSources ?? [];
+				return pinned && live.length > 0 && !live.includes(pinned)
+					? [{ path: e.path, pinned, liveSources: live }]
+					: [];
+			});
+			if (staleSources.length > 0) {
+				out.push({
+					optionKey: conv.key,
+					action: "clear-source",
+					currentlyEnabled: true,
+					matchedPaths,
+					// The path is live from another source, so the dead pin is a
+					// direct observation, not an inference.
+					confidence: "high",
+					origin: "live",
+					reason: `${conv.title}: pinned to ${staleSources
+						.map(
+							(s) =>
+								`'${s.pinned}' for ${s.path} (now ${s.liveSources.join(", ")})`,
+						)
+						.join(
+							"; ",
+						)}, so it is enabled but emitting nothing. Clearing the pin lets it follow the live source.`,
+					staleSources,
+				});
+				continue;
+			}
 		}
 
 		out.push({

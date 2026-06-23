@@ -37,7 +37,7 @@ export class AdvisorScheduler {
 		this.timer = setInterval(() => {
 			void this.run().catch((err) => {
 				// A failing review must not stop the schedule. runReview surfaces
-				// QuestDB/OpenRouter sub-failures through ReviewResult notes, but a
+				// QuestDB sub-failures through ReviewResult notes, but a
 				// throw from buildInventory, getMetadata, or writeConfig on a
 				// periodic (non-user-triggered) run would otherwise be invisible.
 				this.onError?.(err);

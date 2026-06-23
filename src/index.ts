@@ -1,17 +1,10 @@
 import { Advisor } from "./advisor/advisor.js";
-import { BudgetTracker } from "./advisor/budget.js";
 import { buildLiveInventory } from "./advisor/inventory.js";
-import {
-	enrichRationales,
-	fetchOpenRouterModels,
-	OpenRouterClient,
-} from "./advisor/openrouter.js";
 import { fetchHistoricPaths, QuestDBClient } from "./advisor/questdb.js";
 import { AdvisorScheduler } from "./advisor/schedule.js";
 import { buildConversionMetadata } from "./api/conversion-metadata.js";
 import { createApiRouter } from "./api/router.js";
 import type { ConversionMetadata } from "./api/types.js";
-import { DEFAULT_OPENROUTER_MODEL } from "./config/enums.js";
 import { migrateLegacyConfig } from "./config/migrate.js";
 import { RootConfig } from "./config/schema.js";
 import { createConversionModules } from "./conversions/index.js";
@@ -19,8 +12,6 @@ import { PluginManager } from "./plugin-manager.js";
 import type { SignalKApp, SignalKPlugin } from "./types/index.js";
 import { errMessage } from "./utils/errorUtils.js";
 import { isValidNumber } from "./utils/validation.js";
-
-const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
 /**
  * Signal K to NMEA 2000 conversion plugin factory
@@ -90,20 +81,6 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 		return conversionCatalog;
 	};
 
-	// Counts OpenRouter calls per UTC day across reviews for this plugin run.
-	// The per-day cap is read from config at call time, so enrichReasons
-	// enforces the configured maxCallsPerDay against this count.
-	const advisorBudget = new BudgetTracker();
-	const openRouterClient = (o: {
-		apiKey: string;
-		model: string;
-	}): OpenRouterClient =>
-		new OpenRouterClient({
-			apiKey: o.apiKey,
-			model: o.model || DEFAULT_OPENROUTER_MODEL,
-			baseUrl: OPENROUTER_BASE_URL,
-		});
-
 	// readPluginOptions returns the full options envelope
 	// (`{ enabled, configuration, enableLogging, enableDebug }`); the plugin
 	// config lives under `.configuration`. readConfig runs that through
@@ -147,39 +124,6 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 		fetchHistoric: (url, lookbackDays) =>
 			fetchHistoricPaths(new QuestDBClient({ url }), lookbackDays),
 		probeQuestDB: (url) => new QuestDBClient({ url }).probe(),
-		enrichReasons: async (openRouter, recs) => {
-			// No actionable recommendations means enrichRationales makes no
-			// OpenRouter request, so short-circuit before touching the budget:
-			// recording a call here would consume the day's allowance for an
-			// HTTP round-trip that never happens.
-			if (recs.length === 0) {
-				return { reasons: new Map() };
-			}
-			const cap = readConfig().advisor?.openRouter?.maxCallsPerDay ?? 0;
-			if (advisorBudget.callsToday() >= cap) {
-				return {
-					reasons: new Map(),
-					note: "OpenRouter daily call budget reached; using built-in explanations.",
-				};
-			}
-			// Record the call only after enrichRationales resolves: a thrown
-			// OpenRouter failure must not consume the day's budget, otherwise an
-			// outage silently disables enrichment for the rest of the day.
-			const reasons = await enrichRationales(
-				openRouterClient(openRouter),
-				recs,
-			);
-			advisorBudget.recordCall();
-			return { reasons };
-		},
-		testKeyFn: async (openRouter) => {
-			await openRouterClient(openRouter).complete({
-				system: "ping",
-				user: "ping",
-			});
-			return true;
-		},
-		listModelsFn: () => fetchOpenRouterModels(OPENROUTER_BASE_URL),
 	});
 
 	// Drives the optional periodic review. Reconfigured on every startPlugin

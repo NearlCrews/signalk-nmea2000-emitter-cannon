@@ -69,11 +69,6 @@ export const PresetTags = [
 ] as const;
 export type PresetTag = (typeof PresetTags)[number];
 
-// Default OpenRouter model id for the Config Advisor. Single source shared by
-// the TypeBox schema default (schema.ts), this advisor-config mirror, and the
-// runtime fallback in index.ts, so the three cannot drift.
-export const DEFAULT_OPENROUTER_MODEL = "anthropic/claude-haiku-4.5";
-
 // Plain-object mirror of the AdvisorConfig schema defaults. The panel bundle
 // must not import @sinclair/typebox, so the panel uses this instead of
 // materializing defaults from the schema. A test in advisor-config.test.ts
@@ -81,12 +76,6 @@ export const DEFAULT_OPENROUTER_MODEL = "anthropic/claude-haiku-4.5";
 export const DEFAULT_ADVISOR_CONFIG = {
 	enabled: false,
 	autoApply: true,
-	openRouter: {
-		enabled: false,
-		apiKey: "",
-		model: DEFAULT_OPENROUTER_MODEL,
-		maxCallsPerDay: 25,
-	},
 	questdb: { enabled: false, url: "http://localhost:9000", lookbackDays: 7 },
 	schedule: { periodic: false, intervalDays: 7 },
 } as const;

@@ -12,7 +12,7 @@ export {
 	PresetTags,
 } from "./enums.js";
 
-import { DEFAULT_OPENROUTER_MODEL, GLOBAL_RESEND_HELP } from "./enums.js";
+import { GLOBAL_RESEND_HELP } from "./enums.js";
 
 // sources and extras are required with a {} default so every consumer can
 // rely on them being objects. The previous Type.Optional shape forced a
@@ -44,15 +44,6 @@ const AdvisorConfig = Type.Object(
 		// When true, a review enables recommended conversions immediately.
 		// When false, those enables are parked as pending like disables.
 		autoApply: Type.Boolean({ default: true }),
-		openRouter: Type.Object(
-			{
-				enabled: Type.Boolean({ default: false }),
-				apiKey: Type.String({ default: "" }),
-				model: Type.String({ default: DEFAULT_OPENROUTER_MODEL }),
-				maxCallsPerDay: Type.Integer({ default: 25, minimum: 0 }),
-			},
-			{ default: {} },
-		),
 		questdb: Type.Object(
 			{
 				enabled: Type.Boolean({ default: false }),

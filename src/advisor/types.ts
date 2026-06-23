@@ -23,8 +23,23 @@ export interface HistoricStats {
 /** Historic stats keyed by Signal K path. */
 export type HistoricPaths = Map<string, HistoricStats>;
 
-/** What a review recommends doing with a conversion. */
-export type AdvisorAction = "enable" | "disable" | "keep";
+/**
+ * What a review recommends doing with a conversion. `clear-source` means the
+ * conversion is enabled but one of its per-path `$source` pins names a source
+ * that no longer publishes that path (a renamed provider or a re-enumerated
+ * sensor), so it is emitting nothing; clearing the pin lets it follow the live
+ * source.
+ */
+export type AdvisorAction = "enable" | "disable" | "keep" | "clear-source";
+
+/** One per-path source pin that no longer matches a live source. */
+export interface StaleSourcePin {
+	path: string;
+	/** The configured `$source` that is no longer publishing `path`. */
+	pinned: string;
+	/** The sources currently publishing `path`. */
+	liveSources: string[];
+}
 
 /** A single recommendation about one conversion. */
 export interface Recommendation {
@@ -35,6 +50,8 @@ export interface Recommendation {
 	confidence: "high" | "low";
 	origin: "live" | "historic";
 	reason: string;
+	/** Present only for action "clear-source": the pins that are stale. */
+	staleSources?: StaleSourcePin[];
 }
 
 /** The outcome of one review run. */
@@ -57,5 +74,10 @@ export interface ApplyDecision {
 	 * applyReview does not depend on in-memory state surviving a restart.
 	 * Absent is treated as "disable" for backward compatibility.
 	 */
-	action?: "enable" | "disable";
+	action?: Exclude<AdvisorAction, "keep">;
+	/**
+	 * For action "clear-source": the path keys to remove from the conversion's
+	 * `sources` map, so it follows the live source for those paths again.
+	 */
+	clearSourcePaths?: string[];
 }

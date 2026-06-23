@@ -13,8 +13,6 @@ describe("advisor config block", () => {
 		expect(advisor.enabled).toBe(false);
 		const questdb = advisor.questdb as Record<string, unknown>;
 		expect(questdb.lookbackDays).toBe(7);
-		const openRouter = advisor.openRouter as Record<string, unknown>;
-		expect(openRouter.maxCallsPerDay).toBe(25);
 		const schedule = advisor.schedule as Record<string, unknown>;
 		expect(schedule.intervalDays).toBe(7);
 	});
@@ -24,12 +22,6 @@ describe("advisor config block", () => {
 			conversions: {},
 			advisor: {
 				enabled: true,
-				openRouter: {
-					enabled: true,
-					apiKey: "k",
-					model: "m",
-					maxCallsPerDay: 5,
-				},
 				questdb: { enabled: true, url: "http://h:9000", lookbackDays: 30 },
 				schedule: { periodic: true, intervalDays: 14 },
 			},

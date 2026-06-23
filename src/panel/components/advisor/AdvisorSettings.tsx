@@ -4,7 +4,6 @@ import { DEFAULT_ADVISOR_CONFIG } from "../../../config/enums.js";
 import type { Config } from "../../../config/schema.js";
 import { fetchJson, friendlyApiError } from "../../api-base";
 import { ADVISOR_UNAVAILABLE_503 } from "../../hooks/useAdvisor.js";
-import { useOpenRouterModels } from "../../hooks/useOpenRouterModels.js";
 import { S } from "../../styles";
 import NumberInput from "../NumberInput";
 
@@ -65,10 +64,10 @@ function ProbeStatus({ probe }: { probe: ProbeState }): React.ReactElement {
 }
 
 /**
- * The advisor settings form: master toggle plus OpenRouter, QuestDB, and
- * schedule sub-sections. Every row carries inline help so the user does not
- * have to guess what an option does. Values persist through the panel's
- * normal Save button.
+ * The advisor settings form: master toggle plus QuestDB and schedule
+ * sub-sections. Every row carries inline help so the user does not have to
+ * guess what an option does. Values persist through the panel's normal Save
+ * button.
  */
 export default function AdvisorSettings({
 	value,
@@ -76,16 +75,14 @@ export default function AdvisorSettings({
 	advisorSettingsDirty,
 }: Props): React.ReactElement {
 	const cfg: AdvisorCfg = value ?? DEFAULT_ADVISOR_CONFIG;
-	const { models, modelsState, loadModels } = useOpenRouterModels();
-	const [keyTest, setKeyTest] = useState<ProbeState>({ phase: "idle" });
 	const [questdbTest, setQuestdbTest] = useState<ProbeState>({ phase: "idle" });
 
 	const patch = (part: Partial<AdvisorCfg>): void => {
 		onChange({ ...cfg, ...part });
 	};
 
-	// Both probes hit the live router, which reads the SAVED config (not this
-	// in-memory form), which is why the Test buttons are disabled while the
+	// The probe hits the live router, which reads the SAVED config (not this
+	// in-memory form), which is why the Test button is disabled while the
 	// advisor settings carry unsaved edits. The guarded routes answer 403 on a
 	// server without admin middleware; friendlyApiError turns that into the
 	// admin-session next step.
@@ -112,15 +109,6 @@ export default function AdvisorSettings({
 		}
 	};
 
-	const runKeyTest = (): Promise<void> =>
-		runProbe(
-			setKeyTest,
-			"/advisor/test-key",
-			{ method: "POST" },
-			"Key accepted by OpenRouter.",
-			"OpenRouter rejected the key. Check the key, that OpenRouter is enabled, and that you saved.",
-		);
-
 	const runQuestdbTest = (): Promise<void> =>
 		runProbe(
 			setQuestdbTest,
@@ -129,17 +117,6 @@ export default function AdvisorSettings({
 			"Connected to QuestDB.",
 			"Could not reach QuestDB at that URL. Check the URL, that QuestDB is enabled, and that you saved.",
 		);
-
-	let modelsHint: string;
-	if (modelsState === "loading") {
-		modelsHint = "Loading the model list...";
-	} else if (modelsState === "error") {
-		modelsHint = "Could not load the model list; type the model slug manually.";
-	} else if (modelsState === "ready") {
-		modelsHint = `${models.length} models available (autocomplete)`;
-	} else {
-		modelsHint = "Focus the field to load the model list for autocomplete.";
-	}
 
 	return (
 		<div>
@@ -171,93 +148,6 @@ export default function AdvisorSettings({
 				When off, those enables wait for your approval. Recommendations that
 				disable a conversion always wait for your approval.
 			</p>
-
-			<div style={S.advisorSubhead}>OpenRouter (optional)</div>
-			<p style={S.helpHint}>
-				The advisor decides what to recommend with built-in rules, with or
-				without OpenRouter. Adding an OpenRouter key only rewrites each
-				recommendation's explanation in plainer language; it does not change
-				what is recommended.
-			</p>
-			<label style={checkboxRow}>
-				<input
-					type="checkbox"
-					style={S.checkbox}
-					checked={cfg.openRouter.enabled}
-					onChange={(e) =>
-						patch({
-							openRouter: { ...cfg.openRouter, enabled: e.target.checked },
-						})
-					}
-				/>
-				<span style={toggleLabel}>Use OpenRouter for explanations</span>
-			</label>
-			<div style={S.fieldRow}>
-				<span style={S.label}>OpenRouter API key</span>
-				<input
-					type="password"
-					autoComplete="off"
-					style={S.input}
-					value={cfg.openRouter.apiKey}
-					onChange={(e) =>
-						patch({
-							openRouter: { ...cfg.openRouter, apiKey: e.target.value },
-						})
-					}
-					aria-label="OpenRouter API key"
-				/>
-				<button
-					type="button"
-					style={S.btnSecondarySm}
-					onClick={() => void runKeyTest()}
-					disabled={keyTest.phase === "testing" || advisorSettingsDirty}
-				>
-					Test key
-				</button>
-				<ProbeStatus probe={keyTest} />
-			</div>
-			<p style={S.helpHint}>
-				Test key checks the saved key. If you just changed it, Save first.
-			</p>
-			<div style={S.fieldRow}>
-				<span style={S.label}>Model</span>
-				<input
-					type="text"
-					list="advisor-or-models"
-					style={S.input}
-					value={cfg.openRouter.model}
-					onChange={(e) =>
-						patch({ openRouter: { ...cfg.openRouter, model: e.target.value } })
-					}
-					onFocus={() => {
-						// Retry on "error" too, so a transient model-list fetch
-						// failure can be recovered by re-focusing the field.
-						if (modelsState === "idle" || modelsState === "error") {
-							void loadModels();
-						}
-					}}
-					aria-label="OpenRouter model"
-				/>
-				<datalist id="advisor-or-models">
-					{models.map((m) => (
-						<option key={m} value={m} />
-					))}
-				</datalist>
-			</div>
-			<p style={S.helpHint}>{modelsHint}</p>
-			<div style={S.fieldRow}>
-				<span style={S.label}>Max OpenRouter calls per day</span>
-				<NumberInput
-					value={cfg.openRouter.maxCallsPerDay}
-					onChange={(n) =>
-						patch({
-							openRouter: { ...cfg.openRouter, maxCallsPerDay: n },
-						})
-					}
-					min={0}
-					ariaLabel="Max OpenRouter calls per day"
-				/>
-			</div>
 
 			<div style={S.advisorSubhead}>QuestDB history (optional)</div>
 			<p style={S.helpHint}>

@@ -143,6 +143,16 @@ export function migrateLegacyConfig(raw: unknown): Config {
 		migrated.globalResendInterval = DEFAULT_GLOBAL_RESEND_SECONDS;
 	}
 
+	// The Config Advisor no longer uses OpenRouter. Strip a legacy
+	// advisor.openRouter block (and the API key it stored) from any on-disk
+	// config saved before its removal, so the dead block does not linger or get
+	// re-saved by the panel. The isPlainObject guard also skips an absent or
+	// non-object advisor. The cast is load-bearing: Config["advisor"] has no
+	// index signature, so the delete needs an indexable view of the object.
+	if (isPlainObject(migrated.advisor) && "openRouter" in migrated.advisor) {
+		delete (migrated.advisor as Record<string, unknown>).openRouter;
+	}
+
 	// Second pass: per-conversion extras-shape migrations. Runs against both
 	// configs that came in already nested (the early-return branch above) and
 	// configs that were just lifted from the legacy flat shape, so both

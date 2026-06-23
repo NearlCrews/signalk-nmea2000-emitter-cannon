@@ -30,18 +30,6 @@ export interface AdvisorDeps {
 	fetchHistoric?: (url: string, lookbackDays: number) => Promise<HistoricPaths>;
 	/** Optional QuestDB reachability probe for the connectivity endpoint. */
 	probeQuestDB?: (url: string) => Promise<boolean>;
-	/** Optional OpenRouter rationale enrichment. Absent skips OpenRouter. */
-	enrichReasons?: (
-		openRouter: { apiKey: string; model: string },
-		recs: Recommendation[],
-	) => Promise<{ reasons: Map<string, string>; note?: string }>;
-	/** Optional OpenRouter key validation for the test-key endpoint. */
-	testKeyFn?: (openRouter: {
-		apiKey: string;
-		model: string;
-	}) => Promise<boolean>;
-	/** Optional OpenRouter model-list fetch for the panel's autocomplete. */
-	listModelsFn?: () => Promise<string[]>;
 }
 
 // Runtime fallback for advisor.questdb.lookbackDays when the configured value
@@ -111,35 +99,17 @@ export class Advisor {
 
 		const enables = recs.filter((r) => r.action === "enable");
 		const disables = recs.filter((r) => r.action === "disable");
+		// Stale-source fixes change data routing, so like disables they are never
+		// auto-applied; they always wait for approval.
+		const clears = recs.filter((r) => r.action === "clear-source");
 		// "keep" recommendations are never surfaced (getPending and ReviewResult
-		// carry only enables and disables), and on a typical boat keeps are the
-		// majority. Enrich only the actionable subset so OpenRouter is not billed
-		// for rationales that are then discarded.
-		const actionable = [...enables, ...disables];
-
-		const openRouter = this.openRouterConfig(config);
-		if (openRouter && this.deps.enrichReasons) {
-			try {
-				const { reasons, note } = await this.deps.enrichReasons(
-					openRouter,
-					actionable,
-				);
-				for (const r of actionable) {
-					const enriched = reasons.get(r.optionKey);
-					if (enriched) r.reason = enriched;
-				}
-				if (note) notes.push(note);
-			} catch (err) {
-				const detail = errMessage(err);
-				notes.push(
-					`OpenRouter enrichment unavailable (${detail}); using built-in explanations.`,
-				);
-			}
-		}
+		// carry only the actionable kinds), and on a typical boat keeps are the
+		// majority.
+		const actionable = [...enables, ...disables, ...clears];
 
 		const autoApply = this.autoApplyFlag(config);
 		const autoApplied = autoApply ? enables : [];
-		const pending = autoApply ? disables : actionable;
+		const pending = autoApply ? [...disables, ...clears] : actionable;
 		this.lastPending = pending;
 
 		if (autoApplied.length > 0) {
@@ -171,32 +141,12 @@ export class Advisor {
 		return { ok: await this.deps.probeQuestDB(questdb.url) };
 	}
 
-	/** Validate the configured OpenRouter key. */
-	async testKey(): Promise<{ ok: boolean }> {
-		const openRouter = this.openRouterConfig(this.deps.readConfig());
-		if (!openRouter || !this.deps.testKeyFn) return { ok: false };
-		try {
-			return { ok: await this.deps.testKeyFn(openRouter) };
-		} catch {
-			return { ok: false };
-		}
-	}
-
-	/** The OpenRouter model ids for the panel's autocomplete; empty on error. */
-	async listModels(): Promise<{ models: string[] }> {
-		if (!this.deps.listModelsFn) return { models: [] };
-		try {
-			return { models: await this.deps.listModelsFn() };
-		} catch {
-			return { models: [] };
-		}
-	}
-
 	/**
 	 * Apply approved decisions; rejected decisions are left untouched.
 	 *
-	 * Each decision carries the recommended `action` it approves, so an enable
-	 * sets `enabled: true` and a disable sets `enabled: false`. Carrying the
+	 * Each decision carries the recommended `action` it approves: an enable sets
+	 * `enabled: true`, a disable sets `enabled: false`, and a clear-source
+	 * removes the named path pins from the conversion's `sources`. Carrying the
 	 * action in the decision (rather than reading an in-memory `lastPending`)
 	 * keeps applyReview correct even if the plugin restarts between review and
 	 * apply. An absent action is treated as "disable" for backward
@@ -215,10 +165,22 @@ export class Advisor {
 		const config = this.deps.readConfig();
 		const conversions = { ...this.conversionsOf(config) };
 		for (const d of approved) {
-			conversions[d.optionKey] = {
-				...this.entryOf(conversions, d.optionKey),
-				enabled: d.action === "enable",
-			};
+			const entry = this.entryOf(conversions, d.optionKey);
+			if (d.action === "clear-source") {
+				// Remove only the named path pins so the conversion follows the
+				// live source for them again; other pins and `enabled` stay as-is.
+				const sources = { ...entry.sources };
+				const paths = Array.isArray(d.clearSourcePaths)
+					? d.clearSourcePaths
+					: [];
+				for (const p of paths) delete sources[p];
+				conversions[d.optionKey] = { ...entry, sources };
+			} else {
+				conversions[d.optionKey] = {
+					...entry,
+					enabled: d.action === "enable",
+				};
+			}
 		}
 		this.deps.writeConfig({ ...config, conversions });
 
@@ -263,17 +225,6 @@ export class Advisor {
 				? lookbackDays
 				: DEFAULT_LOOKBACK_DAYS;
 		return { enabled: enabled === true, url, lookbackDays: days };
-	}
-
-	private openRouterConfig(
-		config: Record<string, unknown>,
-	): { apiKey: string; model: string } | null {
-		const o = this.advisorSection(config)?.openRouter;
-		if (!isPlainObject(o)) return null;
-		const { enabled, apiKey, model } = o;
-		if (enabled !== true) return null;
-		if (typeof apiKey !== "string" || apiKey.trim() === "") return null;
-		return { apiKey, model: typeof model === "string" ? model : "" };
 	}
 
 	private entryOf(map: ConversionMap, key: string): ConversionConfig {

@@ -91,7 +91,6 @@ function makeAdvisorStub(
 		}),
 		getPending: () => [],
 		applyReview: async () => {},
-		testKey: async () => ({ ok: true }),
 		...overrides,
 	};
 }
@@ -340,54 +339,6 @@ describe("API router", () => {
 		expect(res.body.ok).toBe(true);
 	});
 
-	it("POST /api/advisor/test-key reports key validity", async () => {
-		const advisor = {
-			runReview: async () => ({
-				ranAt: "",
-				autoApplied: [],
-				pending: [],
-				notes: [],
-			}),
-			getPending: () => [],
-			applyReview: async () => {},
-			testKey: async () => ({ ok: true }),
-		};
-		const ex = mountRouterWithAdvisor(
-			fakeApp,
-			() => null,
-			() => advisor,
-		);
-		const res = await request(ex).post(
-			"/plugins/signalk-nmea2000-emitter-cannon/api/advisor/test-key",
-		);
-		expect(res.status).toBe(200);
-		expect(res.body.ok).toBe(true);
-	});
-
-	it("GET /api/advisor/models returns the model list", async () => {
-		const advisor = {
-			runReview: async () => ({
-				ranAt: "",
-				autoApplied: [],
-				pending: [],
-				notes: [],
-			}),
-			getPending: () => [],
-			applyReview: async () => {},
-			listModels: async () => ({ models: ["anthropic/claude-haiku-4.5"] }),
-		};
-		const ex = mountRouterWithAdvisor(
-			fakeApp,
-			() => null,
-			() => advisor,
-		);
-		const res = await request(ex).get(
-			"/plugins/signalk-nmea2000-emitter-cannon/api/advisor/models",
-		);
-		expect(res.status).toBe(200);
-		expect(res.body.models).toContain("anthropic/claude-haiku-4.5");
-	});
-
 	it("advisor endpoints 503 when no advisor is wired", async () => {
 		const ex = mountRouterWithAdvisor(
 			fakeApp,
@@ -466,10 +417,6 @@ describe("API router", () => {
 			.post("/plugins/signalk-nmea2000-emitter-cannon/api/advisor/apply")
 			.send({ decisions: [] });
 		expect(apply.status).toBe(403);
-		const testKey = await request(ex).post(
-			"/plugins/signalk-nmea2000-emitter-cannon/api/advisor/test-key",
-		);
-		expect(testKey.status).toBe(403);
 	});
 
 	it("keeps read-only advisor GETs open when addAdminMiddleware is unavailable", async () => {

@@ -63,8 +63,9 @@ published specifications. It pairs well with sensor-side plugins such as
 - **Resend timers** per conversion plus a global default, so MFDs that expect
   periodic re-broadcast still see the data when the underlying source is quiet
 - **Config Advisor** (optional): reviews the Signal K paths your boat
-  publishes and recommends which conversions to enable, with optional QuestDB
-  history and OpenRouter-powered plain-language explanations
+  publishes, recommends which conversions to enable or disable, and flags
+  enabled conversions whose pinned `$source` has gone stale (a renamed weather
+  provider or a re-enumerated sensor), with optional QuestDB history
 - **A React configuration panel** with a status dashboard, category tabs,
   catalog search, preset chips, a first-run setup wizard, and a theme toggle
   with light, dark, and a red-preserving night mode
@@ -73,7 +74,7 @@ published specifications. It pairs well with sensor-side plugins such as
 - **Strict TypeScript**, pure ESM, a single esbuild bundle with RxJS as the
   only runtime dependency
 - **Embedded canboatjs round-trip tests** on every conversion module, plus
-  advisor, lifecycle, and panel unit tests (141 tests across 13 files)
+  advisor, lifecycle, and panel unit tests (134 tests across 13 files)
 
 ## Screenshots
 
@@ -119,9 +120,10 @@ The panel has these areas:
 1. **Status dashboard**: NMEA 2000 output readiness, count of enabled vs total
    conversions, plus per-conversion emit counts and error badges.
 2. **Config Advisor** (optional, collapsed by default): reviews the Signal K
-   paths your boat publishes and recommends which conversions to enable. Its
-   settings sub-panel covers OpenRouter, QuestDB history, and a periodic
-   review schedule, each control with inline help.
+   paths your boat publishes, recommends which conversions to enable or
+   disable, and flags enabled conversions whose pinned `$source` has gone
+   stale. Its settings sub-panel covers QuestDB history and a periodic review
+   schedule, each control with inline help.
 3. **Preset chips**: Basic Navigation, Engine Set, Full AIS, Environmental,
    Raymarine. Click a chip to enable the tagged conversions in one action;
    presets are additive.
@@ -163,7 +165,7 @@ cd signalk-nmea2000-emitter-cannon
 npm install
 npm run hooks        # one-time: enable the pre-commit hook
 npm run build        # esbuild plugin bundle plus webpack panel
-npm test             # Vitest suite (141 tests)
+npm test             # Vitest suite (134 tests)
 npm run typecheck    # type-check the plugin, the panel, and the tests
 npm run check        # full Biome check
 npm run lint         # Biome linting only

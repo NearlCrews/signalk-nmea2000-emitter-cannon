@@ -1,6 +1,6 @@
 import type * as React from "react";
 import type { CSSProperties } from "react";
-import type { ReviewResult } from "../../../advisor/types.js";
+import type { AdvisorAction, ReviewResult } from "../../../advisor/types.js";
 import type { ConversionMetadata } from "../../../api/types.js";
 import { S } from "../../styles";
 
@@ -19,6 +19,17 @@ const KEY_SUFFIX: CSSProperties = {
 	...S.cardMeta,
 	fontWeight: 400,
 	marginLeft: 6,
+};
+
+// Action verb shown before the conversion label in the pending list. Keyed by
+// AdvisorAction so a new action surfaces here as a type error rather than
+// falling through a default. "keep" never reaches the pending list but is
+// present for exhaustiveness.
+const PENDING_VERB: Record<AdvisorAction, string> = {
+	enable: "Enable",
+	disable: "Disable",
+	"clear-source": "Fix source for",
+	keep: "Keep",
 };
 
 // Conversion title with the option key as secondary text; just the key when
@@ -78,11 +89,12 @@ export default function ReviewResultView({
 					</span>
 					{result.pending.map((r) => {
 						const choice = decisions[r.optionKey];
+						const verb = PENDING_VERB[r.action];
 						return (
 							<div key={r.optionKey} style={S.advisorRow}>
 								<div style={S.advisorRowHead}>
 									<span style={S.advisorRowKey}>
-										{r.action === "enable" ? "Enable" : "Disable"}{" "}
+										{verb}{" "}
 										<ConversionLabel
 											optionKey={r.optionKey}
 											metaByKey={metaByKey}

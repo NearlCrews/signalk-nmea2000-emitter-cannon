@@ -1,13 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Advisor, type AdvisorDeps } from "../advisor/advisor.js";
-import { BudgetTracker } from "../advisor/budget.js";
 import { isN2KSource } from "../advisor/busSource.js";
 import { buildLiveInventory, mergeHistoric } from "../advisor/inventory.js";
-import {
-	enrichRationales,
-	fetchOpenRouterModels,
-	OpenRouterClient,
-} from "../advisor/openrouter.js";
 import { fetchHistoricPaths, QuestDBClient } from "../advisor/questdb.js";
 import { recommend } from "../advisor/recommender.js";
 import type { ApplyDecision } from "../advisor/types.js";
@@ -147,6 +141,81 @@ describe("recommend", () => {
 		});
 		expect(recs).toEqual([]);
 	});
+
+	it("flags an enabled conversion whose source pin no longer matches a live source", () => {
+		const recs = recommend({
+			inventory: [
+				{
+					path: "environment.outside.pressure",
+					live: true,
+					liveSources: ["vws-merged"],
+				},
+			],
+			metadata: [meta("PRESSURE", ["environment.outside.pressure"])],
+			currentConfig: {
+				PRESSURE: {
+					enabled: true,
+					resend: 0,
+					sources: { "environment.outside.pressure": "open-meteo" },
+					extras: {},
+				},
+			},
+		});
+		const r = recs.find((x) => x.optionKey === "PRESSURE");
+		expect(r?.action).toBe("clear-source");
+		expect(r?.staleSources).toEqual([
+			{
+				path: "environment.outside.pressure",
+				pinned: "open-meteo",
+				liveSources: ["vws-merged"],
+			},
+		]);
+	});
+
+	it("keeps an enabled conversion whose source pin still matches a live source", () => {
+		const recs = recommend({
+			inventory: [
+				{
+					path: "environment.outside.pressure",
+					live: true,
+					liveSources: ["vws-merged"],
+				},
+			],
+			metadata: [meta("PRESSURE", ["environment.outside.pressure"])],
+			currentConfig: {
+				PRESSURE: {
+					enabled: true,
+					resend: 0,
+					sources: { "environment.outside.pressure": "vws-merged" },
+					extras: {},
+				},
+			},
+		});
+		expect(recs.find((x) => x.optionKey === "PRESSURE")?.action).toBe("keep");
+	});
+
+	it("does not flag a source pin when the matched path is not live", () => {
+		const recs = recommend({
+			inventory: [
+				{
+					path: "navigation.speedThroughWater",
+					live: false,
+					liveSources: [],
+					historic: { samples: 5, lastSeen: "t" },
+				},
+			],
+			metadata: [meta("SPEED", ["navigation.speedThroughWater"])],
+			currentConfig: {
+				SPEED: {
+					enabled: true,
+					resend: 0,
+					sources: { "navigation.speedThroughWater": "ghost" },
+					extras: {},
+				},
+			},
+		});
+		expect(recs.find((x) => x.optionKey === "SPEED")?.action).toBe("keep");
+	});
 });
 
 interface TestDeps extends AdvisorDeps {
@@ -212,6 +281,34 @@ describe("Advisor.runReview", () => {
 		expect(result.pending.map((r) => r.optionKey)).toEqual(["DEPTH"]);
 		expect(deps.getSaved()).toBeNull();
 	});
+
+	it("parks a stale-source fix as pending and never auto-applies it", async () => {
+		const deps = advisorDeps({
+			buildInventory: () => [
+				{
+					path: "environment.outside.pressure",
+					live: true,
+					liveSources: ["vws-merged"],
+				},
+			],
+			getMetadata: () => [meta("PRESSURE", ["environment.outside.pressure"])],
+			readConfig: () => ({
+				conversions: {
+					PRESSURE: {
+						enabled: true,
+						resend: 0,
+						sources: { "environment.outside.pressure": "open-meteo" },
+						extras: {},
+					},
+				},
+			}),
+		});
+		const result = await new Advisor(deps).runReview();
+		expect(result.autoApplied).toEqual([]);
+		expect(result.pending.map((r) => r.optionKey)).toEqual(["PRESSURE"]);
+		expect(result.pending[0]?.action).toBe("clear-source");
+		expect(deps.getSaved()).toBeNull();
+	});
 });
 
 describe("Advisor.applyReview", () => {
@@ -239,6 +336,83 @@ describe("Advisor.applyReview", () => {
 		};
 		expect(saved.conversions.GPS?.enabled).toBe(false);
 		expect(saved.conversions.AIS?.enabled).toBe(true);
+	});
+
+	it("clears the named source pins on an approved clear-source decision", async () => {
+		const deps = advisorDeps({
+			getMetadata: () => [
+				meta("SEA_TEMP", [
+					"environment.water.temperature",
+					"environment.outside.temperature",
+				]),
+			],
+			readConfig: () => ({
+				conversions: {
+					SEA_TEMP: {
+						enabled: true,
+						resend: 0,
+						sources: {
+							"environment.water.temperature": "stale-id",
+							"environment.outside.temperature": "open-meteo",
+						},
+						extras: {},
+					},
+				},
+			}),
+		});
+		await new Advisor(deps).applyReview([
+			{
+				optionKey: "SEA_TEMP",
+				approved: true,
+				action: "clear-source",
+				clearSourcePaths: [
+					"environment.water.temperature",
+					"environment.outside.temperature",
+				],
+			},
+		]);
+		const saved = deps.getSaved() as {
+			conversions: Record<string, { sources: Record<string, string> }>;
+		};
+		expect(saved.conversions.SEA_TEMP?.sources).toEqual({});
+	});
+
+	it("clears only the named path pins on a clear-source decision, leaving others", async () => {
+		const deps = advisorDeps({
+			getMetadata: () => [
+				meta("SEA_TEMP", [
+					"environment.water.temperature",
+					"environment.outside.temperature",
+				]),
+			],
+			readConfig: () => ({
+				conversions: {
+					SEA_TEMP: {
+						enabled: true,
+						resend: 0,
+						sources: {
+							"environment.water.temperature": "keep-me",
+							"environment.outside.temperature": "open-meteo",
+						},
+						extras: {},
+					},
+				},
+			}),
+		});
+		await new Advisor(deps).applyReview([
+			{
+				optionKey: "SEA_TEMP",
+				approved: true,
+				action: "clear-source",
+				clearSourcePaths: ["environment.outside.temperature"],
+			},
+		]);
+		const saved = deps.getSaved() as {
+			conversions: Record<string, { sources: Record<string, string> }>;
+		};
+		expect(saved.conversions.SEA_TEMP?.sources).toEqual({
+			"environment.water.temperature": "keep-me",
+		});
 	});
 
 	it("applies an approved enable when the decision carries action enable", async () => {
@@ -487,227 +661,5 @@ describe("Advisor.runReview with QuestDB", () => {
 		});
 		const result = await new Advisor(deps).runReview();
 		expect(result.notes.some((n) => n.includes("QuestDB"))).toBe(true);
-	});
-});
-
-describe("BudgetTracker", () => {
-	it("counts recorded calls within a UTC day", () => {
-		const b = new BudgetTracker(() => new Date("2026-05-16T00:00:00Z"));
-		expect(b.callsToday()).toBe(0);
-		b.recordCall();
-		b.recordCall();
-		expect(b.callsToday()).toBe(2);
-	});
-
-	it("resets the count on a new UTC day", () => {
-		let day = "2026-05-16";
-		const b = new BudgetTracker(() => new Date(`${day}T12:00:00Z`));
-		b.recordCall();
-		expect(b.callsToday()).toBe(1);
-		day = "2026-05-17";
-		expect(b.callsToday()).toBe(0);
-	});
-});
-
-describe("OpenRouterClient", () => {
-	function fetchReturning(status: number, body: unknown): typeof fetch {
-		return (async () =>
-			({
-				ok: status >= 200 && status < 300,
-				status,
-				headers: new Headers(),
-				json: async () => body,
-			}) as Response) as typeof fetch;
-	}
-
-	const cfg = {
-		apiKey: "k",
-		model: "m",
-		baseUrl: "https://openrouter.ai/api/v1",
-	};
-
-	it("returns the message content on a 200", async () => {
-		const client = new OpenRouterClient(
-			cfg,
-			fetchReturning(200, {
-				choices: [{ message: { content: '{"ok":true}' } }],
-			}),
-		);
-		const text = await client.complete({ system: "s", user: "u" });
-		expect(text).toBe('{"ok":true}');
-	});
-
-	it("throws a terminal error on 401 without retrying", async () => {
-		let calls = 0;
-		const counting = (async () => {
-			calls += 1;
-			return {
-				ok: false,
-				status: 401,
-				headers: new Headers(),
-				json: async () => ({ error: { message: "bad key" } }),
-			} as Response;
-		}) as typeof fetch;
-		const client = new OpenRouterClient(cfg, counting);
-		await expect(client.complete({ system: "s", user: "u" })).rejects.toThrow();
-		expect(calls).toBe(1);
-	});
-
-	it("throws a terminal error on 404 without retrying", async () => {
-		let calls = 0;
-		const counting = (async () => {
-			calls += 1;
-			return {
-				ok: false,
-				status: 404,
-				headers: new Headers(),
-				json: async () => ({ error: { message: "no such model" } }),
-			} as Response;
-		}) as typeof fetch;
-		const client = new OpenRouterClient(cfg, counting);
-		await expect(client.complete({ system: "s", user: "u" })).rejects.toThrow();
-		expect(calls).toBe(1);
-	});
-
-	it("throws a terminal error on 422 without retrying", async () => {
-		let calls = 0;
-		const counting = (async () => {
-			calls += 1;
-			return {
-				ok: false,
-				status: 422,
-				headers: new Headers(),
-				json: async () => ({ error: { message: "unprocessable" } }),
-			} as Response;
-		}) as typeof fetch;
-		const client = new OpenRouterClient(cfg, counting);
-		await expect(client.complete({ system: "s", user: "u" })).rejects.toThrow();
-		expect(calls).toBe(1);
-	});
-});
-
-describe("enrichRationales", () => {
-	const recs = [
-		{
-			optionKey: "DEPTH",
-			action: "enable" as const,
-			currentlyEnabled: false,
-			matchedPaths: ["navigation.depth.belowTransducer"],
-			confidence: "high" as const,
-			origin: "live" as const,
-			reason: "deterministic reason",
-		},
-	];
-
-	it("maps a returned rationale onto its optionKey", async () => {
-		const client = {
-			complete: async () =>
-				JSON.stringify({
-					rationales: [{ optionKey: "DEPTH", reason: "clear reason" }],
-				}),
-		};
-		const out = await enrichRationales(client, recs);
-		expect(out.get("DEPTH")).toBe("clear reason");
-	});
-
-	it("drops an optionKey the model invented", async () => {
-		const client = {
-			complete: async () =>
-				JSON.stringify({
-					rationales: [{ optionKey: "MADE_UP", reason: "x" }],
-				}),
-		};
-		const out = await enrichRationales(client, recs);
-		expect(out.size).toBe(0);
-	});
-
-	it("returns an empty map on malformed JSON", async () => {
-		const client = { complete: async () => "not json" };
-		const out = await enrichRationales(client, recs);
-		expect(out.size).toBe(0);
-	});
-});
-
-describe("fetchOpenRouterModels", () => {
-	it("returns sorted model ids from the /models response", async () => {
-		const fetchImpl = (async () =>
-			({
-				ok: true,
-				status: 200,
-				json: async () => ({
-					data: [{ id: "openai/gpt-4o" }, { id: "anthropic/claude-haiku-4.5" }],
-				}),
-			}) as Response) as typeof fetch;
-		const models = await fetchOpenRouterModels(
-			"https://openrouter.ai/api/v1",
-			fetchImpl,
-		);
-		expect(models).toEqual(["anthropic/claude-haiku-4.5", "openai/gpt-4o"]);
-	});
-
-	it("throws on a non-OK response", async () => {
-		const fetchImpl = (async () =>
-			({
-				ok: false,
-				status: 502,
-				json: async () => ({}),
-			}) as Response) as typeof fetch;
-		await expect(
-			fetchOpenRouterModels("https://openrouter.ai/api/v1", fetchImpl),
-		).rejects.toThrow("HTTP 502");
-	});
-});
-
-describe("Advisor.runReview with OpenRouter", () => {
-	function openRouterDeps(
-		overrides: Partial<AdvisorDeps> = {},
-	): ReturnType<typeof advisorDeps> {
-		return advisorDeps({
-			readConfig: () => ({
-				conversions: {},
-				advisor: {
-					...DEFAULT_ADVISOR_CONFIG,
-					openRouter: {
-						...DEFAULT_ADVISOR_CONFIG.openRouter,
-						enabled: true,
-						apiKey: "k",
-					},
-				},
-			}),
-			...overrides,
-		});
-	}
-
-	it("overwrites reasons with enriched text", async () => {
-		const deps = openRouterDeps({
-			enrichReasons: async () => ({
-				reasons: new Map([["DEPTH", "enriched reason"]]),
-			}),
-		});
-		const result = await new Advisor(deps).runReview();
-		expect(result.autoApplied[0]?.reason).toBe("enriched reason");
-	});
-
-	it("notes an OpenRouter failure and keeps deterministic reasons", async () => {
-		const deps = openRouterDeps({
-			enrichReasons: async () => {
-				throw new Error("HTTP 402");
-			},
-		});
-		const result = await new Advisor(deps).runReview();
-		expect(result.notes.some((n) => n.includes("OpenRouter"))).toBe(true);
-		expect(result.autoApplied[0]?.reason).toContain("DEPTH");
-	});
-
-	it("skips OpenRouter when no key is set", async () => {
-		let called = false;
-		const deps = advisorDeps({
-			enrichReasons: async () => {
-				called = true;
-				return { reasons: new Map() };
-			},
-		});
-		await new Advisor(deps).runReview();
-		expect(called).toBe(false);
 	});
 });

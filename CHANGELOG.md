@@ -5,6 +5,14 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- The Config Advisor now flags an enabled conversion whose pinned `$source` no longer publishes its path, the silent failure that happens when a weather provider is renamed (for example `open-meteo` becoming `vws-merged`) or an NMEA 2000 sensor re-enumerates its address. Such a conversion stays enabled but emits nothing, with no error. A review now surfaces it as a "Fix source" recommendation that clears the stale pin so the conversion follows whatever source is actually publishing the path. Like disables, these fixes always wait for your approval and are never applied automatically.
+
+### Removed
+
+- The Config Advisor's optional OpenRouter integration was removed, along with its settings (the API key, model, and per-day call cap) and the `/api/advisor/test-key` and `/api/advisor/models` endpoints. The recommendation logic was always rule-based and deterministic; OpenRouter only rewrote each explanation in plainer language and never changed what was recommended, so its removal changes no recommendations. An `advisor.openRouter` block left in a saved configuration, including any stored API key, is dropped on load.
+
 <a id="v173"></a>
 
 ## [1.7.3] - 2026-06-22

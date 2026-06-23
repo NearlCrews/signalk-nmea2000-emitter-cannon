@@ -2,9 +2,9 @@
  * Run an async operation under an abort timeout. Builds one AbortController,
  * arms a timer that aborts it after `ms`, passes the signal to `fn` (wire it
  * into the fetch call so a slow request and its body read are cancelled), and
- * always clears the timer. Shared by the advisor's OpenRouter and QuestDB
- * clients so the controller/timer/clear scaffold lives in one place. Retry and
- * backoff policy stay with each caller.
+ * always clears the timer. Used by the advisor's QuestDB client so the
+ * controller/timer/clear scaffold lives in one place. Retry and backoff policy
+ * stay with each caller.
  */
 export async function withTimeout<T>(
 	ms: number,

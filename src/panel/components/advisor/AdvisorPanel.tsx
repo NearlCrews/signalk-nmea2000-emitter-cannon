@@ -87,15 +87,26 @@ export default function AdvisorPanel({
 	const applyDecided = (): void => {
 		// Send ONLY decided items. An undecided pending item must NOT be sent as
 		// approved: false, which would silently reject a recommendation the user
-		// never looked at. applyReview sets enabled from each decision's action,
-		// so carry it; pending is only enable/disable.
+		// never looked at. applyReview acts on each decision's action, so carry
+		// it; a clear-source decision also carries the stale path pins to remove.
 		const list: ApplyDecision[] = pending
 			.filter((r) => r.optionKey in decisions)
-			.map((r) => ({
-				optionKey: r.optionKey,
-				approved: decisions[r.optionKey] ?? false,
-				action: r.action === "enable" ? "enable" : "disable",
-			}));
+			.map((r) => {
+				const approved = decisions[r.optionKey] ?? false;
+				if (r.action === "clear-source") {
+					return {
+						optionKey: r.optionKey,
+						approved,
+						action: "clear-source",
+						clearSourcePaths: (r.staleSources ?? []).map((s) => s.path),
+					};
+				}
+				return {
+					optionKey: r.optionKey,
+					approved,
+					action: r.action === "enable" ? "enable" : "disable",
+				};
+			});
 		if (list.length === 0) return;
 		void apply(list);
 	};
@@ -177,7 +188,7 @@ export default function AdvisorPanel({
 					</div>
 				)}
 				{/* Settings last, behind their own disclosure: the form (toggle,
-				    API key, QuestDB) is one-time setup and should not greet the
+				    QuestDB, schedule) is one-time setup and should not greet the
 				    user ahead of the review action. The wrapper div keeps the
 				    spacing between the review area and the settings toggle. */}
 				<div style={S.advisorStackGap}>

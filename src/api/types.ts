@@ -129,11 +129,3 @@ type AdvisorApi = import("../advisor/advisor.js").Advisor;
 export type AdvisorQuestDbTestResponse = Awaited<
 	ReturnType<AdvisorApi["testQuestDB"]>
 >;
-
-/** Body of `POST /api/advisor/test-key`. */
-export type AdvisorTestKeyResponse = Awaited<ReturnType<AdvisorApi["testKey"]>>;
-
-/** Body of `GET /api/advisor/models`. */
-export type AdvisorModelsResponse = Awaited<
-	ReturnType<AdvisorApi["listModels"]>
->;

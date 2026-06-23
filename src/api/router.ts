@@ -8,11 +8,9 @@ import { enumerateActivePaths, enumerateSourcesForPath } from "./discovery.js";
 import type {
 	AdvisorApplyRequest,
 	AdvisorApplyResponse,
-	AdvisorModelsResponse,
 	AdvisorPendingResponse,
 	AdvisorQuestDbTestResponse,
 	AdvisorReviewResponse,
-	AdvisorTestKeyResponse,
 	ConversionMetadata,
 	ConversionsResponse,
 	PathsResponse,
@@ -61,7 +59,7 @@ export function createApiRouter(
 			addMw.call(app.securityStrategy, API_PREFIX);
 		} else {
 			app.error(
-				`securityStrategy.addAdminMiddleware unavailable; read-only ${API_PREFIX}/* routes will be unauthenticated and the mutating advisor routes (review, apply, test-key) will be refused with 403. Update signalk-server to >= 2.x.`,
+				`securityStrategy.addAdminMiddleware unavailable; read-only ${API_PREFIX}/* routes will be unauthenticated and the mutating advisor routes (review, apply) will be refused with 403. Update signalk-server to >= 2.x.`,
 			);
 		}
 
@@ -143,10 +141,10 @@ export function createApiRouter(
 				}
 			};
 
-		// Mutating advisor routes have side effects (config writes, outbound
-		// requests using the stored key), so they must not run unauthenticated.
-		// When addAdminMiddleware is unavailable they fail closed with a 403,
-		// while the read-only GETs stay open for older-server compatibility.
+		// Mutating advisor routes have side effects (config writes), so they must
+		// not run unauthenticated. When addAdminMiddleware is unavailable they
+		// fail closed with a 403, while the read-only GETs stay open for
+		// older-server compatibility.
 		const guardedAdvisorRoute = (
 			handler: (
 				advisor: Advisor,
@@ -241,22 +239,6 @@ export function createApiRouter(
 			"/api/advisor/questdb-test",
 			advisorRoute(async (advisor, _req, res) => {
 				const body: AdvisorQuestDbTestResponse = await advisor.testQuestDB();
-				res.json(body);
-			}),
-		);
-
-		router.post(
-			"/api/advisor/test-key",
-			guardedAdvisorRoute(async (advisor, _req, res) => {
-				const body: AdvisorTestKeyResponse = await advisor.testKey();
-				res.json(body);
-			}),
-		);
-
-		router.get(
-			"/api/advisor/models",
-			advisorRoute(async (advisor, _req, res) => {
-				const body: AdvisorModelsResponse = await advisor.listModels();
 				res.json(body);
 			}),
 		);

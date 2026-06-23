@@ -12,14 +12,13 @@ import AdvisorPanel from "./components/advisor/AdvisorPanel";
 import CategoryTabs from "./components/CategoryTabs";
 import CollapsibleSection from "./components/CollapsibleSection";
 import ConversionRow from "./components/ConversionRow";
+import Disclosure from "./components/Disclosure";
 import FirstRunWizard from "./components/FirstRunWizard";
 import FooterBar from "./components/FooterBar";
 import GlobalSettings from "./components/GlobalSettings";
+import PanelToolbar from "./components/PanelToolbar";
 import PresetChips from "./components/PresetChips";
-import SegmentedControl from "./components/SegmentedControl";
-import StatusDashboard from "./components/StatusDashboard";
 import StatusView from "./components/StatusView";
-import ThemeToggle from "./components/ThemeToggle";
 import { useConfig } from "./hooks/useConfig";
 import { useMeta } from "./hooks/useMeta";
 import { useSources } from "./hooks/useSources";
@@ -39,13 +38,6 @@ const VIEW_CHOICES: ReadonlyArray<{ value: PanelView; label: string }> = [
 	{ value: "configure", label: "Configure" },
 	{ value: "status", label: "Status" },
 ];
-
-// The Quick presets heading sits directly under the status bar, which already
-// carries the gap, so the subhead's own top margin is dropped.
-const PRESETS_HEADING: React.CSSProperties = {
-	...S.advisorSubhead,
-	marginTop: 0,
-};
 
 // Per-section enabled and error tallies. The search branch and the tab branch
 // both render category/group sections, so the two counts are derived the same
@@ -276,27 +268,21 @@ export default function PluginConfigurationPanel({
 	return (
 		<div className="skn-panel" style={S.root} ref={rootRef}>
 			<style>{THEME_STYLE}</style>
-			<div style={S.controlBar}>
-				<SegmentedControl
-					legend="View"
-					choices={VIEW_CHOICES}
-					value={view}
-					onChange={changeView}
-				/>
-				<div style={S.controlBarGroup}>
-					{/* Permanent wizard shortcut: the first-run callout disappears
-					    once anything is enabled, so the wizard needs a home that
-					    stays discoverable. */}
-					<button
-						type="button"
-						style={S.btnSecondary}
-						onClick={() => setWizardOpen(true)}
-					>
-						Setup wizard
-					</button>
-					<ThemeToggle />
-				</div>
-			</div>
+			{/* The toolbar holds the search, status chip, Configure/Status toggle,
+			    theme toggle, and wizard shortcut. It sits above both view containers
+			    so it is always visible regardless of which view is active. */}
+			<PanelToolbar
+				status={status}
+				lastUpdatedMs={lastUpdatedMs ?? undefined}
+				onErrorBadgeClick={jumpToFirstError}
+				search={search}
+				onSearch={setSearch}
+				onClearSearch={clearSearch}
+				view={view}
+				onChangeView={changeView}
+				onOpenWizard={() => setWizardOpen(true)}
+				viewChoices={VIEW_CHOICES}
+			/>
 
 			{/* Both views stay mounted; the inactive one is hidden. Unmounting on
 			    every switch dropped AdvisorPanel state and refetched its pending
@@ -311,20 +297,6 @@ export default function PluginConfigurationPanel({
 				/>
 			</div>
 			<div hidden={view !== "configure"}>
-				<StatusDashboard
-					status={status}
-					onErrorBadgeClick={jumpToFirstError}
-					lastUpdatedMs={lastUpdatedMs ?? undefined}
-				/>
-				<AdvisorPanel
-					advisor={state.advisor}
-					onChangeAdvisor={(advisor) =>
-						dispatch({ type: "setAdvisor", advisor })
-					}
-					dirty={dirty}
-					advisorSettingsDirty={advisorSettingsDirty}
-					metaByKey={metaByKey}
-				/>
 				{error ? (
 					<div role="alert" style={S.errorBanner}>
 						<span>
@@ -360,40 +332,48 @@ export default function PluginConfigurationPanel({
 						</button>
 					</div>
 				) : null}
-				{/* One-line heading so the chips read as bulk-enable shortcuts,
-				    not as filters for the catalog below. */}
-				<h3 style={PRESETS_HEADING}>Quick presets: enable a group at once</h3>
-				<PresetChips
-					onApply={(p) => dispatch({ type: "applyPreset", preset: p, meta })}
-					meta={meta}
-				/>
-				<GlobalSettings
-					value={state.globalResendInterval}
-					onChange={(ms) => dispatch({ type: "setGlobalResend", ms })}
-				/>
-				<div style={S.searchRow}>
-					<input
-						type="search"
-						style={S.searchInput}
-						value={search}
-						placeholder="Search conversions by name, PGN, or path"
-						aria-label="Search conversions by name, PGN, or path"
-						onChange={(e) => setSearch(e.target.value)}
-						onKeyDown={(e) => {
-							if (e.key === "Escape") clearSearch();
-						}}
+				<Disclosure
+					id="skn-panel-presets"
+					label="Quick presets"
+					lazy
+					open={openSections["panel:presets"] ?? false}
+					onToggle={() => toggleSection("panel:presets")}
+				>
+					<PresetChips
+						onApply={(p) => dispatch({ type: "applyPreset", preset: p, meta })}
+						meta={meta}
 					/>
-					{/* Always mounted (disabled while empty) so the input width does
-					    not jump on the first keystroke. */}
-					<button
-						type="button"
-						style={S.searchClear}
-						onClick={clearSearch}
-						disabled={!search}
-					>
-						Clear
-					</button>
-				</div>
+				</Disclosure>
+				{/* No lazy prop: the Advisor's pending review state must survive
+				    collapse and reopen without losing progress. */}
+				<Disclosure
+					id="skn-panel-advisor"
+					label="Config Advisor"
+					open={openSections["panel:advisor"] ?? false}
+					onToggle={() => toggleSection("panel:advisor")}
+				>
+					<AdvisorPanel
+						advisor={state.advisor}
+						onChangeAdvisor={(advisor) =>
+							dispatch({ type: "setAdvisor", advisor })
+						}
+						dirty={dirty}
+						advisorSettingsDirty={advisorSettingsDirty}
+						metaByKey={metaByKey}
+					/>
+				</Disclosure>
+				<Disclosure
+					id="skn-panel-global"
+					label="Global settings"
+					lazy
+					open={openSections["panel:global"] ?? false}
+					onToggle={() => toggleSection("panel:global")}
+				>
+					<GlobalSettings
+						value={state.globalResendInterval}
+						onChange={(ms) => dispatch({ type: "setGlobalResend", ms })}
+					/>
+				</Disclosure>
 
 				{searchResult ? (
 					<div>

@@ -4,8 +4,8 @@ import { S } from "../styles";
 
 /**
  * Error-count badge rendered as a button that jumps to the first conversion
- * reporting an error. Shared by StatusDashboard and StatusView so the two
- * badges stay pixel-identical and carry the same accessible name.
+ * reporting an error. Carries a consistent accessible name and style wherever
+ * it appears in the panel.
  */
 export default function ErrorBadgeButton({
 	count,

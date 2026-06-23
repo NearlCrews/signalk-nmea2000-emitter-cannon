@@ -10,7 +10,16 @@ import { extractPgnsFromTitle } from "../../utils/pgnUtils.js";
 import { humanizeAgo } from "../recency";
 import { S } from "../styles";
 import ErrorBadgeButton from "./ErrorBadgeButton";
-import { StatusLoading } from "./StatusDashboard";
+
+// Placeholder shown before the first status poll resolves.
+function StatusLoading(): React.ReactElement {
+	return (
+		<div style={S.statusBar} role="status">
+			<span style={{ ...S.dot, ...S.dotOff }} aria-hidden="true" />
+			<span>Loading status...</span>
+		</div>
+	);
+}
 
 interface Props {
 	// Live status snapshot, or null before the first poll resolves.
@@ -22,7 +31,7 @@ interface Props {
 	metaByKey: Map<string, ConversionMetadata>;
 	// Jump to the first conversion reporting an error (the parent switches to
 	// the Configure view and scrolls the card into view). The error badge is a
-	// button wired to this, matching StatusDashboard's behavior.
+	// button wired to this.
 	onErrorClick: () => void;
 }
 

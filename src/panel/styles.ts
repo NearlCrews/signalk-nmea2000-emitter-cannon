@@ -253,8 +253,7 @@ export const S: Record<string, CSSProperties> = {
 };
 
 // Error badge rendered as a real button (jump to first error). Inherits the
-// badge palette and adds button resets plus a pointer cursor. Shared by
-// StatusDashboard and StatusView so the two badges stay pixel-identical.
+// badge palette and adds button resets plus a pointer cursor.
 S.errorBadgeButton = {
 	...S.errorBadge,
 	cursor: "pointer",

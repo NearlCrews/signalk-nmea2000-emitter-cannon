@@ -1,4 +1,5 @@
 import type * as React from "react";
+import { useState } from "react";
 import { plural } from "../recency";
 import { S } from "../styles";
 import Disclosure from "./Disclosure";
@@ -14,6 +15,10 @@ interface Props {
 	// Number of conversions in this section reporting an error, shown next to
 	// the enabled count. Optional: omitted or 0 renders nothing.
 	errorCount?: number;
+	// Bulk-toggle handlers. When both are provided, Enable all and Disable all
+	// buttons appear in the section header alongside the toggle.
+	onEnableAll?: () => void;
+	onDisableAll?: () => void;
 }
 
 /**
@@ -29,7 +34,38 @@ export default function CollapsibleSection({
 	onToggle,
 	children,
 	errorCount,
+	onEnableAll,
+	onDisableAll,
 }: Props): React.ReactElement {
+	const [announce, setAnnounce] = useState("");
+	const trailing =
+		onEnableAll && onDisableAll ? (
+			<>
+				<button
+					type="button"
+					style={S.bulkBtn}
+					onClick={() => {
+						onEnableAll();
+						setAnnounce(`Enabled ${count} conversions in ${title}.`);
+					}}
+				>
+					Enable all
+				</button>
+				<button
+					type="button"
+					style={S.bulkBtn}
+					onClick={() => {
+						onDisableAll();
+						setAnnounce(`Disabled ${count} conversions in ${title}.`);
+					}}
+				>
+					Disable all
+				</button>
+				<span role="status" style={S.visuallyHidden}>
+					{announce}
+				</span>
+			</>
+		) : undefined;
 	return (
 		<div style={S.section}>
 			<Disclosure
@@ -40,6 +76,7 @@ export default function CollapsibleSection({
 				lazy
 				open={expanded}
 				onToggle={onToggle}
+				headerTrailing={trailing}
 				summary={
 					<>
 						{plural(count, "conversion")}

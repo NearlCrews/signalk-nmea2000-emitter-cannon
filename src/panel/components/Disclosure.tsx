@@ -18,6 +18,13 @@ interface Props {
 	label: React.ReactNode;
 	/** Optional trailing summary, pushed to the trailing edge of the header. */
 	summary?: React.ReactNode;
+	/**
+	 * Optional sibling node rendered after the toggle button in a flex row.
+	 * When present, the toggle button and this node are wrapped in a
+	 * S.disclosureHeaderRow div so the trailing controls sit outside the button
+	 * (valid HTML: no nested interactive elements).
+	 */
+	headerTrailing?: React.ReactNode;
 	/** Header button style. Defaults to the borderless S.disclosureToggle. */
 	headerStyle?: CSSProperties;
 	/** Body style while open. Defaults to S.disclosureBody. */
@@ -48,6 +55,7 @@ export default function Disclosure({
 	id,
 	label,
 	summary,
+	headerTrailing,
 	headerStyle = S.disclosureToggle,
 	bodyStyle = S.disclosureBody,
 	lazy = false,
@@ -64,17 +72,34 @@ export default function Disclosure({
 	const toggle = onToggle ?? ((): void => setLocalOpen((o) => !o));
 	return (
 		<>
-			<button
-				type="button"
-				style={headerStyle}
-				aria-expanded={open}
-				aria-controls={id}
-				onClick={toggle}
-			>
-				<DisclosureCaret expanded={open} />
-				{label}
-				{summary != null ? <span style={SUMMARY}>{summary}</span> : null}
-			</button>
+			{headerTrailing != null ? (
+				<div style={S.disclosureHeaderRow}>
+					<button
+						type="button"
+						style={headerStyle}
+						aria-expanded={open}
+						aria-controls={id}
+						onClick={toggle}
+					>
+						<DisclosureCaret expanded={open} />
+						{label}
+						{summary != null ? <span style={SUMMARY}>{summary}</span> : null}
+					</button>
+					{headerTrailing}
+				</div>
+			) : (
+				<button
+					type="button"
+					style={headerStyle}
+					aria-expanded={open}
+					aria-controls={id}
+					onClick={toggle}
+				>
+					<DisclosureCaret expanded={open} />
+					{label}
+					{summary != null ? <span style={SUMMARY}>{summary}</span> : null}
+				</button>
+			)}
 			{lazy ? (
 				open ? (
 					<div id={id} style={bodyStyle}>

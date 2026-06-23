@@ -149,12 +149,15 @@ export default function PluginConfigurationPanel({
 		setJustSavedAt(Date.now());
 	};
 
-	const enableKeys = useCallback(
-		(keys: string[]): void => {
-			for (const k of keys)
-				dispatch({ type: "setEnabled", key: k, enabled: true });
+	const setEnabledForKeys = useCallback(
+		(keys: string[], enabled: boolean): void => {
+			for (const k of keys) dispatch({ type: "setEnabled", key: k, enabled });
 		},
 		[dispatch],
+	);
+	const enableKeys = useCallback(
+		(keys: string[]) => setEnabledForKeys(keys, true),
+		[setEnabledForKeys],
 	);
 
 	const counts = useMemo(() => {
@@ -458,6 +461,18 @@ export default function PluginConfigurationPanel({
 										errorCount={counts.errors}
 										expanded={openSections[sectionKey] ?? s.defaultExpanded}
 										onToggle={() => toggleSection(sectionKey)}
+										onEnableAll={() =>
+											setEnabledForKeys(
+												s.list.map((m) => m.key),
+												true,
+											)
+										}
+										onDisableAll={() =>
+											setEnabledForKeys(
+												s.list.map((m) => m.key),
+												false,
+											)
+										}
 									>
 										<div style={S.rowList}>{s.list.map(renderRow)}</div>
 									</CollapsibleSection>

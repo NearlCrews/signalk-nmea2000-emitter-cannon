@@ -344,36 +344,24 @@ export default function PluginConfigurationPanel({
 						meta={meta}
 					/>
 				</Disclosure>
-				{/* No lazy prop: the Advisor's pending review state must survive
-				    collapse and reopen without losing progress. */}
-				<Disclosure
-					id="skn-panel-advisor"
-					label="Config Advisor"
-					open={openSections["panel:advisor"] ?? false}
-					onToggle={() => toggleSection("panel:advisor")}
-				>
-					<AdvisorPanel
-						advisor={state.advisor}
-						onChangeAdvisor={(advisor) =>
-							dispatch({ type: "setAdvisor", advisor })
-						}
-						dirty={dirty}
-						advisorSettingsDirty={advisorSettingsDirty}
-						metaByKey={metaByKey}
-					/>
-				</Disclosure>
-				<Disclosure
-					id="skn-panel-global"
-					label="Global settings"
-					lazy
-					open={openSections["panel:global"] ?? false}
-					onToggle={() => toggleSection("panel:global")}
-				>
-					<GlobalSettings
-						value={state.globalResendInterval}
-						onChange={(ms) => dispatch({ type: "setGlobalResend", ms })}
-					/>
-				</Disclosure>
+				{/* AdvisorPanel and GlobalSettings each render their own collapsible
+				    section titled the same as a wrapper would be, so they are placed
+				    directly here without an extra disclosure that would duplicate the
+				    title. AdvisorPanel keeps its pending review state because the
+				    configure view is never unmounted. */}
+				<AdvisorPanel
+					advisor={state.advisor}
+					onChangeAdvisor={(advisor) =>
+						dispatch({ type: "setAdvisor", advisor })
+					}
+					dirty={dirty}
+					advisorSettingsDirty={advisorSettingsDirty}
+					metaByKey={metaByKey}
+				/>
+				<GlobalSettings
+					value={state.globalResendInterval}
+					onChange={(ms) => dispatch({ type: "setGlobalResend", ms })}
+				/>
 
 				{searchResult ? (
 					<div>

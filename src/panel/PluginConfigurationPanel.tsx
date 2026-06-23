@@ -11,7 +11,7 @@ import { stripSubIndex } from "../utils/pathUtils.js";
 import AdvisorPanel from "./components/advisor/AdvisorPanel";
 import CategoryTabs from "./components/CategoryTabs";
 import CollapsibleSection from "./components/CollapsibleSection";
-import ConversionCard from "./components/ConversionCard";
+import ConversionRow from "./components/ConversionRow";
 import FirstRunWizard from "./components/FirstRunWizard";
 import FooterBar from "./components/FooterBar";
 import GlobalSettings from "./components/GlobalSettings";
@@ -91,9 +91,7 @@ export default function PluginConfigurationPanel({
 	// absent key falls back to a default (sections to their `defaultExpanded`,
 	// cards to collapsed). Sections are keyed `category:group`.
 	const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
-	const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>(
-		{},
-	);
+	const [expandedKey, setExpandedKey] = useState<string | null>(null);
 
 	const clearSearch = useCallback(() => setSearch(""), []);
 	// Stable identity so the wizard's document keydown listener (keyed on
@@ -111,11 +109,11 @@ export default function PluginConfigurationPanel({
 	const toggleSection = (key: string): void => {
 		setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
 	};
-	// Stable identity so the memoized ConversionCard does not re-render every
-	// card when one card toggles. setExpandedCards is a functional update, so no
+	// Stable identity so the memoized ConversionRow does not re-render every
+	// row when one row toggles. setExpandedKey is a functional update, so no
 	// dependencies are needed.
-	const toggleCard = useCallback((key: string): void => {
-		setExpandedCards((prev) => ({ ...prev, [key]: !prev[key] }));
+	const toggleExpand = useCallback((key: string): void => {
+		setExpandedKey((prev) => (prev === key ? null : key));
 	}, []);
 
 	useEffect(() => {
@@ -212,14 +210,15 @@ export default function PluginConfigurationPanel({
 		setTab(m.category);
 		const group = m.legacy ? "legacy" : "modern";
 		setOpenSections((prev) => ({ ...prev, [`${m.category}:${group}`]: true }));
-		setExpandedCards((prev) => ({ ...prev, [m.key]: true }));
-		// Scroll after React commits the tab/section/card state above. A double
-		// rAF lets the newly mounted card body land in the DOM first.
+		setExpandedKey(m.key);
+		// Scroll after React commits the tab/section/row state above. A double
+		// rAF lets the newly mounted row body land in the DOM first.
 		requestAnimationFrame(() => {
 			requestAnimationFrame(() => {
 				document
-					.getElementById(`skn-card-${m.key}`)
+					.getElementById(`skn-row-${m.key}`)
 					?.scrollIntoView({ behavior: "smooth", block: "center" });
+				document.getElementById(`skn-row-toggle-${m.key}`)?.focus();
 			});
 		});
 	}, [status, metaByKey, clearSearch]);
@@ -254,15 +253,15 @@ export default function PluginConfigurationPanel({
 		return { groups: groupByCategory(matched), matchCount: matched.length };
 	}, [search, meta]);
 
-	const renderCard = (m: ConversionMetadata): React.ReactElement => (
-		<ConversionCard
+	const renderRow = (m: ConversionMetadata): React.ReactElement => (
+		<ConversionRow
 			key={m.key}
 			meta={m}
 			config={state.conversions[m.key]}
 			status={statusByKey.get(m.key)}
-			expanded={expandedCards[m.key] ?? false}
+			expanded={expandedKey === m.key}
 			dispatch={dispatch}
-			toggleCard={toggleCard}
+			setExpanded={toggleExpand}
 			sourcesFor={sourcesFor}
 			ensureLoaded={ensureLoaded}
 			globalResendSeconds={state.globalResendInterval}
@@ -420,7 +419,7 @@ export default function PluginConfigurationPanel({
 									expanded={openSections[`search:${g.cat}`] ?? true}
 									onToggle={() => toggleSection(`search:${g.cat}`)}
 								>
-									{g.list.map(renderCard)}
+									<div style={S.rowList}>{g.list.map(renderRow)}</div>
 								</CollapsibleSection>
 							);
 						})}
@@ -460,7 +459,7 @@ export default function PluginConfigurationPanel({
 										expanded={openSections[sectionKey] ?? s.defaultExpanded}
 										onToggle={() => toggleSection(sectionKey)}
 									>
-										{s.list.map(renderCard)}
+										<div style={S.rowList}>{s.list.map(renderRow)}</div>
 									</CollapsibleSection>
 								);
 							})}

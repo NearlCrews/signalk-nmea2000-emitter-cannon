@@ -5,6 +5,10 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+<a id="v180"></a>
+
+## [1.8.0] - 2026-06-23
+
 ### Added
 
 - The Config Advisor now flags an enabled conversion whose pinned `$source` no longer publishes its path, the silent failure that happens when a weather provider is renamed (for example `open-meteo` becoming `vws-merged`) or an NMEA 2000 sensor re-enumerates its address. Such a conversion stays enabled but emits nothing, with no error. A review now surfaces it as a "Fix source" recommendation that clears the stale pin so the conversion follows whatever source is actually publishing the path. Like disables, these fixes always wait for your approval and are never applied automatically.
@@ -16,6 +20,7 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Editing is now a single-open inline accordion.** Clicking a row expands its editor (resend interval, source fields, extras editors, and the purpose, note, and compatibility prose) full width below the row, and opening another row closes the previous one.
 - **A compact sticky toolbar replaces the old control bar and status dashboard.** It carries the catalog search, a condensed status chip (the enabled-over-total count, a readiness word, a stale-poll marker, and a jump-to-error button), the Configure and Status toggle, the theme toggle, and the Setup wizard shortcut, and it stays pinned to the top as you scroll.
 - **Quick presets, the Config Advisor, and Global settings collapse into three one-line sections below the toolbar**, so the catalog leads and the optional pieces stay out of the way until you open them.
+- **The Config Advisor applies a recommendation as soon as you Approve it.** Approving an enable, a disable, or a source fix applies it immediately and removes it from the list, and rejecting dismisses it. The separate two-step Apply is gone.
 
 ### Removed
 

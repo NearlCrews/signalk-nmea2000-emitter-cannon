@@ -15,23 +15,27 @@ Garmin ECHOMAP, GPSMAP, and GMI specifications and the canboatjs encoder.
 > Built on the foundation of [`signalk-to-nmea2000`](https://github.com/SignalK/signalk-to-nmea2000)
 > by Scott Bender and the Signal K community.
 
-## What's new in 1.7.3
+## What's new in 1.8.0
 
-- **Config panel works before the plugin is enabled.** A freshly installed
-  plugin showed every conversion category with a `(0)` count and nothing to
-  configure; the panel now loads the full catalog of all 75 conversions
-  whether or not the plugin has been enabled yet.
-- **Root cause.** signalk-server mounts a plugin's API routes at load but only
-  calls `start()` once the plugin is enabled, so the catalog endpoint had no
-  running plugin manager and returned an empty list at the one moment the
-  catalog is needed: choosing conversions to save and enable.
-- **Manager-independent catalog.** The conversion-to-metadata mapping moved
-  into a shared `buildConversionMetadata()` helper feeding one catalog provider
-  used by both the API router and the Config Advisor, so each serves the live
-  catalog when the plugin is running and a standalone copy otherwise.
+- **A much denser config panel.** Conversions render as compact one-line rows
+  instead of tall cards, so a category fits in roughly one screen where it used
+  to take about four, with a left status rail that reads solid when a
+  conversion is emitting and dashed when it is enabled but silent.
+- **Inline single-open editing and a compact sticky toolbar.** Clicking a row
+  opens its editor in place; the catalog search, live status, view toggle,
+  theme toggle, and Setup wizard moved into one toolbar pinned to the top.
+- **Per-category Enable all and Disable all**, plus presets, the Config
+  Advisor, and global settings collapsed into one-line sections so the catalog
+  leads.
+- **Config Advisor improvements.** It now flags a conversion whose pinned
+  `$source` has gone stale (a renamed provider or a re-enumerated sensor), and
+  Approve applies a recommendation immediately instead of staging it for a
+  separate Apply step.
+- **The optional OpenRouter integration was removed.** Recommendations were
+  always deterministic, so nothing changed but the dropped dependency and its
+  settings.
 
-No breaking changes; the test suite grows to 142 tests. See the
-[v1.7.3 changelog entry](CHANGELOG.md#v173) and the
+See the [v1.8.0 changelog entry](CHANGELOG.md#v180) and the
 [full release history](CHANGELOG.md).
 
 ## What it does

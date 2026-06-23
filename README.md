@@ -66,15 +66,17 @@ published specifications. It pairs well with sensor-side plugins such as
   publishes, recommends which conversions to enable or disable, and flags
   enabled conversions whose pinned `$source` has gone stale (a renamed weather
   provider or a re-enumerated sensor), with optional QuestDB history
-- **A React configuration panel** with a status dashboard, category tabs,
-  catalog search, preset chips, a first-run setup wizard, and a theme toggle
-  with light, dark, and a red-preserving night mode
+- **A React configuration panel** with dense one-line conversion rows, a
+  single-open inline editor, a compact sticky toolbar carrying catalog search
+  and live status, category tabs with per-category Enable all and Disable all,
+  preset chips, a first-run setup wizard, and a theme toggle with light, dark,
+  and a red-preserving night mode
 - **`$source: 'NMEA2000'` echo guard** on AIS conversions to avoid re-emitting
   received AIS deltas back onto the bus
 - **Strict TypeScript**, pure ESM, a single esbuild bundle with RxJS as the
   only runtime dependency
 - **Embedded canboatjs round-trip tests** on every conversion module, plus
-  advisor, lifecycle, and panel unit tests (134 tests across 13 files)
+  advisor, lifecycle, and panel unit tests (140 tests across 14 files)
 
 ## Screenshots
 
@@ -117,23 +119,32 @@ In the Signal K admin UI, open **Server, then Plugin Config**, find
 config panel that the Signal K admin loads via webpack 5 Module Federation.
 The panel has these areas:
 
-1. **Status dashboard**: NMEA 2000 output readiness, count of enabled vs total
-   conversions, plus per-conversion emit counts and error badges.
+1. **Sticky toolbar**: catalog search, a condensed status chip (NMEA 2000
+   output readiness, count of enabled vs total conversions, a stale-poll
+   marker, and a jump-to-error button), the Configure and Status toggle, the
+   theme toggle, and the Setup wizard shortcut. It stays pinned as you scroll.
 2. **Config Advisor** (optional, collapsed by default): reviews the Signal K
    paths your boat publishes, recommends which conversions to enable or
    disable, and flags enabled conversions whose pinned `$source` has gone
    stale. Its settings sub-panel covers QuestDB history and a periodic review
    schedule, each control with inline help.
-3. **Preset chips**: Basic Navigation, Engine Set, Full AIS, Environmental,
-   Raymarine. Click a chip to enable the tagged conversions in one action;
-   presets are additive.
-4. **Global resend interval** (seconds): default cadence for every conversion
-   whose own resend is 0. Default `5`; set to `0` to disable global resend.
+3. **Preset chips** (collapsed by default): Basic Navigation, Engine Set, Full
+   AIS, Environmental, Raymarine. Click a chip to enable the tagged conversions
+   in one action; presets are additive.
+4. **Global resend interval** (seconds, collapsed by default): default cadence
+   for every conversion whose own resend is 0. Default `5`; set to `0` to
+   disable global resend.
 5. **Category tabs** (Navigation, Engine, Electrical, Tanks, Environment, AIS,
-   Comms, System), each showing per-conversion cards, with a catalog search
-   that filters by title, PGN number, and Signal K path across all categories.
+   Comms, System), each listing its conversions as dense one-line rows with
+   per-category Enable all and Disable all controls. The toolbar's catalog
+   search filters by title, PGN number, and Signal K path across all
+   categories.
 
-Each conversion card exposes an **Enabled** toggle, a per-conversion **Resend**
+Each conversion row shows an enable checkbox, the title and PGN run, a
+compatibility badge, an error glyph, and the emit recency, with a left status
+rail that reads solid when the conversion is emitting and dotted when it is
+enabled but silent. Clicking a row opens its editor inline below it (opening
+another row closes the previous one), exposing a per-conversion **Resend**
 override, a **Source filter** dropdown (populated live from the server's data
 model), and a **Mapping editor** on conversions that need an explicit Signal K
 identifier to NMEA 2000 instance mapping (`BATTERY`, `ENGINE_PARAMETERS`,
@@ -165,7 +176,7 @@ cd signalk-nmea2000-emitter-cannon
 npm install
 npm run hooks        # one-time: enable the pre-commit hook
 npm run build        # esbuild plugin bundle plus webpack panel
-npm test             # Vitest suite (134 tests)
+npm test             # Vitest suite (140 tests)
 npm run typecheck    # type-check the plugin, the panel, and the tests
 npm run check        # full Biome check
 npm run lint         # Biome linting only

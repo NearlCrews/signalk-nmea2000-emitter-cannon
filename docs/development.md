@@ -68,7 +68,7 @@ src/
 │   ├── index.tsx         # Federation entry; re-exports PluginConfigurationPanel
 │   ├── PluginConfigurationPanel.tsx
 │   ├── styles.ts         # Inline-style objects
-│   ├── components/       # StatusDashboard, ConversionCard, CategoryTabs, etc.
+│   ├── components/       # ConversionRow, ConversionDetail, PanelToolbar, CategoryTabs, etc.
 │   │   └── extras/       # MappingTable + per-family editors
 │   └── hooks/            # useStatus (3s poll), useConfig (reducer), useSources (lazy cache)
 ├── types/
@@ -94,7 +94,7 @@ src/
 │   ├── depth.ts          # Depth conversion
 │   ├── battery.ts        # Battery status conversion
 │   └── ...               # 43 more conversions
-└── test/                 # Vitest test suites (134 tests, 13 files)
+└── test/                 # Vitest test suites (140 tests, 14 files)
     ├── index.test.ts          # All conversion-module test cases (round-trip via canboatjs)
     ├── advisor.test.ts        # Config Advisor: recommender, inventory, QuestDB, stale-source, orchestrator
     ├── advisor-config.test.ts # Advisor config defaults vs schema
@@ -103,6 +103,7 @@ src/
     ├── lifecycle.test.ts      # Plugin start/stop/resend lifecycle
     ├── migrate.test.ts        # v1.4.x legacy config migration
     ├── pathUtils.test.ts      # pathToPropName collision regressions
+    ├── rowStatus.test.ts      # Panel row status derivation (rail, recency)
     ├── schedule.test.ts       # AdvisorScheduler periodic-review timer
     ├── smoothing.test.ts      # ExponentialSmoother registry behavior
     ├── status.test.ts         # PluginManager.getStatusSnapshot + getConversionMetadata
@@ -126,7 +127,7 @@ tsconfig.test.json        # TypeScript config for the src/test/ suite
 
 All conversion modules include embedded test cases that validate correct PGN
 message format, CanboatJS encoding/decoding compatibility, Signal K data path
-mapping, and edge case handling. The full suite is 134 tests across 13 files.
+mapping, and edge case handling. The full suite is 140 tests across 14 files.
 
 `npm run typecheck` runs three `tsc` passes: the plugin runtime
 (`tsconfig.json`, which excludes test files), the React panel

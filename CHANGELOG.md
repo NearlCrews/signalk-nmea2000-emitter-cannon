@@ -8,6 +8,14 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - The Config Advisor now flags an enabled conversion whose pinned `$source` no longer publishes its path, the silent failure that happens when a weather provider is renamed (for example `open-meteo` becoming `vws-merged`) or an NMEA 2000 sensor re-enumerates its address. Such a conversion stays enabled but emits nothing, with no error. A review now surfaces it as a "Fix source" recommendation that clears the stale pin so the conversion follows whatever source is actually publishing the path. Like disables, these fixes always wait for your approval and are never applied automatically.
+- **Per-category Enable all and Disable all controls** sit in each category section header, so you can turn on or off every conversion in a category in one action. They appear in the tab view, not on search results.
+
+### Changed
+
+- **Conversions now render as dense one-line rows instead of tall cards, so a category fits in roughly one screen where it used to take about four.** Each row shows an enable checkbox, the title and PGN run, a compatibility badge, an error glyph, and the emit recency, with a 3px left status rail that reads solid when the conversion is emitting and dotted when it is enabled but silent.
+- **Editing is now a single-open inline accordion.** Clicking a row expands its editor (resend interval, source fields, extras editors, and the purpose, note, and compatibility prose) full width below the row, and opening another row closes the previous one.
+- **A compact sticky toolbar replaces the old control bar and status dashboard.** It carries the catalog search, a condensed status chip (the enabled-over-total count, a readiness word, a stale-poll marker, and a jump-to-error button), the Configure and Status toggle, the theme toggle, and the Setup wizard shortcut, and it stays pinned to the top as you scroll.
+- **Quick presets, the Config Advisor, and Global settings collapse into three one-line sections below the toolbar**, so the catalog leads and the optional pieces stay out of the way until you open them.
 
 ### Removed
 

@@ -1033,13 +1033,20 @@ S.rowList = {
 	background: "var(--skn-surface)",
 	overflow: "hidden",
 };
+// Outer container carries the bottom divider and the left rail. RAIL_STYLE
+// overrides the border-left color and style; nothing else should set them here.
+S.rowOuter = {
+	borderBottom: "1px solid var(--skn-border)",
+	borderLeft: "3px solid transparent",
+};
+// Inner header row: only the flex layout. The divider and rail live on
+// S.rowOuter so the expanded ConversionDetail renders full-width below the
+// header without being squeezed into the flex line.
 S.row = {
 	display: "flex",
 	alignItems: "center",
 	gap: "var(--skn-space-1)",
 	padding: "4px var(--skn-space-2)",
-	borderBottom: "1px solid var(--skn-border)",
-	borderLeft: "3px solid transparent",
 	minHeight: 34,
 	cursor: "pointer",
 };

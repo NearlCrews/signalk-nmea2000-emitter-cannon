@@ -73,7 +73,7 @@ export default function PanelToolbar(props: Props): React.ReactElement {
 				{ready ? "ready" : "waiting"}
 				{stale ? (
 					<span style={{ marginLeft: 6 }}>
-						updated {humanizeAgo(staleAgeMs)} ago
+						updated {humanizeAgo(staleAgeMs)}
 					</span>
 				) : null}
 			</span>

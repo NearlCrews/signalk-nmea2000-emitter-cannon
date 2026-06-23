@@ -206,6 +206,10 @@ ${NIGHT_TOKENS}}
 	min-width: 120px !important;
 	box-sizing: border-box !important;
 }
+.skn-panel { --skn-toolbar-height: 52px; }
+.skn-toolbar { position: sticky; top: 0; z-index: 2; }
+.skn-row { scroll-margin-top: var(--skn-toolbar-height); }
+.skn-row:hover { filter: brightness(0.97); }
 `;
 
 export const S: Record<string, CSSProperties> = {
@@ -1019,4 +1023,119 @@ S.wizardSubhead = {
 	fontWeight: 600,
 	color: "var(--skn-text)",
 	margin: "16px 0 4px",
+};
+
+// Dense conversion list: one bordered surface, hairline row dividers, no
+// per-row box or gap. Replaces the boxed-card stack.
+S.rowList = {
+	border: "1px solid var(--skn-border)",
+	borderRadius: "var(--skn-radius)",
+	background: "var(--skn-surface)",
+	overflow: "hidden",
+};
+S.row = {
+	display: "flex",
+	alignItems: "center",
+	gap: "var(--skn-space-1)",
+	padding: "4px var(--skn-space-2)",
+	borderBottom: "1px solid var(--skn-border)",
+	borderLeft: "3px solid transparent",
+	minHeight: 34,
+	cursor: "pointer",
+};
+// Rail treatments. Emitting is a solid rail; silent is a hollow rail (a dotted
+// border-left) so emitting and silent differ by pattern, not only by a hue that
+// collides in the night theme. Error uses the danger foreground; disabled has
+// no rail.
+S.rowRailEmitting = {
+	borderLeftColor: "var(--skn-ok)",
+	borderLeftStyle: "solid",
+};
+S.rowRailSilent = {
+	borderLeftColor: "var(--skn-wait)",
+	borderLeftStyle: "dotted",
+};
+S.rowRailError = {
+	borderLeftColor: "var(--skn-danger-fg)",
+	borderLeftStyle: "solid",
+};
+S.rowRailDisabled = { borderLeftColor: "transparent" };
+S.rowMain = {
+	display: "flex",
+	alignItems: "center",
+	gap: "var(--skn-space-1)",
+	flex: 1,
+	minWidth: 0,
+};
+S.rowTitleWrap = {
+	display: "flex",
+	alignItems: "baseline",
+	flex: 1,
+	minWidth: 0,
+};
+// The title prose truncates; the PGN run never does. minWidth:0 at every flex
+// level is what lets the ellipsis engage.
+S.rowTitle = {
+	font: "var(--skn-font-title)",
+	fontWeight: 600,
+	color: "var(--skn-text)",
+	flex: "0 1 auto",
+	minWidth: 0,
+	whiteSpace: "nowrap",
+	overflow: "hidden",
+	textOverflow: "ellipsis",
+};
+S.rowPgn = {
+	color: "var(--skn-text-muted)",
+	whiteSpace: "nowrap",
+	flex: "0 0 auto",
+};
+// Fixed-width reserved slot so a badge-less row does not shift the recency column.
+S.rowBadgeSlot = {
+	width: 16,
+	flexShrink: 0,
+	textAlign: "center",
+	display: "inline-flex",
+	justifyContent: "center",
+};
+S.rowRecency = {
+	marginLeft: "auto",
+	color: "var(--skn-text-faint)",
+	font: "var(--skn-font-small)",
+	whiteSpace: "nowrap",
+	flexShrink: 0,
+};
+// Compact top toolbar.
+S.toolbar = {
+	display: "flex",
+	alignItems: "center",
+	gap: "var(--skn-space-2)",
+	padding: "6px var(--skn-space-2)",
+	background: "var(--skn-surface)",
+	borderBottom: "1px solid var(--skn-border)",
+	marginBottom: "var(--skn-space-2)",
+};
+S.statusChip = {
+	display: "inline-flex",
+	alignItems: "center",
+	gap: 6,
+	font: "var(--skn-font-small)",
+	color: "var(--skn-text-muted)",
+	whiteSpace: "nowrap",
+};
+// Small secondary button for Enable all / Disable all on a section header.
+S.bulkBtn = {
+	font: "var(--skn-font-small)",
+	padding: "2px 8px",
+	border: "1px solid var(--skn-border)",
+	borderRadius: "var(--skn-radius-sm)",
+	background: "var(--skn-surface)",
+	color: "var(--skn-text)",
+	cursor: "pointer",
+};
+// Header row that holds the disclosure toggle plus trailing sibling controls.
+S.disclosureHeaderRow = {
+	display: "flex",
+	alignItems: "center",
+	gap: "var(--skn-space-1)",
 };

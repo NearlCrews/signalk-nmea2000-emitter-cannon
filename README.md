@@ -140,10 +140,9 @@ The panel has these areas:
    search filters by title, PGN number, and Signal K path across all
    categories.
 
-Each conversion row shows an enable checkbox, the title and PGN run, a
-compatibility badge, an error glyph, and the emit recency, with a left status
-rail that reads solid when the conversion is emitting and dotted when it is
-enabled but silent. Clicking a row opens its editor inline below it (opening
+Each conversion row shows an enable checkbox, the title and PGN run, an error
+glyph, and the emit recency, with a left status rail that reads solid when the
+conversion is emitting and dashed when it is enabled but silent. Clicking a row opens its editor inline below it (opening
 another row closes the previous one), exposing a per-conversion **Resend**
 override, a **Source filter** dropdown (populated live from the server's data
 model), and a **Mapping editor** on conversions that need an explicit Signal K

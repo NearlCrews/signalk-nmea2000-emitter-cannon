@@ -25,6 +25,7 @@ export function useAdvisor(): {
 	review: () => Promise<void>;
 	apply: (decisions: ApplyDecision[]) => Promise<void>;
 	loadPending: () => Promise<void>;
+	dismissPending: (optionKey: string) => void;
 } {
 	const [state, setState] = useState<AdvisorState>({
 		result: null,
@@ -84,11 +85,22 @@ export function useAdvisor(): {
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ decisions }),
 			});
-			// Clear the result on success: the applied items are now live, and
-			// the server's /pending list does not drop them until the next
-			// review, so reusing the old result would re-render already-applied
-			// rows and let the user re-apply them.
-			setState({ result: null, loading: false, error: null });
+			// Drop only the handled items from the pending list, keeping any
+			// others visible. The server's /pending does not drop applied items
+			// until the next review, so removing them here stops already-applied
+			// rows from re-rendering. When none remain, the result clears.
+			setState((s) => {
+				if (!s.result) return { result: null, loading: false, error: null };
+				const handled = new Set(decisions.map((d) => d.optionKey));
+				const pending = s.result.pending.filter(
+					(r) => !handled.has(r.optionKey),
+				);
+				return {
+					result: pending.length > 0 ? { ...s.result, pending } : null,
+					loading: false,
+					error: null,
+				};
+			});
 		} catch (err) {
 			setState((s) => ({
 				...s,
@@ -98,5 +110,20 @@ export function useAdvisor(): {
 		}
 	}, []);
 
-	return { state, review, apply, loadPending };
+	// Reject: drop one recommendation from the displayed list without any
+	// server call, since rejecting makes no config change. It can reappear on
+	// the next review, which is correct: the advisor keeps recommending until
+	// the underlying state changes.
+	const dismissPending = useCallback((optionKey: string) => {
+		setState((s) => {
+			if (!s.result) return s;
+			const pending = s.result.pending.filter((r) => r.optionKey !== optionKey);
+			return {
+				...s,
+				result: pending.length > 0 ? { ...s.result, pending } : null,
+			};
+		});
+	}, []);
+
+	return { state, review, apply, loadPending, dismissPending };
 }

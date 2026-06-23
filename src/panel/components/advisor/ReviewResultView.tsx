@@ -1,17 +1,24 @@
 import type * as React from "react";
 import type { CSSProperties } from "react";
-import type { AdvisorAction, ReviewResult } from "../../../advisor/types.js";
+import type {
+	AdvisorAction,
+	Recommendation,
+	ReviewResult,
+} from "../../../advisor/types.js";
 import type { ConversionMetadata } from "../../../api/types.js";
 import { S } from "../../styles";
 
 interface Props {
 	result: ReviewResult;
-	decisions: Record<string, boolean>;
 	// Conversion catalog keyed by option key, used to render the human
 	// conversion title instead of the raw option key.
 	metaByKey: Map<string, ConversionMetadata>;
-	onApprove: (optionKey: string) => void;
+	// Approve applies the recommendation immediately; reject dismisses it.
+	onApprove: (r: Recommendation) => void;
 	onReject: (optionKey: string) => void;
+	// True while an apply is in flight, so the buttons disable to avoid a
+	// double action.
+	busy?: boolean;
 }
 
 // The raw option key as small secondary text after the conversion title.
@@ -54,10 +61,10 @@ function ConversionLabel({
 /** Renders one ReviewResult: the auto-applied list and the pending list. */
 export default function ReviewResultView({
 	result,
-	decisions,
 	metaByKey,
 	onApprove,
 	onReject,
+	busy = false,
 }: Props): React.ReactElement {
 	const empty = result.autoApplied.length === 0 && result.pending.length === 0;
 
@@ -88,7 +95,6 @@ export default function ReviewResultView({
 						Needs your approval ({result.pending.length})
 					</span>
 					{result.pending.map((r) => {
-						const choice = decisions[r.optionKey];
 						const verb = PENDING_VERB[r.action];
 						return (
 							<div key={r.optionKey} style={S.advisorRow}>
@@ -102,17 +108,17 @@ export default function ReviewResultView({
 									</span>
 									<button
 										type="button"
-										style={choice === true ? S.btnApproveActive : S.btnApprove}
-										aria-pressed={choice === true}
-										onClick={() => onApprove(r.optionKey)}
+										style={S.btnApprove}
+										onClick={() => onApprove(r)}
+										disabled={busy}
 									>
 										Approve
 									</button>
 									<button
 										type="button"
-										style={choice === false ? S.btnRejectActive : S.btnReject}
-										aria-pressed={choice === false}
+										style={S.btnReject}
 										onClick={() => onReject(r.optionKey)}
+										disabled={busy}
 									>
 										Reject
 									</button>

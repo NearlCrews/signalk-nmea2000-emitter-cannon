@@ -1,6 +1,6 @@
 import type * as React from "react";
 import { useEffect, useState } from "react";
-import type { ApplyDecision } from "../../../advisor/types.js";
+import type { ApplyDecision, Recommendation } from "../../../advisor/types.js";
 import type { ConversionMetadata } from "../../../api/types.js";
 import type { Config } from "../../../config/schema.js";
 import { useAdvisor } from "../../hooks/useAdvisor.js";
@@ -49,8 +49,7 @@ export default function AdvisorPanel({
 	metaByKey,
 }: Props): React.ReactElement {
 	const [open, setOpen] = useState(false);
-	const { state, review, apply, loadPending } = useAdvisor();
-	const [decisions, setDecisions] = useState<Record<string, boolean>>({});
+	const { state, review, apply, loadPending, dismissPending } = useAdvisor();
 
 	// Load any parked decisions from a prior (e.g. scheduled) review on mount so
 	// they are visible without clicking Review now. loadPending is stable, so
@@ -62,53 +61,28 @@ export default function AdvisorPanel({
 	const pending = state.result?.pending ?? [];
 	const pendingCount = pending.length;
 
-	let approvedCount = 0;
-	let rejectedCount = 0;
-	for (const r of pending) {
-		const choice = decisions[r.optionKey];
-		if (choice === true) approvedCount++;
-		else if (choice === false) rejectedCount++;
-	}
-	const decidedCount = approvedCount + rejectedCount;
-	const undecidedCount = pendingCount - decidedCount;
-
 	const handleReview = (): void => {
-		// Drop any prior Approve/Reject choices: the new review's pending list
-		// can reuse an optionKey, and a stale decision would otherwise be sent
-		// by applyDecided.
-		setDecisions({});
 		void review();
 	};
 
-	const decide = (optionKey: string, approved: boolean): void => {
-		setDecisions((d) => ({ ...d, [optionKey]: approved }));
-	};
-
-	const applyDecided = (): void => {
-		// Send ONLY decided items. An undecided pending item must NOT be sent as
-		// approved: false, which would silently reject a recommendation the user
-		// never looked at. applyReview acts on each decision's action, so carry
-		// it; a clear-source decision also carries the stale path pins to remove.
-		const list: ApplyDecision[] = pending
-			.filter((r) => r.optionKey in decisions)
-			.map((r) => {
-				const approved = decisions[r.optionKey] ?? false;
-				if (r.action === "clear-source") {
-					return {
+	// Approve applies the one recommendation immediately (an enable, a disable,
+	// or a clear-source), so there is no separate Apply step. Reject dismisses
+	// it from the list without changing the config.
+	const approveOne = (r: Recommendation): void => {
+		const decision: ApplyDecision =
+			r.action === "clear-source"
+				? {
 						optionKey: r.optionKey,
-						approved,
+						approved: true,
 						action: "clear-source",
 						clearSourcePaths: (r.staleSources ?? []).map((s) => s.path),
+					}
+				: {
+						optionKey: r.optionKey,
+						approved: true,
+						action: r.action === "enable" ? "enable" : "disable",
 					};
-				}
-				return {
-					optionKey: r.optionKey,
-					approved,
-					action: r.action === "enable" ? "enable" : "disable",
-				};
-			});
-		if (list.length === 0) return;
-		void apply(list);
+		void apply([decision]);
 	};
 
 	return (
@@ -170,21 +144,11 @@ export default function AdvisorPanel({
 					<div style={S.advisorStackGap}>
 						<ReviewResultView
 							result={state.result}
-							decisions={decisions}
 							metaByKey={metaByKey}
-							onApprove={(k) => decide(k, true)}
-							onReject={(k) => decide(k, false)}
+							onApprove={approveOne}
+							onReject={dismissPending}
+							busy={state.loading}
 						/>
-						{pendingCount > 0 && (
-							<button
-								type="button"
-								style={S.btnSecondary}
-								onClick={applyDecided}
-								disabled={state.loading || decidedCount === 0}
-							>
-								{`Apply decisions: ${approvedCount} approved, ${rejectedCount} rejected, ${undecidedCount} undecided`}
-							</button>
-						)}
 					</div>
 				)}
 				{/* Settings last, behind their own disclosure: the form (toggle,

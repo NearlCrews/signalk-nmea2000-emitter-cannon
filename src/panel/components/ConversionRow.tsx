@@ -84,7 +84,6 @@ function ConversionRow(props: Props): React.ReactElement {
 	const cfg = props.config ?? EMPTY_CFG;
 	const bodyId = `skn-card-${key}`;
 	const toggleRef = useRef<HTMLButtonElement>(null);
-	const rowRef = useRef<HTMLDivElement>(null);
 	const wasExpanded = useRef(props.expanded);
 
 	const onSetEnabled = useCallback(
@@ -106,6 +105,10 @@ function ConversionRow(props: Props): React.ReactElement {
 		[dispatch, key],
 	);
 	const onToggle = useCallback(() => setExpanded(key), [setExpanded, key]);
+	const onCheckboxChange = useCallback(
+		(e: React.ChangeEvent<HTMLInputElement>) => onSetEnabled(e.target.checked),
+		[onSetEnabled],
+	);
 	const onRowClick = useCallback(
 		(e: React.MouseEvent<HTMLDivElement>) => {
 			if ((e.target as HTMLElement).closest("input, button, select, a, label"))
@@ -134,11 +137,7 @@ function ConversionRow(props: Props): React.ReactElement {
 	return (
 		// Outer: carries the bottom divider and the left rail.
 		// RAIL_STYLE spreads over S.rowOuter to override the border-left.
-		<div
-			id={`skn-row-${key}`}
-			ref={rowRef}
-			style={{ ...S.rowOuter, ...RAIL_STYLE[rail] }}
-		>
+		<div id={`skn-row-${key}`} style={{ ...S.rowOuter, ...RAIL_STYLE[rail] }}>
 			{/* Inner header: pointer convenience; the toggle button carries all
 			    keyboard semantics so the div must NOT take a role of its own. */}
 			{/* biome-ignore lint/a11y/useKeyWithClickEvents: the row click only delegates to the toggle button, which carries the keyboard semantics itself. */}
@@ -148,7 +147,7 @@ function ConversionRow(props: Props): React.ReactElement {
 					type="checkbox"
 					style={S.checkbox}
 					checked={cfg.enabled}
-					onChange={(e) => onSetEnabled(e.target.checked)}
+					onChange={onCheckboxChange}
 					aria-label={`Enable ${props.meta.title}`}
 				/>
 				<button

@@ -87,7 +87,11 @@ export default function PanelToolbar(props: Props): React.ReactElement {
 				onChange={props.onChangeView}
 			/>
 			<ThemeToggle />
-			<button type="button" style={S.btnSecondary} onClick={props.onOpenWizard}>
+			<button
+				type="button"
+				style={{ ...S.btnSecondary, flexShrink: 0 }}
+				onClick={props.onOpenWizard}
+			>
 				Setup wizard
 			</button>
 		</section>

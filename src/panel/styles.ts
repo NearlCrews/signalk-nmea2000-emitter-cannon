@@ -162,6 +162,16 @@ ${NIGHT_TOKENS}}
 	outline: 2px solid var(--skn-accent);
 	outline-offset: 1px;
 }
+/* Native form controls do not inherit the panel font-family, so they fall
+   back to the browser default and read inconsistently with the rest of the
+   panel. font-family only (not the font shorthand, which would clobber each
+   control's own font-size). */
+.skn-panel button,
+.skn-panel input,
+.skn-panel select,
+.skn-panel textarea {
+	font-family: inherit;
+}
 /* Buttons set their background as an inline style, which outranks the
    browser's default disabled appearance, so a disabled button would still
    look enabled. !important is required to override the inline style for the
@@ -416,6 +426,7 @@ S.btnPrimary = {
 	color: "var(--skn-accent-text)",
 	border: "none",
 	borderRadius: "var(--skn-radius)",
+	fontSize: "var(--skn-font-body)",
 	fontWeight: 600,
 	cursor: "pointer",
 };
@@ -426,6 +437,7 @@ S.btnSecondary = {
 	color: "var(--skn-text)",
 	border: "1px solid var(--skn-border)",
 	borderRadius: "var(--skn-radius)",
+	fontSize: "var(--skn-font-body)",
 	cursor: "pointer",
 };
 S.btnDestructive = {
@@ -435,6 +447,7 @@ S.btnDestructive = {
 	color: "var(--skn-danger-fg)",
 	border: "1px solid var(--skn-danger-border)",
 	borderRadius: "var(--skn-radius)",
+	fontSize: "var(--skn-font-body)",
 	cursor: "pointer",
 };
 // Compact destructive button sized for table rows. Smaller text than the
@@ -614,6 +627,7 @@ S.chip = {
 // fills with the accent. 36px segments for marine touch use.
 S.segmented = {
 	display: "inline-flex",
+	flexShrink: 0,
 	// Rendered as a <fieldset>: zero out the user-agent margin and padding
 	// so the segments sit flush inside the border.
 	margin: 0,
@@ -784,7 +798,8 @@ S.sectionHeader = {
 	display: "flex",
 	alignItems: "center",
 	gap: 8,
-	width: "100%",
+	flex: 1,
+	minWidth: 0,
 	padding: "10px 12px",
 	background: "var(--skn-surface-muted)",
 	border: "1px solid var(--skn-border)",
@@ -851,7 +866,7 @@ S.searchRow = {
 	marginBottom: "var(--skn-space-2)",
 };
 S.searchInput = {
-	flex: 1,
+	flex: "1 1 200px",
 	minWidth: 0,
 	minHeight: 36,
 	boxSizing: "border-box",
@@ -1036,11 +1051,11 @@ S.rowList = {
 // overrides the border-left color and style; nothing else should set them here.
 S.rowOuter = {
 	borderBottom: "1px solid var(--skn-border)",
-	borderLeft: "3px solid transparent",
 };
-// Inner header row: only the flex layout. The divider and rail live on
-// S.rowOuter so the expanded ConversionDetail renders full-width below the
-// header without being squeezed into the flex line.
+// Inner header row: the flex layout plus the 3px status rail (a left border).
+// The rail lives on the header only, so it stays a short tick at the row height
+// and does not run down the expanded ConversionDetail below it. The divider
+// (borderBottom) stays on S.rowOuter so it spans the header and the detail.
 S.row = {
 	display: "flex",
 	alignItems: "center",
@@ -1048,18 +1063,18 @@ S.row = {
 	padding: "4px var(--skn-space-2)",
 	minHeight: 34,
 	cursor: "pointer",
+	borderLeft: "3px solid transparent",
 };
-// Rail treatments. Emitting is a solid rail; silent is a hollow rail (a dotted
-// border-left) so emitting and silent differ by pattern, not only by a hue that
-// collides in the night theme. Error uses the danger foreground; disabled has
-// no rail.
+// Rail treatments. Emitting is a solid rail; silent is a dashed rail so emitting
+// and silent differ by pattern, not only by a hue that collides in the night
+// theme. Error uses the danger foreground; disabled has no rail.
 S.rowRailEmitting = {
 	borderLeftColor: "var(--skn-ok)",
 	borderLeftStyle: "solid",
 };
 S.rowRailSilent = {
 	borderLeftColor: "var(--skn-wait)",
-	borderLeftStyle: "dotted",
+	borderLeftStyle: "dashed",
 };
 S.rowRailError = {
 	borderLeftColor: "var(--skn-danger-fg)",
@@ -1072,6 +1087,14 @@ S.rowMain = {
 	gap: "var(--skn-space-1)",
 	flex: 1,
 	minWidth: 0,
+	// Reset the native button chrome so the title and PGN read as plain
+	// clickable text, not a bordered box (mirrors S.cardDisclosure).
+	padding: 0,
+	background: "transparent",
+	border: "none",
+	cursor: "pointer",
+	font: "inherit",
+	textAlign: "left",
 };
 S.rowTitleWrap = {
 	display: "flex",
@@ -1082,7 +1105,7 @@ S.rowTitleWrap = {
 // The title prose truncates; the PGN run never does. minWidth:0 at every flex
 // level is what lets the ellipsis engage.
 S.rowTitle = {
-	font: "var(--skn-font-title)",
+	fontSize: "var(--skn-font-title)",
 	fontWeight: 600,
 	color: "var(--skn-text)",
 	flex: "0 1 auto",
@@ -1095,6 +1118,7 @@ S.rowPgn = {
 	color: "var(--skn-text-muted)",
 	whiteSpace: "nowrap",
 	flex: "0 0 auto",
+	marginLeft: 4,
 };
 // Fixed-width reserved slot so a badge-less row does not shift the recency column.
 S.rowBadgeSlot = {
@@ -1107,14 +1131,41 @@ S.rowBadgeSlot = {
 S.rowRecency = {
 	marginLeft: "auto",
 	color: "var(--skn-text-faint)",
-	font: "var(--skn-font-small)",
+	fontSize: "var(--skn-font-small)",
 	whiteSpace: "nowrap",
 	flexShrink: 0,
 };
+// Expanded editor body: a contained, recessed panel inset under its row, so the
+// open editor reads as a nested child and not as loose fields in the list.
+S.rowDetail = {
+	background: "var(--skn-surface-muted)",
+	borderTop: "1px solid var(--skn-border)",
+	padding: "var(--skn-space-2) var(--skn-space-3)",
+	paddingLeft: 32,
+};
+// Stacked field: the label sits above a full-width control. Used for the resend
+// and per-path source fields, whose long Signal K path labels do not fit beside
+// an input at the panel width. Scoped to the conversion editor, so the shared
+// horizontal S.fieldRow (advisor, global settings) is untouched.
+S.fieldStack = {
+	display: "flex",
+	flexDirection: "column",
+	alignItems: "stretch",
+	gap: "var(--skn-space-1)",
+	marginBottom: "var(--skn-space-2)",
+};
+S.fieldStackLabel = {
+	fontSize: "var(--skn-font-small)",
+	color: "var(--skn-text-muted)",
+	fontWeight: 500,
+	overflowWrap: "anywhere",
+};
+S.inputFull = { ...S.input, width: "100%", boxSizing: "border-box" };
 // Compact top toolbar.
 S.toolbar = {
 	display: "flex",
 	alignItems: "center",
+	flexWrap: "wrap",
 	gap: "var(--skn-space-2)",
 	padding: "6px var(--skn-space-2)",
 	background: "var(--skn-surface)",
@@ -1125,19 +1176,19 @@ S.statusChip = {
 	display: "inline-flex",
 	alignItems: "center",
 	gap: 6,
-	font: "var(--skn-font-small)",
+	fontSize: "var(--skn-font-small)",
 	color: "var(--skn-text-muted)",
 	whiteSpace: "nowrap",
+	flexShrink: 0,
 };
 // Small secondary button for Enable all / Disable all on a section header.
+// Enable all / Disable all: the panel's small secondary button (raised fill,
+// border, and radius) so they read as real buttons, not hairline boxes, plus
+// nowrap and no-shrink so the two-word labels never wrap or get squeezed.
 S.bulkBtn = {
-	font: "var(--skn-font-small)",
-	padding: "2px 8px",
-	border: "1px solid var(--skn-border)",
-	borderRadius: "var(--skn-radius-sm)",
-	background: "var(--skn-surface)",
-	color: "var(--skn-text)",
-	cursor: "pointer",
+	...S.btnSecondarySm,
+	whiteSpace: "nowrap",
+	flexShrink: 0,
 };
 // Header row that holds the disclosure toggle plus trailing sibling controls.
 S.disclosureHeaderRow = {

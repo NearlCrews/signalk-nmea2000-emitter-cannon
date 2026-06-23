@@ -36,10 +36,10 @@ export default function SourceField({
 	// free-form source for paths with no discovered source. An empty value
 	// means "any source".
 	return (
-		<div style={S.fieldRow}>
-			<span style={S.label}>Source for {path}</span>
+		<div style={S.fieldStack}>
+			<span style={S.fieldStackLabel}>{path}</span>
 			<input
-				style={S.input}
+				style={S.inputFull}
 				type="text"
 				list={listId}
 				value={value}

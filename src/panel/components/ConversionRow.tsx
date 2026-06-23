@@ -26,22 +26,6 @@ const RAIL_STYLE: Record<RailState, React.CSSProperties> = {
 	disabled: S.rowRailDisabled,
 };
 
-// Garmin badge: an 8px dot in a foreground token, with a visually-hidden label
-// so the accessible name is on the collapsed row, not only in the title tooltip.
-const COMPAT_DOT: Record<
-	"partial" | "ignores",
-	{ color: string; label: string }
-> = {
-	partial: {
-		color: "var(--skn-warn-fg)",
-		label: "Garmin compatibility: partial",
-	},
-	ignores: {
-		color: "var(--skn-text-muted)",
-		label: "Garmin compatibility: ignores",
-	},
-};
-
 // splitPgnTitle returns { prefix, pgns, suffix } where prefix is the
 // descriptive name (the truncating part) and pgns plus suffix are the PGN run
 // (never clipped). Reconstruct without adding extra parens.
@@ -50,7 +34,7 @@ function renderTitle(title: string): React.ReactNode {
 	if (!parts) return <span style={S.rowTitle}>{title}</span>;
 	return (
 		<span style={S.rowTitleWrap}>
-			<span style={S.rowTitle}>{parts.prefix}</span>
+			<span style={S.rowTitle}>{parts.prefix.trimEnd()}</span>
 			<span style={S.rowPgn}>
 				{parts.pgns.map((p, i) => (
 					<Fragment key={p}>
@@ -130,23 +114,16 @@ function ConversionRow(props: Props): React.ReactElement {
 	}, [props.expanded]);
 
 	const { rail, recency } = rowStatus(props.status, cfg.enabled);
-	const compat = props.meta.compatibility?.garmin;
-	const compatDot =
-		compat === "partial" || compat === "ignores" ? COMPAT_DOT[compat] : null;
 
 	return (
-		// Outer: carries the bottom divider and the left rail.
-		// RAIL_STYLE spreads over S.rowOuter to override the border-left.
-		<div
-			id={`skn-row-${key}`}
-			className="skn-row"
-			style={{ ...S.rowOuter, ...RAIL_STYLE[rail] }}
-		>
+		// Outer: carries the bottom divider only. The rail lives on the header
+		// below, so it stays a short tick and does not run down the detail body.
+		<div id={`skn-row-${key}`} className="skn-row" style={S.rowOuter}>
 			{/* Inner header: pointer convenience; the toggle button carries all
 			    keyboard semantics so the div must NOT take a role of its own. */}
 			{/* biome-ignore lint/a11y/useKeyWithClickEvents: the row click only delegates to the toggle button, which carries the keyboard semantics itself. */}
 			{/* biome-ignore lint/a11y/noStaticElementInteractions: pointer convenience only; the nested toggle button remains the accessible control, so the row must NOT take a role of its own. */}
-			<div style={S.row} onClick={onRowClick}>
+			<div style={{ ...S.row, ...RAIL_STYLE[rail] }} onClick={onRowClick}>
 				<input
 					type="checkbox"
 					style={S.checkbox}
@@ -167,13 +144,7 @@ function ConversionRow(props: Props): React.ReactElement {
 					{renderTitle(props.meta.title)}
 				</button>
 				<span style={S.rowBadgeSlot}>
-					{compatDot ? (
-						<span
-							aria-hidden="true"
-							style={{ ...S.dot, background: compatDot.color }}
-							title={compatDot.label}
-						/>
-					) : props.meta.legacy ? (
+					{props.meta.legacy ? (
 						<span
 							aria-hidden="true"
 							style={S.cardLegacy}
@@ -182,10 +153,7 @@ function ConversionRow(props: Props): React.ReactElement {
 							L
 						</span>
 					) : null}
-					{compatDot ? (
-						<span style={S.visuallyHidden}>{compatDot.label}</span>
-					) : null}
-					{props.meta.legacy && !compatDot ? (
+					{props.meta.legacy ? (
 						<span style={S.visuallyHidden}>Legacy</span>
 					) : null}
 				</span>

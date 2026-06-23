@@ -71,7 +71,7 @@ export default function ConversionDetail(props: Props): React.ReactElement {
 		: null;
 
 	return (
-		<div id={props.bodyId} style={S.cardBody}>
+		<div id={props.bodyId} style={S.rowDetail}>
 			{/* Inline error banner: the same message the header's warning marks,
 			    shown in full for touchscreens where the title tooltip is
 			    unreachable. */}
@@ -109,8 +109,8 @@ export default function ConversionDetail(props: Props): React.ReactElement {
 			{/* Options stay visible whether or not the conversion is
 			    enabled, so a source or resend can be set up before the
 			    enable checkbox is ticked. */}
-			<div style={S.fieldRow}>
-				<span style={S.label}>
+			<div style={S.fieldStack}>
+				<span style={S.fieldStackLabel}>
 					Resend interval (seconds, 0 = use global setting)
 				</span>
 				<NumberInput

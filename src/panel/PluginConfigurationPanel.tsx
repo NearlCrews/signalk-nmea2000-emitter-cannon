@@ -81,7 +81,7 @@ export default function PluginConfigurationPanel({
 	const [search, setSearch] = useState("");
 	// Disclosure state, persisted across tab switches within the session. An
 	// absent key falls back to a default (sections to their `defaultExpanded`,
-	// cards to collapsed). Sections are keyed `category:group`.
+	// rows to collapsed). Sections are keyed `category:group`.
 	const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
 	const [expandedKey, setExpandedKey] = useState<string | null>(null);
 

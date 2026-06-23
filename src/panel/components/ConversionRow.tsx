@@ -137,7 +137,11 @@ function ConversionRow(props: Props): React.ReactElement {
 	return (
 		// Outer: carries the bottom divider and the left rail.
 		// RAIL_STYLE spreads over S.rowOuter to override the border-left.
-		<div id={`skn-row-${key}`} style={{ ...S.rowOuter, ...RAIL_STYLE[rail] }}>
+		<div
+			id={`skn-row-${key}`}
+			className="skn-row"
+			style={{ ...S.rowOuter, ...RAIL_STYLE[rail] }}
+		>
 			{/* Inner header: pointer convenience; the toggle button carries all
 			    keyboard semantics so the div must NOT take a role of its own. */}
 			{/* biome-ignore lint/a11y/useKeyWithClickEvents: the row click only delegates to the toggle button, which carries the keyboard semantics itself. */}
@@ -171,6 +175,7 @@ function ConversionRow(props: Props): React.ReactElement {
 						/>
 					) : props.meta.legacy ? (
 						<span
+							aria-hidden="true"
 							style={S.cardLegacy}
 							title={`${props.meta.legacy.note} Superseded by ${props.meta.legacy.supersededBy}.`}
 						>
@@ -180,7 +185,7 @@ function ConversionRow(props: Props): React.ReactElement {
 					{compatDot ? (
 						<span style={S.visuallyHidden}>{compatDot.label}</span>
 					) : null}
-					{props.meta.legacy ? (
+					{props.meta.legacy && !compatDot ? (
 						<span style={S.visuallyHidden}>Legacy</span>
 					) : null}
 				</span>

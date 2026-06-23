@@ -70,9 +70,9 @@ function toStringRecord(value: unknown): Record<string, string> {
  * Normalize one already-nested conversion entry to the current required shape,
  * backfilling enabled, resend, sources, and extras with their defaults. A
  * config saved while sources/extras were Type.Optional can carry an entry that
- * omits them; without this backfill the panel read sites (ConversionCard, the
+ * omits them; without this backfill the panel read sites (ConversionRow, the
  * mapping editors, FieldEditor) would dereference an undefined sources/extras
- * and throw on card expand.
+ * and throw on row expand.
  */
 function normalizeNestedEntry(value: unknown): ConversionConfig {
 	const entry = isPlainObject(value) ? value : {};

@@ -17,7 +17,7 @@ import { GLOBAL_RESEND_HELP } from "./enums.js";
 // sources and extras are required with a {} default so every consumer can
 // rely on them being objects. The previous Type.Optional shape forced a
 // `?? {}` spread at every read site (panel reducer, plugin-manager flatten,
-// ConversionCard render). migrateLegacyConfig and the panel reducer both
+// the panel row render). migrateLegacyConfig and the panel reducer both
 // emit {} for missing values so on-disk configs that pre-date this change
 // still load.
 const ConversionCommon = Type.Object({

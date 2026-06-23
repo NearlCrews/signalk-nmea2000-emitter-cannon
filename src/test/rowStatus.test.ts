@@ -34,6 +34,15 @@ describe("rowStatus", () => {
 		expect(r.recency).toMatch(/^3 emits, last /);
 	});
 
+	it("is error with 'no recent output' when erroring and never emitted", () => {
+		const r = rowStatus(
+			{ ...base, enabled: true, emitCount: 0, lastErrorMessage: "boom" },
+			true,
+		);
+		expect(r.rail).toBe("error");
+		expect(r.recency).toBe("no recent output");
+	});
+
 	it("is silent with text when enabled and no status object exists yet", () => {
 		const r = rowStatus(undefined, true);
 		expect(r.rail).toBe("silent");

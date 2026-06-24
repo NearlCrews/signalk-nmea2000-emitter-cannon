@@ -108,6 +108,42 @@ export default function createCogSogConversion(
 					},
 				],
 			},
+			{
+				// Regression: a stationary boat reports SOG 0, a valid reading
+				// that must be forwarded as sog 0, a valid wire zero, not dropped
+				// or sent as the "not available" sentinel.
+				input: [2, 0],
+				expected: [
+					{
+						prio: 2,
+						pgn: 129026,
+						dst: 255,
+						fields: {
+							sid: 87,
+							cogReference: "True",
+							cog: 2,
+							sog: 0,
+						},
+					},
+				],
+			},
+			{
+				// Regression: SOG 0 with no course still emits the PGN; the
+				// both-null short-circuit must not treat a 0 speed as missing.
+				input: [null, 0],
+				expected: [
+					{
+						prio: 2,
+						pgn: 129026,
+						dst: 255,
+						fields: {
+							sid: 87,
+							cogReference: "True",
+							sog: 0,
+						},
+					},
+				],
+			},
 		],
 	};
 }

@@ -118,6 +118,11 @@ export default function PluginConfigurationPanel({
 	// against the last-saved snapshot is a sound dirty check. Replaces a deep
 	// JSON.stringify compare that ran on every render.
 	const dirty = state !== savedState;
+	// True when the host has not yet handed the panel a saved configuration.
+	// The `configuration` prop is null or undefined on a fresh install, before
+	// the user has ever saved. In this state Save must be enabled at all times
+	// so the user can commit defaults and allow the plugin to start.
+	const unconfigured = configuration == null;
 	// The advisor block is replaced wholesale by the setAdvisor reducer case, so
 	// identity inequality against the baseline is a sound "advisor edited" check.
 	const advisorSettingsDirty = state.advisor !== savedState.advisor;
@@ -452,6 +457,7 @@ export default function PluginConfigurationPanel({
 			</div>
 			<FooterBar
 				dirty={dirty}
+				unconfigured={unconfigured}
 				justSavedAt={justSavedAt}
 				onSave={handleSave}
 				onDiscard={() => dispatch({ type: "discard", config: savedState })}

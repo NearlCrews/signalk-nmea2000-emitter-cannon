@@ -1,10 +1,15 @@
 import type * as React from "react";
 import { useRef } from "react";
+import { isSaveDisabled } from "../saveDisabled";
 import { S } from "../styles";
 import SaveStatus from "./SaveStatus";
 
 interface Props {
 	dirty: boolean;
+	// True when the host has not yet provided a saved configuration (first
+	// install). In this state Save must stay enabled even when not dirty so the
+	// user can commit defaults and enable the plugin.
+	unconfigured: boolean;
 	onSave: () => void;
 	onDiscard: () => void;
 	// Epoch ms of the last successful save, or null. The pill auto-clears
@@ -14,6 +19,7 @@ interface Props {
 
 export default function FooterBar({
 	dirty,
+	unconfigured,
 	onSave,
 	onDiscard,
 	justSavedAt,
@@ -34,13 +40,15 @@ export default function FooterBar({
 		focusStatus();
 	};
 
+	const saveDisabled = isSaveDisabled(dirty, unconfigured);
+
 	return (
 		<div style={S.footer}>
 			<button
 				type="button"
 				style={S.btnPrimary}
 				onClick={handleSave}
-				disabled={!dirty}
+				disabled={saveDisabled}
 			>
 				Save
 			</button>
@@ -55,6 +63,9 @@ export default function FooterBar({
 			<span ref={statusRef} tabIndex={-1} style={S.saveStatusFocus}>
 				<SaveStatus dirty={dirty} justSavedAt={justSavedAt ?? null} />
 			</span>
+			{unconfigured && !dirty ? (
+				<span style={S.textFaint}>Save to enable the plugin.</span>
+			) : null}
 		</div>
 	);
 }

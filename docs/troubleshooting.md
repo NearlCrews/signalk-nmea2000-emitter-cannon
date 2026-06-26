@@ -27,6 +27,22 @@ weather source such as `signalk-virtual-weather-sensors` publishes its wind on
 only `WIND_TRUE_GROUND` converts. After applying the Environmental preset,
 enable `WIND_TRUE_GROUND` by hand if you want forecast wind on the bus.
 
+## Forecast wind shows as Ground Wind, but True Wind Speed stays blank on a Garmin
+
+`WIND_TRUE_GROUND` emits PGN 130306 with reference `True (ground referenced to
+North)`. A Garmin maps that reference to its Ground Wind fields, not True Wind,
+and fills True Wind Speed/Angle either from a `True (boat referenced)` source or
+by computing it from apparent wind plus boat speed (speed through water). With no
+masthead anemometer and no speed sensor, the True Wind fields have nothing to draw
+from, so they stay blank even though the wind is on the bus.
+
+Enable `WIND_WEATHER_TRUE`. It computes the boat-referenced true wind angle
+(`environment.wind.directionTrue` minus `navigation.headingTrue`) and emits PGN
+130306 with reference `True (boat referenced)`, which populates the Garmin's True
+Wind Speed/Angle directly. It needs a true heading on the bus to produce an angle;
+if only magnetic heading is available, make sure the server derives
+`navigation.headingTrue` (heading plus magnetic variation) first.
+
 ## Configuration changes don't take effect
 
 Signal K reloads plugin configuration when you save it, but some changes (for

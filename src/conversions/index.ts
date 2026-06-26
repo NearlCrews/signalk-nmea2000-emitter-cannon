@@ -54,6 +54,7 @@ import createWindConversion from "./wind.js";
 import createWindTrueGroundConversion from "./windTrueGround.js";
 import createWindTrueWaterConversion from "./windTrueWater.js";
 import createWindWeatherApparentConversion from "./windWeatherApparent.js";
+import createWindWeatherTrueConversion from "./windWeatherTrue.js";
 
 /**
  * Run a conversion factory and normalize its return value to a flat array.
@@ -130,6 +131,7 @@ export function createConversionModules(
 		createWindTrueGroundConversion,
 		createWindTrueWaterConversion,
 		createWindWeatherApparentConversion,
+		createWindWeatherTrueConversion,
 	];
 
 	const dataConversions = dataConversionFactories.flatMap((factory) =>

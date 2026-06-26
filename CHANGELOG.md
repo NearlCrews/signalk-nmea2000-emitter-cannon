@@ -5,6 +5,10 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **`WIND_WEATHER_TRUE` conversion** emits the forecast wind as a boat-referenced true wind on PGN 130306 (reference `True (boat referenced)`), so a chartplotter that fills its True Wind Speed and Angle from that reference (Garmin in particular) has a true wind to display. It computes the true wind angle as `environment.wind.directionTrue` minus `navigation.headingTrue` and carries `environment.wind.speedOverGround` as the speed. Like `WIND_WEATHER_APPARENT` it is opt-in, intended for a vessel with no masthead anemometer, and needs a true heading on the bus to produce an angle. `WIND_TRUE_GROUND` still carries the same wind as a ground-referenced wind keyed to North.
+
 <a id="v180"></a>
 
 ## [1.8.0] - 2026-06-23

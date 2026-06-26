@@ -67,7 +67,7 @@ the 126464 transmit list. All PGNs are aligned with Garmin specifications
 
 | PGN | Description | Module | Status |
 |--------|-------------|--------|--------|
-| 130306 | Wind Data (apparent, true ground, true water) | `wind.ts`, `windTrueGround.ts`, `windTrueWater.ts` | Current |
+| 130306 | Wind Data (apparent, true ground, true water, weather-forecast apparent and boat-referenced true) | `wind.ts`, `windTrueGround.ts`, `windTrueWater.ts`, `windWeatherApparent.ts`, `windWeatherTrue.ts` | Current |
 | 130310 | Environmental Parameters (sea temp legacy) | `seaTemp.ts` | Legacy (still widely supported) |
 | 130311 | Environmental Parameters (atmospheric pressure) | `environmentParameters.ts` | Deprecated, replaced by 130313/130314/130316 |
 | 130312 | Temperature (exhaust + general-purpose sources) | `engineParameters.ts`, `temperature.ts` | Deprecated, replaced by 130316 |
@@ -82,6 +82,16 @@ deprecated `TEMPERATURE_*` (130312) and `ENVIRONMENT_PARAMETERS` (130311)
 disabled. Modern Garmin ECHOMAP / GPSMAP chartplotters receive all the current
 PGNs natively. The legacy / deprecated variants remain available for older
 displays that don't speak the newer PGNs.
+
+**Forecast wind on a vessel with no anemometer**: the weather plugin's wind is a
+ground-true wind (speed over ground plus a compass direction). `WIND_TRUE_GROUND`
+emits it on PGN 130306 with reference `True (ground referenced to North)`, which a
+Garmin shows as Ground Wind, not True Wind. To populate the True Wind Speed/Angle
+fields, also enable `WIND_WEATHER_TRUE`: it computes the boat-referenced true wind
+angle (TWA = `environment.wind.directionTrue` minus `navigation.headingTrue`) and
+emits PGN 130306 with reference `True (boat referenced)`. It needs a true heading
+to produce an angle, and like `WIND_WEATHER_APPARENT` it is opt-in (disabled by
+default) and meant only for a boat without a real masthead anemometer.
 
 ## Electrical Systems
 

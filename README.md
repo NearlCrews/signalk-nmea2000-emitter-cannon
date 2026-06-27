@@ -15,27 +15,25 @@ Garmin ECHOMAP, GPSMAP, and GMI specifications and the canboatjs encoder.
 > Built on the foundation of [`signalk-to-nmea2000`](https://github.com/SignalK/signalk-to-nmea2000)
 > by Scott Bender and the Signal K community.
 
-## What's new in 1.8.0
+## What's new in 1.8.1
 
-- **A much denser config panel.** Conversions render as compact one-line rows
-  instead of tall cards, so a category fits in roughly one screen where it used
-  to take about four, with a left status rail that reads solid when a
-  conversion is emitting and dashed when it is enabled but silent.
-- **Inline single-open editing and a compact sticky toolbar.** Clicking a row
-  opens its editor in place; the catalog search, live status, view toggle,
-  theme toggle, and Setup wizard moved into one toolbar pinned to the top.
-- **Per-category Enable all and Disable all**, plus presets, the Config
-  Advisor, and global settings collapsed into one-line sections so the catalog
-  leads.
-- **Config Advisor improvements.** It now flags a conversion whose pinned
-  `$source` has gone stale (a renamed provider or a re-enumerated sensor), and
-  Approve applies a recommendation immediately instead of staging it for a
-  separate Apply step.
-- **The optional OpenRouter integration was removed.** Recommendations were
-  always deterministic, so nothing changed but the dropped dependency and its
-  settings.
+- **A one-click "Raymarine" preset.** It enables the inside-family temperatures
+  (inside, main cabin, refrigerator, freezer, and engine room) and inside
+  humidity and remaps them onto the "Inside" source at distinct instances, so
+  they show on a Raymarine Axiom or i70, which render only the "Inside
+  Temperature" source and tell sensors apart by instance.
+- **Per-conversion source type and instance** on every temperature and humidity
+  conversion, so you can relabel a sensor's NMEA 2000 source or place it on a
+  chosen instance from the editor.
+- **The temperature instance setting now takes effect.** It was read from the
+  wrong place at runtime and silently ignored, so a temperature always emitted
+  on its default instance; it is applied now and clamped to the encodable range.
+- **`WIND_WEATHER_TRUE` conversion** emits the forecast wind as a
+  boat-referenced true wind on PGN 130306, so a chartplotter that fills True
+  Wind Speed and Angle from that reference (Garmin in particular) has a true
+  wind to display.
 
-See the [v1.8.0 changelog entry](CHANGELOG.md#v180) and the
+See the [v1.8.1 changelog entry](CHANGELOG.md#v181) and the
 [full release history](CHANGELOG.md).
 
 ## What it does
@@ -80,7 +78,7 @@ published specifications. It pairs well with sensor-side plugins such as
 - **Strict TypeScript**, pure ESM, a single esbuild bundle with RxJS as the
   only runtime dependency
 - **Embedded canboatjs round-trip tests** on every conversion module, plus
-  advisor, lifecycle, and panel unit tests (140 tests across 14 files)
+  advisor, lifecycle, and panel unit tests (156 tests across 16 files)
 
 ## Screenshots
 
@@ -179,7 +177,7 @@ cd signalk-nmea2000-emitter-cannon
 npm install
 npm run hooks        # one-time: enable the pre-commit hook
 npm run build        # esbuild plugin bundle plus webpack panel
-npm test             # Vitest suite (140 tests)
+npm test             # Vitest suite (156 tests)
 npm run typecheck    # type-check the plugin, the panel, and the tests
 npm run check        # full Biome check
 npm run lint         # Biome linting only

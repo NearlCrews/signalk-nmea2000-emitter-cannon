@@ -18,6 +18,25 @@
   Compare the result to the filter value saved in the admin UI for that
   conversion.
 
+## Multiple inside temperatures (cabin, fridge, freezer) don't show on a Raymarine Axiom or i70
+
+Raymarine Axiom and i70 displays render only the `Inside Temperature` source and
+the `Inside` humidity source, and they separate multiple sensors by NMEA 2000
+instance rather than by source type. A `Refrigeration Temperature`,
+`Freezer Temperature`, `Main Cabin Temperature`, or `Engine Room Temperature`
+frame is on the bus but the display drops it, so only one inside temperature
+ever appears.
+
+Apply the **Raymarine** preset chip. It enables the inside-family temperatures
+and inside humidity and remaps them onto the `Inside` source at distinct
+instances 0 to 4 (humidity at 0), which is what these displays need to list them
+separately. Save after applying. To do it by hand instead, open each
+temperature's editor, set its Source Type to `Inside Temperature`, and give each
+one a different instance in the 0 to 9 range; pair the inside humidity instance
+to the matching temperature. Note that the per-conversion instance is emitted on
+PGN 130316 (the `TEMPERATURE2_*` conversions), which is the frame Axiom reads for
+inside temperatures.
+
 ## The Environmental preset enables temperature, pressure, and humidity but not wind
 
 The **Environmental** preset chip enables the temperature, pressure, humidity,

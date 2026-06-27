@@ -83,6 +83,24 @@ disabled. Modern Garmin ECHOMAP / GPSMAP chartplotters receive all the current
 PGNs natively. The legacy / deprecated variants remain available for older
 displays that don't speak the newer PGNs.
 
+**Source type and instance**: each temperature and humidity conversion has a
+source-type dropdown and an instance field in its editor. The source type sets
+the emitted NMEA 2000 source enum (for example `Inside Temperature` or
+`Refrigeration Temperature`); leaving it on "Default" keeps the per-path source
+the conversion ships with. The instance (an 8-bit value, clamped to 0 to 252)
+distinguishes multiple sensors that share a source type.
+
+**Raymarine Axiom and i70**: these displays render only the `Inside Temperature`
+temperature source and the `Inside` humidity source, and separate multiple
+sensors by instance (0 to 9), so a `Refrigeration Temperature` or `Freezer
+Temperature` frame never appears even though it is on the bus. The one-click
+**Raymarine** preset handles this: it enables the inside-family temperatures
+(`TEMPERATURE2_INSIDE`, `TEMPERATURE2_MAINCABIN`, `TEMPERATURE2_REFRIGERATOR`,
+`TEMPERATURE2_FREEZER`, `TEMPERATURE2_ENGINEROOM`) and `HUMIDITY_INSIDE`, and
+remaps them onto the `Inside` source at distinct instances 0 to 4 (humidity at
+0), all on PGN 130316 / 130313. Displays that read the dedicated source labels
+(Garmin, Victron, Maretron) are unaffected.
+
 **Forecast wind on a vessel with no anemometer**: the weather plugin's wind is a
 ground-true wind (speed over ground plus a compass direction). `WIND_TRUE_GROUND`
 emits it on PGN 130306 with reference `True (ground referenced to North)`, which a

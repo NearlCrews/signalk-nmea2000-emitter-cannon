@@ -5,9 +5,19 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+<a id="v181"></a>
+
+## [1.8.1] - 2026-06-27
+
 ### Added
 
+- **Per-conversion NMEA 2000 source type and instance on the temperature and humidity conversions.** Each temperature (PGN 130312 and 130316) and humidity (PGN 130313) conversion now carries a source-type dropdown and an instance field in its editor, so you can relabel a sensor's source or place it on a chosen instance. This lets several inside sensors appear on a display that only renders one source type and tells them apart by instance.
+- **A one-click "Raymarine" preset.** It enables the inside-family temperatures (inside, main cabin, refrigerator, freezer, and engine room) and inside humidity, and remaps them all onto the "Inside" source at distinct instances 0 to 4, with humidity paired to instance 0. Raymarine Axiom and i70 displays render only the "Inside Temperature" source and separate multiple sensors by instance, so without this remap those sensors never appear on a Raymarine MFD. The dedicated source labels still work on displays that read them (Garmin, Victron, Maretron).
 - **`WIND_WEATHER_TRUE` conversion** emits the forecast wind as a boat-referenced true wind on PGN 130306 (reference `True (boat referenced)`), so a chartplotter that fills its True Wind Speed and Angle from that reference (Garmin in particular) has a true wind to display. It computes the true wind angle as `environment.wind.directionTrue` minus `navigation.headingTrue` and carries `environment.wind.speedOverGround` as the speed. Like `WIND_WEATHER_APPARENT` it is opt-in, intended for a vessel with no masthead anemometer, and needs a true heading on the bus to produce an angle. `WIND_TRUE_GROUND` still carries the same wind as a ground-referenced wind keyed to North.
+
+### Fixed
+
+- **The temperature instance setting now takes effect.** The per-conversion temperature instance configured in the panel was read from the wrong option shape at runtime and silently ignored, so every temperature emitted on its default instance no matter what you set. It is applied now. A hand-typed instance is clamped to the encodable 0 to 252 range so it cannot wrap into the reserved or not-available values on the wire.
 
 <a id="v180"></a>
 

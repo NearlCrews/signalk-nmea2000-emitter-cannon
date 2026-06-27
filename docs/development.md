@@ -94,7 +94,7 @@ src/
 │   ├── depth.ts          # Depth conversion
 │   ├── battery.ts        # Battery status conversion
 │   └── ...               # 43 more conversions
-└── test/                 # Vitest test suites (140 tests, 14 files)
+└── test/                 # Vitest test suites (156 tests, 16 files)
     ├── index.test.ts          # All conversion-module test cases (round-trip via canboatjs)
     ├── advisor.test.ts        # Config Advisor: recommender, inventory, QuestDB, stale-source, orchestrator
     ├── advisor-config.test.ts # Advisor config defaults vs schema
@@ -127,7 +127,7 @@ tsconfig.test.json        # TypeScript config for the src/test/ suite
 
 All conversion modules include embedded test cases that validate correct PGN
 message format, CanboatJS encoding/decoding compatibility, Signal K data path
-mapping, and edge case handling. The full suite is 140 tests across 14 files.
+mapping, and edge case handling. The full suite is 156 tests across 16 files.
 
 `npm run typecheck` runs three `tsc` passes: the plugin runtime
 (`tsconfig.json`, which excludes test files), the React panel

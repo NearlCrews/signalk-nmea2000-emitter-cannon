@@ -194,14 +194,47 @@ describe("recommend", () => {
 		expect(recs.find((x) => x.optionKey === "PRESSURE")?.action).toBe("keep");
 	});
 
-	it("does not flag a source pin when the matched path is not live", () => {
+	it("flags a dead-but-historic source pin as a low-confidence stale-source fix", () => {
 		const recs = recommend({
 			inventory: [
 				{
 					path: "navigation.speedThroughWater",
 					live: false,
 					liveSources: [],
-					historic: { samples: 5, lastSeen: "t" },
+					historic: { samples: 5, lastSeen: "2026-06-20T00:00:00Z" },
+				},
+			],
+			metadata: [meta("SPEED", ["navigation.speedThroughWater"])],
+			currentConfig: {
+				SPEED: {
+					enabled: true,
+					resend: 0,
+					sources: { "navigation.speedThroughWater": "ghost" },
+					extras: {},
+				},
+			},
+		});
+		const r = recs.find((x) => x.optionKey === "SPEED");
+		expect(r?.action).toBe("clear-source");
+		expect(r?.confidence).toBe("low");
+		expect(r?.origin).toBe("historic");
+		expect(r?.staleSources).toEqual([
+			{
+				path: "navigation.speedThroughWater",
+				pinned: "ghost",
+				liveSources: [],
+			},
+		]);
+		expect(r?.reason).toContain("last seen 2026-06-20T00:00:00Z");
+	});
+
+	it("does not flag a dead source pin without QuestDB history", () => {
+		const recs = recommend({
+			inventory: [
+				{
+					path: "navigation.speedThroughWater",
+					live: false,
+					liveSources: [],
 				},
 			],
 			metadata: [meta("SPEED", ["navigation.speedThroughWater"])],

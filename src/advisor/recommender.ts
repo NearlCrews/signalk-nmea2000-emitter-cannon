@@ -2,7 +2,7 @@ import type { ConversionMetadata } from "../api/types.js";
 import type { ConversionMap } from "../config/schema.js";
 import { isDefined } from "../utils/pathUtils.js";
 import { isN2KSource } from "./busSource.js";
-import type { PathInventory, Recommendation } from "./types.js";
+import type { PathInventory, Recommendation, StaleSourcePin } from "./types.js";
 
 export interface RecommendInput {
 	inventory: PathInventory;
@@ -61,37 +61,53 @@ export function recommend(input: RecommendInput): Recommendation[] {
 		// An enabled conversion can carry a per-path `$source` pin that names a
 		// source no longer publishing that path (a renamed provider or a
 		// re-enumerated sensor). The pin then matches no incoming delta, so the
-		// conversion is enabled yet emits nothing, with no error. Flag it only
-		// when the path is live from some OTHER source: an empty liveSources
-		// means the path is historic-only, where "the pin is stale" is not a
-		// claim we can make.
+		// conversion is enabled yet emits nothing, with no error. Two flavors:
+		//   - the path is live from some OTHER source: the pin is provably stale
+		//     (high confidence, a direct observation).
+		//   - the path has no live source at all but QuestDB history saw it in
+		//     the look-back window: the pin is probably stale (low confidence),
+		//     since the sensor could merely be powered off. Without historic
+		//     evidence we make no claim, so QuestDB being off suppresses this
+		//     case rather than flagging every momentarily-idle pin.
+		// Either way the conversion is silently emitting nothing; clearing the
+		// pin lets it follow the live source when one is present.
 		if (enabled) {
 			const pins = cfg?.sources ?? {};
-			const staleSources = matched.flatMap((e) => {
+			const staleSources: StaleSourcePin[] = [];
+			const reasonParts: string[] = [];
+			for (const e of matched) {
 				const pinned = pins[e.path];
+				if (!pinned) continue;
 				const live = e.liveSources ?? [];
-				return pinned && live.length > 0 && !live.includes(pinned)
-					? [{ path: e.path, pinned, liveSources: live }]
-					: [];
-			});
+				if (live.length > 0) {
+					if (!live.includes(pinned)) {
+						staleSources.push({ path: e.path, pinned, liveSources: live });
+						reasonParts.push(
+							`'${pinned}' for ${e.path} (now ${live.join(", ")})`,
+						);
+					}
+				} else if (e.historic) {
+					staleSources.push({ path: e.path, pinned, liveSources: live });
+					reasonParts.push(
+						`'${pinned}' for ${e.path} (no live source; last seen ${e.historic.lastSeen})`,
+					);
+				}
+			}
 			if (staleSources.length > 0) {
+				// A live swap (some pin's path is live from another source) is a
+				// direct observation (high); a dead-but-historic pin is inferred
+				// from history alone (low).
+				const anyLiveStale = staleSources.some((s) => s.liveSources.length > 0);
 				out.push({
 					optionKey: conv.key,
 					action: "clear-source",
 					currentlyEnabled: true,
 					matchedPaths,
-					// The path is live from another source, so the dead pin is a
-					// direct observation, not an inference.
-					confidence: "high",
-					origin: "live",
-					reason: `${conv.title}: pinned to ${staleSources
-						.map(
-							(s) =>
-								`'${s.pinned}' for ${s.path} (now ${s.liveSources.join(", ")})`,
-						)
-						.join(
-							"; ",
-						)}, so it is enabled but emitting nothing. Clearing the pin lets it follow the live source.`,
+					confidence: anyLiveStale ? "high" : "low",
+					origin: anyLiveStale ? "live" : "historic",
+					reason: `${conv.title}: pinned to ${reasonParts.join(
+						"; ",
+					)}, so it is enabled but emitting nothing. Clearing the pin lets it follow the live source.`,
 					staleSources,
 				});
 				continue;

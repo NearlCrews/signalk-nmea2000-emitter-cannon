@@ -1,3 +1,4 @@
+import { MAX_N2K_INSTANCE } from "../constants.js";
 import type { ConversionModule } from "../types/index.js";
 import type { ConversionLifecycle, ExtrasMeta } from "./types.js";
 
@@ -145,18 +146,95 @@ export function lifecycleFor(
 	return CONVERSION_LIFECYCLE[optionKey];
 }
 
-// Temperature instance editor: applies to every TEMPERATURE_* / TEMPERATURE2_* key.
-const TEMPERATURE_INSTANCE_META: ExtrasMeta = {
-	type: "field",
+// Build select options from a list of NMEA 2000 source-type strings, with a
+// leading "use the default" entry (empty string clears the override so the
+// conversion follows its per-path default source).
+function sourceOptions(values: string[]): { value: string; label: string }[] {
+	return [
+		{ value: "", label: "Default (per Signal K path)" },
+		...values.map((v) => ({ value: v, label: v })),
+	];
+}
+
+// The full canboat TemperatureSource enum, in enum order. Hand-maintained (not
+// imported) on purpose: @canboat/ts-pgns re-exports the entire PGN database
+// through a CJS barrel that bundlers cannot tree-shake, so a value import would
+// bloat both the runtime and panel bundles. Keep in sync with TemperatureSource
+// in @canboat/ts-pgns/dist/enums.d.ts. Exposing the full set lets a user relabel
+// any temperature so it shows on an MFD that only renders certain sources (e.g.
+// Raymarine Axiom only displays "Inside Temperature", separating sensors by
+// instance).
+const TEMPERATURE_SOURCE_VALUES = [
+	"Sea Temperature",
+	"Outside Temperature",
+	"Inside Temperature",
+	"Engine Room Temperature",
+	"Main Cabin Temperature",
+	"Live Well Temperature",
+	"Bait Well Temperature",
+	"Refrigeration Temperature",
+	"Heating System Temperature",
+	"Dew Point Temperature",
+	"Apparent Wind Chill Temperature",
+	"Theoretical Wind Chill Temperature",
+	"Heat Index Temperature",
+	"Freezer Temperature",
+	"Exhaust Gas Temperature",
+	"Shaft Seal Temperature",
+];
+
+// The two-value canboat HumiditySource enum, hand-maintained for the same
+// bundle-safety reason as TEMPERATURE_SOURCE_VALUES above.
+const HUMIDITY_SOURCE_VALUES = ["Inside", "Outside"];
+
+// The instance field is an 8-bit NMEA 2000 value; bound the editor to the
+// encodable data range so a typo cannot land in the reserved sentinels.
+const INSTANCE_FIELD = {
 	key: "instance",
-	label: "NMEA 2000 Temperature Instance",
-	control: "number",
+	control: "number" as const,
+	min: 0,
+	max: MAX_N2K_INSTANCE,
+};
+
+// Instance + source-type editor: applies to every TEMPERATURE_* / TEMPERATURE2_*
+// key. `n2kSource` overrides the emitted source string; `instance` (0-9 for
+// Raymarine) distinguishes multiple sensors of the same source.
+const TEMPERATURE_META: ExtrasMeta = {
+	type: "fields",
+	fields: [
+		{ ...INSTANCE_FIELD, label: "NMEA 2000 Temperature Instance" },
+		{
+			key: "n2kSource",
+			label: "NMEA 2000 Source Type",
+			control: "select",
+			default: "",
+			options: sourceOptions(TEMPERATURE_SOURCE_VALUES),
+		},
+	],
+};
+
+// Instance + source-type editor for the two humidity conversions.
+const HUMIDITY_META: ExtrasMeta = {
+	type: "fields",
+	fields: [
+		{ ...INSTANCE_FIELD, label: "NMEA 2000 Humidity Instance" },
+		{
+			key: "n2kSource",
+			label: "NMEA 2000 Source Type",
+			control: "select",
+			default: "",
+			options: sourceOptions(HUMIDITY_SOURCE_VALUES),
+		},
+	],
 };
 
 export function metaFor(conversion: ConversionModule): ExtrasMeta {
 	const k = conversion.optionKey;
 	if (k.startsWith("TEMPERATURE_") || k.startsWith("TEMPERATURE2_")) {
-		return TEMPERATURE_INSTANCE_META;
+		return TEMPERATURE_META;
+	}
+	if (k.startsWith("HUMIDITY_")) {
+		return HUMIDITY_META;
 	}
 	return EXTRAS_BY_OPTION_KEY[k] ?? { type: "none" };
 }

@@ -9,6 +9,11 @@ export const N2K_DEFAULT_INSTANCE = 100;
 // PGN 127505 (Fluid Level) instance is a 4-bit field; values above 13 are
 // reserved or not-available and would silently wrap on the wire.
 export const MAX_TANK_INSTANCE = 13;
+// The 8-bit instance field on the temperature (130312/130316) and humidity
+// (130313) PGNs: 253-255 are reserved / not-available, so 252 is the highest
+// value that encodes as real data. A user-typed instance above this would wrap
+// into the sentinel range. (Raymarine displays only render instances 0-9.)
+export const MAX_N2K_INSTANCE = 252;
 export const DEFAULT_DATA_TIMEOUT_MS = 10000;
 // 1-minute freshness window for slow-cadence data sources where the
 // data-path is expected to update much less often than the 10s default.

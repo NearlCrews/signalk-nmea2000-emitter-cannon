@@ -1,3 +1,4 @@
+import { raymarinePresetsFor } from "../config/raymarinePreset.js";
 import {
 	N2K_BROADCAST_DST,
 	N2K_DEFAULT_INSTANCE,
@@ -5,31 +6,64 @@ import {
 	N2K_SID_ZERO,
 } from "../constants.js";
 import type {
-	ConversionCallback,
 	ConversionModule,
 	N2KMessage,
 	SignalKApp,
 } from "../types/index.js";
-import { isValidNumber } from "../utils/validation.js";
+import {
+	isValidNumber,
+	resolveInstanceAndSource,
+} from "../utils/validation.js";
 
-function createHumidityMessage(humidity: number, source: string): N2KMessage[] {
+function createHumidityMessage(
+	humidity: number,
+	source: string,
+	instance: number,
+): N2KMessage {
 	// SK relativeHumidity is a ratio (0..1); PGN 130313 actualHumidity is a
 	// percentage (0..100).
-	const pct = humidity * 100;
-	return [
-		{
-			prio: N2K_DEFAULT_PRIORITY,
-			pgn: 130313,
-			dst: N2K_BROADCAST_DST,
-			fields: {
-				sid: N2K_SID_ZERO,
-				instance: N2K_DEFAULT_INSTANCE,
-				source,
-				actualHumidity: pct,
-			},
+	return {
+		prio: N2K_DEFAULT_PRIORITY,
+		pgn: 130313,
+		dst: N2K_BROADCAST_DST,
+		fields: {
+			sid: N2K_SID_ZERO,
+			instance,
+			source,
+			actualHumidity: humidity * 100,
 		},
-	];
+	};
 }
+
+// Build the expected decoded message for an embedded test, resolving instance
+// and source from the same options the factory reads, so a single test case
+// covers the default, instance-override, and source-override testOptions.
+function expectHumidity(
+	pct: number,
+	defaultSource: string,
+): (testOptions: Record<string, unknown>) => N2KMessage {
+	return (testOptions) => {
+		const { instance, source } = resolveInstanceAndSource(
+			testOptions,
+			N2K_DEFAULT_INSTANCE,
+			defaultSource,
+		);
+		return {
+			prio: 2,
+			pgn: 130313,
+			dst: 255,
+			fields: { sid: 0, instance, source, actualHumidity: pct },
+		};
+	};
+}
+
+// Flat option shape, matching production. The third case exercises the
+// source-type and instance overrides (used by the Raymarine remap).
+const HUMIDITY_TEST_OPTIONS = [
+	{ instance: 0 },
+	{},
+	{ instance: 4, n2kSource: "Inside" },
+];
 
 export default function createHumidityConversions(
 	_app: SignalKApp,
@@ -39,7 +73,7 @@ export default function createHumidityConversions(
 			title: "Outside Humidity (PGN 130313)",
 			optionKey: "HUMIDITY_OUTSIDE",
 			category: "environment",
-			presets: ["environmental"],
+			presets: raymarinePresetsFor("HUMIDITY_OUTSIDE"),
 			// Some upstream plugins publish `environment.outside.humidity`,
 			// others publish `environment.outside.relativeHumidity`. The
 			// `relativeHumidity` path wins when both are present.
@@ -47,151 +81,76 @@ export default function createHumidityConversions(
 				"environment.outside.relativeHumidity",
 				"environment.outside.humidity",
 			],
-			callback: ((rel: number | null, hum: number | null) => {
-				const value = isValidNumber(rel)
-					? rel
-					: isValidNumber(hum)
-						? hum
-						: null;
-				if (value === null) {
-					return [];
-				}
-				return createHumidityMessage(value, "Outside");
-			}) as ConversionCallback<[number | null, number | null]>,
-
-			tests: [
-				{
-					input: [0.5, null],
-					expected: [
-						{
-							prio: 2,
-							pgn: 130313,
-							dst: 255,
-							fields: {
-								sid: 0,
-								instance: 100,
-								source: "Outside",
-								actualHumidity: 50,
-							},
+			testOptions: HUMIDITY_TEST_OPTIONS,
+			conversions: (options: unknown) => {
+				const { instance, source } = resolveInstanceAndSource(
+					options,
+					N2K_DEFAULT_INSTANCE,
+					"Outside",
+				);
+				return [
+					{
+						keys: [
+							"environment.outside.relativeHumidity",
+							"environment.outside.humidity",
+						],
+						callback: (rel: unknown, hum: unknown): N2KMessage[] => {
+							const value = isValidNumber(rel)
+								? rel
+								: isValidNumber(hum)
+									? hum
+									: null;
+							if (value === null) {
+								return [];
+							}
+							return [createHumidityMessage(value, source, instance)];
 						},
-					],
-				},
-				{
-					input: [0.95, null],
-					expected: [
-						{
-							prio: 2,
-							pgn: 130313,
-							dst: 255,
-							fields: {
-								sid: 0,
-								instance: 100,
-								source: "Outside",
-								actualHumidity: 95,
+						tests: [
+							{ input: [0.5, null], expected: [expectHumidity(50, "Outside")] },
+							{
+								input: [0.95, null],
+								expected: [expectHumidity(95, "Outside")],
 							},
-						},
-					],
-				},
-				{
-					// Fallback: only environment.outside.humidity is published
-					input: [null, 0.6],
-					expected: [
-						{
-							prio: 2,
-							pgn: 130313,
-							dst: 255,
-							fields: {
-								sid: 0,
-								instance: 100,
-								source: "Outside",
-								actualHumidity: 60,
-							},
-						},
-					],
-				},
-				{
-					// relativeHumidity wins when both are present
-					input: [0.5, 0.9],
-					expected: [
-						{
-							prio: 2,
-							pgn: 130313,
-							dst: 255,
-							fields: {
-								sid: 0,
-								instance: 100,
-								source: "Outside",
-								actualHumidity: 50,
-							},
-						},
-					],
-				},
-				{
-					// relativeHumidity = 0 is valid (0% RH); must not fall through to humidity
-					input: [0, 0.5],
-					expected: [
-						{
-							prio: 2,
-							pgn: 130313,
-							dst: 255,
-							fields: {
-								sid: 0,
-								instance: 100,
-								source: "Outside",
-								actualHumidity: 0,
-							},
-						},
-					],
-				},
-			],
+							// Fallback: only environment.outside.humidity is published
+							{ input: [null, 0.6], expected: [expectHumidity(60, "Outside")] },
+							// relativeHumidity wins when both are present
+							{ input: [0.5, 0.9], expected: [expectHumidity(50, "Outside")] },
+							// relativeHumidity = 0 is valid (0% RH); must not fall through
+							{ input: [0, 0.5], expected: [expectHumidity(0, "Outside")] },
+						],
+					},
+				];
+			},
 		},
 		{
 			title: "Inside Humidity (PGN 130313)",
 			optionKey: "HUMIDITY_INSIDE",
 			category: "environment",
-			presets: ["environmental"],
+			presets: raymarinePresetsFor("HUMIDITY_INSIDE"),
 			keys: ["environment.inside.relativeHumidity"],
-			callback: ((humidity: number | null) => {
-				if (!isValidNumber(humidity)) {
-					return [];
-				}
-				return createHumidityMessage(humidity, "Inside");
-			}) as ConversionCallback<[number | null]>,
-
-			tests: [
-				{
-					input: [1.0],
-					expected: [
-						{
-							prio: 2,
-							pgn: 130313,
-							dst: 255,
-							fields: {
-								sid: 0,
-								instance: 100,
-								source: "Inside",
-								actualHumidity: 100,
-							},
+			testOptions: HUMIDITY_TEST_OPTIONS,
+			conversions: (options: unknown) => {
+				const { instance, source } = resolveInstanceAndSource(
+					options,
+					N2K_DEFAULT_INSTANCE,
+					"Inside",
+				);
+				return [
+					{
+						keys: ["environment.inside.relativeHumidity"],
+						callback: (humidity: unknown): N2KMessage[] => {
+							if (!isValidNumber(humidity)) {
+								return [];
+							}
+							return [createHumidityMessage(humidity, source, instance)];
 						},
-					],
-				},
-				{
-					input: [0.35],
-					expected: [
-						{
-							prio: 2,
-							pgn: 130313,
-							dst: 255,
-							fields: {
-								sid: 0,
-								instance: 100,
-								source: "Inside",
-								actualHumidity: 35,
-							},
-						},
-					],
-				},
-			],
+						tests: [
+							{ input: [1.0], expected: [expectHumidity(100, "Inside")] },
+							{ input: [0.35], expected: [expectHumidity(35, "Inside")] },
+						],
+					},
+				];
+			},
 		},
 	];
 }

@@ -10,11 +10,15 @@ import {
 import type { ConversionMetadata } from "../../api/types.js";
 import type { PresetTag } from "../../config/enums.js";
 import { migrateLegacyConfig } from "../../config/migrate.js";
+import { RAYMARINE_EXTRAS_PATCH } from "../../config/raymarinePreset.js";
 import {
 	type Config,
 	type ConversionConfig,
 	emptyConversionConfig,
 } from "../../config/schema.js";
+
+// The patch table never changes at runtime, so derive its entries once.
+const RAYMARINE_PATCH_ENTRIES = Object.entries(RAYMARINE_EXTRAS_PATCH);
 
 export type Action =
 	| { type: "setEnabled"; key: string; enabled: boolean }
@@ -101,20 +105,33 @@ function reducer(state: Config, action: Action): Config {
 			};
 		}
 		case "applyPreset": {
-			let next = state;
+			// One shallow copy of the map up front, then in-place assignment per
+			// key, so a multi-key preset does not re-spread the whole map per key.
+			const conversions = { ...state.conversions };
+			const ensure = (key: string): ConversionConfig =>
+				conversions[key] ?? emptyConversionConfig();
 			for (const m of action.meta) {
 				if (m.presets.includes(action.preset)) {
-					const { state: s, entry } = withEntry(next, m.key);
-					next = {
-						...s,
-						conversions: {
-							...s.conversions,
-							[m.key]: { ...entry, enabled: true },
-						},
+					conversions[m.key] = { ...ensure(m.key), enabled: true };
+				}
+			}
+			// The Raymarine preset also writes source/instance extras so the
+			// inside-family temperatures and inside humidity collapse onto the
+			// "Inside" source at distinct instances, which is the only way they
+			// render on an Axiom or i70. Idempotent: re-applying yields the same
+			// instances. The patch keys are also "raymarine"-tagged, so the loop
+			// above already enabled them; this just layers the extras on top.
+			if (action.preset === "raymarine") {
+				for (const [key, patch] of RAYMARINE_PATCH_ENTRIES) {
+					const entry = ensure(key);
+					conversions[key] = {
+						...entry,
+						enabled: true,
+						extras: { ...entry.extras, ...patch },
 					};
 				}
 			}
-			return next;
+			return { ...state, conversions };
 		}
 	}
 }
@@ -232,4 +249,13 @@ export function __advisorReducerForTest(
 	advisor: Config["advisor"],
 ): Config {
 	return reducer(state, { type: "setAdvisor", advisor });
+}
+
+// Test-only: exercises the applyPreset reducer case without a React render.
+export function __applyPresetForTest(
+	state: Config,
+	preset: PresetTag,
+	meta: ConversionMetadata[],
+): Config {
+	return reducer(state, { type: "applyPreset", preset, meta });
 }

@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
+import type { ConversionMetadata } from "../api/types.js";
 import { DEFAULT_ADVISOR_CONFIG } from "../config/enums.js";
+import { RAYMARINE_EXTRAS_PATCH } from "../config/raymarinePreset.js";
 import type { Config, ConversionConfig } from "../config/schema.js";
 import {
 	__advisorReducerForTest,
+	__applyPresetForTest,
 	mergeExternalConfig,
 } from "../panel/hooks/useConfig.js";
 
@@ -24,6 +27,55 @@ describe("setAdvisor reducer action", () => {
 function entry(over: Partial<ConversionConfig> = {}): ConversionConfig {
 	return { enabled: false, resend: 0, sources: {}, extras: {}, ...over };
 }
+
+// Minimal catalog row carrying just the preset tags the reducer reads.
+function meta(key: string, presets: ConversionMetadata["presets"]) {
+	return { presets, key } as unknown as ConversionMetadata;
+}
+
+describe("applyPreset reducer action", () => {
+	// A realistic Raymarine catalog: three patch-table keys plus one
+	// raymarine-tagged proprietary module that is not in the patch table.
+	const raymarineCatalog = [
+		meta("TEMPERATURE2_INSIDE", ["environmental", "raymarine"]),
+		meta("TEMPERATURE2_REFRIGERATOR", ["environmental", "raymarine"]),
+		meta("HUMIDITY_INSIDE", ["environmental", "raymarine"]),
+		meta("RAYMARINE_BRIGHTNESS", ["raymarine"]),
+	];
+
+	it("Raymarine preset enables and remaps the inside-family temps and humidity", () => {
+		const start: Config = { globalResendInterval: 0, conversions: {} };
+		const next = __applyPresetForTest(start, "raymarine", raymarineCatalog);
+
+		for (const [key, patch] of Object.entries(RAYMARINE_EXTRAS_PATCH)) {
+			const cfg = next.conversions[key];
+			expect(cfg?.enabled).toBe(true);
+			expect(cfg?.extras).toMatchObject({
+				n2kSource: patch.n2kSource,
+				instance: patch.instance,
+			});
+		}
+		// A raymarine-tagged conversion that is not in the patch table is enabled
+		// but gets no source/instance extras.
+		expect(next.conversions.RAYMARINE_BRIGHTNESS?.enabled).toBe(true);
+		expect(next.conversions.RAYMARINE_BRIGHTNESS?.extras).toEqual({});
+	});
+
+	it("is idempotent under a double apply with a real catalog", () => {
+		const start: Config = { globalResendInterval: 0, conversions: {} };
+		const once = __applyPresetForTest(start, "raymarine", raymarineCatalog);
+		const twice = __applyPresetForTest(once, "raymarine", raymarineCatalog);
+		expect(twice.conversions).toEqual(once.conversions);
+	});
+
+	it("a non-Raymarine preset writes no source/instance extras", () => {
+		const catalog = [meta("HUMIDITY_INSIDE", ["environmental"])];
+		const start: Config = { globalResendInterval: 0, conversions: {} };
+		const next = __applyPresetForTest(start, "environmental", catalog);
+		expect(next.conversions.HUMIDITY_INSIDE?.enabled).toBe(true);
+		expect(next.conversions.HUMIDITY_INSIDE?.extras).toEqual({});
+	});
+});
 
 describe("mergeExternalConfig three-way merge", () => {
 	it("keeps the user's edit for a touched key and adopts external for an untouched key", () => {

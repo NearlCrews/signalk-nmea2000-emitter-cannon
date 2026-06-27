@@ -1,3 +1,5 @@
+import { MAX_N2K_INSTANCE } from "../constants.js";
+
 const TWO_PI = Math.PI * 2;
 
 export function isValidNumber(value: unknown): value is number {
@@ -26,6 +28,28 @@ export function toFiniteOrUndefined(value: unknown): number | undefined {
 // Math.max(min, Math.min(max, x)) idiom used across the codebase.
 export function clamp(value: number, min: number, max: number): number {
 	return Math.max(min, Math.min(max, value));
+}
+
+// Shared reader for the per-conversion `instance` and `n2kSource` extras that
+// the temperature (130312/130316) and humidity (130313) factories support. The
+// plugin-manager flattens each conversion's `extras` record onto the options
+// object, so both keys are read top-level (not nested under the optionKey). A
+// missing or invalid key falls back to the per-source default; the instance is
+// clamped to the encodable uint8 data range so a hand-typed out-of-range value
+// cannot wrap into the reserved / not-available sentinels on the wire.
+export function resolveInstanceAndSource(
+	options: unknown,
+	defaultInstance: number,
+	defaultSource: string,
+): { instance: number; source: string } {
+	const o = (options ?? {}) as { instance?: unknown; n2kSource?: unknown };
+	const rawInstance = isValidNumber(o.instance) ? o.instance : defaultInstance;
+	const instance = clamp(Math.trunc(rawInstance), 0, MAX_N2K_INSTANCE);
+	const source =
+		typeof o.n2kSource === "string" && o.n2kSource.trim() !== ""
+			? o.n2kSource
+			: defaultSource;
+	return { instance, source };
 }
 
 // Modulo-wraps any real angle into [0, 2π); a single-turn shift would corrupt

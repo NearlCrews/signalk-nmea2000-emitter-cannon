@@ -19,12 +19,26 @@ export interface PerConversionStatus {
 	lastErrorAgeMs?: number;
 }
 
-export interface ExtrasFieldSpec {
+interface ExtrasFieldBase {
 	key: string;
 	label: string;
-	control: "text" | "number" | "boolean";
 	default?: unknown;
 }
+
+// Discriminated on `control`: a select MUST carry its `options` (a select spec
+// without them would render an empty dropdown), and only a number field accepts
+// `min` / `max` bounds.
+export type ExtrasFieldSpec =
+	| (ExtrasFieldBase & {
+			control: "text" | "number" | "boolean";
+			// Inclusive bounds for `control: "number"`; ignored by the others.
+			min?: number;
+			max?: number;
+	  })
+	| (ExtrasFieldBase & {
+			control: "select";
+			options: { value: string; label: string }[];
+	  });
 
 export type ExtrasMeta =
 	| { type: "none" }

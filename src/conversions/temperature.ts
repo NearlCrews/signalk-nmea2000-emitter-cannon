@@ -1,22 +1,20 @@
+import { raymarinePresetsFor } from "../config/raymarinePreset.js";
 import {
 	N2K_BROADCAST_DST,
 	N2K_DEFAULT_PRIORITY,
 	N2K_DEFAULT_SID,
 } from "../constants.js";
 import type { ConversionModule, N2KMessage } from "../types/index.js";
-import { isValidNumber } from "../utils/validation.js";
+import {
+	isValidNumber,
+	resolveInstanceAndSource,
+} from "../utils/validation.js";
 
 export interface TemperatureInfo {
 	n2kSource: string;
 	source: string;
 	instance: number;
 	option: string;
-}
-
-interface TemperatureOptions {
-	[key: string]: {
-		instance?: number;
-	};
 }
 
 function createTemperatureMessage(
@@ -51,23 +49,27 @@ function makeTemperatureConversion(
 		title: `${info.n2kSource} (PGN ${pgn})`,
 		optionKey,
 		category: "environment",
-		presets: ["environmental"],
+		// The "Raymarine" preset remaps the inside-family sources (PGN 130316
+		// only) onto "Inside Temperature" with distinct instances, so the keys it
+		// touches also carry the "raymarine" tag. Derived from the patch table.
+		presets: raymarinePresetsFor(optionKey),
 		keys: [info.source],
 
+		// Flat option shape, matching production: `instance` and `n2kSource` are
+		// read directly off the options object. The third case exercises the
+		// source-type override (used by the Raymarine remap).
 		testOptions: [
-			{
-				[optionKey]: {
-					instance: 0,
-				},
-			},
-			{
-				[optionKey]: {},
-			},
+			{ instance: 0 },
+			{},
+			{ instance: 5, n2kSource: "Inside Temperature" },
 		],
 
 		conversions: (options: unknown) => {
-			const tempOptions = options as TemperatureOptions;
-			const instance = tempOptions[optionKey]?.instance ?? info.instance;
+			const { instance, source } = resolveInstanceAndSource(
+				options,
+				info.instance,
+				info.n2kSource,
+			);
 
 			return [
 				{
@@ -83,7 +85,7 @@ function makeTemperatureConversion(
 								tempFieldName,
 								temperature,
 								instance,
-								info.n2kSource,
+								source,
 							),
 						];
 					},
@@ -92,18 +94,17 @@ function makeTemperatureConversion(
 							input: [281.2],
 							expected: [
 								(testOptions: Record<string, unknown>) => {
-									const expectedInstance =
-										(
-											testOptions[optionKey] as
-												| { instance?: number }
-												| undefined
-										)?.instance ?? info.instance;
+									const { instance: i, source: s } = resolveInstanceAndSource(
+										testOptions,
+										info.instance,
+										info.n2kSource,
+									);
 									return createTemperatureMessage(
 										pgn,
 										tempFieldName,
 										281.2,
-										expectedInstance,
-										info.n2kSource,
+										i,
+										s,
 									);
 								},
 							],

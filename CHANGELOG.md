@@ -5,6 +5,18 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+<a id="v182"></a>
+
+## [1.8.2] - 2026-06-27
+
+### Added
+
+- **The Config Advisor now also flags a pinned source that has gone completely silent.** The 1.8.0 check caught a conversion whose path had moved to a different live source. This release adds the case where the pinned source stops publishing entirely and nothing replaces it: when QuestDB history shows the path was active within the look-back window, a review surfaces a lower-confidence "Fix source" recommendation, so you can clear the dead pin and let the conversion follow whatever source returns. The check needs QuestDB history, so it makes no claim when history is unavailable, which keeps a momentarily idle sensor from being reported as stale. Like the other source fixes, it always waits for your approval.
+
+### Changed
+
+- The "Works well with" list now points to signalk-synthetic-values, whose sensor fusion feeds the emitter clean Signal K paths to convert, and drops signalk-openrouter-companion, which no longer shares a data path with this plugin.
+
 <a id="v181"></a>
 
 ## [1.8.1] - 2026-06-27

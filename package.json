@@ -1,6 +1,6 @@
 {
 	"name": "signalk-nmea2000-emitter-cannon",
-	"version": "1.8.1",
+	"version": "1.8.2",
 	"description": "Signal K plugin that converts Signal K deltas to Garmin-aligned NMEA 2000 PGNs",
 	"main": "dist/index.mjs",
 	"files": [
@@ -48,7 +48,7 @@
 		],
 		"recommends": [
 			"signalk-virtual-weather-sensors",
-			"signalk-openrouter-companion",
+			"signalk-synthetic-values",
 			"signalk-crows-nest"
 		]
 	},

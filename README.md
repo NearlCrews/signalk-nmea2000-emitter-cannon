@@ -15,25 +15,22 @@ Garmin ECHOMAP, GPSMAP, and GMI specifications and the canboatjs encoder.
 > Built on the foundation of [`signalk-to-nmea2000`](https://github.com/SignalK/signalk-to-nmea2000)
 > by Scott Bender and the Signal K community.
 
-## What's new in 1.8.1
+## What's new in 1.8.2
 
-- **A one-click "Raymarine" preset.** It enables the inside-family temperatures
-  (inside, main cabin, refrigerator, freezer, and engine room) and inside
-  humidity and remaps them onto the "Inside" source at distinct instances, so
-  they show on a Raymarine Axiom or i70, which render only the "Inside
-  Temperature" source and tell sensors apart by instance.
-- **Per-conversion source type and instance** on every temperature and humidity
-  conversion, so you can relabel a sensor's NMEA 2000 source or place it on a
-  chosen instance from the editor.
-- **The temperature instance setting now takes effect.** It was read from the
-  wrong place at runtime and silently ignored, so a temperature always emitted
-  on its default instance; it is applied now and clamped to the encodable range.
-- **`WIND_WEATHER_TRUE` conversion** emits the forecast wind as a
-  boat-referenced true wind on PGN 130306, so a chartplotter that fills True
-  Wind Speed and Angle from that reference (Garmin in particular) has a true
-  wind to display.
+- **The Config Advisor now also catches a pinned source that has gone completely
+  silent.** Earlier it flagged only a conversion whose path had moved to a
+  different live source. Now, when a pinned source stops publishing entirely and
+  QuestDB history shows the path was active recently, a review surfaces a
+  lower-confidence "Fix source" recommendation so you can clear the dead pin and
+  let the conversion follow whatever source returns.
+- **No false alarms on idle sensors.** The new check needs QuestDB history, so it
+  makes no claim when history is unavailable, which keeps a momentarily idle
+  sensor from being reported as stale. Like the other source fixes, it always
+  waits for your approval.
+- **Updated "Works well with" list.** It now points to signalk-synthetic-values,
+  whose sensor fusion feeds the emitter clean Signal K paths to convert.
 
-See the [v1.8.1 changelog entry](CHANGELOG.md#v181) and the
+See the [v1.8.2 changelog entry](CHANGELOG.md#v182) and the
 [full release history](CHANGELOG.md).
 
 ## What it does

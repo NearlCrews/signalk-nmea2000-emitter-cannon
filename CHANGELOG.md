@@ -5,6 +5,12 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Bearing between marks (PGN 129302) now wraps a negative true bearing into the unsigned 0 to 2pi field range** the same way the magnetic-bearing fallback and PGN 129284 already do, instead of writing the raw signed value onto an unsigned wire field.
+- **AIS static and voyage data (PGN 129794) now drops non-finite length, beam, bow offset, and draft values** instead of writing NaN or Infinity onto the wire when a vessel publishes bad design data.
+- **A notification whose upstream-supplied alertId changes no longer leaks the old id.** The old id's cached PGNs, emit tracker, and pool slot are released when the id changes, so a reused number cannot silently collide with the wrong alert.
+
 <a id="v182"></a>
 
 ## [1.8.2] - 2026-06-27

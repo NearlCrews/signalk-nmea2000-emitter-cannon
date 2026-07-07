@@ -21,7 +21,7 @@ module.exports = {
 				exclude: /node_modules/,
 				options: {
 					presets: [
-						["@babel/preset-typescript", { isTSX: true, allExtensions: true }],
+						"@babel/preset-typescript",
 						["@babel/preset-react", { runtime: "automatic" }],
 					],
 				},

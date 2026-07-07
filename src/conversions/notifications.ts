@@ -367,6 +367,17 @@ export default function createNotificationsConversion(
 				// the rewrite on the common path where the same id arrives on
 				// every delta.
 				if (ids.get(update.path) !== alertId) {
+					// Release the previously assigned alertId for this path so its
+					// cached PGNs, emit tracker, and pool entry are cleaned up.
+					// Without this, an upstream that changes the alertId for a
+					// path leaks the old id in pgnsByAlertId (ghost PGNs that can
+					// never be cleared) and corrupts the reverse map (alertIdToPath
+					// for the old id still points at the path, so a later
+					// releaseAlertId(oldId) would delete the NEW path binding).
+					const oldAlertId = ids.get(update.path);
+					if (oldAlertId !== undefined) {
+						releaseAlertId(oldAlertId);
+					}
 					usedAlertIds.add(alertId);
 					ids.set(update.path, alertId);
 					alertIdToPath.set(alertId, update.path);

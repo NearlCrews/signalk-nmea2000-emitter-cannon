@@ -264,6 +264,23 @@ export default function createNotificationsConversion(
 		emitTracker.delete(alertId);
 	}
 
+	// Single mutator for the path<->alertId binding, used by both the
+	// upstream-supplied-id path and the auto-allocate path. Releasing any id
+	// previously bound to this path first keeps ids, alertIdToPath, and
+	// usedAlertIds in lockstep: without it, an upstream that changes the
+	// alertId for a path leaks the old id in pgnsByAlertId (ghost PGNs that
+	// can never be cleared) and corrupts the reverse map (alertIdToPath for
+	// the old id still points at the path, so a later releaseAlertId(oldId)
+	// would delete the NEW path binding).
+	function bindAlertId(path: string, alertId: number): void {
+		const previous = ids.get(path);
+		if (previous === alertId) return;
+		if (previous !== undefined) releaseAlertId(previous);
+		usedAlertIds.add(alertId);
+		ids.set(path, alertId);
+		alertIdToPath.set(alertId, path);
+	}
+
 	function resetState(): void {
 		pgnsByAlertId.clear();
 		usedAlertIds.clear();
@@ -363,14 +380,9 @@ export default function createNotificationsConversion(
 				// in usedAlertIds) could later hand the same number to a different
 				// path and silently overwrite this alert's cached PGNs. nextAlertIdHint
 				// starts at 1 and providers commonly use alertId 1, so the collision
-				// is reachable on the first auto-allocated alert. The guard skips
-				// the rewrite on the common path where the same id arrives on
-				// every delta.
-				if (ids.get(update.path) !== alertId) {
-					usedAlertIds.add(alertId);
-					ids.set(update.path, alertId);
-					alertIdToPath.set(alertId, update.path);
-				}
+				// is reachable on the first auto-allocated alert. bindAlertId no-ops
+				// on the common path where the same id arrives on every delta.
+				bindAlertId(update.path, alertId);
 
 				setAlertPgns(
 					alertId,
@@ -395,8 +407,7 @@ export default function createNotificationsConversion(
 					return buildEmitList();
 				}
 				alertId = allocated;
-				ids.set(update.path, alertId);
-				alertIdToPath.set(alertId, update.path);
+				bindAlertId(update.path, alertId);
 				firstAllocation = true;
 				app.debug(`Assigning new alertId ${alertId} to ${update.path}`);
 				// Evict the oldest tracked path so a misbehaving stream that

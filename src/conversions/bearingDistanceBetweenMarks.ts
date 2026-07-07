@@ -12,6 +12,7 @@ import type {
 import {
 	isValidNumber,
 	normalizeAngle,
+	toUnsignedAngle,
 	toValidNumber,
 } from "../utils/validation.js";
 import { markTypeFor } from "./routeTypes.js";
@@ -72,7 +73,8 @@ export default function createBearingDistanceBetweenMarksConversion(
 				bearingReference: "True",
 			};
 
-			if (bearing !== null) fields.bearingOriginToDestination = bearing;
+			if (bearing !== null)
+				fields.bearingOriginToDestination = toUnsignedAngle(bearing);
 			if (validNextDistance !== null) fields.distance = validNextDistance;
 
 			if (prevType != null) fields.originMarkType = markTypeFor(prevType);
@@ -139,6 +141,28 @@ export default function createBearingDistanceBetweenMarksConversion(
 							calculationType: "Great Circle",
 							distance: 5000,
 							destinationMarkType: "Reference",
+							sid: 0,
+						},
+					},
+				],
+			},
+			{
+				// Regression: a negative true bearing is normalized into [0, 2pi)
+				// before the unsigned bearingOriginToDestination field, matching
+				// the magnetic-bearing fallback path and the sibling PGN 129284.
+				input: [-0.5, null, null, 1000, "waypoint", "waypoint"],
+				expected: [
+					{
+						prio: 2,
+						pgn: 129302,
+						dst: 255,
+						fields: {
+							bearingOriginToDestination: 5.7832,
+							bearingReference: "True",
+							calculationType: "Great Circle",
+							distance: 1000,
+							destinationMarkType: "Waypoint",
+							originMarkType: "Waypoint",
 							sid: 0,
 						},
 					},

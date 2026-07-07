@@ -675,7 +675,9 @@ function generateStatic(
 		"design.length",
 	);
 	const length = lengthObj?.overall;
+	const validLength = toFiniteOrUndefined(length);
 	const beam = indexedFindValue<number>(index, vessel, "design.beam");
+	const validBeam = toFiniteOrUndefined(beam);
 	const fromCenter = indexedFindValue<number>(
 		index,
 		vessel,
@@ -686,12 +688,14 @@ function generateStatic(
 		vessel,
 		"sensors.ais.fromBow",
 	);
+	const validFromBow = toFiniteOrUndefined(fromBow);
 	const draftObj = indexedFindValue<{ maximum?: number }>(
 		index,
 		vessel,
 		"design.draft",
 	);
 	const draft = draftObj?.maximum;
+	const validDraft = toFiniteOrUndefined(draft);
 	const dest = indexedFindValue<string>(
 		index,
 		vessel,
@@ -717,11 +721,11 @@ function generateStatic(
 			callsign: clampString(callsign, AIS_CALLSIGN_CHARS),
 			name: clampString(name, AIS_NAME_CHARS),
 			typeOfShip: type,
-			length: toFiniteOrUndefined(length),
-			beam: toFiniteOrUndefined(beam),
+			length: validLength,
+			beam: validBeam,
 			positionReferenceFromStarboard: fromStarboard,
-			positionReferenceFromBow: toFiniteOrUndefined(fromBow),
-			draft: toFiniteOrUndefined(draft),
+			positionReferenceFromBow: validFromBow,
+			draft: validDraft,
 			destination: clampString(dest, AIS_DESTINATION_CHARS),
 			aisVersionIndicator: "ITU-R M.1371-1",
 			dte: "Available",

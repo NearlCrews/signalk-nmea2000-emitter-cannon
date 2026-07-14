@@ -3,7 +3,7 @@
 // tested in src/test/advisor.test.ts.
 
 /** One observed Signal K path and where it currently comes from. */
-export interface PathInventoryEntry {
+interface PathInventoryEntry {
 	path: string;
 	live: boolean;
 	/** `$source` labels publishing this path live. Empty when not live. */
@@ -15,7 +15,7 @@ export interface PathInventoryEntry {
 export type PathInventory = PathInventoryEntry[];
 
 /** QuestDB history stats for one path within the look-back window. */
-export interface HistoricStats {
+interface HistoricStats {
 	samples: number;
 	lastSeen: string;
 }

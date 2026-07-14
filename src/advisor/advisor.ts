@@ -1,9 +1,6 @@
 import type { ConversionMetadata } from "../api/types.js";
-import {
-	type ConversionConfig,
-	type ConversionMap,
-	emptyConversionConfig,
-} from "../config/schema.js";
+import { emptyConversionConfig } from "../config/defaults.js";
+import type { ConversionConfig, ConversionMap } from "../config/schema.js";
 import { errMessage } from "../utils/errorUtils.js";
 import { isPlainObject, isValidNumber } from "../utils/validation.js";
 import { mergeHistoric } from "./inventory.js";

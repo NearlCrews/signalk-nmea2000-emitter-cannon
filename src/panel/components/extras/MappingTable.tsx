@@ -1,6 +1,7 @@
 import type * as React from "react";
 import { useEffect, useRef, useState } from "react";
 import { S } from "../../styles";
+import { TABLE_STYLES as T } from "../../tableStyles";
 import NumberInput from "../NumberInput";
 
 // Module-level sequence so generated row ids stay unique across every
@@ -119,18 +120,18 @@ export default function MappingTable<T>(props: Props<T>): React.ReactElement {
 
 	return (
 		<div style={{ marginTop: "var(--skn-space-1)" }}>
-			<div style={S.tableTitle}>{props.title}</div>
+			<div style={T.title}>{props.title}</div>
 			{props.helpText ? <div style={S.helpHint}>{props.helpText}</div> : null}
-			<div style={S.tableWrap}>
-				<table style={S.table}>
+			<div style={T.wrap}>
+				<table style={T.table}>
 					<thead>
-						<tr style={S.tableHeadRow}>
+						<tr style={T.headRow}>
 							{props.columns.map((c) => (
-								<th key={c.header} scope="col" style={S.tableHeadCell}>
+								<th key={c.header} scope="col" style={T.headCell}>
 									{c.header}
 								</th>
 							))}
-							<th scope="col" style={S.tableActionCell}>
+							<th scope="col" style={T.actionCell}>
 								<span style={S.visuallyHidden}>Actions</span>
 							</th>
 						</tr>
@@ -142,7 +143,7 @@ export default function MappingTable<T>(props: Props<T>): React.ReactElement {
 							return (
 								<tr key={rowId}>
 									{props.columns.map((c) => (
-										<td key={c.header} style={S.tableCell}>
+										<td key={c.header} style={T.cell}>
 											{c.render(
 												row,
 												(next) => {
@@ -154,7 +155,7 @@ export default function MappingTable<T>(props: Props<T>): React.ReactElement {
 											)}
 										</td>
 									))}
-									<td style={S.tableActionCell}>
+									<td style={T.actionCell}>
 										<button
 											type="button"
 											style={

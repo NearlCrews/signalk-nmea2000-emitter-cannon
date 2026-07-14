@@ -2,8 +2,8 @@
 
 ## Prerequisites
 
-- Node.js 22.12+
-- TypeScript 6+
+- Node.js 22.18 or newer within the 22.x line, or Node.js 24.11+ (Babel 8 development toolchain)
+- TypeScript 7+
 - Modern package manager (npm recommended)
 
 ## Setup
@@ -43,7 +43,8 @@ change, conversion callbacks transform them into CanboatJS-format N2K messages
 conversion module is self-contained with its own Signal K path mappings,
 conversion logic, and embedded test cases. The plugin manager handles
 subscription lifecycle, debouncing, data freshness timeouts, and periodic
-resend timers.
+resend timers. It also applies the Canboat-defined arbitration priority at the
+final emit boundary.
 
 NMEA 2000 output messages follow the CanboatJS format: required `prio`, `pgn`,
 `dst` metadata with all data fields nested under a camelCase `fields` object.
@@ -54,9 +55,10 @@ NMEA 2000 output messages follow the CanboatJS format: required `prio`, `pgn`,
 src/
 ├── index.ts              # Plugin entry point (registerWithRouter, lifecycle)
 ├── plugin-manager.ts     # Core lifecycle (subscriptions, resend, status snapshot, emit counters)
-├── constants.ts          # NMEA 2000 default values (priority, dst, SID, resend interval)
+├── constants.ts          # Conversion fallback priority, dst, SID, and resend defaults
 ├── config/
 │   ├── schema.ts         # TypeBox RootConfig (single source of truth)
+│   ├── defaults.ts       # Lightweight runtime conversion defaults
 │   └── migrate.ts        # Load-time migration from v1.4.x legacy config
 ├── api/
 │   ├── router.ts         # Express router (status, conversions, paths, sources)
@@ -67,7 +69,14 @@ src/
 ├── panel/                # Federated React config panel (webpack module federation)
 │   ├── index.tsx         # Federation entry; re-exports PluginConfigurationPanel
 │   ├── PluginConfigurationPanel.tsx
-│   ├── styles.ts         # Inline-style objects
+│   ├── styles.ts         # Shared inline-style primitives
+│   ├── advisorStyles.ts  # Advisor panel, result, and settings styles
+│   ├── conversionStyles.ts # Dense conversion list and editor styles
+│   ├── statusStyles.ts   # Status dashboard style module
+│   ├── tableStyles.ts    # Shared responsive table primitives
+│   ├── theme.ts          # Theme palettes and semantic CSS tokens
+│   ├── toolbarStyles.ts  # Catalog toolbar styles
+│   ├── wizardStyles.ts   # First-run dialog styles
 │   ├── components/       # ConversionRow, ConversionDetail, PanelToolbar, CategoryTabs, etc.
 │   │   └── extras/       # MappingTable + per-family editors
 │   └── hooks/            # useStatus (3s poll), useConfig (reducer), useSources (lazy cache)
@@ -86,6 +95,7 @@ src/
 │   ├── debugUtils.ts         # Debug-flag check
 │   ├── aisUtils.ts           # AIS helpers: starboardOffset, parseMmsi, parseImo, AisShipType, string-length caps
 │   ├── pgnUtils.ts           # extractPgnsFromTitle, splitPgnTitle (shared by conversions and panel)
+│   ├── pgnPriorities.ts      # Canboat priority table and emit-boundary normalization
 │   └── notificationUtils.ts  # isClearState: true for non-alert SK states (normal, nominal)
 ├── conversions/          # 46 PGN conversion modules
 │   ├── index.ts          # Module loader / registry
@@ -94,7 +104,7 @@ src/
 │   ├── depth.ts          # Depth conversion
 │   ├── battery.ts        # Battery status conversion
 │   └── ...               # 43 more conversions
-└── test/                 # Vitest test suites (156 tests, 16 files)
+└── test/                 # Vitest test suites
     ├── index.test.ts          # All conversion-module test cases (round-trip via canboatjs)
     ├── advisor.test.ts        # Config Advisor: recommender, inventory, QuestDB, stale-source, orchestrator
     ├── advisor-config.test.ts # Advisor config defaults vs schema
@@ -127,7 +137,8 @@ tsconfig.test.json        # TypeScript config for the src/test/ suite
 
 All conversion modules include embedded test cases that validate correct PGN
 message format, CanboatJS encoding/decoding compatibility, Signal K data path
-mapping, and edge case handling. The full suite is 156 tests across 16 files.
+mapping, and edge case handling. Dedicated tests also cover lifecycle, API,
+advisor, panel-state, and protocol-boundary behavior.
 
 `npm run typecheck` runs three `tsc` passes: the plugin runtime
 (`tsconfig.json`, which excludes test files), the React panel

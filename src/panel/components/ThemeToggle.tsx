@@ -4,8 +4,8 @@ import SegmentedControl from "./SegmentedControl";
 
 // "auto" follows the host admin UI theme; the explicit choices pin a theme
 // by setting `data-skn-theme` on the `.skn-panel` root, which the THEME_STYLE
-// override blocks in styles.ts key off.
-export type ThemeChoice = "auto" | "light" | "dark" | "night";
+// override blocks in theme.ts key off.
+type ThemeChoice = "auto" | "light" | "dark" | "night";
 
 const STORAGE_KEY = "skn-theme";
 

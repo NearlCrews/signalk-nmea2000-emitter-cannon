@@ -1,6 +1,5 @@
 // Plain TypeScript enums so the panel bundle does not pull in @sinclair/typebox.
-// schema.ts re-exports these for server-side back-compat; the panel imports
-// them directly from this module.
+// Both the schema and the panel import them from this lightweight module.
 
 export const Categories = [
 	"navigation",

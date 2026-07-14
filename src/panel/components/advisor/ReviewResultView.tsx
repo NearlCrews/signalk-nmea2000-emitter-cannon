@@ -6,6 +6,7 @@ import type {
 	ReviewResult,
 } from "../../../advisor/types.js";
 import type { ConversionMetadata } from "../../../api/types.js";
+import { ADVISOR_STYLES as A } from "../../advisorStyles";
 import { S } from "../../styles";
 
 interface Props {
@@ -25,7 +26,7 @@ interface Props {
 const KEY_SUFFIX: CSSProperties = {
 	...S.cardMeta,
 	fontWeight: 400,
-	marginLeft: 6,
+	marginLeft: "var(--skn-space-compact)",
 };
 
 // Action verb shown before the conversion label in the pending list. Keyed by
@@ -71,11 +72,11 @@ export default function ReviewResultView({
 	return (
 		<div>
 			{result.autoApplied.length > 0 && (
-				<div style={S.advisorAutoBlock}>
-					<span style={S.advisorBlockTitle}>
+				<div style={A.autoBlock}>
+					<span style={A.blockTitle}>
 						Auto-applied ({result.autoApplied.length})
 					</span>
-					<ul style={S.advisorList}>
+					<ul style={A.list}>
 						{result.autoApplied.map((r) => (
 							<li key={r.optionKey}>
 								Enabled{" "}
@@ -83,23 +84,23 @@ export default function ReviewResultView({
 									optionKey={r.optionKey}
 									metaByKey={metaByKey}
 								/>
-								<div style={S.advisorReason}>{r.reason}</div>
+								<div style={A.reason}>{r.reason}</div>
 							</li>
 						))}
 					</ul>
 				</div>
 			)}
 			{result.pending.length > 0 && (
-				<div style={S.advisorPendingBlock}>
-					<span style={S.advisorBlockTitle}>
+				<div style={A.pendingBlock}>
+					<span style={A.blockTitle}>
 						Needs your approval ({result.pending.length})
 					</span>
 					{result.pending.map((r) => {
 						const verb = PENDING_VERB[r.action];
 						return (
-							<div key={r.optionKey} style={S.advisorRow}>
-								<div style={S.advisorRowHead}>
-									<span style={S.advisorRowKey}>
+							<div key={r.optionKey} style={A.row}>
+								<div style={A.rowHead}>
+									<span style={A.rowKey}>
 										{verb}{" "}
 										<ConversionLabel
 											optionKey={r.optionKey}
@@ -108,7 +109,7 @@ export default function ReviewResultView({
 									</span>
 									<button
 										type="button"
-										style={S.btnApprove}
+										style={A.approveButton}
 										onClick={() => onApprove(r)}
 										disabled={busy}
 									>
@@ -116,27 +117,27 @@ export default function ReviewResultView({
 									</button>
 									<button
 										type="button"
-										style={S.btnReject}
+										style={A.rejectButton}
 										onClick={() => onReject(r.optionKey)}
 										disabled={busy}
 									>
 										Reject
 									</button>
 								</div>
-								<div style={S.advisorReason}>{r.reason}</div>
+								<div style={A.reason}>{r.reason}</div>
 							</div>
 						);
 					})}
 				</div>
 			)}
 			{empty && (
-				<div style={S.advisorNote}>
+				<div style={A.note}>
 					No changes recommended. Every live path is already handled.
 				</div>
 			)}
 			{result.notes.map((n, i) => (
 				// biome-ignore lint/suspicious/noArrayIndexKey: notes are render-only and never reordered, and two notes can be identical strings
-				<div key={`note-${i}`} style={S.advisorNote}>
+				<div key={`note-${i}`} style={A.note}>
 					{n}
 				</div>
 			))}

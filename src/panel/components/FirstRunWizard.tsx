@@ -10,9 +10,10 @@ import {
 } from "../../config/enums.js";
 import type { Config } from "../../config/schema.js";
 import { errMessage } from "../../utils/errorUtils.js";
-import { fetchJson } from "../api-base";
+import { fetchJson, isAbortError } from "../api-base";
 import { plural } from "../recency";
 import { S } from "../styles";
+import { WIZARD_STYLES as W } from "../wizardStyles";
 import PresetChips from "./PresetChips";
 
 interface Props {
@@ -56,21 +57,24 @@ export default function FirstRunWizard({
 	// role="status" region reflects what just happened.
 	const [hint, setHint] = useState<string | null>(null);
 	const dialogRef = useRef<HTMLDivElement>(null);
+	const returnFocusRef = useRef<HTMLElement | null>(null);
 	const titleId = "skn-wizard-title";
 
 	useEffect(() => {
 		let cancelled = false;
-		fetchJson<PathsResponse>("/paths")
+		const controller = new AbortController();
+		fetchJson<PathsResponse>("/paths", { signal: controller.signal })
 			.then((d) => {
 				if (cancelled) return;
 				setPaths(d.paths);
 				setLoadError(null);
 			})
 			.catch((e) => {
-				if (!cancelled) setLoadError(errMessage(e));
+				if (!cancelled && !isAbortError(e)) setLoadError(errMessage(e));
 			});
 		return () => {
 			cancelled = true;
+			controller.abort();
 		};
 	}, []);
 
@@ -108,10 +112,16 @@ export default function FirstRunWizard({
 		return () => document.removeEventListener("keydown", onKey);
 	}, [onClose]);
 
-	// Move focus into the dialog on mount so keyboard and screen-reader users
-	// land inside the modal rather than behind it.
+	// Move focus into the dialog on mount, then return it to the control that
+	// opened the wizard when the modal closes.
 	useEffect(() => {
+		const active = document.activeElement;
+		returnFocusRef.current = active instanceof HTMLElement ? active : null;
 		dialogRef.current?.focus();
+		return () => {
+			const target = returnFocusRef.current;
+			if (target?.isConnected) target.focus();
+		};
 	}, []);
 
 	// The advisor's deterministic recommender over the live path scan. The
@@ -152,32 +162,32 @@ export default function FirstRunWizard({
 	const scanning = paths === null && loadError === null;
 
 	return (
-		<div style={S.wizardOverlay}>
+		<div style={W.overlay}>
 			{/* Real button so click-to-close has native keyboard semantics; it sits
 			    behind the dialog via zIndex. tabIndex -1 keeps the redundant close
 			    out of the tab order (Escape and the header button cover keyboard). */}
 			<button
 				type="button"
-				style={S.wizardBackdrop}
+				style={W.backdrop}
 				aria-label="Close setup wizard"
 				tabIndex={-1}
 				onClick={onClose}
 			/>
 			<div
 				ref={dialogRef}
-				style={S.wizardDialog}
+				style={W.dialog}
 				role="dialog"
 				aria-modal="true"
 				aria-labelledby={titleId}
 				tabIndex={-1}
 			>
-				<div style={S.wizardHeader}>
-					<h2 id={titleId} style={S.wizardTitle}>
+				<div style={W.header}>
+					<h2 id={titleId} style={W.title}>
 						Setup wizard
 					</h2>
 					<button
 						type="button"
-						style={S.wizardClose}
+						style={W.close}
 						onClick={onClose}
 						aria-label="Close setup wizard"
 					>
@@ -185,8 +195,8 @@ export default function FirstRunWizard({
 					</button>
 				</div>
 
-				<div style={S.wizardBody}>
-					<p style={S.wizardIntro}>
+				<div style={W.body}>
+					<p style={W.intro}>
 						This scans the Signal K paths your boat is publishing right now and
 						proposes the not-yet-enabled conversions that have live data. Review
 						the pre-checked list, then Apply to stage them. Nothing is saved
@@ -215,10 +225,10 @@ export default function FirstRunWizard({
 					) : null}
 
 					{grouped.map((g) => (
-						<div key={g.cat} style={S.wizardGroup}>
-							<h3 style={S.wizardGroupTitle}>{CategoryLabels[g.cat]}</h3>
+						<div key={g.cat} style={W.group}>
+							<h3 style={W.groupTitle}>{CategoryLabels[g.cat]}</h3>
 							{g.list.map((m) => (
-								<label key={m.key} style={S.wizardRow}>
+								<label key={m.key} style={W.row}>
 									<input
 										type="checkbox"
 										style={S.checkbox}
@@ -230,13 +240,13 @@ export default function FirstRunWizard({
 											}))
 										}
 									/>
-									<span style={S.wizardRowText}>{m.title}</span>
+									<span style={W.rowText}>{m.title}</span>
 								</label>
 							))}
 						</div>
 					))}
 
-					<h3 style={S.wizardSubhead}>Or apply a preset now</h3>
+					<h3 style={W.subhead}>Or apply a preset now</h3>
 					<p style={S.helpHint}>
 						Preset chips stage their conversions the moment you tap one; there
 						is no separate Apply step.
@@ -247,8 +257,8 @@ export default function FirstRunWizard({
 					<PresetChips onApply={onApplyPreset} meta={meta} />
 				</div>
 
-				<div style={S.wizardFooter}>
-					<span style={S.wizardFooterHint} role="status">
+				<div style={W.footer}>
+					<span style={W.footerHint} role="status">
 						{hint ??
 							`Apply stages your selection; preset chips stage instantly. ${REVIEW_THEN_SAVE}`}
 					</span>

@@ -64,14 +64,16 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 	// lifecycle. signalk-server mounts registerWithRouter for a disabled plugin
 	// but only calls start() (which builds pluginManager) once it is enabled, so
 	// a manager-free catalog is what lets the config panel show and configure
-	// conversions before the first enable. Use the running manager's catalog when
-	// present (it already holds the modules), else build a standalone copy once
-	// and reuse it. Shared by the API router and the advisor, which both saw an
-	// empty catalog while the plugin was disabled.
+	// conversions before the first enable. Use the manager's catalog when it is
+	// populated, else build a standalone copy once and reuse it. The fallback also
+	// covers failed starts, where the manager has already cleared its modules.
+	// Shared by the API router and the advisor, which both previously saw an empty
+	// catalog while the plugin was disabled.
 	let conversionCatalog: ConversionMetadata[] | null = null;
 	const getMetadata = (): ConversionMetadata[] => {
 		if (pluginManager) {
-			return pluginManager.getConversionMetadata();
+			const managerMetadata = pluginManager.getConversionMetadata();
+			if (managerMetadata.length > 0) return managerMetadata;
 		}
 		if (!conversionCatalog) {
 			conversionCatalog = buildConversionMetadata(

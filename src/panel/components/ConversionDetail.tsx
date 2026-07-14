@@ -5,6 +5,7 @@ import type {
 } from "../../api/types.js";
 import type { ConversionConfig } from "../../config/schema.js";
 import { pathToPropName } from "../../utils/pathUtils.js";
+import { CONVERSION_STYLES as C } from "../conversionStyles";
 import { humanizeAgo } from "../recency.js";
 import { S } from "../styles";
 import ExtrasEditor from "./ExtrasEditor";
@@ -71,7 +72,7 @@ export default function ConversionDetail(props: Props): React.ReactElement {
 		: null;
 
 	return (
-		<div id={props.bodyId} style={S.rowDetail}>
+		<div id={props.bodyId} style={C.detail}>
 			{/* Inline error banner: the same message the header's warning marks,
 			    shown in full for touchscreens where the title tooltip is
 			    unreachable. */}
@@ -109,8 +110,8 @@ export default function ConversionDetail(props: Props): React.ReactElement {
 			{/* Options stay visible whether or not the conversion is
 			    enabled, so a source or resend can be set up before the
 			    enable checkbox is ticked. */}
-			<div style={S.fieldStack}>
-				<span style={S.fieldStackLabel}>
+			<div style={C.fieldStack}>
+				<span style={C.fieldStackLabel}>
 					Resend interval (seconds, 0 = use global setting)
 				</span>
 				<NumberInput

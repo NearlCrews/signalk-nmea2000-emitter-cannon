@@ -5,11 +5,10 @@ import type {
 	ConversionMetadata,
 	PerConversionStatus,
 } from "../../api/types.js";
-import {
-	type ConversionConfig,
-	emptyConversionConfig,
-} from "../../config/schema.js";
+import { emptyConversionConfig } from "../../config/defaults.js";
+import type { ConversionConfig } from "../../config/schema.js";
 import { splitPgnTitle } from "../../utils/pgnUtils.js";
+import { CONVERSION_STYLES as C } from "../conversionStyles";
 import type { Action } from "../hooks/useConfig";
 import type { RailState } from "../rowStatus.js";
 import { rowStatus } from "../rowStatus.js";
@@ -20,10 +19,10 @@ import DisclosureCaret from "./DisclosureCaret";
 const EMPTY_CFG: ConversionConfig = emptyConversionConfig();
 
 const RAIL_STYLE: Record<RailState, React.CSSProperties> = {
-	emitting: S.rowRailEmitting,
-	silent: S.rowRailSilent,
-	error: S.rowRailError,
-	disabled: S.rowRailDisabled,
+	emitting: C.railEmitting,
+	silent: C.railSilent,
+	error: C.railError,
+	disabled: C.railDisabled,
 };
 
 // splitPgnTitle returns { prefix, pgns, suffix } where prefix is the
@@ -31,11 +30,11 @@ const RAIL_STYLE: Record<RailState, React.CSSProperties> = {
 // (never clipped). Reconstruct without adding extra parens.
 function renderTitle(title: string): React.ReactNode {
 	const parts = splitPgnTitle(title);
-	if (!parts) return <span style={S.rowTitle}>{title}</span>;
+	if (!parts) return <span style={C.title}>{title}</span>;
 	return (
-		<span style={S.rowTitleWrap}>
-			<span style={S.rowTitle}>{parts.prefix.trimEnd()}</span>
-			<span style={S.rowPgn}>
+		<span style={C.titleWrap}>
+			<span style={C.title}>{parts.prefix.trimEnd()}</span>
+			<span style={C.pgn}>
 				{parts.pgns.map((p, i) => (
 					<Fragment key={p}>
 						{i > 0 ? ", " : null}
@@ -118,12 +117,12 @@ function ConversionRow(props: Props): React.ReactElement {
 	return (
 		// Outer: carries the bottom divider only. The rail lives on the header
 		// below, so it stays a short tick and does not run down the detail body.
-		<div id={`skn-row-${key}`} className="skn-row" style={S.rowOuter}>
+		<div id={`skn-row-${key}`} className="skn-row" style={C.outer}>
 			{/* Inner header: pointer convenience; the toggle button carries all
 			    keyboard semantics so the div must NOT take a role of its own. */}
 			{/* biome-ignore lint/a11y/useKeyWithClickEvents: the row click only delegates to the toggle button, which carries the keyboard semantics itself. */}
 			{/* biome-ignore lint/a11y/noStaticElementInteractions: pointer convenience only; the nested toggle button remains the accessible control, so the row must NOT take a role of its own. */}
-			<div style={{ ...S.row, ...RAIL_STYLE[rail] }} onClick={onRowClick}>
+			<div style={{ ...C.row, ...RAIL_STYLE[rail] }} onClick={onRowClick}>
 				<input
 					type="checkbox"
 					style={S.checkbox}
@@ -135,7 +134,7 @@ function ConversionRow(props: Props): React.ReactElement {
 					id={`skn-row-toggle-${key}`}
 					ref={toggleRef}
 					type="button"
-					style={S.rowMain}
+					style={C.main}
 					aria-expanded={props.expanded}
 					aria-controls={bodyId}
 					onClick={onToggle}
@@ -143,7 +142,7 @@ function ConversionRow(props: Props): React.ReactElement {
 					<DisclosureCaret expanded={props.expanded} />
 					{renderTitle(props.meta.title)}
 				</button>
-				<span style={S.rowBadgeSlot}>
+				<span style={C.badgeSlot}>
 					{props.meta.legacy ? (
 						<span
 							aria-hidden="true"
@@ -167,7 +166,7 @@ function ConversionRow(props: Props): React.ReactElement {
 						⚠
 					</span>
 				) : null}
-				{recency ? <span style={S.rowRecency}>{recency}</span> : null}
+				{recency ? <span style={C.recency}>{recency}</span> : null}
 			</div>
 			{/* Detail or hidden placeholder: full-width sibling below the header. */}
 			{props.expanded ? (

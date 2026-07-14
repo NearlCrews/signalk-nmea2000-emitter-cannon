@@ -2,6 +2,7 @@ import type * as React from "react";
 import { useState } from "react";
 import { DEFAULT_ADVISOR_CONFIG } from "../../../config/enums.js";
 import type { Config } from "../../../config/schema.js";
+import { ADVISOR_STYLES as A } from "../../advisorStyles";
 import { fetchJson, friendlyApiError } from "../../api-base";
 import { ADVISOR_UNAVAILABLE_503 } from "../../hooks/useAdvisor.js";
 import { S } from "../../styles";
@@ -21,15 +22,6 @@ interface Props {
 // A whole checkbox row is one <label>, so tapping the text toggles the box.
 // S.fieldRow lays it out; the pointer cursor signals the row is clickable.
 const checkboxRow: React.CSSProperties = { ...S.fieldRow, cursor: "pointer" };
-
-// Primary toggle labels reuse the wizard row text (full text color: S.label's
-// muted gray read as disabled next to a live checkbox) and flex with the row
-// instead of holding a fixed column, so tablets do not get a dead gutter.
-const toggleLabel: React.CSSProperties = {
-	...S.wizardRowText,
-	flex: "1 1 auto",
-	minWidth: 160,
-};
 
 type ProbeState =
 	| { phase: "idle" }
@@ -127,7 +119,7 @@ export default function AdvisorSettings({
 					checked={cfg.enabled}
 					onChange={(e) => patch({ enabled: e.target.checked })}
 				/>
-				<span style={toggleLabel}>Enable the Config Advisor</span>
+				<span style={A.toggleLabel}>Enable the Config Advisor</span>
 			</label>
 			<p style={S.helpHint}>
 				When enabled, the advisor can review on a schedule. The Review now
@@ -141,7 +133,9 @@ export default function AdvisorSettings({
 					checked={cfg.autoApply}
 					onChange={(e) => patch({ autoApply: e.target.checked })}
 				/>
-				<span style={toggleLabel}>Apply recommended enables automatically</span>
+				<span style={A.toggleLabel}>
+					Apply recommended enables automatically
+				</span>
 			</label>
 			<p style={S.helpHint}>
 				When on, a review enables recommended conversions for you right away.
@@ -149,7 +143,7 @@ export default function AdvisorSettings({
 				disable a conversion always wait for your approval.
 			</p>
 
-			<div style={S.advisorSubhead}>QuestDB history (optional)</div>
+			<div style={A.subhead}>QuestDB history (optional)</div>
 			<p style={S.helpHint}>
 				If you run QuestDB with Signal K history, the advisor can also see paths
 				that are not live right now. Leave disabled if you do not run QuestDB.
@@ -163,7 +157,7 @@ export default function AdvisorSettings({
 						patch({ questdb: { ...cfg.questdb, enabled: e.target.checked } })
 					}
 				/>
-				<span style={toggleLabel}>Use QuestDB history</span>
+				<span style={A.toggleLabel}>Use QuestDB history</span>
 			</label>
 			<div style={S.fieldRow}>
 				<span style={S.label}>QuestDB REST URL</span>
@@ -208,7 +202,7 @@ export default function AdvisorSettings({
 				now. Longer catches seasonal gear; shorter is faster.
 			</p>
 
-			<div style={S.advisorSubhead}>Scheduled review</div>
+			<div style={A.subhead}>Scheduled review</div>
 			<p style={S.helpHint}>
 				Re-run the review automatically on an interval. The Review now button
 				always works on demand regardless of this setting.
@@ -224,7 +218,7 @@ export default function AdvisorSettings({
 						})
 					}
 				/>
-				<span style={toggleLabel}>Review on a schedule</span>
+				<span style={A.toggleLabel}>Review on a schedule</span>
 			</label>
 			<div style={S.fieldRow}>
 				<span style={S.label}>Review every (days)</span>

@@ -8,14 +8,11 @@ import {
 	useState,
 } from "react";
 import type { ConversionMetadata } from "../../api/types.js";
+import { emptyConversionConfig } from "../../config/defaults.js";
 import type { PresetTag } from "../../config/enums.js";
 import { migrateLegacyConfig } from "../../config/migrate.js";
 import { RAYMARINE_EXTRAS_PATCH } from "../../config/raymarinePreset.js";
-import {
-	type Config,
-	type ConversionConfig,
-	emptyConversionConfig,
-} from "../../config/schema.js";
+import type { Config, ConversionConfig } from "../../config/schema.js";
 
 // The patch table never changes at runtime, so derive its entries once.
 const RAYMARINE_PATCH_ENTRIES = Object.entries(RAYMARINE_EXTRAS_PATCH);
@@ -51,15 +48,29 @@ function withEntry(
 	};
 }
 
+// Config values are JSON-safe. This comparison runs only for explicit user
+// actions that replace a nested block, not on render, and keeps a semantic
+// no-op from marking the panel dirty through a fresh object identity.
+function sameConfigValue(a: unknown, b: unknown): boolean {
+	return a === b || JSON.stringify(a) === JSON.stringify(b);
+}
+
 function reducer(state: Config, action: Action): Config {
 	switch (action.type) {
 		case "discard":
-			return action.config;
+			return action.config === state ? state : action.config;
 		case "setGlobalResend":
+			if (state.globalResendInterval === action.ms) return state;
 			return { ...state, globalResendInterval: action.ms };
 		case "setAdvisor":
+			if (sameConfigValue(state.advisor, action.advisor)) return state;
 			return { ...state, advisor: action.advisor };
 		case "setEnabled": {
+			if (
+				(state.conversions[action.key]?.enabled ?? false) === action.enabled
+			) {
+				return state;
+			}
 			const { state: s, entry } = withEntry(state, action.key);
 			return {
 				...s,
@@ -70,6 +81,9 @@ function reducer(state: Config, action: Action): Config {
 			};
 		}
 		case "setResend": {
+			if ((state.conversions[action.key]?.resend ?? 0) === action.ms) {
+				return state;
+			}
 			const { state: s, entry } = withEntry(state, action.key);
 			return {
 				...s,
@@ -80,6 +94,12 @@ function reducer(state: Config, action: Action): Config {
 			};
 		}
 		case "setSource": {
+			if (
+				(state.conversions[action.key]?.sources[action.path] ?? "") ===
+				action.source
+			) {
+				return state;
+			}
 			const { state: s, entry } = withEntry(state, action.key);
 			// schema.ts now declares sources as required `{}` default, so the
 			// spread does not need a defensive `?? {}` guard.
@@ -95,6 +115,14 @@ function reducer(state: Config, action: Action): Config {
 			};
 		}
 		case "setExtras": {
+			if (
+				sameConfigValue(
+					state.conversions[action.key]?.extras ?? {},
+					action.extras,
+				)
+			) {
+				return state;
+			}
 			const { state: s, entry } = withEntry(state, action.key);
 			return {
 				...s,
@@ -105,14 +133,22 @@ function reducer(state: Config, action: Action): Config {
 			};
 		}
 		case "applyPreset": {
-			// One shallow copy of the map up front, then in-place assignment per
-			// key, so a multi-key preset does not re-spread the whole map per key.
-			const conversions = { ...state.conversions };
+			// Copy the map only when the preset changes at least one entry. This
+			// keeps re-applying an already active preset from marking the panel
+			// dirty while retaining one shallow copy for a multi-key update.
+			let conversions = state.conversions;
 			const ensure = (key: string): ConversionConfig =>
 				conversions[key] ?? emptyConversionConfig();
+			const write = (key: string, entry: ConversionConfig): void => {
+				if (conversions === state.conversions) {
+					conversions = { ...state.conversions };
+				}
+				conversions[key] = entry;
+			};
 			for (const m of action.meta) {
 				if (m.presets.includes(action.preset)) {
-					conversions[m.key] = { ...ensure(m.key), enabled: true };
+					const entry = ensure(m.key);
+					if (!entry.enabled) write(m.key, { ...entry, enabled: true });
 				}
 			}
 			// The Raymarine preset also writes source/instance extras so the
@@ -124,14 +160,21 @@ function reducer(state: Config, action: Action): Config {
 			if (action.preset === "raymarine") {
 				for (const [key, patch] of RAYMARINE_PATCH_ENTRIES) {
 					const entry = ensure(key);
-					conversions[key] = {
+					const extrasAlreadyApplied = Object.entries(patch).every(
+						([patchKey, patchValue]) =>
+							sameConfigValue(entry.extras[patchKey], patchValue),
+					);
+					if (entry.enabled && extrasAlreadyApplied) continue;
+					write(key, {
 						...entry,
 						enabled: true,
 						extras: { ...entry.extras, ...patch },
-					};
+					});
 				}
 			}
-			return { ...state, conversions };
+			return conversions === state.conversions
+				? state
+				: { ...state, conversions };
 		}
 	}
 }
@@ -258,4 +301,9 @@ export function __applyPresetForTest(
 	meta: ConversionMetadata[],
 ): Config {
 	return reducer(state, { type: "applyPreset", preset, meta });
+}
+
+// Test-only: verifies that semantic no-op actions preserve state identity.
+export function __configReducerForTest(state: Config, action: Action): Config {
+	return reducer(state, action);
 }

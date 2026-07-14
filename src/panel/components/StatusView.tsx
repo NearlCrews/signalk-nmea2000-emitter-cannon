@@ -1,5 +1,4 @@
 import type * as React from "react";
-import type { CSSProperties } from "react";
 import type {
 	ConversionMetadata,
 	PerConversionStatus,
@@ -7,8 +6,11 @@ import type {
 } from "../../api/types.js";
 import { stripSubIndex } from "../../utils/pathUtils.js";
 import { extractPgnsFromTitle } from "../../utils/pgnUtils.js";
+import { outputStateFor } from "../outputState";
 import { humanizeAgo } from "../recency";
+import { STATUS_VIEW_STYLES as V } from "../statusStyles";
 import { S } from "../styles";
+import { TABLE_STYLES as T } from "../tableStyles";
 import ErrorBadgeButton from "./ErrorBadgeButton";
 
 // Placeholder shown before the first status poll resolves.
@@ -35,42 +37,6 @@ interface Props {
 	onErrorClick: () => void;
 }
 
-// Touch-friendly table cell: taller rows than the dense advisor table so a
-// finger target clears the row above and below. Row separation via a bottom
-// border that reads in both themes.
-const CELL: CSSProperties = {
-	padding: "12px 10px",
-	borderBottom: "1px solid var(--skn-border)",
-	verticalAlign: "top",
-};
-const HEAD_CELL: CSSProperties = {
-	padding: "10px",
-	fontWeight: 600,
-	borderBottom: "2px solid var(--skn-border)",
-};
-const PGN_CELL: CSSProperties = {
-	...CELL,
-	fontVariantNumeric: "tabular-nums",
-	color: "var(--skn-text-muted)",
-};
-const NUM_CELL: CSSProperties = {
-	...CELL,
-	textAlign: "right",
-	fontVariantNumeric: "tabular-nums",
-};
-const HEADER_ROW: CSSProperties = {
-	display: "flex",
-	flexWrap: "wrap",
-	gap: "var(--skn-space-3)",
-	alignItems: "center",
-	marginBottom: "var(--skn-space-2)",
-	fontSize: "var(--skn-font-body)",
-};
-const EMPTY_TEXT: CSSProperties = {
-	...S.loadingText,
-	padding: "12px 0",
-};
-
 function pgnsFor(
 	row: PerConversionStatus,
 	byKey: Map<string, ConversionMetadata>,
@@ -93,21 +59,27 @@ export default function StatusView({
 	const enabledRows = status.perConversion.filter((c) => c.enabled);
 	const errorCount = enabledRows.filter((c) => c.lastErrorMessage).length;
 	const totalEmits = enabledRows.reduce((n, c) => n + c.emitCount, 0);
-	const ready = status.nmea2000Ready;
-	const readyDot = ready ? S.dotOk : S.dotWait;
+	const outputState = outputStateFor(status);
+	const running = outputState === "waiting" || outputState === "ready";
+	const readyDot =
+		outputState === "ready"
+			? S.dotOk
+			: outputState === "waiting"
+				? S.dotWait
+				: S.dotOff;
 
 	// Plain container, not S.root: this view is already nested inside the
 	// panel root, and doubling the root padding made the view toggle jump.
 	return (
 		<div>
-			<div style={HEADER_ROW} role="status">
-				<span>
+			<div style={V.headerRow}>
+				<span role="status">
 					<span
-						style={{ ...S.dot, ...readyDot, marginRight: 6 }}
+						style={{ ...S.dot, ...readyDot, ...V.readyDot }}
 						aria-hidden="true"
 					/>
 					<span style={S.statLabel}>NMEA 2000 </span>
-					<span style={S.statValue}>{ready ? "ready" : "waiting"}</span>
+					<span style={S.statValue}>{outputState}</span>
 				</span>
 				<span>
 					<span style={S.statLabel}>Enabled </span>
@@ -124,21 +96,37 @@ export default function StatusView({
 				) : null}
 			</div>
 
-			{enabledRows.length === 0 ? (
-				<p style={EMPTY_TEXT}>
+			{!running ? (
+				<p style={V.emptyText}>
+					The plugin is not running. Enable it in the Signal K plugin list if it
+					is disabled. If it is already enabled, check the plugin and server
+					logs for its startup error.
+				</p>
+			) : enabledRows.length === 0 ? (
+				<p style={V.emptyText}>
 					No conversions enabled. Enable conversions in the Configure view to
 					see live output here.
 				</p>
 			) : (
-				<div style={S.tableWrap}>
-					<table style={S.table}>
+				<div style={T.wrap}>
+					<table style={T.table}>
 						<thead>
-							<tr style={S.tableHeadRow}>
-								<th style={HEAD_CELL}>Conversion</th>
-								<th style={HEAD_CELL}>PGNs</th>
-								<th style={{ ...HEAD_CELL, textAlign: "right" }}>Emits</th>
-								<th style={HEAD_CELL}>Last emit</th>
-								<th style={HEAD_CELL}>Status</th>
+							<tr style={T.headRow}>
+								<th scope="col" style={V.headCell}>
+									Conversion
+								</th>
+								<th scope="col" style={V.headCell}>
+									PGNs
+								</th>
+								<th scope="col" style={{ ...V.headCell, textAlign: "right" }}>
+									Emits
+								</th>
+								<th scope="col" style={V.headCell}>
+									Last emit
+								</th>
+								<th scope="col" style={V.headCell}>
+									Status
+								</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -149,17 +137,17 @@ export default function StatusView({
 										: "no recent output";
 								return (
 									<tr key={row.key}>
-										<td style={CELL}>{row.title}</td>
-										<td style={PGN_CELL}>{pgnsFor(row, metaByKey) || "-"}</td>
-										<td style={NUM_CELL}>{row.emitCount}</td>
-										<td style={CELL}>
+										<td style={V.cell}>{row.title}</td>
+										<td style={V.pgnCell}>{pgnsFor(row, metaByKey) || "-"}</td>
+										<td style={V.numberCell}>{row.emitCount}</td>
+										<td style={V.cell}>
 											{row.emitCount > 0 ? (
 												recency
 											) : (
 												<span style={S.textFaint}>{recency}</span>
 											)}
 										</td>
-										<td style={CELL}>
+										<td style={V.cell}>
 											{row.lastErrorMessage ? (
 												<span style={S.textDanger}>
 													<span aria-hidden="true">⚠ </span>

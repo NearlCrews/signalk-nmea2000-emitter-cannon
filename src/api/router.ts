@@ -67,15 +67,20 @@ export function createApiRouter(
 			const pm = getManager();
 			if (!pm) {
 				res.json({
+					pluginRunning: false,
 					nmea2000Ready: false,
 					enabledCount: 0,
-					totalConversions: 0,
+					totalConversions: getMetadata().length,
 					perConversion: [],
 					startTime: 0,
 				});
 				return;
 			}
-			res.json(pm.getStatusSnapshot());
+			const snapshot = pm.getStatusSnapshot();
+			if (!snapshot.pluginRunning && snapshot.totalConversions === 0) {
+				snapshot.totalConversions = getMetadata().length;
+			}
+			res.json(snapshot);
 		});
 
 		router.get("/api/conversions", (_req: Request, res: Response) => {

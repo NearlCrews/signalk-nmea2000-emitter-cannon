@@ -15,22 +15,27 @@ Garmin ECHOMAP, GPSMAP, and GMI specifications and the canboatjs encoder.
 > Built on the foundation of [`signalk-to-nmea2000`](https://github.com/SignalK/signalk-to-nmea2000)
 > by Scott Bender and the Signal K community.
 
-## What's new in 1.8.2
+## What's new in 1.9.0
 
-- **The Config Advisor now also catches a pinned source that has gone completely
-  silent.** Earlier it flagged only a conversion whose path had moved to a
-  different live source. Now, when a pinned source stops publishing entirely and
-  QuestDB history shows the path was active recently, a review surfaces a
-  lower-confidence "Fix source" recommendation so you can clear the dead pin and
-  let the conversion follow whatever source returns.
-- **No false alarms on idle sensors.** The new check needs QuestDB history, so it
-  makes no claim when history is unavailable, which keeps a momentarily idle
-  sensor from being reported as stale. Like the other source fixes, it always
-  waits for your approval.
-- **Updated "Works well with" list.** It now points to signalk-synthetic-values,
-  whose sensor fusion feeds the emitter clean Signal K paths to convert.
+- **Correct arbitration priority for every emitted standard PGN.** The transport
+  boundary now applies the Canboat 7.1.0 priority, including variant-specific
+  handling for the SeaTalk Alarm PGN, while proprietary PGNs keep their supplied
+  priority. Transmission Parameters also sends its discrete status as the
+  Canboat-defined empty bit set.
+- **A more resilient configuration panel.** It distinguishes loading, inactive,
+  waiting, and ready states, preserves the conversion catalog after a failed
+  startup, times out stalled status requests, cancels obsolete polling, and bases
+  first-run guidance on the current panel configuration.
+- **A cleaner and more accessible marine UI.** Theme values and component
+  dimensions are tokenized, advisor, conversion, status, toolbar, and wizard
+  styles have focused modules, repeated mapping editors share one primitive, and
+  live-region announcements no longer repeat changing counters.
+- **Current dependencies and a smaller browser entry.** Babel 8, TypeScript 7,
+  CanboatJS, Signal K APIs, React, Vitest, and the build toolchain are current;
+  unused packages and internal exports are gone; and the panel entry is down from
+  64.9 KiB to 15.4 KiB.
 
-See the [v1.8.2 changelog entry](CHANGELOG.md#v182) and the
+See the [v1.9.0 changelog entry](CHANGELOG.md#v190) and the
 [full release history](CHANGELOG.md).
 
 ## What it does
@@ -75,13 +80,13 @@ published specifications. It pairs well with sensor-side plugins such as
 - **Strict TypeScript**, pure ESM, a single esbuild bundle with RxJS as the
   only runtime dependency
 - **Embedded canboatjs round-trip tests** on every conversion module, plus
-  advisor, lifecycle, and panel unit tests (156 tests across 16 files)
+  advisor, lifecycle, panel, and protocol-boundary unit tests
 
 ## Screenshots
 
 | Conversion config | Environment category | Config Advisor |
 | :---: | :---: | :---: |
-| [![Conversion config panel with per-conversion cards and live emit counts](assets/screenshots/config-panel.png)](assets/screenshots/config-panel.png) | [![Environment category conversions](assets/screenshots/environment-conversions.png)](assets/screenshots/environment-conversions.png) | [![Config Advisor settings](assets/screenshots/config-advisor.png)](assets/screenshots/config-advisor.png) |
+| [![Conversion catalog with compact rows and live emit counts](assets/screenshots/config-panel.png)](assets/screenshots/config-panel.png) | [![Environment category conversion rows](assets/screenshots/environment-conversions.png)](assets/screenshots/environment-conversions.png) | [![Config Advisor review controls](assets/screenshots/config-advisor.png)](assets/screenshots/config-advisor.png) |
 
 ## Requirements
 
@@ -164,9 +169,10 @@ payloads migrate transparently the first time the panel loads them.
 
 ## Development
 
-This project targets Node 22.12 or newer, with TypeScript 6 and Biome
-(development only). canboatjs is exercised in the test suite and bundled
-into the build, not installed at runtime.
+The published plugin targets Node 22.12 or newer. Development requires Node
+22.18 or newer within the 22.x line, or Node 24.11 or newer, because the Babel
+8 build toolchain uses that engine range. canboatjs and `@canboat/ts-pgns` are
+exercised in the test suite and are not runtime dependencies.
 
 ```bash
 git clone https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon.git
@@ -174,7 +180,7 @@ cd signalk-nmea2000-emitter-cannon
 npm install
 npm run hooks        # one-time: enable the pre-commit hook
 npm run build        # esbuild plugin bundle plus webpack panel
-npm test             # Vitest suite (156 tests)
+npm test             # Vitest suite
 npm run typecheck    # type-check the plugin, the panel, and the tests
 npm run check        # full Biome check
 npm run lint         # Biome linting only

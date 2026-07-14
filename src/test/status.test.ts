@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { RootConfig } from "../config/schema.js";
+import { outputStateFor } from "../panel/outputState.js";
 import { PluginManager } from "../plugin-manager.js";
 import type { SignalKApp, SignalKPlugin } from "../types/index.js";
 
@@ -45,11 +46,33 @@ const mockPlugin: SignalKPlugin = {
 	stop: () => {},
 };
 
+describe("outputStateFor", () => {
+	it("reports loading before the first status snapshot arrives", () => {
+		expect(outputStateFor(null)).toBe("loading");
+	});
+
+	it("gives plugin inactivity precedence over a stale readiness flag", () => {
+		expect(outputStateFor({ pluginRunning: false, nmea2000Ready: true })).toBe(
+			"inactive",
+		);
+	});
+
+	it("distinguishes a running plugin that is waiting from one that is ready", () => {
+		expect(outputStateFor({ pluginRunning: true, nmea2000Ready: false })).toBe(
+			"waiting",
+		);
+		expect(outputStateFor({ pluginRunning: true, nmea2000Ready: true })).toBe(
+			"ready",
+		);
+	});
+});
+
 describe("PluginManager.getStatusSnapshot", () => {
 	it("returns the canonical shape even before start()", () => {
 		const app = makeMockApp();
 		const pm = new PluginManager(app, mockPlugin);
 		const snap = pm.getStatusSnapshot();
+		expect(snap).toHaveProperty("pluginRunning", false);
 		expect(snap).toHaveProperty("nmea2000Ready", false);
 		expect(snap).toHaveProperty("enabledCount", 0);
 		expect(snap).toHaveProperty("totalConversions");

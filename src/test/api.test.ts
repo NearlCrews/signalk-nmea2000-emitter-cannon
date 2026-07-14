@@ -3,6 +3,7 @@ import express from "express";
 import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createApiRouter } from "../api/router.js";
+import createPlugin from "../index.js";
 import type { PluginManager } from "../plugin-manager.js";
 import type { SignalKApp } from "../types/index.js";
 
@@ -106,6 +107,7 @@ describe("API router", () => {
 	it("GET /api/status returns the canonical shape", async () => {
 		const pm: MockPluginManager = {
 			getStatusSnapshot: () => ({
+				pluginRunning: true,
 				nmea2000Ready: true,
 				enabledCount: 3,
 				totalConversions: 45,
@@ -127,6 +129,7 @@ describe("API router", () => {
 		// but a sound mock honours both methods of the narrowed surface.
 		const pm: MockPluginManager = {
 			getStatusSnapshot: () => ({
+				pluginRunning: true,
 				nmea2000Ready: false,
 				enabledCount: 0,
 				totalConversions: 0,
@@ -178,6 +181,71 @@ describe("API router", () => {
 		expect(res.status).toBe(200);
 		expect(res.body.conversions).toHaveLength(1);
 		expect(res.body.conversions[0].key).toBe("WIND");
+	});
+
+	it("GET /api/status reports an inactive plugin with the catalog total", async () => {
+		const ex = mountRouter(
+			fakeApp,
+			() => null,
+			() => [
+				{
+					key: "WIND",
+					title: "Wind",
+					pgns: ["130306"],
+					category: "navigation",
+					presets: [],
+					paths: [],
+					extras: { type: "none" },
+				},
+			],
+		);
+		const res = await request(ex).get(
+			"/plugins/signalk-nmea2000-emitter-cannon/api/status",
+		);
+		expect(res.status).toBe(200);
+		expect(res.body).toMatchObject({
+			pluginRunning: false,
+			nmea2000Ready: false,
+			enabledCount: 0,
+			totalConversions: 1,
+		});
+	});
+
+	it("keeps the standalone catalog available after manager startup fails", async () => {
+		const app = {
+			...makeFakeApp(),
+			debug: vi.fn(),
+			on: vi.fn(),
+			removeListener: vi.fn(),
+			setPluginStatus: vi.fn(() => {
+				throw new Error("forced startup failure");
+			}),
+			setPluginError: vi.fn(),
+		} as unknown as SignalKApp;
+		const plugin = createPlugin(app);
+		plugin.start({}, vi.fn());
+
+		const expressApp = express();
+		const router: IRouter = express.Router();
+		expect(plugin.registerWithRouter).toBeDefined();
+		plugin.registerWithRouter?.(router);
+		expressApp.use("/plugins/signalk-nmea2000-emitter-cannon", router);
+
+		const conversions = await request(expressApp).get(
+			"/plugins/signalk-nmea2000-emitter-cannon/api/conversions",
+		);
+		const status = await request(expressApp).get(
+			"/plugins/signalk-nmea2000-emitter-cannon/api/status",
+		);
+
+		expect(conversions.status).toBe(200);
+		expect(conversions.body.conversions.length).toBeGreaterThan(0);
+		expect(status.body).toMatchObject({
+			pluginRunning: false,
+			totalConversions: conversions.body.conversions.length,
+		});
+
+		plugin.stop();
 	});
 
 	it("GET /api/paths returns sorted paths", async () => {

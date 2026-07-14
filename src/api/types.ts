@@ -2,6 +2,7 @@ import type { ApplyDecision, ReviewResult } from "../advisor/types.js";
 import type { ConversionCategory, PresetTag } from "../config/enums.js";
 
 export interface StatusSnapshot {
+	pluginRunning: boolean;
 	nmea2000Ready: boolean;
 	enabledCount: number;
 	totalConversions: number;

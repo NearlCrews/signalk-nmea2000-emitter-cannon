@@ -19,12 +19,15 @@ import GlobalSettings from "./components/GlobalSettings";
 import PanelToolbar from "./components/PanelToolbar";
 import PresetChips from "./components/PresetChips";
 import StatusView from "./components/StatusView";
+import { CONVERSION_STYLES as C } from "./conversionStyles";
+import { shouldShowFirstRunCallout } from "./firstRunState";
 import { useConfig } from "./hooks/useConfig";
 import { useMeta } from "./hooks/useMeta";
 import { useSources } from "./hooks/useSources";
 import { useStatus } from "./hooks/useStatus";
 import { plural } from "./recency";
-import { S, THEME_STYLE } from "./styles";
+import { S } from "./styles";
+import { THEME_STYLE } from "./theme";
 
 interface Props {
 	configuration: unknown;
@@ -69,7 +72,7 @@ export default function PluginConfigurationPanel({
 	configuration,
 	save,
 }: Props): React.ReactElement {
-	const { status, error, lastUpdatedMs } = useStatus();
+	const { status, error, lastUpdatedMs, lastAttemptMs } = useStatus();
 	const { state, savedState, dispatch, markSaved } = useConfig(configuration);
 	const { sourcesFor, ensureLoaded } = useSources();
 	const { meta, metaError, metaLoading, reload: reloadMeta } = useMeta();
@@ -268,7 +271,10 @@ export default function PluginConfigurationPanel({
 		/>
 	);
 
-	const showFirstRunCallout = status !== null && status.enabledCount === 0;
+	const showFirstRunCallout = shouldShowFirstRunCallout(
+		meta,
+		state.conversions,
+	);
 
 	return (
 		<div className="skn-panel" style={S.root} ref={rootRef}>
@@ -279,6 +285,7 @@ export default function PluginConfigurationPanel({
 			<PanelToolbar
 				status={status}
 				lastUpdatedMs={lastUpdatedMs ?? undefined}
+				lastAttemptMs={lastAttemptMs ?? undefined}
 				onErrorBadgeClick={jumpToFirstError}
 				search={search}
 				onSearch={setSearch}
@@ -395,7 +402,7 @@ export default function PluginConfigurationPanel({
 									expanded={openSections[`search:${g.cat}`] ?? true}
 									onToggle={() => toggleSection(`search:${g.cat}`)}
 								>
-									<div style={S.rowList}>{g.list.map(renderRow)}</div>
+									<div style={C.list}>{g.list.map(renderRow)}</div>
 								</CollapsibleSection>
 							);
 						})}
@@ -447,7 +454,7 @@ export default function PluginConfigurationPanel({
 											)
 										}
 									>
-										<div style={S.rowList}>{s.list.map(renderRow)}</div>
+										<div style={C.list}>{s.list.map(renderRow)}</div>
 									</CollapsibleSection>
 								);
 							})}

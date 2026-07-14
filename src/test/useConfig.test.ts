@@ -3,9 +3,11 @@ import type { ConversionMetadata } from "../api/types.js";
 import { DEFAULT_ADVISOR_CONFIG } from "../config/enums.js";
 import { RAYMARINE_EXTRAS_PATCH } from "../config/raymarinePreset.js";
 import type { Config, ConversionConfig } from "../config/schema.js";
+import { shouldShowFirstRunCallout } from "../panel/firstRunState.js";
 import {
 	__advisorReducerForTest,
 	__applyPresetForTest,
+	__configReducerForTest,
 	mergeExternalConfig,
 } from "../panel/hooks/useConfig.js";
 
@@ -32,6 +34,27 @@ function entry(over: Partial<ConversionConfig> = {}): ConversionConfig {
 function meta(key: string, presets: ConversionMetadata["presets"]) {
 	return { presets, key } as unknown as ConversionMetadata;
 }
+
+describe("first-run callout", () => {
+	const catalog = [{ key: "WIND" }, { key: "DEPTH" }];
+
+	it("uses current panel configuration rather than inactive runtime counters", () => {
+		expect(
+			shouldShowFirstRunCallout(catalog, {
+				WIND: entry({ enabled: true }),
+			}),
+		).toBe(false);
+	});
+
+	it("waits for the catalog and appears when no catalog entry is enabled", () => {
+		expect(shouldShowFirstRunCallout([], {})).toBe(false);
+		expect(
+			shouldShowFirstRunCallout(catalog, {
+				WIND: entry(),
+			}),
+		).toBe(true);
+	});
+});
 
 describe("applyPreset reducer action", () => {
 	// A realistic Raymarine catalog: three patch-table keys plus one
@@ -66,6 +89,7 @@ describe("applyPreset reducer action", () => {
 		const once = __applyPresetForTest(start, "raymarine", raymarineCatalog);
 		const twice = __applyPresetForTest(once, "raymarine", raymarineCatalog);
 		expect(twice.conversions).toEqual(once.conversions);
+		expect(twice).toBe(once);
 	});
 
 	it("a non-Raymarine preset writes no source/instance extras", () => {
@@ -74,6 +98,49 @@ describe("applyPreset reducer action", () => {
 		const next = __applyPresetForTest(start, "environmental", catalog);
 		expect(next.conversions.HUMIDITY_INSIDE?.enabled).toBe(true);
 		expect(next.conversions.HUMIDITY_INSIDE?.extras).toEqual({});
+	});
+});
+
+describe("no-op reducer actions", () => {
+	const start: Config = {
+		globalResendInterval: 5,
+		conversions: {
+			WIND: entry({
+				enabled: true,
+				resend: 3,
+				sources: { "environment.wind.speedApparent": "wind.0" },
+				extras: { instance: 2 },
+			}),
+		},
+		advisor: { ...DEFAULT_ADVISOR_CONFIG },
+	};
+
+	it.each([
+		{ type: "setGlobalResend", ms: 5 } as const,
+		{ type: "setEnabled", key: "WIND", enabled: true } as const,
+		{ type: "setEnabled", key: "ABSENT", enabled: false } as const,
+		{ type: "setResend", key: "WIND", ms: 3 } as const,
+		{ type: "setResend", key: "ABSENT", ms: 0 } as const,
+		{
+			type: "setSource",
+			key: "WIND",
+			path: "environment.wind.speedApparent",
+			source: "wind.0",
+		} as const,
+		{
+			type: "setSource",
+			key: "ABSENT",
+			path: "environment.wind.speedApparent",
+			source: "",
+		} as const,
+		{ type: "setExtras", key: "WIND", extras: { instance: 2 } } as const,
+		{ type: "setExtras", key: "ABSENT", extras: {} } as const,
+		{
+			type: "setAdvisor",
+			advisor: { ...DEFAULT_ADVISOR_CONFIG },
+		} as const,
+	])("preserves identity for $type", (action) => {
+		expect(__configReducerForTest(start, action)).toBe(start);
 	});
 });
 

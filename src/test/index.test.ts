@@ -11,6 +11,7 @@ import type {
 } from "../types/index.js";
 import { cleanN2KMessage, validateN2KMessage } from "../utils/messageUtils.js";
 import { isDefined } from "../utils/pathUtils.js";
+import { withCanonicalPgnPriority } from "../utils/pgnPriorities.js";
 import { extractPgnsFromTitle } from "../utils/pgnUtils.js";
 import { validateN2KMessageStrict } from "./strictValidation.js";
 
@@ -202,7 +203,14 @@ describe("Conversion modules", () => {
 										}
 
 										// Validate with CanboatJS
-										const encoded = pgnToActisenseSerialFormat(pgn);
+										const wirePgn = withCanonicalPgnPriority(pgn);
+										// canboatjs accepts plain PGN JSON at runtime, but its declaration
+										// exposes only the generated PGN class hierarchy.
+										const encoded = pgnToActisenseSerialFormat(
+											wirePgn as unknown as Parameters<
+												typeof pgnToActisenseSerialFormat
+											>[0],
+										);
 										expect(encoded).toBeTruthy();
 
 										if (!encoded) {
@@ -225,6 +233,7 @@ describe("Conversion modules", () => {
 										if (typeof expected === "function") {
 											expected = expected(options);
 										}
+										expected = withCanonicalPgnPriority(expected);
 
 										// Handle preprocessing if defined
 										if ("__preprocess__" in expected) {
@@ -274,14 +283,27 @@ describe("Conversion modules", () => {
 		});
 
 		it("should reject invalid N2K messages", () => {
-			const invalidMessage = {
-				prio: 10, // Invalid priority
+			const validMessage = {
+				prio: N2K_DEFAULT_PRIORITY,
 				pgn: 130306,
 				dst: N2K_BROADCAST_DST,
 				fields: {},
 			};
 
-			expect(() => validateN2KMessage(invalidMessage)).toThrow();
+			const invalidMessages = [
+				{ ...validMessage, prio: 1.5 },
+				{ ...validMessage, prio: 8 },
+				{ ...validMessage, pgn: 130306.5 },
+				{ ...validMessage, pgn: 0x40000 },
+				{ ...validMessage, dst: 12.5 },
+				{ ...validMessage, dst: 256 },
+				{ ...validMessage, fields: [] },
+				{ ...validMessage, fields: { nested: new Date() } },
+			];
+
+			for (const invalidMessage of invalidMessages) {
+				expect(() => validateN2KMessage(invalidMessage)).toThrow();
+			}
 		});
 	});
 });

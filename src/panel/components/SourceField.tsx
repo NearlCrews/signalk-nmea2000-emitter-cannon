@@ -1,6 +1,6 @@
 import type * as React from "react";
 import { useEffect, useState } from "react";
-import { S } from "../styles";
+import { CONVERSION_STYLES as C } from "../conversionStyles";
 
 interface Props {
 	path: string;
@@ -36,10 +36,10 @@ export default function SourceField({
 	// free-form source for paths with no discovered source. An empty value
 	// means "any source".
 	return (
-		<div style={S.fieldStack}>
-			<span style={S.fieldStackLabel}>{path}</span>
+		<div style={C.fieldStack}>
+			<span style={C.fieldStackLabel}>{path}</span>
 			<input
-				style={S.inputFull}
+				style={C.inputFull}
 				type="text"
 				list={listId}
 				value={value}

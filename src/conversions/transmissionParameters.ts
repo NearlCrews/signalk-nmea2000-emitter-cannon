@@ -65,7 +65,10 @@ export default function createTransmissionParametersConversion(): ConversionModu
 						transmissionGear,
 						oilPressure: toValidNumber(oilPressure) ?? undefined,
 						oilTemperature: toValidNumber(oilTemperature) ?? undefined,
-						discreteStatus1: 0,
+						// Canboat 7.1 defines this field as a BITLOOKUP. An empty
+						// array encodes no active status flags and remains compatible
+						// with older canboatjs releases that modeled it as a number.
+						discreteStatus1: [],
 					},
 				},
 			];

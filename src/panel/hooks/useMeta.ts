@@ -4,7 +4,7 @@ import type {
 	ConversionsResponse,
 } from "../../api/types.js";
 import { errMessage } from "../../utils/errorUtils.js";
-import { fetchJson } from "../api-base";
+import { fetchJson, isAbortError } from "../api-base";
 
 /**
  * Loads the conversion catalog from `/api/conversions`. Mirrors the other
@@ -20,31 +20,41 @@ export function useMeta(): {
 	const [meta, setMeta] = useState<ConversionMetadata[]>([]);
 	const [metaError, setMetaError] = useState<string | null>(null);
 	const [metaLoading, setMetaLoading] = useState(true);
-	// Matches the sibling fetch hooks (useStatus, useSources): a fetch in flight
-	// when the panel unmounts must not setState on a gone component.
-	const cancelled = useRef(false);
+	const requestId = useRef(0);
+	const controller = useRef<AbortController | null>(null);
 
 	const reload = useCallback(() => {
+		const id = ++requestId.current;
+		controller.current?.abort();
+		const nextController = new AbortController();
+		controller.current = nextController;
 		setMetaLoading(true);
-		fetchJson<ConversionsResponse>("/conversions")
+		fetchJson<ConversionsResponse>("/conversions", {
+			signal: nextController.signal,
+		})
 			.then((d) => {
-				if (cancelled.current) return;
+				if (id !== requestId.current) return;
 				setMeta(d.conversions);
 				setMetaError(null);
 			})
 			.catch((e) => {
-				if (!cancelled.current) setMetaError(errMessage(e));
+				if (id === requestId.current && !isAbortError(e)) {
+					setMetaError(errMessage(e));
+				}
 			})
 			.finally(() => {
-				if (!cancelled.current) setMetaLoading(false);
+				if (id !== requestId.current) return;
+				controller.current = null;
+				setMetaLoading(false);
 			});
 	}, []);
 
 	useEffect(() => {
-		cancelled.current = false;
 		reload();
 		return () => {
-			cancelled.current = true;
+			requestId.current++;
+			controller.current?.abort();
+			controller.current = null;
 		};
 	}, [reload]);
 

@@ -1,17 +1,5 @@
 import { type Static, Type } from "@sinclair/typebox";
 import { DEFAULT_GLOBAL_RESEND_SECONDS } from "../constants.js";
-
-// Re-exported for server-side back-compat. The real definitions live in
-// ./enums.ts so the panel bundle (which never needs the typebox schema) can
-// import them without pulling @sinclair/typebox into the panel chunks.
-export {
-	Categories,
-	type ConversionCategory,
-	GLOBAL_RESEND_HELP,
-	type PresetTag,
-	PresetTags,
-} from "./enums.js";
-
 import { GLOBAL_RESEND_HELP } from "./enums.js";
 
 // sources and extras are required with a {} default so every consumer can
@@ -26,7 +14,7 @@ const ConversionCommon = Type.Object({
 	sources: Type.Record(Type.String(), Type.String(), { default: {} }),
 });
 
-export const Conversion = Type.Composite([
+const Conversion = Type.Composite([
 	ConversionCommon,
 	Type.Object({
 		extras: Type.Record(Type.String(), Type.Unknown(), { default: {} }),
@@ -78,8 +66,3 @@ export type ConversionConfig = Static<typeof Conversion>;
 
 /** Per-conversion config keyed by each module's optionKey. */
 export type ConversionMap = Record<string, ConversionConfig>;
-
-/** A fresh disabled conversion entry with empty sources and extras. */
-export function emptyConversionConfig(): ConversionConfig {
-	return { enabled: false, resend: 0, sources: {}, extras: {} };
-}

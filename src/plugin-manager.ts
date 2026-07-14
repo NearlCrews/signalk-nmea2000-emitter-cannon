@@ -32,6 +32,7 @@ import {
 	stripSubIndex,
 	subIndexKey,
 } from "./utils/pathUtils.js";
+import { withCanonicalPgnPriority } from "./utils/pgnPriorities.js";
 import { clearAllSmoothers } from "./utils/smoothing.js";
 
 function resolveKeys(
@@ -110,6 +111,7 @@ export class PluginManager {
 	 * bails out, neutralising zombie handlers without changing wire behaviour.
 	 */
 	private stopped = false;
+	private running = false;
 	/**
 	 * Stored so stop() can removeListener the exact same reference. Without
 	 * this, every plugin restart leaks a listener (and the PluginManager it
@@ -414,6 +416,7 @@ export class PluginManager {
 	start(rawOptions: unknown): void {
 		try {
 			this.stopped = false;
+			this.running = false;
 			// Claim the process-wide delta-handler routing slot so the single
 			// registered handler dispatches deltas to this instance.
 			activeManager = this;
@@ -486,6 +489,7 @@ export class PluginManager {
 			} else {
 				this.app.setPluginStatus(this.runningStatus(enabledCount));
 			}
+			this.running = true;
 		} catch (error) {
 			const errorMsg = errMessage(error);
 			this.app.error(`Failed to start plugin: ${errorMsg}`);
@@ -518,6 +522,7 @@ export class PluginManager {
 	 */
 	stop(suppressStatus = false): void {
 		this.stopped = true;
+		this.running = false;
 		const errors: string[] = [];
 		const safe = (label: string, fn: () => void) => {
 			try {
@@ -939,7 +944,9 @@ export class PluginManager {
 
 			for (const pgn of validPgns) {
 				try {
-					const validatedPgn = validateN2KMessage(pgn);
+					const validatedPgn = withCanonicalPgnPriority(
+						validateN2KMessage(pgn),
+					);
 					if (debugEnabled) {
 						this.app.debug(
 							`emit nmea2000JsonOut ${formatN2KMessage(validatedPgn)}`,
@@ -1023,6 +1030,7 @@ export class PluginManager {
 			});
 
 		return {
+			pluginRunning: this.running,
 			nmea2000Ready: this.nmea2000Ready,
 			enabledCount: this.lastEnabledCount,
 			totalConversions: this.conversions.length,

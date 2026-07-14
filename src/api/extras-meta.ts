@@ -36,7 +36,7 @@ const EXTRAS_BY_OPTION_KEY: Record<string, ExtrasMeta> = {
 // AIS_SAFETY_MESSAGE: PGN 129802 broadcast is regulated. Mirrors the comment
 // in src/conversions/aisExtended.ts above the PGN 129802 conversion and the
 // AIS section of the README.
-export const CONVERSION_DESCRIPTIONS: Record<string, string> = {
+const CONVERSION_DESCRIPTIONS: Record<string, string> = {
 	AIS_SAFETY_MESSAGE:
 		"Do not enable unless this vessel has a licensed AIS transceiver whose MMSI matches the value broadcast on the bus. Software-only emission of AIS safety messages violates ITU-R M.1371 and may breach licence terms (e.g. US FCC ship station rules). Use Notifications (PGN 126985) for non-AIS alerts.",
 	WIND_WEATHER_APPARENT:
@@ -53,7 +53,7 @@ export function descriptionFor(optionKey: string): string | undefined {
 // PGNs (basic vs detailed) at a glance. Only populated for cases where the
 // title alone is ambiguous; conversions with self-evident titles (Wind,
 // Depth, etc.) intentionally have no entry.
-export const CONVERSION_PURPOSES: Record<string, string> = {
+const CONVERSION_PURPOSES: Record<string, string> = {
 	ENGINE_PARAMETERS:
 		"Live engine telemetry (RPM, temperatures, fuel rate, alternator). Streams per delta from propulsion.<id>.* paths.",
 	ENGINE_STATIC:
@@ -73,7 +73,7 @@ export function purposeFor(optionKey: string): string | undefined {
 // enabled conversions actually display vs which are emitted for other
 // consumers (Victron, Maretron, B&G autopilots). Default is "consumes" when
 // no entry exists; only populate exceptions.
-export const CONVERSION_COMPATIBILITY: Record<
+const CONVERSION_COMPATIBILITY: Record<
 	string,
 	{ garmin: "consumes" | "ignores" | "partial"; note?: string }
 > = {
@@ -113,7 +113,7 @@ export function compatibilityFor(
 // Per-optionKey legacy-PGN metadata. PGN 130312 (the TEMPERATURE_* keys) is
 // handled by prefix in lifecycleFor, not listed here, because it spans many
 // per-source optionKeys.
-export const CONVERSION_LIFECYCLE: Record<string, ConversionLifecycle> = {
+const CONVERSION_LIFECYCLE: Record<string, ConversionLifecycle> = {
 	// PGN 130310: canboat marks this "Environmental Parameters (obsolete)".
 	SEA_TEMP: {
 		supersededBy: "PGN 130316 (water temperature) and PGN 130314 (pressure)",

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import type { ApplyDecision, Recommendation } from "../../../advisor/types.js";
 import type { ConversionMetadata } from "../../../api/types.js";
 import type { Config } from "../../../config/schema.js";
+import { ADVISOR_STYLES as A } from "../../advisorStyles";
 import { useAdvisor } from "../../hooks/useAdvisor.js";
 import { plural } from "../../recency";
 import { S } from "../../styles";
@@ -100,7 +101,7 @@ export default function AdvisorPanel({
 					pendingCount > 0 ? (
 						<span
 							role="img"
-							style={S.countPill}
+							style={A.countPill}
 							aria-label={plural(pendingCount, "pending advisor decision")}
 						>
 							{pendingCount} pending
@@ -108,7 +109,7 @@ export default function AdvisorPanel({
 					) : null
 				}
 			>
-				<p style={S.advisorIntro}>
+				<p style={A.intro}>
 					Reviews the Signal K paths your boat publishes and recommends which
 					conversions to enable or disable. Recommended enables apply
 					automatically unless you turn that off in Advisor settings below;
@@ -141,7 +142,7 @@ export default function AdvisorPanel({
 					</div>
 				)}
 				{state.result && (
-					<div style={S.advisorStackGap}>
+					<div style={A.stackGap}>
 						<ReviewResultView
 							result={state.result}
 							metaByKey={metaByKey}
@@ -155,7 +156,7 @@ export default function AdvisorPanel({
 				    QuestDB, schedule) is one-time setup and should not greet the
 				    user ahead of the review action. The wrapper div keeps the
 				    spacing between the review area and the settings toggle. */}
-				<div style={S.advisorStackGap}>
+				<div style={A.stackGap}>
 					<Disclosure id="skn-advisor-settings" label="Advisor settings">
 						<AdvisorSettings
 							value={advisor}

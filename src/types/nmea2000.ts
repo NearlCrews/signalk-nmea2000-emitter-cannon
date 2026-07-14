@@ -15,7 +15,7 @@ export type N2KFieldValue =
 	| N2KFieldValue[]
 	| N2KFieldObject;
 
-export interface N2KFieldObject {
+interface N2KFieldObject {
 	[key: string]: N2KFieldValue;
 }
 

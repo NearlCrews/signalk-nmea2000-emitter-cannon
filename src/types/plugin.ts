@@ -50,8 +50,8 @@ export interface SubConversionModule<T extends unknown[] = unknown[]> {
 export interface ConversionModule<T extends unknown[] = unknown[]> {
 	title: string;
 	optionKey: string;
-	category: import("../config/schema.js").ConversionCategory;
-	presets?: import("../config/schema.js").PresetTag[];
+	category: import("../config/enums.js").ConversionCategory;
+	presets?: import("../config/enums.js").PresetTag[];
 	keys?: string[] | ((options: ConversionOptions) => string[]);
 	context?: string;
 	sourceType?: SourceType;
@@ -67,11 +67,11 @@ export interface ConversionModule<T extends unknown[] = unknown[]> {
 	onOptionsLoaded?: (options: ConversionOptions) => void;
 }
 
-export type TestExpectedMessage = N2KMessage & {
+type TestExpectedMessage = N2KMessage & {
 	__preprocess__?: (testResult: N2KMessage) => void;
 };
 
-export interface ConversionTest {
+interface ConversionTest {
 	input: unknown[];
 	expected:
 		| TestExpectedMessage[]

@@ -5,15 +5,30 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+<a id="v190"></a>
+
+## [1.9.0] - 2026-07-14
+
 ### Fixed
 
+- **Every emitted standard PGN now uses its Canboat 7.1.0 arbitration priority at the transport boundary.** Conversions previously defaulted most frames to priority 2, including lower-priority AIS, route, environmental, battery, engine-static, and PGN-list traffic. Proprietary PGNs without a defined priority keep the conversion-supplied value, and the SeaTalk Alarm variant of PGN 65288 uses its variant-specific priority 7.
+- **Transmission Parameters (PGN 127493) now supplies its discrete status byte as an empty bit-lookup set.** This matches Canboat 7.1.0 while remaining wire-compatible with the current canboatjs decoder, which still reports the empty byte as numeric zero.
+- NMEA 2000 envelope validation now rejects fractional or out-of-range CAN identifiers, PGNs above the 18-bit maximum, array-shaped field maps, and non-plain nested objects before emission.
+- Status polling and conversion-catalog retries now cancel obsolete requests and serialize refreshes, so a slow older response cannot overwrite newer panel state. Polling also stops while the page is hidden.
+- The panel now distinguishes loading, inactive, waiting, and ready output states, reports the real catalog total while inactive, and gives disabled or startup-failed plugins actionable guidance. First-run setup prompts now follow the current panel configuration instead of inactive runtime counters.
+- A failed plugin start no longer hides the standalone conversion catalog needed to repair configuration in the panel.
+- Re-applying an active preset or dispatching an unchanged config value no longer marks the panel dirty. The setup wizard now returns keyboard focus to the control that opened it.
 - **Bearing between marks (PGN 129302) now wraps a negative true bearing into the unsigned 0 to 2pi field range** the same way the magnetic-bearing fallback and PGN 129284 already do, instead of writing the raw signed value onto an unsigned wire field.
 - **AIS static and voyage data (PGN 129794) now drops non-finite length, beam, bow offset, and draft values** instead of writing NaN or Infinity onto the wire when a vessel publishes bad design data.
 - **A notification whose upstream-supplied alertId changes no longer leaks the old id.** The old id's cached PGNs, emit tracker, and pool slot are released when the id changes, so a reused number cannot silently collide with the wrong alert.
 
 ### Changed
 
-- All dependencies refreshed to current, including the babel toolchain across its 7 to 8 major (used only for the admin panel build). `npm outdated` is empty and the runtime audit stays clean.
+- All dependencies refreshed to current, including Babel 8 and TypeScript 7. The directly imported `@canboat/ts-pgns` test database is now declared explicitly, three unused development packages were removed, `npm outdated` is empty, and both full and runtime audits stay clean. Babel 8 requires Node 22.18 or newer within the 22.x line, or Node 24.11+, for development; the built plugin retains its Node 22.12 runtime floor.
+- Panel theme tokens now live in a dedicated module, repeated control dimensions and interaction values use semantic CSS tokens, advisor, conversion, status, toolbar, and wizard styles have cohesive modules, responsive table styles are shared, and the battery and engine instance editors share one mapping primitive. Five obsolete card-style entries were removed with the old UI remnants.
+- Lightweight configuration defaults no longer import the server-only TypeBox schema into the browser graph, reducing the panel entry bundle from 64.9 KiB to 15.4 KiB.
+- Internal-only exports identified by static analysis are private to their modules now.
+- Maintenance documentation now identifies the current supported release line and accurately describes the Canboat packages as test-only dependencies.
 
 <a id="v182"></a>
 

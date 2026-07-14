@@ -5,7 +5,7 @@
 import { errMessage } from "../utils/errorUtils.js";
 import { isPlainObject } from "../utils/validation.js";
 
-export const PLUGIN_API_BASE = "/plugins/signalk-nmea2000-emitter-cannon/api";
+const PLUGIN_API_BASE = "/plugins/signalk-nmea2000-emitter-cannon/api";
 
 /**
  * Thrown by fetchJson on a non-2xx response. Carries the HTTP status and, when
@@ -15,7 +15,7 @@ export const PLUGIN_API_BASE = "/plugins/signalk-nmea2000-emitter-cannon/api";
  * bare "HTTP 403" discarded that guidance, so callers map the status to plain
  * language via friendlyApiError.
  */
-export class ApiError extends Error {
+class ApiError extends Error {
 	readonly status: number;
 	/** The server's `error` field from the JSON body, when it sent one. */
 	readonly serverMessage?: string;
@@ -45,6 +45,16 @@ export async function fetchJson<T>(
 		throw new ApiError(res.status, await readErrorBody(res));
 	}
 	return (await res.json()) as T;
+}
+
+/** True when a fetch failed because its AbortSignal was cancelled. */
+export function isAbortError(err: unknown): boolean {
+	return (
+		typeof err === "object" &&
+		err !== null &&
+		"name" in err &&
+		err.name === "AbortError"
+	);
 }
 
 /**

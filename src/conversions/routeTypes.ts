@@ -36,7 +36,7 @@ export const MAX_CANDIDATE_WAYPOINTS = 18;
 // a frame holds a useful number of waypoints within the fast-packet limit and
 // keeps every name well under the encoder buffer; see clampString and
 // packWaypointsToBudget.
-export const MAX_WP_NAME_CHARS = 16;
+const MAX_WP_NAME_CHARS = 16;
 export const MAX_ROUTE_NAME_CHARS = 32;
 
 // NMEA 2000 fast packet tops out at 223 bytes (32 frames, a 5-bit sequence
@@ -44,7 +44,7 @@ export const MAX_ROUTE_NAME_CHARS = 32;
 // single fast packet, so a receiver (Garmin, B&G) silently drops or truncates
 // it. PGN 129285 and 130074 are variable-length route frames, so the waypoint
 // count has to be bounded by the ENCODED byte size, not a fixed waypoint count.
-export const FAST_PACKET_MAX_BYTES = 223;
+const FAST_PACKET_MAX_BYTES = 223;
 
 // Filters waypoints with valid latitude/longitude and projects each via the
 // transform; out-of-range entries are dropped.
@@ -65,7 +65,7 @@ export function mapValidWaypoints<T>(
 // A `type` alias (not an interface) so it carries the implicit index signature
 // that lets a WaypointEntry[] satisfy the N2KMessage `list` field, matching the
 // inline object literals these PGNs used before the builder was shared.
-export type WaypointEntry = {
+type WaypointEntry = {
 	wpId: number;
 	wpName: string;
 	wpLatitude: number | undefined;

@@ -5,7 +5,7 @@ export function toN2KDate(date: Date = new Date()): number {
 	return Math.trunc(date.getTime() / MS_PER_DAY);
 }
 
-export function toN2KTime(date: Date = new Date()): number {
+function toN2KTime(date: Date = new Date()): number {
 	return (
 		date.getUTCHours() * 3600 +
 		date.getUTCMinutes() * 60 +

@@ -575,6 +575,28 @@ describe("createPlugin NMEA 2000 readiness seeding", () => {
 		vi.useRealTimers();
 	});
 
+	it("applies the canonical PGN priority at the emit boundary", async () => {
+		const mock = createMockSignalKApp();
+		(mock.app as { isNmea2000OutAvailable?: boolean }).isNmea2000OutAvailable =
+			true;
+		const plugin = createPlugin(mock.app);
+		plugin.start(
+			{
+				globalResendInterval: 0,
+				SEA_TEMP: { enabled: true, resend: 0 },
+			} as unknown as PluginOptions,
+			() => {},
+		);
+
+		mock.pushStream("environment.water.temperature", { value: 281.2 });
+		await flush();
+
+		const message = mock.emittedMessages.find((pgn) => pgn.pgn === 130310);
+		expect(message?.prio).toBe(5);
+
+		plugin.stop();
+	});
+
 	it("seeds readiness from app.isNmea2000OutAvailable so a plugin enabled after the one-shot event still emits", async () => {
 		// Regression: when the plugin is enabled or installed after
 		// signalk-server already fired the one-shot nmea2000OutAvailable event,

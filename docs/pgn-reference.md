@@ -4,6 +4,13 @@
 the 126464 transmit list. All PGNs are aligned with Garmin specifications
 (corrected priorities, SID fields, field names, reference enums).
 
+Immediately before emission, `withCanonicalPgnPriority()` applies the priority
+declared by the Canboat 7.1.0 database. PGNs for which Canboat does not declare
+a priority keep the value supplied by their conversion. PGN 65288 is
+variant-specific: this plugin emits the SeaTalk Alarm variant at priority 7.
+This centralized boundary prevents individual conversion defaults from
+silently drifting away from the current PGN definitions.
+
 ## Navigation and Positioning
 
 | PGN | Description | Module |
@@ -62,6 +69,11 @@ the 126464 transmit list. All PGNs are aligned with Garmin specifications
 | 127497 | Engine Trip Parameters (fuel used, fuel rate average/economy/instantaneous) | `engineTrip.ts` |
 | 127498 | Engine Configuration (per-engine static identity: rated RPM, VIN, software version) | `engineStatic.ts` |
 | 130576 | Small Craft Status | `smallCraftStatus.ts` |
+
+PGN 127493 represents `discreteStatus1` as a Canboat bit lookup. With no active
+transmission faults, the conversion supplies an empty flag array. The current
+canboatjs decoder returns that empty byte as numeric zero, which is equivalent
+on the wire.
 
 ## Environmental
 

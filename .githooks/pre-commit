@@ -1,0 +1,8 @@
+#!/bin/sh
+# Fast gate on every commit: formatting, lint, module boundaries, and dead code.
+set -e
+
+echo "[pre-commit] commit verification"
+npm run --silent verify:commit
+
+echo "[pre-commit] ok"

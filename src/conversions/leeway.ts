@@ -1,9 +1,5 @@
 import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
-import type {
-	ConversionCallback,
-	ConversionModule,
-	SignalKApp,
-} from "../types/index.js";
+import type { ConversionCallback, ConversionModule, SignalKApp } from "../types/index.js";
 import { isValidNumber } from "../utils/validation.js";
 
 export default function createLeewayConversion(

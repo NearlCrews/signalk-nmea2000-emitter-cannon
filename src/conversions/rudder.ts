@@ -1,14 +1,8 @@
 import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
-import type {
-	ConversionModule,
-	N2KMessage,
-	SignalKApp,
-} from "../types/index.js";
+import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
 import { toValidNumber } from "../utils/validation.js";
 
-export default function createRudderConversion(
-	_app: SignalKApp,
-): ConversionModule {
+export default function createRudderConversion(_app: SignalKApp): ConversionModule {
 	return {
 		title: "Rudder Position (PGN 127245)",
 		optionKey: "RUDDER",
@@ -16,10 +10,7 @@ export default function createRudderConversion(
 		presets: ["basic-nav"],
 		keys: ["steering.rudderAngle", "steering.rudderAngleTarget"],
 		timeouts: [1000, 1000],
-		callback: (
-			rudderAngle: unknown,
-			rudderAngleTarget: unknown,
-		): N2KMessage[] => {
+		callback: (rudderAngle: unknown, rudderAngleTarget: unknown): N2KMessage[] => {
 			const angle = toValidNumber(rudderAngle);
 			const target = toValidNumber(rudderAngleTarget);
 

@@ -4,11 +4,7 @@ import {
 	SLOW_DATA_TIMEOUT_MS,
 	VESSELS_SELF_CONTEXT,
 } from "../constants.js";
-import type {
-	ConversionModule,
-	N2KMessage,
-	SignalKApp,
-} from "../types/index.js";
+import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
 import { toValidNumber } from "../utils/validation.js";
 import { instanceList } from "./instanceOptions.js";
 
@@ -18,9 +14,7 @@ interface SolarChargerConfig {
 	panelInstanceId: number;
 }
 
-export default function createSolarConversion(
-	_app: SignalKApp,
-): ConversionModule {
+export default function createSolarConversion(_app: SignalKApp): ConversionModule {
 	const solarKeys = ["voltage", "current", "panelCurrent", "panelVoltage"];
 	const sharedTimeouts = solarKeys.map(() => SLOW_DATA_TIMEOUT_MS);
 
@@ -45,9 +39,7 @@ export default function createSolarConversion(
 			if (chargers.length === 0) return null;
 
 			return chargers.map((charger) => ({
-				keys: solarKeys.map(
-					(key) => `electrical.solar.${charger.signalkId}.${key}`,
-				),
+				keys: solarKeys.map((key) => `electrical.solar.${charger.signalkId}.${key}`),
 				timeouts: sharedTimeouts,
 				callback: (
 					voltage: unknown,

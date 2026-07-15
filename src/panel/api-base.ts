@@ -1,7 +1,5 @@
-// Single source of truth for the panel's API base path and the shared
-// JSON-fetch helper. Keep PLUGIN_API_BASE in lockstep with API_PREFIX in
-// src/api/router.ts: a divergence would 404 the panel's fetches against
-// the live router.
+// Single source of truth for the panel's API base path and shared JSON-fetch
+// helper. Route suffixes must match the handlers in src/api/router.ts.
 import { errMessage } from "../utils/errorUtils.js";
 import { isPlainObject } from "../utils/validation.js";
 
@@ -10,15 +8,14 @@ const PLUGIN_API_BASE = "/plugins/signalk-nmea2000-emitter-cannon/api";
 /**
  * Thrown by fetchJson on a non-2xx response. Carries the HTTP status and, when
  * the server returned a JSON `{ error }` body, that message. The router sends
- * helpful bodies the user needs to see: 403 explains that the action needs an
- * admin session, and 503 means the advisor is not available yet. Throwing a
- * bare "HTTP 403" discarded that guidance, so callers map the status to plain
- * language via friendlyApiError.
+ * helpful bodies the user needs to see, such as a 503 while the advisor is not
+ * available yet. Callers map the status to plain language via
+ * friendlyApiError.
  */
 class ApiError extends Error {
 	readonly status: number;
 	/** The server's `error` field from the JSON body, when it sent one. */
-	readonly serverMessage?: string;
+	readonly serverMessage: string | undefined;
 	constructor(status: number, serverMessage?: string) {
 		super(serverMessage ?? `HTTP ${status}`);
 		this.name = "ApiError";
@@ -33,10 +30,7 @@ class ApiError extends Error {
  * `{ error }` body (when present) and throws an ApiError carrying both the
  * status and that message; a non-JSON error body falls back to status-only.
  */
-export async function fetchJson<T>(
-	path: string,
-	init?: RequestInit,
-): Promise<T> {
+export async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
 	const res = await fetch(`${PLUGIN_API_BASE}${path}`, {
 		credentials: "same-origin",
 		...init,
@@ -49,12 +43,7 @@ export async function fetchJson<T>(
 
 /** True when a fetch failed because its AbortSignal was cancelled. */
 export function isAbortError(err: unknown): boolean {
-	return (
-		typeof err === "object" &&
-		err !== null &&
-		"name" in err &&
-		err.name === "AbortError"
-	);
+	return typeof err === "object" && err !== null && "name" in err && err.name === "AbortError";
 }
 
 /**
@@ -82,10 +71,7 @@ async function readErrorBody(res: Response): Promise<string | undefined> {
  * bodies ("advisor unavailable", "request failed") carry no next step;
  * feature-specific call sites (the advisor) pass their own wording.
  */
-export function friendlyApiError(
-	err: unknown,
-	options?: { serviceUnavailable?: string },
-): string {
+export function friendlyApiError(err: unknown, options?: { serviceUnavailable?: string }): string {
 	if (err instanceof ApiError) {
 		if (err.status === 403) {
 			return (

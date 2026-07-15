@@ -9,6 +9,9 @@ public/
 # Coverage (Vitest v8 default output)
 coverage/
 
+# Tool caches
+.cache/
+
 # Editor / IDE state
 .vscode/
 .idea/
@@ -53,6 +56,7 @@ id_ed25519.*
 
 # Local agent / session state
 .claude/
+.cave/
 .remember/
 
 # Temporary scratch

@@ -1,0 +1,60 @@
+import type { CSSProperties } from "react";
+
+/** Disclosure headers, collapsible sections, and search summaries. */
+export const DISCLOSURE_STYLES = {
+	disclosureToggle: {
+		display: "flex",
+		alignItems: "center",
+		gap: "var(--skn-space-1)",
+		width: "100%",
+		minHeight: "var(--skn-control-height)",
+		background: "none",
+		border: "none",
+		padding: 0,
+		fontSize: "var(--skn-font-body)",
+		fontWeight: 600,
+		color: "var(--skn-text)",
+		cursor: "pointer",
+		textAlign: "left",
+	},
+	disclosureBody: { marginTop: "var(--skn-disclosure-gap)" },
+	section: { marginBottom: "var(--skn-disclosure-gap)" },
+	sectionHeader: {
+		display: "flex",
+		alignItems: "center",
+		gap: "var(--skn-space-1)",
+		flex: 1,
+		minWidth: 0,
+		padding: "var(--skn-disclosure-gap) var(--skn-space-2)",
+		background: "var(--skn-surface-muted)",
+		border: "1px solid var(--skn-border)",
+		borderRadius: "var(--skn-radius)",
+		cursor: "pointer",
+		fontSize: "var(--skn-font-body)",
+		fontWeight: 600,
+		color: "var(--skn-text)",
+		textAlign: "left",
+	},
+	disclosureCaret: {
+		color: "var(--skn-text-faint)",
+		fontSize: 11,
+		flexShrink: 0,
+	},
+	sectionCount: {
+		fontWeight: 400,
+		fontSize: "var(--skn-font-small)",
+		color: "var(--skn-text-muted)",
+	},
+	sectionBody: { marginTop: "var(--skn-space-1)" },
+	cardBody: { marginTop: "var(--skn-space-1)" },
+	searchSummary: {
+		fontSize: "var(--skn-font-small)",
+		color: "var(--skn-text-muted)",
+		margin: "0 0 var(--skn-space-1)",
+	},
+	disclosureHeaderRow: {
+		display: "flex",
+		alignItems: "center",
+		gap: "var(--skn-space-1)",
+	},
+} satisfies Record<string, CSSProperties>;

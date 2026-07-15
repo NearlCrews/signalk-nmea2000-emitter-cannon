@@ -28,18 +28,14 @@ interface BrightnessGroup {
 function isBrightnessGroup(v: unknown): v is BrightnessGroup {
 	if (typeof v !== "object" || v === null) return false;
 	const obj = v as Record<string, unknown>;
-	return (
-		typeof obj.signalkId === "string" && typeof obj.groupLabel === "string"
-	);
+	return typeof obj.signalkId === "string" && typeof obj.groupLabel === "string";
 }
 
 export default function createRaymarineBrightnessConversion(
 	_app: SignalKApp,
 	_plugin: SignalKPlugin,
 ): ConversionModule<[number | null]> {
-	const conversions = (
-		options: ConversionOptions,
-	): SubConversionModule<[number | null]>[] => {
+	const conversions = (options: ConversionOptions): SubConversionModule<[number | null]>[] => {
 		const raw = options.groups;
 		if (!Array.isArray(raw) || raw.length === 0) {
 			return [];

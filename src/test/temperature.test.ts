@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
-import createTemperatureConversions, {
-	temperatures,
-} from "../conversions/temperature.js";
+import createTemperatureConversions, { temperatures } from "../conversions/temperature.js";
 import type { N2KMessage } from "../types/index.js";
 
 // Emit one PGN from a temperature conversion, driving it with the FLAT option
@@ -12,9 +10,7 @@ type SubFactory = (o: unknown) => Array<{
 }> | null;
 
 function emit(optionKey: string, options: unknown): N2KMessage {
-	const mod = createTemperatureConversions().find(
-		(m) => m.optionKey === optionKey,
-	);
+	const mod = createTemperatureConversions().find((m) => m.optionKey === optionKey);
 	if (!mod || typeof mod.conversions !== "function") {
 		throw new Error(`no factory conversion for ${optionKey}`);
 	}
@@ -29,9 +25,7 @@ function emit(optionKey: string, options: unknown): N2KMessage {
 describe("Temperature sources", () => {
 	it("assigns a unique default instance to each source", () => {
 		const instances = temperatures.map((t) => t.instance);
-		const duplicates = instances.filter(
-			(inst, idx) => instances.indexOf(inst) !== idx,
-		);
+		const duplicates = instances.filter((inst, idx) => instances.indexOf(inst) !== idx);
 		expect(duplicates).toEqual([]);
 	});
 
@@ -56,12 +50,8 @@ describe("Temperature sources", () => {
 	});
 
 	it("clamps an out-of-range instance into the encodable uint8 data range", () => {
-		expect(emit("TEMPERATURE2_INSIDE", { instance: 300 }).fields.instance).toBe(
-			252,
-		);
-		expect(emit("TEMPERATURE2_INSIDE", { instance: -5 }).fields.instance).toBe(
-			0,
-		);
+		expect(emit("TEMPERATURE2_INSIDE", { instance: 300 }).fields.instance).toBe(252);
+		expect(emit("TEMPERATURE2_INSIDE", { instance: -5 }).fields.instance).toBe(0);
 	});
 
 	it("ignores the legacy nested option shape (regression: instance was silently dropped)", () => {

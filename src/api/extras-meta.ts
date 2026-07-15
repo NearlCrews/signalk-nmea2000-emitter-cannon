@@ -134,9 +134,7 @@ const TEMPERATURE_LEGACY: ConversionLifecycle = {
 	note: "PGN 130312 is superseded by the extended-range PGN 130316. Both are emitted by default; disable this only if every MFD on the bus reads 130316.",
 };
 
-export function lifecycleFor(
-	optionKey: string,
-): ConversionLifecycle | undefined {
+export function lifecycleFor(optionKey: string): ConversionLifecycle | undefined {
 	// TEMPERATURE_* keys emit the legacy PGN 130312. TEMPERATURE2_* keys emit
 	// the modern PGN 130316 and must not match: startsWith("TEMPERATURE_")
 	// already excludes them because "TEMPERATURE2_" differs at the "2".
@@ -248,9 +246,7 @@ export function metaFor(conversion: ConversionModule): ExtrasMeta {
  * harness). Prefix-matched entries (TEMPERATURE_*) are intentionally not
  * checked here.
  */
-export function findOrphanExtrasMetaKeys(
-	loaded: readonly ConversionModule[],
-): string[] {
+export function findOrphanExtrasMetaKeys(loaded: readonly ConversionModule[]): string[] {
 	const loadedKeys = new Set(loaded.map((c) => c.optionKey));
 	const checked = new Set([
 		...Object.keys(EXTRAS_BY_OPTION_KEY),

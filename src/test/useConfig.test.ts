@@ -155,7 +155,7 @@ describe("mergeExternalConfig three-way merge", () => {
 			...base,
 			conversions: {
 				...base.conversions,
-				A: { ...base.conversions.A, enabled: true },
+				A: entry({ enabled: true }),
 			},
 		};
 		// External enabled B and also changed A.
@@ -206,7 +206,7 @@ describe("mergeExternalConfig three-way merge", () => {
 			...base,
 			conversions: {
 				...base.conversions,
-				A: { ...base.conversions.A, enabled: true },
+				A: entry({ enabled: true }),
 			},
 		};
 		const theirs: Config = {
@@ -222,13 +222,9 @@ describe("mergeExternalConfig three-way merge", () => {
 		const base: Config = { globalResendInterval: 5, conversions: {} };
 		const oursTouched: Config = { ...base, globalResendInterval: 10 };
 		const theirs: Config = { globalResendInterval: 7, conversions: {} };
-		expect(
-			mergeExternalConfig(base, oursTouched, theirs).globalResendInterval,
-		).toBe(10);
+		expect(mergeExternalConfig(base, oursTouched, theirs).globalResendInterval).toBe(10);
 		// Untouched (ours === base): adopt the external value.
-		expect(mergeExternalConfig(base, base, theirs).globalResendInterval).toBe(
-			7,
-		);
+		expect(mergeExternalConfig(base, base, theirs).globalResendInterval).toBe(7);
 	});
 
 	it("advisor block: the user's edit wins, otherwise adopts external", () => {

@@ -1,13 +1,5 @@
-import {
-	N2K_BROADCAST_DST,
-	N2K_DEFAULT_PRIORITY,
-	N2K_DEFAULT_SID,
-} from "../constants.js";
-import type {
-	ConversionCallback,
-	ConversionModule,
-	SignalKApp,
-} from "../types/index.js";
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, N2K_DEFAULT_SID } from "../constants.js";
+import type { ConversionCallback, ConversionModule, SignalKApp } from "../types/index.js";
 import { toUnsignedAngle, toValidNumber } from "../utils/validation.js";
 
 export default function createHeadingConversion(
@@ -23,11 +15,7 @@ export default function createHeadingConversion(
 			"navigation.magneticVariation",
 			"navigation.magneticDeviation",
 		],
-		callback: ((
-			heading: number | null,
-			variation: number | null,
-			deviation: number | null,
-		) => {
+		callback: ((heading: number | null, variation: number | null, deviation: number | null) => {
 			const validHeading = toValidNumber(heading);
 			const validVariation = toValidNumber(variation);
 			const validDeviation = toValidNumber(deviation);

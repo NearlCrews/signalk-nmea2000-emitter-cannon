@@ -12,5 +12,6 @@
 		"src/config/**/*",
 		"src/api/types.ts",
 		"src/test/useConfig.test.ts"
-	]
+	],
+	"exclude": ["node_modules", "dist"]
 }

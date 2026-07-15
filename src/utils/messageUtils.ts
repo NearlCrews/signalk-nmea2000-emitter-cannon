@@ -9,40 +9,16 @@ export function validateN2KMessage(message: unknown): N2KMessage {
 
 	const msg = message;
 
-	if (
-		!isValidNumber(msg.prio) ||
-		!Number.isInteger(msg.prio) ||
-		msg.prio < 0 ||
-		msg.prio > 7
-	) {
-		throw new N2KValidationError(
-			"prio must be an integer between 0 and 7",
-			"prio",
-		);
+	if (!isValidNumber(msg.prio) || !Number.isInteger(msg.prio) || msg.prio < 0 || msg.prio > 7) {
+		throw new N2KValidationError("prio must be an integer between 0 and 7", "prio");
 	}
 
-	if (
-		!isValidNumber(msg.pgn) ||
-		!Number.isInteger(msg.pgn) ||
-		msg.pgn < 0 ||
-		msg.pgn > 0x3ffff
-	) {
-		throw new N2KValidationError(
-			"pgn must be an integer between 0 and 262143",
-			"pgn",
-		);
+	if (!isValidNumber(msg.pgn) || !Number.isInteger(msg.pgn) || msg.pgn < 0 || msg.pgn > 0x3ffff) {
+		throw new N2KValidationError("pgn must be an integer between 0 and 262143", "pgn");
 	}
 
-	if (
-		!isValidNumber(msg.dst) ||
-		!Number.isInteger(msg.dst) ||
-		msg.dst < 0 ||
-		msg.dst > 255
-	) {
-		throw new N2KValidationError(
-			"dst must be an integer between 0 and 255",
-			"dst",
-		);
+	if (!isValidNumber(msg.dst) || !Number.isInteger(msg.dst) || msg.dst < 0 || msg.dst > 255) {
+		throw new N2KValidationError("dst must be an integer between 0 and 255", "dst");
 	}
 
 	if (!isPlainObject(msg.fields)) {

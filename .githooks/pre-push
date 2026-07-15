@@ -1,0 +1,30 @@
+#!/bin/sh
+# Full verification before a push. Commands run serially to respect small
+# Signal K host memory budgets. Set EMITTER_CANNON_SKIP_PREPUSH=1 only for a
+# deliberate, documented exception.
+set -e
+
+if [ "$EMITTER_CANNON_SKIP_PREPUSH" = "1" ]; then
+	echo "[pre-push] skipped via EMITTER_CANNON_SKIP_PREPUSH"
+	exit 0
+fi
+
+export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=2048}"
+
+DRIFT="$(git status --porcelain)"
+if [ -n "$DRIFT" ]; then
+	echo "[pre-push] note: uncommitted changes are not part of this push:"
+	echo "$DRIFT" | sed 's/^/    /'
+	echo "[pre-push] commit, discard, or stash them so nothing drifts unnoticed."
+fi
+
+STRAY_BRANCHES="$(git for-each-ref --format='%(refname:short)' refs/heads | grep -vx 'main' || true)"
+if [ -n "$STRAY_BRANCHES" ]; then
+	echo "[pre-push] note: local branches besides main exist; delete merged ones:"
+	echo "$STRAY_BRANCHES" | sed 's/^/    /'
+fi
+
+echo "[pre-push] full verification"
+npm run --silent verify
+
+echo "[pre-push] all gates green"

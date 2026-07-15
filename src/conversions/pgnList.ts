@@ -1,8 +1,4 @@
-import {
-	N2K_BROADCAST_DST,
-	N2K_DEFAULT_PRIORITY,
-	SOURCE_TYPE,
-} from "../constants.js";
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, SOURCE_TYPE } from "../constants.js";
 import type { ConversionModule, N2KMessage } from "../types/index.js";
 
 // PGNs added to the transmit list independent of the registry's conversion-
@@ -18,9 +14,7 @@ import type { ConversionModule, N2KMessage } from "../types/index.js";
 //                          does not age the device out after ~30 s.
 //   126996:                Product Information (canboatjs N2kDevice auto-emits
 //                          on address claim and on every ISO request).
-const ALWAYS_TX_PGNS: ReadonlyArray<number> = [
-	59392, 59904, 60928, 126464, 126993, 126996,
-];
+const ALWAYS_TX_PGNS: ReadonlyArray<number> = [59392, 59904, 60928, 126464, 126993, 126996];
 
 // 126464 itself is bidirectional (RX/TX), and we accept ISO Address Claim
 // (60928) and ISO Group Function (126208) so canboatjs's transport layer can
@@ -51,9 +45,9 @@ const PGN_LIST_INTERVAL_MS = 300_000;
 export default function createPgnListConversion(
 	dataTransmitPgns: ReadonlyArray<number>,
 ): ConversionModule {
-	const transmitPgns = Array.from(
-		new Set([...dataTransmitPgns, ...ALWAYS_TX_PGNS]),
-	).sort((a, b) => a - b);
+	const transmitPgns = Array.from(new Set([...dataTransmitPgns, ...ALWAYS_TX_PGNS])).sort(
+		(a, b) => a - b,
+	);
 
 	const pgnListMessages: N2KMessage[] = [
 		{

@@ -5,6 +5,28 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+<a id="v191"></a>
+
+## [1.9.1] - 2026-07-15
+
+### Fixed
+
+- The panel TypeScript project now includes the React panel sources it was intended to validate. The stricter pass fixed exact-optional-property handling, guarded indexed access, preserved optional engine fields correctly, and made mapping-row identities total.
+- Periodic resend callbacks no longer pass an async function directly to `setInterval`, so rejected work cannot escape the plugin's error handling.
+- Babel explicitly uses its production React transform, eliminating development-only `jsxDEV` calls from the shipped panel. The unused webpack `main.js` entry was also removed, so the package contains only the federation container and its on-demand chunks.
+- Standalone panel builds now clean obsolete webpack output, and package validation rejects unexpected JavaScript entries under `public/`, preventing removed bundles from leaking into a later tarball.
+- Plugin API routes now rely on the admin protection Signal K applies to registered `/plugins` routers, removing unsupported access to the server's internal `securityStrategy` object and its redundant authorization fallback.
+
+### Changed
+
+- The development baseline now follows Binnacle: Node 22.18, the latest compatible npm 11 release, TypeScript 6.0, Biome 2.5.4, typed ESLint, Markdown linting, spelling checks, dependency-cruiser boundaries, Knip dead-code checks, coverage, bundle budgets, publint, package-content validation, and repository-owned Git hooks.
+- Direct dependencies are at their latest mutually compatible releases. Redundant transitive overrides, Husky, and lint-staged were removed; the lockfile resolves with no audit findings. Required CanboatJS, serialport, and esbuild install scripts are pinned to reviewed versions, while the unnecessary `es5-ext` postinstall is explicitly denied.
+- The package-manager compatibility floor now admits the npm 10.9.8 bundled by Signal K's official Node 22 plugin-CI lanes, while local development and repository-owned CI remain pinned to npm 11.18.
+- Runtime-neutral recommendation logic and types moved out of the server-side advisor directory into `src/recommendation/`, making the browser and server dependency boundary explicit.
+- Shared panel styles are split into focused action, disclosure, feedback, form, and foundation modules behind a stable facade. Repeated input, checkbox, status-dot, table-cell, and disclosure dimensions now use semantic CSS tokens.
+- CI and npm publication now run the same complete release gate on Node 24 with the current GitHub Actions pinned by commit. Publication packs a verified artifact first, then publishes it from a separate least-privilege job.
+- Package metadata now declares CommonJS as the default `.js` interpretation and exports the `.mjs` plugin entry explicitly, preserving the classic federation container while giving Node an unambiguous ESM entry point.
+
 <a id="v190"></a>
 
 ## [1.9.0] - 2026-07-14
@@ -279,7 +301,7 @@ The module emitted a competing PGN 126996 with a non-matching serial number agai
 
 The federated config panel gained Garmin compatibility badges per conversion card (displays / partial / ignores), short purpose text on engine and battery cards, and inline help text on the mapping editors explaining how Signal K ids and NMEA 2000 instance numbers pair across the engine tables. Accessibility pass: real `h3` card headings, a consistent `:focus-visible` ring, `role="alert"` error banners with a Retry action, a transient "Saved" status pill, horizontal scroll on wide mapping tables, and proper `scope` on table headers.
 
-**Side effects**
+### Side effects
 
 - Total conversion count (excluding pgnList itself) drops by 1 (productInfo) and gains 2 (engineTrip, the per-engine engineStatic split is identity-only), net +1.
 - 126464 is now emitted as a Fast Packet message every 300 s plus on every ISO Request from a peer.
@@ -289,7 +311,7 @@ The federated config panel gained Garmin compatibility badges per conversion car
 
 ## [1.5.4] - 2026-05-12
 
-**Bug fix: ping-pong loop with signalk-server's notifications API**
+### Bug fix: ping-pong loop with signalk-server's notifications API
 
 For every `notifications.*` delta the plugin received, it allocated an `alertId`, rewrote the value with the alertId injected, and re-published via `app.handleMessage(plugin.id, ...)` so downstream consumers could see the assigned id. signalk-server's built-in notifications API (the same one that owns the `notifications.*` namespace) intercepted that re-emit via its `registerDeltaInputHandler`, stripped the notification value out of our delta because our delta did not carry the `notificationId` field it uses to recognise its own messages, rebroadcast under `$source: notificationApi.*` without `alertId`, and the cycle reached the plugin's callback again. The callback could not detect this as "already handled" (the inbound value had its `alertId` stripped), allocated against the existing path entry, re-emitted, and the loop ran at ~48 round-trips per second per active alert.
 
@@ -305,7 +327,7 @@ Each cached alert now carries a payload digest. The callback emits a PGN pair on
 
 signalk-schema's `getSourceId(source)` appends the literal string `.XX` to the source label when the source object lacks `canName`, `src`, or `talker`. The plugin's notification re-emit only set `source: { label, type }`, so it hit the fallback. Fix: the re-emit now sets `$source` directly, which short-circuits signalk-server's `handleMessage` derivation. Note that signalk-server's own `notificationApi` plugin hits the same `.XX` fallback for the same reason; in practice the plugin's `$source` only wins on paths the notifications API does not own.
 
-**Misc**
+### Misc
 
 - Display name simplified to "NMEA2000 Emitter Cannon" in `Plugin.name`, `package.json` `displayName`, and README references. The npm package id stays `signalk-nmea2000-emitter-cannon`.
 - `buildAlertPgns(...)` helper extracted: the two PGN-construction blocks in `notifications.ts` (path with explicit `alertId` and path with plugin-allocated `alertId`) now share a single options-keyed builder.
@@ -317,7 +339,7 @@ signalk-schema's `getSourceId(source)` appends the literal string `.XX` to the s
 
 ## [1.5.3] - 2026-05-12
 
-**Bug fix: plugin stuck on "Waiting for NMEA 2000 output" after every Save**
+### Bug fix: plugin stuck on "Waiting for NMEA 2000 output" after every Save
 
 After clicking Save in the React config panel (or otherwise triggering a plugin restart), the plugin would freeze with status `Waiting for NMEA 2000 output (N conversions enabled)` and emit zero PGNs until `signalk` was restarted. Same shape as v1.4.4 Issue #5, different root cause.
 
@@ -325,7 +347,7 @@ signalk-server passes plugins a SHALLOW COPY of the `app` object (`_.assign({}, 
 
 Fix: the plugin's factory closure (which outlives PluginManager instances) installs its own listener once at registration time and latches the real ready flag. PluginManager's `start()` consults the latched flag via a constructor-injected getter instead of reading the stale `app.isNmea2000OutAvailable`. Survives any number of save / restart cycles.
 
-**Other fixes**
+### Other fixes
 
 - `getModuleVersion()` was returning `"1.5.0"` (stale literal in `src/index.ts` since the React panel landing). Now read directly from `package.json` via a JSON import (esbuild inlines it into the bundle), so the version can never drift again.
 - Status dashboard panel: explicit spaces between the "Enabled / NMEA 2000" labels and their values so the rendered text doesn't run together on every browser. Was relying on a CSS `marginLeft: 4` that didn't survive the federation host's CSS.
@@ -338,7 +360,7 @@ Fix: the plugin's factory closure (which outlives PluginManager instances) insta
 
 The hand-rolled JSON-Schema admin UI is replaced with a federated React panel built on webpack 5 Module Federation. The plugin keeps its esbuild runtime bundle untouched; the panel is a second build target that produces `public/remoteEntry.js` plus chunked `public/*.mjs`. The config payload moves from a flat shape to a nested `conversions: { KEY: { enabled, resend, sources, extras } }` shape with a load-time migration from v1.4.x, so existing installs upgrade transparently. The migration is backwards-compatible at load: downgrading back to v1.4.4 keeps the original `plugin-config.json` intact if no save has occurred under v1.5.2. No wire-level (PGN) changes.
 
-**Added**
+### Added
 
 - React-based admin config panel loaded via webpack 5 Module Federation. Replaces the previous JSON-Schema-driven rjsf form. Categorized tabs (Navigation, Engine, Electrical, Tanks, Environment, AIS, Comms, System).
 - Live status dashboard: NMEA 2000 readiness, enabled / total counts, per-conversion emit counts and error indicators (3s poll, paused when admin tab is hidden).
@@ -348,7 +370,7 @@ The hand-rolled JSON-Schema admin UI is replaced with a federated React panel bu
 - Plugin HTTP API under `/plugins/signalk-nmea2000-emitter-cannon/api/` (status, conversions, paths, sources). Admin-auth gated via `app.securityStrategy.addAdminMiddleware`. Logs a warning if the server does not expose the gating hook.
 - `getModuleVersion()` lifecycle method so the admin UI displays the running plugin version.
 
-**Changed**
+### Changed
 
 - Config schema migrated to `@sinclair/typebox`. Single source of truth for both the runtime JSON Schema (returned from `Plugin.schema`) and the TypeScript `Config` type (derived via `Static<>`). The legacy flat config payload is migrated to the new nested shape at load time; downgrades to v1.4.x keep the original payload intact if no save has occurred under v1.5.2.
 - Each conversion module now carries `category` (required) and optional `presets` metadata. Adding a new conversion requires both fields.
@@ -357,7 +379,7 @@ The hand-rolled JSON-Schema admin UI is replaced with a federated React panel bu
 - Dev dependency `lint-staged` bumped to `^17.0.4` (was `^16.4.0`). Same Biome integration; requires Node 22.22.1+ which the engines bump above already enforces.
 - All other dependency ranges refreshed via `npm update`; range floors tightened to match installed versions. Zero security audit findings.
 
-**Bug fixes**
+### Bug fixes
 
 - Notifications conversion short-circuits on its own delta to prevent a reentrant loop if `signalk-server` ever re-fans the rewritten alert delta.
 - AIS Class B / SAR / Safety-Message conversions return `[]` until `app.getSelfPath("mmsi")` is populated, preventing emission of frames with `userId: 0`.
@@ -367,7 +389,7 @@ The hand-rolled JSON-Schema admin UI is replaced with a federated React panel bu
 - Notifications PGN 126983 uses a stable `dataSourceNetworkIdName` value instead of stuffing the local 16-bit `alertId` into a 64-bit ISO NAME field; restores ack correlation semantics per IEC 61162-1 App B.
 - `PluginManager` reads source filters from both the dotted Signal K path and the legacy dotless propName form, so source-locks set in the v1.5.2 panel keep working on configs that still have the v1.4.x shape on disk.
 
-**Internal / performance**
+### Internal / performance
 
 - `Categories` and `PresetTags` moved into `src/config/enums.ts` so the React panel no longer pulls TypeBox into its bundle. Panel total dropped from ~144 KiB to ~54 KiB (a 62% reduction).
 - Per-conversion emit counters and last-error tracking inside `PluginManager`. Both are surfaced via `/api/status`. Latest-error lookup indexed per parent `optionKey` for O(1) status snapshots.
@@ -388,7 +410,7 @@ The hand-rolled JSON-Schema admin UI is replaced with a federated React panel bu
 - BrightnessMappingEditor's `instanceId` field renamed to `groupLabel` everywhere (panel + conversion read).
 - 52 tests across 9 files (up from 50; added `/api/sources` trim regression guards and PGN-presence validation).
 
-**Signal K path corrections**
+### Signal K path corrections
 
 - Navigation Data, Cross Track Error, Navigation Data Great Circle, Bearing and Distance Between Marks, Time to Mark, Route and Waypoint Information, Route and Waypoint List: switched from v2-only `navigation.course.*` paths to v1 siblings under `navigation.courseRhumbline.*` / `navigation.courseGreatCircle.*`. The v2 Course API is not pushed into the v1 streambundle that `getSelfBus` reads.
 - Set and Drift: subscribe to `environment.water.current.{set,drift}` (live signalk-server compat) instead of `environment.current.{setTrue,drift}`.
@@ -400,7 +422,7 @@ The hand-rolled JSON-Schema admin UI is replaced with a federated React panel bu
 - Battery `voltage.ripple` subscription dropped: no canonical Signal K source. `rippleVoltage` is omitted from PGN 127506 (canboatjs encodes as "data not available").
 - DSC, VHF, PGN-list, AIS safety message, and trim-tab subscriptions documented inline as non-canonical conventions that require a domain-aware upstream provider.
 
-**Cleanup pass (low-priority follow-ups)**
+### Cleanup pass (low-priority follow-ups)
 
 - AIS Safety Message conversion now carries an inline ITU-R M.1371 licensing note next to its declaration so the regulatory constraint is visible to anyone reading the source.
 - Radio Frequency MHz / Hz heuristic documented: explains the magnitude-based boundary and the future SDR / L-band case where it would need to be replaced with an explicit units field rather than widened.
@@ -418,7 +440,7 @@ The hand-rolled JSON-Schema admin UI is replaced with a federated React panel bu
 
 ## [1.4.4] - 2026-05-12
 
-**Bug fix: plugin permanently stuck after restart (Issue #5)**
+### Bug fix: plugin permanently stuck after restart (Issue #5)
 
 The `nmea2000OutAvailable` event is one-shot at signalk-server startup; if you disabled and re-enabled the plugin after the server had already announced N2K output was available, the plugin's listener was registered too late to ever receive the event. `nmea2000Ready` stayed `false`, every emit was dropped with `NMEA2000 output not yet available, dropping message`, and the status read "Waiting for NMEA 2000 output (...)" indefinitely.
 
@@ -431,7 +453,7 @@ Two underlying causes addressed in `src/plugin-manager.ts`:
 
 `src/test/lifecycle.test.ts` updated to reflect the new design: tests now set the sync mirror in `beforeEach` and assert that `start()` (not the constructor) owns the listener registration. New coverage: repeated `start(opts) → start(opts)` calls keep the listener count at 1, not accumulating.
 
-**Supply chain**
+### Supply chain
 
 - Dependabot alert #1 (`ip-address < 10.1.1` XSS in HTML-emitting methods) resolved via `package.json` `overrides`: `"ip-address": "^10.1.1"`. The vulnerable code never shipped (signalk-server is a devDependency used to load the plugin in tests; the bundle does not include it), but the override silences the alert and the resolution is now reproducible. Side effect: signalk-server bumped 2.26.0 → 2.27.0 as npm resolved a fresh tree.
 - PR #6 merged: `actions/checkout@v4 → v6`, `actions/setup-node@v4 → v6`, `github/codeql-action@v3 → v4`. Clears the Node 20 deprecation warning GitHub Actions emits.
@@ -447,6 +469,7 @@ Two underlying causes addressed in `src/plugin-manager.ts`:
 This release closes gaps in the notification PGN family (126983/126985) and a handful of secondary issues across the conversion modules. This release fixes the actionable findings; PGN 126984 (inbound Alert Response) is intentionally deferred because the typed Signal K server API does not expose an inbound NMEA 2000 hook, so closing the alert-acknowledgement round-trip needs a separate design pass.
 
 **Notification PGNs 126983 / 126985 (`src/conversions/notifications.ts`)**:
+
 - `alertCategory` is now derived from the Signal K path instead of hardcoded to "Technical". Path prefixes `notifications.mob`, `notifications.navigation`, `notifications.anchor`, `notifications.arrival`, and `notifications.gnss` route to "Navigational" so Garmin and B&G chartplotters surface them on the chart screen instead of the alarm-list tab. Everything else still falls through to "Technical".
 - `alertPriority` now maps from the Signal K state per IEC 62923: emergency=1, alarm=2, warn=3, alert=4 (lower number = higher priority). Was hardcoded to 0, which collapsed every alert into a single visual tier on the MFD alarm list.
 - Unknown Signal K states (anything other than emergency/alarm/warn/alert/normal) now fall through to "Caution" with a debug log line, instead of emitting an undefined `alertType` field that the canboat encoder treats as missing.
@@ -454,26 +477,33 @@ This release closes gaps in the notification PGN family (126983/126985) and a ha
 - Internal state restructured around `Map<alertId, [PGN 126985, PGN 126983]>` keyed by alertId. The cached flat `N2KMessage[]` returned to the resend pipeline is now rebuilt only on mutation, restoring the pre-1.4.3 zero-allocation cost model for dedup callbacks. The reverse map (`alertIdToPath`) is load-bearing: when the PGN-cap path evicts an entry, it clears the matching `ids[path]` binding so the released alertId cannot later be re-allocated to a different path while a stale lookup still points at it.
 
 **Schema (`src/schema.ts`)**:
+
 - `pgnEntry` helper extended with an optional `descriptionExtra` field appended after the canonical `PGNs: <list>` description.
 - NOTIFICATIONS entry now documents that it subscribes to all `notifications.*` paths on this vessel, lists the Navigational vs Technical routing rules, and the priority map. Users could previously only infer subscription scope from the README.
 
 **Route waypoint guard (`src/conversions/routeWaypoint.ts`)**:
+
 - PGN 129285 is no longer emitted with `nitems: 0` when only a route name is present. Per spec, a route without waypoints or a next-point position is malformed. The guard now uses the shared `isValidNumber` helper and the `Position` type from `routeTypes.ts`, so NaN/Infinity latitudes are rejected too.
 
 **Raymarine Seatalk Alarms (`src/conversions/raymarineAlarms.ts`)**:
+
 - Path-prefix-to-`alarmId` mapping expanded from 2 entries (anchor, MOB) to 12, covering depth (shallow/deep), WP arrival, GPS failure, cross-track error (great-circle and rhumb-line), and the most common autopilot alarms (watch, off-course, wind shift). All values come straight from the `@canboat/ts-pgns` `SeatalkAlarmId` enum.
 - Subscription `keys` array now derived from the same prefix table, so adding an entry above propagates automatically to the Signal K subscription.
 
 **PGN list (`src/conversions/pgnList.ts`)**:
+
 - Transmit and receive PGN arrays hoisted to module-level `TRANSMIT_PGNS` / `RECEIVE_PGNS` constants. Both the runtime message and the embedded test reference the same source, so drift is no longer possible. (Trades the embedded-test convention slightly for a smaller drift surface; the test still asserts the full expected list.)
 
 **AIS Extended (`src/conversions/aisExtended.ts`)**:
+
 - Test now carries a comment explaining that `typeOfShip: "Sailing"` is the decoded label round-tripped through the canboatjs decoder from the numeric LOOKUP id (36) the callback actually emits. A future contributor "fixing" the callback to emit the string label would regress to a silent encode-as-zero failure mode.
 
 **Shared utility (`src/utils/pathUtils.ts`)**:
+
 - New `matchPathPrefix<T>(path, table)` helper. Two near-duplicate prefix-match functions (one in `notifications.ts`, one in `raymarineAlarms.ts`) now share this implementation.
 
 **Repo hygiene (no source changes)**:
+
 - Apache 2.0 LICENSE appendix filled in (Copyright 2026 Nearl Crews); the boilerplate `{yyyy} {name}` placeholders are no longer in the published license.
 - `.gitignore` hardened: broader `.env.*` coverage with `!.env.example` exception, `.npmrc` ignored (can hold publish auth tokens), key/cert patterns (`*.pem`, `*.key`, `*.crt`, `*.cer`, `*.p12`, `*.pfx`, `id_rsa*`, `id_ed25519*`), generic secrets (`secrets/`, `secrets.json`, `credentials.json`, `*.secret(s)`, `*.credentials`), and local tooling state (`.claude/`, `.remember/`).
 - `SECURITY.md` supported-versions table refreshed to 1.4.x.
@@ -486,6 +516,7 @@ This release closes gaps in the notification PGN family (126983/126985) and a ha
 - GitHub repo settings: 12 topics set, homepage points at the npm package page, branch deletion on merge enabled, wiki disabled, Dependabot security updates enabled, and a `main` branch ruleset added requiring CI status checks (`build-and-test (20.x/22.x/24.x)`, `code-quality`) and blocking force-push, deletion, and non-linear history.
 
 **Deferred (out of scope for this release)**:
+
 - **PGN 126984 (Alert Response, inbound)**: the typed `@signalk/server-api` does not expose an inbound NMEA 2000 hook. The plugin would need to negotiate an untyped event surface with the Signal K server (probably via `app.on('N2KAnalyzerOut', ...)`) or convert inbound 126984 messages to Signal K deltas on a `notifications.*.acknowledgedBy` path through a separate provider. Until that lands, helm-side acknowledgements at the MFD do not flow back into Signal K and the plugin keeps re-emitting `acknowledgeStatus: "No"`. Tracking issue: TBD.
 - **PGN 126986 (Alert Configuration)**: only meaningful once PGN 126984 round-trip lands.
 - **`dataSourceNetworkIdName` ISO-Name plumbing**: the field currently carries the alertId as a 1-byte number widened to an 8-byte IsoName slot, which canboatjs accepts but is not strictly spec-compliant. A correct fix requires the plugin to own its NAME claim, out of scope.
@@ -500,6 +531,7 @@ This release closes gaps in the notification PGN family (126983/126985) and a ha
 A rework of the plugin's user-visible surfaces: the admin schema, the plugin status messages, and the conversion module titles. All 47 source files were touched; behavior changes are additive and conservative.
 
 **Admin UI (`src/schema.ts`)**:
+
 - Top-level title and description rewritten; brand normalized to "NMEA 2000" (was "NMEA2000") across every title, description, status string, and comment.
 - "Magnetic Variance" renamed to "Magnetic Variation" so the schema label matches the SK spec path `navigation.magneticVariation`.
 - Section title normalization: "COG and SOG" (was "COG & SOG"), "Bearing and Distance Between Marks", "Route and Waypoint List" (was "Route/WP List"), "Raymarine Seatalk Alarms" (was "Raymarine (Seatalk) Alarms"), "Environmental Parameters" (was a duplicate "Atmospheric Pressure" entry).
@@ -511,10 +543,12 @@ A rework of the plugin's user-visible surfaces: the admin schema, the plugin sta
 - AIS PGN list ordered ascending; `globalResendInterval` gets `minimum: 0`; SOLAR.chargers refactored to use the shared `arrayMapping` helper.
 
 **Conversion module titles (45 modules, 54 edits)**:
+
 - Canonical format adopted across every module: `"<Title> (PGN <n>)"` for single-PGN modules, `"<Title> (PGNs <a>, <b>)"` for multi-PGN modules, ascending order with comma-space.
 - Notable renames so admin-UI titles read consistently: `TrueHeading` to `True Heading`, `Sea/Air Temp` to `Sea Temperature`, `Location` to `GPS Position`, `Set/Drift` to `Set and Drift`, `Heading` to `Vessel Heading`, `Atmospheric Pressure (130311)` to `Environmental Parameters`, `Raymarine (Seatalk) Alarms` to `Raymarine Seatalk Alarms`.
 
 **Plugin status and error lifecycle (`src/plugin-manager.ts`)**:
+
 - N=0 case shows "No conversions enabled. Enable at least one in plugin settings." instead of the misleading "Running with 0 conversions enabled".
 - "Waiting for NMEA 2000 output (N conversions enabled)" surfaces when `start()` finishes before `nmea2000OutAvailable` fires. A constructor-installed listener refreshes the status to the running form once emission becomes possible, without re-running the full enablement sweep.
 - New per-key error throttle (60 s window) routes callback, output, resend, subscription, and stream errors through one helper. The first error per key passes through; subsequent identical-key errors are counted and appended as a summary on the next emit. Prevents a flaky source from flooding the server log on every delta.
@@ -522,9 +556,10 @@ A rework of the plugin's user-visible surfaces: the admin schema, the plugin sta
 - Startup-failure message points users to "plugin configuration and the Signal K server log for details".
 - Sub-conversions returned from `conversions:` factory closures (BATTERY, ENGINE_PARAMETERS, TANKS, SOLAR, EXHAUST_TEMPERATURE, RAYMARINE_BRIGHTNESS, and the TEMPERATURE_*/TEMPERATURE2_* family) now get distinct throttle keys and useful log labels via a spread-copy per sub-conversion (`${parent.optionKey}[${idx}]` and `${parent.title} #${idx}`). Previously all of a parent's sub-conversion errors merged into one bucket and rendered as "<unnamed>".
 - New `bucketKey(prefix, conversion, suffix?)` helper consolidates five duplicated key-formulation sites.
-- Debug-noise cleanup: dropped the `=== STARTING ===` / `=== COMPLETE ===` banners and shouty "*** SETTING UP ***" line; per-conversion startup debug consolidated to one `Enabling: <label>` line per enabled conversion.
+- Debug-noise cleanup: dropped the `=== STARTING ===` / `=== COMPLETE ===` banners and shouty "***SETTING UP***" line; per-conversion startup debug consolidated to one `Enabling: <label>` line per enabled conversion.
 
 **Plugin icon refresh (`assets/icons/`)**:
+
 - Plugin now ships the family icon set (`icon.svg` + `icon-{72,96,192,512}.png`) shared with `signalk-virtual-weather-sensors` and `signalk-openrouter-companion`: a deep-ocean gradient with three stylized wave lines and a project-coloured badge in the bottom-right. `package.json` `signalk.appIcon` points at `icon-192.png`.
 - Badge glyph: three concentric arcs radiating from a transmitter dot in the badge interior, sized to fill most of the orange badge and anchored slightly up-and-right of the badge's lower-left corner for visual balance. Reads as directional broadcast / emit. Replaces an earlier up-arrow variant that read as an upload/update indicator, and the pre-family standalone cannon icon (`icon-72x72.png`) is removed.
 
@@ -537,6 +572,7 @@ A rework of the plugin's user-visible surfaces: the admin schema, the plugin sta
 This release resolves about thirty findings spanning lifecycle, conversions, schema, types, and utilities, including two blocker regressions introduced and caught during the fix work itself.
 
 **Wire-level correctness (PGN encoding bugs)**:
+
 - `magneticVariance.ts`: `ageOfService` now treats the SK value as Unix epoch seconds (the canonical spec interpretation: "seconds since 1 Jan 1970 that the variation calculation was made"), not as a delta. Previously the fix pass mis-interpreted it as "seconds since last update" and produced a 1970 date on the wire.
 - `dscCalls.ts`: `mmsi` typed as `string | null` (per SK spec) and parsed via `parseMmsi` from `aisUtils`. Was typed as `number | null`, producing a string-into-numeric-field on the wire for live data.
 - `smallCraftStatus.ts`: SK `steering.trimTab.{port,starboard}` is ratio -1..1, multiplied by 100 for PGN 130576. Dropped the `Math.abs(position) < PI` heuristic and `/0.52*100` scaling that assumed radians and produced ~2x error.
@@ -547,6 +583,7 @@ This release resolves about thirty findings spanning lifecycle, conversions, sch
 - `wind.ts`, `windTrueWater.ts`, `windTrueGround.ts`: PGN 130306 now emits when EITHER `windAngle` OR `windSpeed` is valid (the absent field is sent as the canboatjs "not available" sentinel), aligning with the SK spec's partial-delta semantics instead of suppressing every angle-only or speed-only update.
 
 **Schema correctness (admin UI surfaces real controls)**:
+
 - `RAYMARINE_BRIGHTNESS` and `EXHAUST_TEMPERATURE` schemas now expose `groups` and `engines` arrayMappings respectively. Previously these conversions had no UI surface for their required option arrays, so they could be enabled but produced no output.
 - `RAYMARINE_BRIGHTNESS.groups[].instanceId` typed `string` (matches `BrightnessGroup` runtime check which expects "Helm 1"-style labels). Was typed `number`, causing every UI-entered group to be rejected by the type guard.
 - `RUDDER` source paths and `rudder.ts` subscription keys corrected to the canonical SK paths `steering.rudderAngle` and `steering.rudderAngleTarget` (no `.main` suffix, which is not part of the SK spec).
@@ -558,6 +595,7 @@ This release resolves about thirty findings spanning lifecycle, conversions, sch
 - Temperature entries unified via `pgnEntry` helper (was a parallel `buildTemperatureEntry` envelope); shape now consistent with every other PGN.
 
 **Lifecycle hardening (`plugin-manager.ts`, `index.ts`)**:
+
 - `startPlugin` now stops any live `PluginManager` before allocating a fresh one. Prevents listener / timer / subscription leaks on re-entry.
 - `stop()` clears `this.conversions` to release callback closures so prior `PluginManager` instances can be garbage-collected across restarts (mitigates the upstream lack of an `unregisterDeltaInputHandler` API).
 - `start()` catch now calls `stop()` to clean up partial subscriptions and the constructor-installed `nmea2000OutAvailable` listener on startup failure.
@@ -566,6 +604,7 @@ This release resolves about thirty findings spanning lifecycle, conversions, sch
 - `getSelfBus` consumers typed via `NormalizedDelta` from `@signalk/server-api`; dropped two unsafe casts.
 
 **Type-system tightening**:
+
 - `JSONSchema` widened to `JSONSchema7` from `@types/json-schema`; admin-UI schema can now use `minimum`, `additionalProperties`, `pattern`, `oneOf`, etc.
 - `PluginOptions` split into nested internal `{ globalResendInterval?, conversions: Record<string, ConversionOptions> }` plus `RawPluginOptions` wire format. `normalizePluginOptions` round-trips both. `start()` boundary types use `RawPluginOptions` to match what Signal K actually delivers.
 - `ConversionModule.properties` field removed (was dead-but-populated by 6 modules with no merger reading it); per-conversion sub-properties now live exclusively in `src/schema.ts`.
@@ -575,6 +614,7 @@ This release resolves about thirty findings spanning lifecycle, conversions, sch
 - `BearingDistanceInputs` tuple arity corrected (was 7 elements, callback takes 6).
 
 **Utilities (`src/utils/`)**:
+
 - `messageUtils.validateN2KMessage` now rejects NaN/Infinity numeric fields by routing `isValidN2KFieldValue`'s numeric branch through `isValidNumber` (previously `typeof === "number"` admitted NaN/Infinity, contradicting the documented behavior).
 - `dateUtils.toN2KTime` adds sub-second precision via `getUTCMilliseconds() / 1000` so PGN 126992 SystemTime hits its 0.0001s resolution.
 - `smoothing.ExponentialSmoother.smooth` guards non-finite input so a single NaN no longer poisons a key for the rest of the process lifetime.
@@ -606,35 +646,43 @@ This release resolves about thirty findings spanning lifecycle, conversions, sch
 ## [1.3.2] - 2026-05-09
 
 **Schema correctness (admin UI / config persistence)**:
+
 - `src/schema.ts` GNSS DOPs entry: typo `navigationgnsstitimeDilution` corrected to `navigationgnsstimeDilution`. Source-filter for `navigation.gnss.timeDilution` was silently inert because the schema key never matched the runtime `pathToPropName` output.
 - `src/schema.ts` TANKS block: field renamed `signalkId` -> `signalkPath` to match what `tanks.ts` reads at runtime. Admin-UI tanks were configurable but never matched at runtime; `Invalid tank path` errored on every dispatch.
 - `src/schema.ts` SOLAR block: added `instanceId` field (battery-side instance for PGN 127508). `solar.ts` reads `charger.instanceId`; the schema only exposed `panelInstanceId`, so PGN 127508 emitted `instance: undefined`.
 
 **PGN 126464 transmit-list completion**:
+
 - `pgnList.ts` advertised list expanded from 34 to 56 PGNs to match every PGN this plugin actually emits. The omitted 21 PGNs (130577, 130313, 130314, 130311, 130310, 130074, 129284, 129291, 129301, 129302, 128000, 127505, 127252, 127257, 127251, 127250, 126992, 126983, 126985, 126720, 65288) were emitted but never declared, so receivers polling 126464 wouldn't surface them in their device source lists.
 
 **AIS hot-path correctness (`ais.ts`)**:
+
 - Position guard `!position?.latitude || !position.longitude` rejected vessels at the equator or prime meridian. Switched to `isValidNumber`, accepting `0`.
 - `cog`/`heading` validity gates now use `isValidNumber(x) && x >= 0 && x <= 2*PI` instead of `x != null && x <= 2*PI`, rejecting NaN/negatives.
 - `beam`/`fromCenter`/`fromBow` checks switched to `isValidNumber` (previously `!= null` accepted NaN). `fromBowScaled` now preserves a valid `0`.
 
 **Validation utilities (`src/utils/`)**:
+
 - `validation.ts`: `toValidNumber` now expressed via `isValidNumber` (was duplicate predicate). Hoisted `TWO_PI = Math.PI * 2` at module scope; `normalizeAngle` no longer recomputes per call.
 - `errorUtils.ts`: `errMessage` now `JSON.stringify`s plain-object throws (with String fallback for cyclic refs) instead of producing the lossy `[object Object]`.
 
 **Constants (`src/constants.ts`)**:
+
 - Added `VESSELS_SELF_CONTEXT = "vessels.self"` (was a private const in `plugin-manager.ts`) and `STREAM_DEBOUNCE_MS = 10` (was a magic number in the RxJS pipe).
 
 **Plugin manager (`plugin-manager.ts`)**:
+
 - Removed dead `Array.isArray(conversion)` outer wrapper (`this.conversions: ConversionModule[]` is never nested).
 - Imports `VESSELS_SELF_CONTEXT` and `STREAM_DEBOUNCE_MS` from `constants.ts` (single source of truth).
 - `subConversions` derivation is now an explicit if/else cascade with a typed local instead of a let-and-narrow chain.
 - Conversion factory error path now also calls `setPluginError` so admin UI surfaces a startup failure (was log-only).
 
 **Validation hardening across conversions** (`typeof === "number"` and `isValidNumber(...)?x:undef` chains -> `toValidNumber`):
+
 - `engineStatic.ts`, `transmissionParameters.ts`, `smallCraftStatus.ts`, `timeToMark.ts`, `bearingDistanceBetweenMarks.ts`, `depth.ts`, `radioFrequency.ts`, `battery.ts`. Completes the v1.3.1 migration that was started in `engineParameters.ts` and `directionData.ts`. Tests still pass; behavior on valid input unchanged, NaN/Infinity now consistently rejected.
 
 **Magic-number naming**:
+
 - `engineStatic.ts`: `STATIC_DATA_TIMEOUT_MS = 60 * 60 * 1000`.
 - `smallCraftStatus.ts`: `TRIM_TAB_FULL_DEFLECTION_RAD = 0.52`.
 - `depth.ts`: `N2K_DEPTH_PRIORITY = 3` (was raw literal in `prio:` field).
@@ -643,13 +691,16 @@ This release resolves about thirty findings spanning lifecycle, conversions, sch
 - `routeTypes.ts`: `MAX_RPS_WAYPOINTS = 8` (PGN 129285), `MAX_WP_LIST_WAYPOINTS = 16` (PGN 130074).
 
 **Route waypoints (Null Island fix)**:
+
 - `routeWaypoint.ts` and `routeWpList.ts`: waypoints with missing or invalid `position.latitude` / `position.longitude` are now dropped rather than emitted at `(0, 0)`. The previous `?? 0` zero-fill silently planted false marks at the null island.
 
 **DSC and radio cleanup**:
+
 - `dscCalls.ts`: dropped 4 subscription paths (`communication.dsc.{position,workingFrequency,vesselInDistress,callTime}`) the callback never used. Replaced 4-deep `dscCategory` nested ternary with a `dscCategoryMapping` lookup. Hoisted `callTypeMapping` and `distressMapping` to module scope (were rebuilt per delta).
 - `radioFrequency.ts`: dropped unused `mode` subscription. `normalizeFreq` extracted to a module-scope helper.
 
 **CI / release automation**:
+
 - `.github/workflows/publish.yml`: auto-publish to npm on `release: published` plus a `workflow_dispatch` fallback for tags created before the workflow existed. Runs typecheck + tests + version-match before `npm publish --provenance --access public`. Requires `NPM_TOKEN` repo secret (npm Automation token, or Granular token with publish + read on this package).
 
 **Bundle**: 208.7 KB (was 207.3 KB after v1.3.1; the added validation guards and named constants are net additive).
@@ -661,14 +712,17 @@ This release resolves about thirty findings spanning lifecycle, conversions, sch
 ## [1.3.1] - 2026-05-08
 
 **NMEA 2000 wire-output corrections (real bugs on the wire)**:
+
 - PGN 127489 / 127488 engine pressures: `oilPressure`, `coolantPressure`, `fuelPressure`, and `boostPressure` were divided by 100 before being passed to canboatjs. Pa is the spec unit and the encoder applies `Resolution` internally, so a real Garmin saw a 102733 Pa Signal K input as 1000 Pa on the wire. The companion conversions `pressure.ts`, `environmentParameters.ts`, and `seaTemp.ts` already passed Pa unmodified. Embedded test expected values updated to the correct round-trip (`oilPressure: 102700`, `coolantPressure: 202100`, `fuelPressure: 11111000`, `boostPressure: 20300`).
 - PGN 130577 direction data: replaced seven invented field names (`sidForCog`, `sogReference`, `sidForSog`, `headingReference`, `sidForHeading`, `speedThroughWaterReference`, `sidForStw`) with the canonical `@canboat/ts-pgns` schema (`sid`, `dataMode`, `cogReference`, `cog`, `heading`). The PGN defines a single `sid` and a single `cogReference`; the extras were silently dropped by the encoder, and the actual `sid` field was never set. Heading now ties to the same reference as cog so consumers don't misinterpret it; heading-only-magnetic cases stay covered by PGN 127250 in `heading.ts`. Tests updated to expect `sid: 0` in the round-trip.
 
 **Subscription path corrections (Signal K spec 1.8.2)**:
+
 - `leeway.ts`: `performance.leeway` -> canonical `navigation.leewayAngle`. Schema source-filter key `performanceleeway` renamed to `navigationleewayAngle` to match.
 - `battery.ts`: dropped the non-canonical `Temperature1` fallback path and its callback slot. Renamed `ripple` -> canonical `voltage.ripple`. Test inputs reshaped from 10 to 9 args.
 
 **API conformance against `@signalk/server-api` 2.24**:
+
 - AIS migrated from the undocumented `app.on("delta")` event to `app.registerDeltaInputHandler(handler)`. The handler calls `next(delta)` first so `app.getPath()` reflects the just-applied state, matching the post-processing semantics of the legacy hook. Lifecycle is owned by signalk-server: registered handlers are torn down on plugin stop via `onStopHandlers`.
 - `ais.ts`: short-circuits non-vessel/non-aton contexts before allocating the delta index, since `registerDeltaInputHandler` fires on every server-wide delta.
 - `combinedBus.complete()` added to per-conversion stream teardown so the RxJS Subject is released across plugin restarts.
@@ -676,18 +730,22 @@ This release resolves about thirty findings spanning lifecycle, conversions, sch
 - `index.ts`: `console.error` replaced with `app.debug` per the plugin developer guide; declared the optional `restartPlugin` second argument from the official `Plugin.start` type.
 
 **Type and code cleanup**:
+
 - `src/types/signalk.ts`: deleted unused local `StreamBus`, `Subscription`, `Delta`, `DeltaUpdate`, `DeltaValue`, and the dead `OfficialDelta` re-export. None were imported anywhere outside `signalk.ts`. Tightened `SignalKApp` event signatures to literal types for `nmea2000JsonOut` and `nmea2000OutAvailable`.
 - `directionData.ts`, `engineParameters.ts`: pure-passthrough `isValidNumber(x) ? x : null` chains swapped for `toValidNumber`, matching the convention in `cogSOG.ts` and `heading.ts`.
 - `index.ts`: hoisted the duplicate `errMessage(error)` call into a single `const msg`.
 
 **AppStore keywords (verified against `signalk-server/src/categories.ts`)**:
+
 - `signalk-category-nmea2000` corrected to canonical `signalk-category-nmea-2000`. The unhyphenated form is not in the AppStore category list.
 - Removed unrecognized `signalk-category-navigation`. Added `signalk-category-ais` since the plugin emits seven AIS PGNs (129038, 129039, 129040, 129041, 129794, 129798, 129802).
 
 **Test mock**:
+
 - `src/test/lifecycle.test.ts`: added `reportOutputMessages` and `registerDeltaInputHandler` stubs to the mock `app` to faithfully model `ServerAPI` 2.x.
 
 **CI / release automation**:
+
 - New `.github/workflows/publish.yml`. On `release: published` it runs typecheck and tests, verifies that the release tag matches `package.json` version, then `npm publish --provenance --access public`. Requires an `NPM_TOKEN` repo secret. Also exposes a `workflow_dispatch` trigger with a `tag` input so a release tagged before the workflow existed can be published manually from the Actions tab.
 
 **Bundle**: 207.3 KB (was 209 KB) due to dead-code removal.
@@ -699,6 +757,7 @@ This release resolves about thirty findings spanning lifecycle, conversions, sch
 ## [1.3.0] - 2026-05-05
 
 **NMEA 2000 Bus Correctness (real bugs on the wire)**:
+
 - AIS PGNs 129039, 129040, 129798: position guard used `!position.latitude || !position.longitude`, which rejects vessels exactly on the equator (latitude 0) or the prime meridian (longitude 0). Switched to `isValidNumber` so a legitimate `0` passes through. Same class of bug fixed in `routeWaypoint`/`routeWpList` in v1.2.5.
 - PGN 129540 satellite list: `||` fallbacks for `prn`, `elevation`, `azimuth`, and `snr` discarded valid `0` readings (satellite at horizon, due-north azimuth, no-signal SNR, satellite ID 0). Switched to `??`.
 - PGN 130310 sea/air temperature: callback emitted a no-op message every delta when all three inputs were null. Added an all-null guard.
@@ -706,6 +765,7 @@ This release resolves about thirty findings spanning lifecycle, conversions, sch
 - PGN 130577 direction data: NaN/Infinity could leak into `cog`/`heading` fields because the guard only checked `=== null`. Each value now gates on `isValidNumber`.
 
 **Hot-path efficiency (`plugin-manager.ts`)**:
+
 - Stream callback now reads `Date.now()` once per delta (was twice).
 - `lastValues[skKey]` entries are mutated in place instead of allocating a new `{ timestamp, value }` object on every Signal K value update.
 - Per-PGN debug-enabled cast hoisted out of the `processToN2K` PGN loop.
@@ -715,6 +775,7 @@ This release resolves about thirty findings spanning lifecycle, conversions, sch
 - Inner `processToN2K` `catch` blocks use `errMessage(err)` instead of raw `${err}` template, which previously printed `[object Error]` for thrown `Error` instances.
 
 **Code reuse**:
+
 - New shared helper `errMessage(err)` in `src/utils/errorUtils.ts`. The 27 inline `err instanceof Error ? err.message : String(err)` copies across conversion modules now import from the shared helper, plus `index.ts`, `plugin-manager.ts`, and `conversions/index.ts`.
 - New `src/conversions/routeTypes.ts` with shared `Position`/`Waypoint` interfaces and `DEFAULT_ROUTE_NAME = "ACTIVE_ROUTE"`. `routeWaypoint.ts` collapsed double `.map()` over the waypoint slice into a single pass; `routeWpList.ts` reads `wpList.length` instead of recomputing `Math.min(waypoints.length, 16)`.
 - `transmissionParameters.ts` and `engineParameters.ts` use `DEFAULT_DATA_TIMEOUT_MS` from `constants.ts` and hoist the per-call `.map(() => DEFAULT_DATA_TIMEOUT_MS)` arrays out of the per-engine loop.
@@ -722,10 +783,12 @@ This release resolves about thirty findings spanning lifecycle, conversions, sch
 - `battery.ts` swapped 3 inline `Number.isFinite` checks for `isValidNumber`. The smoothing key string is built once per battery in the factory closure instead of every callback.
 
 **Hot-path allocations (callback construction)**:
+
 - `attitude.ts` and `gps.ts` PGN 129029 build the N2K `fields` object imperatively (typed as `N2KMessage["fields"]`) instead of stacking conditional spread expressions, eliminating per-callback intermediate object allocations.
 - `gnssData.ts` PGN 129539: deduplicated identical `desiredMode`/`actualMode` ternary chains into a single `modeValue` computation. PGN 129540 satellite list builds via a fixed-length `for` loop instead of `.slice().map()`.
 
 **Quality**:
+
 - `notifications.ts`: removed dead `padStart(16, '0')` + `Number.parseInt(idName, 10)` round-trip on `dataSourceNetworkIdName` (output was identical to passing `alertId` directly). `.indexOf("sound")` switched to `.includes`. Per-event `state` derivation deduplicated via `hasSound`/`isAcknowledged` locals (was reading `value.method` four times). When an alert resolves to `state === "normal"`, its entry is now removed from the `ids` map (memory leak fix: previously, every distinct path that ever fired an alert held a slot forever).
 - `raymarineAlarms.ts`: `.indexOf("sound")` switched to `.includes`; `hasSound` hoisted; nested if/else replaced with a ternary.
 - `navigationData.ts`: ETA arithmetic now uses `toN2KDateTime` from `dateUtils.ts` instead of inline `getTime()`/`getUTCHours()` math. Magic SID literal `0x88` named `NAV_DATA_SID`. `isValidNumber(WCV)` deduplicated.
@@ -738,6 +801,7 @@ This release resolves about thirty findings spanning lifecycle, conversions, sch
 - `aisExtended.ts`: removed redundant `const pos = position as Position` aliases at the three position-PGN call sites.
 
 **Toolchain and dependencies**:
+
 - TypeScript bumped 5.9 to 6.0. `tsconfig.json`: removed unused `baseUrl` and `paths` (no `@/...` imports in the codebase); added `"types": ["node"]` because TypeScript 6 changed the default to `[]`, which dropped `@types/node` from auto-include and broke `NodeJS.Timeout` references.
 - esbuild bumped 0.27 to 0.28. Bundle output is byte-identical.
 - lint-staged bumped 15 to 16. No config changes required.
@@ -746,6 +810,7 @@ This release resolves about thirty findings spanning lifecycle, conversions, sch
 - All in-range packages updated via `npm update` (biome, canboatjs 3.13 → 3.17, vitest 4.1.4 → 4.1.5, @types/node, @vitest/*, signalk-server, es-toolkit).
 
 **Cleanup**:
+
 - Stale `coverage/` directory (gitignored, last modified weeks ago) removed.
 
 ---
@@ -755,6 +820,7 @@ This release resolves about thirty findings spanning lifecycle, conversions, sch
 ## [1.2.5] - 2026-05-03
 
 **NMEA 2000 Bus Correctness**:
+
 - PGN 126983/126985 notifications: restored the `source: { label: plugin.id, type: "plugin" }`
   field on the delta sent to `app.handleMessage`. The field was added in v1.1.x for
   Signal K schema compliance and silently dropped during a later refactor;
@@ -764,6 +830,7 @@ This release resolves about thirty findings spanning lifecycle, conversions, sch
   receiver requesting these PGNs got nothing.
 
 **Validation hardening (NaN/Infinity rejection)**:
+
 - 18 conversion modules previously used `typeof x === "number"`, which lets
   `NaN` and `Infinity` through and could leak corrupt values into PGN fields.
   These now use `isValidNumber` / `toValidNumber` from `utils/validation.ts`:
@@ -779,6 +846,7 @@ This release resolves about thirty findings spanning lifecycle, conversions, sch
   `humidity` path.
 
 **Notification state hygiene**:
+
 - Notifications conversion now resets `pgns`, `ids`, and `idCounter` in
   `onOptionsLoaded`. Previously, changing config (e.g. excluded paths) left
   stale alerts in the closure that would re-emit on the next event.
@@ -786,6 +854,7 @@ This release resolves about thirty findings spanning lifecycle, conversions, sch
   `appDebug.enabled` so it doesn't allocate per alert when debug is off.
 
 **Plugin lifecycle**:
+
 - `nmea2000Ready` is reset to `false` in `stop()`. Without the reset, a
   subsequent `start()` would inherit the previous run's readiness flag and
   emit before the new run's `nmea2000OutAvailable` event fired.
@@ -796,6 +865,7 @@ This release resolves about thirty findings spanning lifecycle, conversions, sch
   already typed `unknown[]`.
 
 **Code quality sweep**:
+
 - Removed redundant WHAT-style JSDoc blocks (e.g. `/** Battery configuration interface */`)
   and narration comments (`// Validate inputs`, `// Convert and validate inputs`)
   across 35 files: net 162 lines removed.
@@ -803,6 +873,7 @@ This release resolves about thirty findings spanning lifecycle, conversions, sch
   that referenced a planning doc no longer in the repo.
 
 **Documentation accuracy**:
+
 - README PGN tables corrected: removed phantom 128275 and 129033 rows,
   fixed PGN 130311 attribution from `pressure.ts` to `environmentParameters.ts`,
   rewrote 130310 / 130311 / 130314 descriptions to match each canboat PGN's
@@ -829,6 +900,7 @@ This release resolves about thirty findings spanning lifecycle, conversions, sch
 ## [1.2.3] - 2026-04-19
 
 **NMEA 2000 Bus Correctness (wrong data on the wire, fix first)**:
+
 - PGN 127245 rudder `directionOrder` now emits the canboat enum values
   (`Move to starboard`, `Move to port`) instead of `Turn Right`/`Turn Left`,
   which canboatjs silently dropped to `No Order`. Rudder direction commands
@@ -867,6 +939,7 @@ This release resolves about thirty findings spanning lifecycle, conversions, sch
   out as if it were a remote target). Missing `app.selfId` skips the callback.
 
 **Plugin Host Lifecycle**:
+
 - `nmea2000OutAvailable` listener is now removed in `stop()`. Previously
   every restart leaked a listener plus the PluginManager it closed over,
   eventually tripping `MaxListenersExceeded`.
@@ -893,6 +966,7 @@ This release resolves about thirty findings spanning lifecycle, conversions, sch
   correctly (was only adding one turn).
 
 **Type Safety**:
+
 - `SubConversionModule.title` field added (was read at runtime but not typed).
 - `ConversionModule.keys` widened to `string[] | ((options) => string[])` so
   the runtime function path is visible to the type system.
@@ -907,6 +981,7 @@ This release resolves about thirty findings spanning lifecycle, conversions, sch
   `typeof x === "function"`: TypeScript narrows properly.
 
 **Test and Build Hardening**:
+
 - Coverage thresholds wired into `vitest.config.ts`
   (statements 70, branches 55, functions 80, lines 70) so PRs can't
   silently tank coverage.
@@ -922,6 +997,7 @@ This release resolves about thirty findings spanning lifecycle, conversions, sch
 - Removed dead `dev` and `build:npm` scripts.
 
 **New lifecycle tests**:
+
 - Listener leak regression (repeated start/stop cycles).
 - Timer-source double-emission regression.
 - BehaviorSubject empty-seed callback regression.
@@ -936,20 +1012,24 @@ This release resolves about thirty findings spanning lifecycle, conversions, sch
 ## [1.2.2] - 2026-04-18
 
 **Critical Bug Fixes**:
+
 - Fixed temperature schema generation: 20 of 22 temperature optionKeys (engine room, cabin, refrigerator, freezer, dewpoint, wind chill, heat index, and the PGN-130316 variants of every source) were unreachable from the Signal K admin UI. Schema entries are now generated from the same temperatures table the conversions use.
 - Resend timer now re-invokes conversion callbacks instead of re-emitting cached output. Time-derived PGNs (system time / GNSS time, PGN 126992) now broadcast fresh values each interval instead of repeating a stale snapshot.
 
 **Plugin Lifecycle Hardening**:
+
 - `PluginManager.stop()` wraps every cleanup step (unsubscribe, clearInterval, smoother clear) in a safe wrapper, collects errors, and logs a single summary instead of aborting on the first failure.
 - `ExponentialSmoother` instances self-register; smoother state is cleared on plugin stop so smoothed values don't carry across restart.
 - Centralized callback error handling in `PluginManager.invokeCallback()`.
 
 **Type and Code Quality**:
+
 - Tightened `ConversionModule<any>` to `ConversionModule<unknown[]>` at the registry boundary; `ConversionCallback` is now a method-style declaration so narrow modules type-check under the unknown umbrella without `any` casts.
 - Replaced default-value priority/SID literals with named constants in temperature, timeToMark, and bearingDistanceBetweenMarks.
 - Re-enabled biome rules `noExplicitAny` and `noApproximativeNumericConstant`.
 
 **Tooling and Release**:
+
 - Added `@vitest/coverage-v8`; `npm run test:coverage` now works.
 - Replaced `github-create-release` with `gh release create` in the release script.
 - Guarded the release script against silently re-tagging existing versions.
@@ -959,10 +1039,12 @@ This release resolves about thirty findings spanning lifecycle, conversions, sch
 - `npm audit fix` applied (no breaking changes).
 
 **Tests**:
+
 - New plugin lifecycle suite covering start/stop/resend behavior with a typed mock SignalK app.
 - New `pathToPropName` collision regression test.
 
 **Docs**:
+
 - Added Troubleshooting section to README.
 - Clarified source-filter wording in the admin UI schema ("Leave blank to accept any source. Enter an exact source name…").
 
@@ -973,6 +1055,7 @@ This release resolves about thirty findings spanning lifecycle, conversions, sch
 ## [1.2.1] - 2026-04-18
 
 **Configuration Simplification**:
+
 - Added top-level `globalResendInterval` setting (default 5s) that controls resend frequency for all conversions
 - Per-conversion `resend` value still overrides the global when non-zero
 - Removed `resendTime` entirely: timers now resend indefinitely until the plugin stops or new data arrives
@@ -984,27 +1067,32 @@ This release resolves about thirty findings spanning lifecycle, conversions, sch
 ## [1.2.0] - 2026-04-08
 
 **Critical Bug Fixes**:
+
 - Fixed duplicate `design.draft` entry in AIS `staticKeys` that corrupted positional argument mapping for `fromBow` and `imo` fields
 - Fixed unreachable code branch in notifications where `value.state === "normal"` was checked inside a `value.state !== "normal"` guard
 - Fixed event listener leak in `mapOnDelta`: delta handlers now properly clean up on plugin stop via `removeListener`
 
 **Resend Timer Overhaul**:
+
 - Fixed resend timer recreating `setInterval` on every value update (caused timer churn on high-frequency paths like GPS)
 - Fixed stale closure bug where resend timer re-emitted the first value instead of the latest
 - Timer now created once per conversion; latest output stored on the conversion object
 
 **Performance Improvements**:
+
 - Removed `JSON.stringify` from 4 hot-path debug calls that ran on every Signal K value update
 - Pre-built reverse navStatus mapping in AIS module (O(1) lookup instead of O(n) `find()` per message)
 - Pre-built static PGN list messages at module scope instead of reallocating on every callback
 - Removed 4 unused Signal K subscriptions from `directionData` that added processing overhead
 
 **Code Deduplication**:
+
 - Extracted shared `createNavDataConversion()` factory for Rhumbline/Great Circle navigation data (~130 lines deduplicated)
 - Extracted shared `createWindTrueConversion()` factory for `windTrueWater` and `windTrueGround`
 - Added `normalizeAngle()` utility to consolidate triplicated wind angle normalization
 
 **Consistency and Cleanup**:
+
 - Replaced `es-toolkit` `isUndefined` import in `depth.ts` with local utilities
 - Added `isValidNumber` guards (rejects NaN/Infinity) to 8 conversion modules
 - Replaced magic numbers with constants (`N2K_SID_ZERO`, `N2K_DEFAULT_INSTANCE`, `N2K_BROADCAST_DST`, `N2K_DEFAULT_SID`) across 8 modules
@@ -1013,10 +1101,12 @@ This release resolves about thirty findings spanning lifecycle, conversions, sch
 - Removed unused exports: `TimedN2KMessage`, `PluginError`, `ConversionError`
 
 **Tooling**:
+
 - Replaced custom 60-line `biome.json` with minimal defaults (2 overrides only)
 - Reformatted entire codebase to Biome defaults (tabs, 80-char line width)
 
 **Documentation**:
+
 - Corrected PGN count from 74 to 57 across README, CLAUDE.md, and CHANGELOG
 - Added complete PGN reference table (all 57 PGNs with descriptions and module names)
 - Fixed plugin display name in Configuration section
@@ -1033,11 +1123,13 @@ This release resolves about thirty findings spanning lifecycle, conversions, sch
 ## [1.1.0] - 2026-01-20
 
 **Constants and Code Consistency**:
+
 - Introduced centralized constants (`N2K_DEFAULT_PRIORITY`, `N2K_BROADCAST_DST`, `N2K_DEFAULT_SID`) used across all 45 conversion modules
 - Eliminated hardcoded magic numbers throughout the codebase
 - Improved code maintainability and consistency
 
 **Fixed Global Mutable State**:
+
 - Moved module-level mutable state to instance scope in:
   - `battery.ts` - smoothing state now instance-scoped
   - `notifications.ts` - alert IDs and PGN arrays moved inside factory
@@ -1045,6 +1137,7 @@ This release resolves about thirty findings spanning lifecycle, conversions, sch
 - Prevents state pollution between plugin restarts
 
 **Input Validation**:
+
 - Added `src/utils/validation.ts` with type-safe validation utilities
   - `isValidNumber()` - checks for finite numbers (rejects NaN/Infinity)
   - `toValidNumber()` - coerces values with null fallback
@@ -1052,33 +1145,39 @@ This release resolves about thirty findings spanning lifecycle, conversions, sch
 - Applied NaN/Infinity validation to critical conversions: wind, heading, speed, COG/SOG
 
 **New Utilities**:
+
 - Added `src/utils/smoothing.ts` with `ExponentialSmoother` class
   - Extracted from battery conversion for reusability
   - Supports multiple instances with key-based state management
 - Enhanced `src/utils/dateUtils.ts` with NMEA 2000 date/time helpers
 
 **GitHub Actions CI**:
+
 - Added `.github/workflows/ci.yml` with comprehensive CI pipeline
   - Runs on Node.js 20.x and 22.x
   - Includes linting, type checking, build, and test stages
   - Separate code quality job for formatting checks
 
 **Pre-commit Hooks**:
+
 - Added husky + lint-staged for automated code quality
 - Automatically runs Biome on staged TypeScript and JSON/Markdown files
 - Ensures consistent code quality before commits
 
 **TypeScript Improvements**:
+
 - Fixed type errors in battery.ts with proper `SubConversionModule` typing
 - All 60 source files pass strict TypeScript checking
 - Improved type annotations throughout
 
 **Documentation**:
+
 - Comprehensive JSDoc comments on all utility functions
 - Updated project structure documentation
 - All constants and types fully documented
 
 **Dependencies**:
+
 - Added `husky` ^9.1.7 for Git hooks
 - Added `lint-staged` ^15.5.1 for pre-commit automation
 
@@ -1089,6 +1188,7 @@ This release resolves about thirty findings spanning lifecycle, conversions, sch
 ## [1.0.1] - 2025-10-11
 
 **GitHub Community Files**:
+
 - Added CONTRIBUTING.md with comprehensive contribution guidelines
 - Added SECURITY.md with security policy and vulnerability reporting
 - Added GitHub issue templates (bug report, feature request)
@@ -1096,6 +1196,7 @@ This release resolves about thirty findings spanning lifecycle, conversions, sch
 - Created .npmignore for explicit npm publishing control
 
 **Configuration Updates**:
+
 - Updated license from ISC to Apache-2.0 (matches LICENSE file)
 - Fixed README manual installation path
 - Removed package-lock.json from .gitignore for reproducible builds
@@ -1116,6 +1217,7 @@ This is a mature Signal K NMEA 2000 plugin with 92% Garmin PGN coverage, built o
 ---
 
 **Complete TypeScript Conversion**:
+
 - **47 JavaScript modules** fully converted to TypeScript with strict type safety
 - **Zero `any` types** - Complete type safety throughout entire codebase
 - **56 unique PGNs** verified with mathematical precision (100% coverage maintained)
@@ -1123,6 +1225,7 @@ This is a mature Signal K NMEA 2000 plugin with 92% Garmin PGN coverage, built o
 - **Advanced type definitions** - Comprehensive Signal K and NMEA 2000 type system
 
 **Garmin PGN Specification Alignment (92% Coverage)**:
+
 - **Navigation and Positioning** (15+ PGNs): GPS, GNSS, AIS, waypoints, routes, cross-track error
   - PGN 129026 (COG and SOG), 129029 (GNSS Position), 129285 (Route/Waypoint Info)
   - PGN 129301 (Time to/from Mark), 129302 (Bearing/Distance Between Marks)
@@ -1145,6 +1248,7 @@ This is a mature Signal K NMEA 2000 plugin with 92% Garmin PGN coverage, built o
 - **Vendor Integration** (4+ PGNs): Raymarine alarms, brightness, proprietary protocols
 
 **Garmin Specification Compliance**:
+
 - **Added Missing SID Fields**: Sequence Identifier (SID=87) to PGNs 129026, 128267, 130306, 130312/130316, 128259, 129029
 - **Corrected Priority Values**: Updated PGN 128267 (Depth) 2→3, PGN 130312/130316 (Temperature) 2→5
 - **Fixed Field Names**: Updated PGN 129808 (DSC Calls) to match Garmin spec
@@ -1152,6 +1256,7 @@ This is a mature Signal K NMEA 2000 plugin with 92% Garmin PGN coverage, built o
 - **Removed ISO Messages**: Deleted PGNs 59392, 59904, 60928 (not in Garmin spec)
 
 **Performance and Dependencies**:
+
 - **RxJS Integration** - Replaced BaconJS with RxJS for better TypeScript support and reactive streams
 - **ES Toolkit** - Replaced Lodash with ES Toolkit for 2-3x performance improvement
 - **esbuild Optimization** - Fast compilation producing 200kb+ optimized bundle
@@ -1162,6 +1267,7 @@ This is a mature Signal K NMEA 2000 plugin with 92% Garmin PGN coverage, built o
   - @biomejs/biome: 2.2.5, vitest: 3.2.4, esbuild: 0.25.10, typescript: 5.9.3
 
 **Code Quality Excellence**:
+
 - **Perfect Linting** - 0 warnings across 54+ TypeScript files using Biome
 - **Strict TypeScript** - 0 compilation errors with strictest possible configuration
 - **Complete Test Coverage** - 45 conversion modules with 100% test success rate
@@ -1169,6 +1275,7 @@ This is a mature Signal K NMEA 2000 plugin with 92% Garmin PGN coverage, built o
 - **Biome 2.2.5 Configuration**: VCS integration, modern linting rules, JSON formatting
 
 **Enhanced Configuration UI**:
+
 - **Source Selection Options**: Comprehensive source selection for all key conversions
   - Depth, Direction Data, Navigation Data, Cross Track Error
   - Route Waypoint, Engine Static, Transmission, Small Craft Status
@@ -1176,12 +1283,14 @@ This is a mature Signal K NMEA 2000 plugin with 92% Garmin PGN coverage, built o
 - **Alphabetical Organization**: Plugin configuration properly sorted for better UX
 
 **Critical Bug Fixes**:
+
 - **Configuration Parsing Fix**: Resolved nested structure issues affecting Battery, Solar, Tanks, Engine modules
 - **Dynamic Loading Fix**: Replaced dynamic file loading with static imports (bundle 50kb → 200kb+)
 - **Stream Processing Fix**: Corrected RxJS implementation to match original BaconJS behavior
 - **Field Precision**: Fixed angles, temperatures, and unit conversions throughout
 
 **Architecture Improvements**:
+
 - **Type-Safe Conversions** - All conversion modules use proper TypeScript patterns
 - **Runtime Validation** - Comprehensive unknown parameter validation with type guards
 - **Error Handling** - Robust error handling throughout entire codebase
@@ -1189,6 +1298,7 @@ This is a mature Signal K NMEA 2000 plugin with 92% Garmin PGN coverage, built o
 - **Simple Pattern Architecture** - Reliable patterns avoiding timeout issues
 
 **Testing and Validation**:
+
 - **190+ Test Cases**: Comprehensive test coverage for all PGN conversions
 - **CANboat Integration**: Full compatibility with canboatjs v3.11.0
 - **Edge Case Coverage**: Robust handling of null values and boundary conditions
@@ -1200,6 +1310,7 @@ This plugin builds upon the excellent foundation of [signalk-to-nmea2000](https:
 ---
 
 **Development Experience**:
+
 - **Modern Tooling** - Full IDE support with intelligent autocomplete and error detection
 - **Fast Development** - Watch mode compilation with instant feedback
 - **Comprehensive Documentation** - Self-documenting code with type definitions

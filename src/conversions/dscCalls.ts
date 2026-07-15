@@ -1,9 +1,5 @@
 import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
-import type {
-	ConversionCallback,
-	ConversionModule,
-	SignalKApp,
-} from "../types/index.js";
+import type { ConversionCallback, ConversionModule, SignalKApp } from "../types/index.js";
 import { parseMmsi } from "../utils/aisUtils.js";
 
 // communication.dsc.callType maps to PGN 129808 dscFormat, a DSC_FORMAT
@@ -41,9 +37,7 @@ const distressMapping: Record<string, string> = {
 
 type DscInputs = [string | null, string | null, string | null];
 
-export default function createDscCallsConversion(
-	_app: SignalKApp,
-): ConversionModule<DscInputs> {
+export default function createDscCallsConversion(_app: SignalKApp): ConversionModule<DscInputs> {
 	return {
 		title: "DSC Call Information (PGN 129808)",
 		optionKey: "DSC_CALLS",
@@ -51,16 +45,8 @@ export default function createDscCallsConversion(
 		// communication.dsc.* is not part of the canonical Signal K v1 schema
 		// (which has no top-level communication branch); it is a convention
 		// used by DSC-aware upstream providers. Requires such a provider.
-		keys: [
-			"communication.dsc.callType",
-			"communication.dsc.mmsi",
-			"communication.dsc.nature",
-		],
-		callback: ((
-			callType: string | null,
-			mmsi: string | null,
-			nature: string | null,
-		) => {
+		keys: ["communication.dsc.callType", "communication.dsc.mmsi", "communication.dsc.nature"],
+		callback: ((callType: string | null, mmsi: string | null, nature: string | null) => {
 			if (!callType && !mmsi && !nature) {
 				return [];
 			}
@@ -74,8 +60,7 @@ export default function createDscCallsConversion(
 					pgn: 129808,
 					dst: N2K_BROADCAST_DST,
 					fields: {
-						dscFormat:
-							callTypeToFormat[callTypeString] ?? "Individual stations",
+						dscFormat: callTypeToFormat[callTypeString] ?? "Individual stations",
 						// canboatjs 3.20 variant matching only encodes dscCategory for
 						// the Distress variant; non-distress categories (Routine,
 						// Safety, Urgency) drop to the "not available" sentinel on the

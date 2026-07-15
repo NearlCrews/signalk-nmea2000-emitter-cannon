@@ -1,4 +1,4 @@
-import type { HistoricPaths } from "./types.js";
+import type { HistoricPaths } from "../recommendation/types.js";
 import { withTimeout } from "./withTimeout.js";
 
 export interface QuestDBConfig {

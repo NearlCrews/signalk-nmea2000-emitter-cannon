@@ -36,19 +36,24 @@ npm run build:watch    # Development build with watch mode
 npm test               # Run all tests (Vitest)
 npm run test:ui        # Run tests with interactive UI
 npm run test:coverage  # Run tests with coverage report
-npm run typecheck      # TypeScript validation (strict mode)
-npm run lint           # Biome linting
+npm run check          # Strict TypeScript validation for runtime, panel, and tests
+npm run lint           # Code, Markdown, and spelling checks
+npm run cruise         # Module-boundary and cycle checks
+npm run deadcode       # Unused file, dependency, and export checks
 npm run format         # Biome auto-format with --write
-npm run check          # Full Biome check
+npm run verify         # Full local verification gate
+npm run verify:release # Verify package contents and security audits too
 ```
 
 ## Architecture
 
 ### Entry Point and Plugin Lifecycle
+
 - `src/index.ts` - Factory function `createPlugin(app)` returns `SignalKPlugin` with `start()`, `stop()`, `schema()`
 - `src/plugin-manager.ts` - Core lifecycle manager that loads conversions, sets up Signal K subscriptions, handles resend timers
 
 ### Conversion Module Pattern
+
 All 46 modules in `src/conversions/` follow this factory pattern:
 
 ```typescript
@@ -66,11 +71,13 @@ export default function createXxxConversion(app: SignalKApp): ConversionModule<T
 The registry `src/conversions/index.ts` imports all factories and exports `createConversionModules(app, plugin)`.
 
 ### Type System
+
 - `src/types/plugin.ts` - `ConversionModule<T>`, `SignalKPlugin`, plugin interfaces
 - `src/types/nmea2000.ts` - `N2KMessage`, field validation types
-- `src/types/signalk.ts` - `SignalKApp` (extends `ServerAPI` with the `nmea2000JsonOut` / `nmea2000OutAvailable` event signatures, the `isNmea2000OutAvailable` sync mirror, and the `securityStrategy.addAdminMiddleware` hook)
+- `src/types/signalk.ts` - `SignalKApp` (extends `ServerAPI` with the `nmea2000JsonOut` / `nmea2000OutAvailable` event signatures and the `isNmea2000OutAvailable` sync mirror)
 
 ### Utilities
+
 - `src/utils/messageUtils.ts` - N2K message validation (`validateN2KMessage`), formatting (`formatN2KMessage`), cleaning (`cleanN2KMessage`)
 - `src/utils/pathUtils.ts` - `pathToPropName()` for config keys, `isDefined()` type guard, `stripSubIndex()` (strips the `[N]` sub-conversion suffix) and its inverse `subIndexKey(parent, idx)` (builds `PARENT[idx]`), kept side by side so the suffix format lives in one place and is shared by plugin-manager and the panel; `matchPathPrefix<T>(path, table)` first-prefix-match lookup used by `notifications.ts` (alertCategory routing) and `raymarineAlarms.ts` (alarmId mapping)
 - `src/utils/dateUtils.ts` - NMEA 2000 date/time conversions (`toN2KDate`, `toN2KTime`, `toN2KDateTime`)
@@ -87,11 +94,13 @@ The registry `src/conversions/index.ts` imports all factories and exports `creat
 - `src/conversions/windData.ts` - `createWind130306Conversion()`: the shared PGN 130306 (Wind Data) builder used by the apparent, true-over-water, true-over-ground, and weather-forecast wind modules
 
 ### Configuration Schema
+
 `src/config/schema.ts` defines the TypeBox `RootConfig` schema. `Plugin.schema` returns the TypeBox value directly (it IS a valid JSON Schema literal at runtime). Adding a new conversion does NOT require new schema entries because `Conversion` already accepts a `Record<string, ConversionConfig>` with `enabled`, `resend`, `sources`, and `extras` per key. Per-conversion identity comes from each module's `category` and optional `presets` metadata.
 
 ## Testing
 
 Tests live in `src/test/`. The conversion-module test cases live embedded in each module's `tests` array and run through `src/test/index.test.ts`; dedicated suites cover the advisor, API, lifecycle, migration, panel state, and protocol boundaries.
+
 1. Loads every conversion module (the registry expands the 46 source modules into 76 runtime conversion objects via the per-instance factories; `index.test.ts` pins the 76)
 2. Validates each module has test cases
 3. Runs embedded tests against CanboatJS encoder/decoder
@@ -100,7 +109,7 @@ Tests live in `src/test/`. The conversion-module test cases live embedded in eac
 
 ## Key Technical Details
 
-- **Runtime**: Node.js 22.12+, pure ESM modules
+- **Runtime**: Node.js 22.18+, with an ESM plugin bundle
 - **Build**: esbuild bundles to single `dist/index.mjs` (currently ~364 KB)
 - **Externals**: rxjs is the only runtime dependency (esbuild `--external:rxjs`). `@signalk/server-api` is a devDependency used for types only and MUST stay a type-only import: a value import (e.g. its `hasValues`) bundles the whole package, whose dynamic `require("events")` throws at load ("Dynamic require of events is not supported"), so the plugin keeps local copies of any such guards (see `notifications.ts`).
 - **Reactivity**: RxJS for Signal K data subscriptions (Signal K server uses BaconJS internally)
@@ -111,7 +120,9 @@ Tests live in `src/test/`. The conversion-module test cases live embedded in eac
 This plugin uses `@signalk/server-api` for official type definitions. Key points:
 
 ### Branded Types
+
 Signal K uses branded types for type safety. When using the API:
+
 ```typescript
 import type { Path, Context } from "@signalk/server-api";
 
@@ -121,7 +132,9 @@ const subscription = { context: "vessels.self" as Context, ... };
 ```
 
 ### Error Handling
+
 `app.error()` takes a **string**, not an Error object. Use the shared `errMessage` helper to coerce `unknown`-typed thrown values:
+
 ```typescript
 import { errMessage } from "../utils/errorUtils.js";
 
@@ -133,7 +146,9 @@ app.error(err as Error);
 ```
 
 ### Plugin Status Reporting
+
 Use these methods for UI visibility in the Signal K admin panel. `plugin-manager.ts` already implements the five canonical states:
+
 - `Starting...` at the top of `start()`
 - `Running with N conversions enabled` once N>0 and `nmea2000Ready` is true
 - `No conversions enabled. Enable at least one in plugin settings.` when N=0
@@ -143,18 +158,23 @@ Use these methods for UI visibility in the Signal K admin panel. `plugin-manager
 Brand: use "NMEA 2000" (with space) in user-facing strings (status, schema text, README, CHANGELOG, comments). Event identifiers like `nmea2000OutAvailable` / `nmea2000JsonOut` stay as the API names. Em dashes are banned everywhere.
 
 ### NMEA 2000 Output Readiness
+
 Wait for the `nmea2000OutAvailable` event before emitting messages. `PluginManager` already does this:
+
 - The constructor binds `onNmea2000Ready` (so `stop()` can `removeListener` the exact same reference) but does NOT attach it: `start()` owns the lifecycle so a constructed-but-never-started instance does not leak a listener.
 - `start()` removes-then-adds the listener idempotently, and reads the factory readiness flag via `factoryNmea2000Ready()`. The factory closure in `index.ts` seeds that flag from the registration-time `app.isNmea2000OutAvailable` snapshot (the sync mirror that `signalk-server >= 2.x` maintains) and latches the one-shot `nmea2000OutAvailable` event, so a plugin enabled or re-enabled after the event already fired still detects readiness. Honouring only the event dropped every PGN for a plugin enabled after output came up.
 - The listener checks the `stopped` flag before flipping `nmea2000Ready` and refreshes the status from `Waiting for NMEA 2000 output (...)` to the running form via `lastEnabledCount`.
 
 ### Delta-source conversions (ON_DELTA)
+
 AIS (`ais.ts`) is the only `ON_DELTA` module: it runs off the process-wide delta input handler (`dispatchDelta`), not a path subscription. ON_DELTA conversions are purely event-driven, so `dispatchDelta` records no `lastInputs` for them and `processOutput` arms no resend timer (it early-returns for `ON_DELTA`, same as for `TIMER`). A resend would re-broadcast a single arbitrary target every interval, which makes a dead AIS contact look live on an MFD; AIS must emit only when a fresh delta arrives. `aisExtended.ts` (own-vessel reports) rides the subscription path and keeps normal resend.
 
 ### Error Throttling
+
 Per-callback errors route through `PluginManager.throttledError(key, message)` with a per-key 60s window. Use `bucketKey(prefix, conversion, suffix?)` to build the key: it normalizes the `optionKey ?? title ?? "?"` fallback chain. Apply uniformly to every error path (callback, processOutput, resend, subscription, RxJS stream `error`); asymmetric coverage leaves a log-flood surface open. `start()` and `stop()` both clear `errorBuckets` so the next lifecycle begins fresh.
 
 ### Sub-Conversion Identity (factory-returned children)
+
 Modules that expose `conversions: (options) => [...]` (BATTERY per-id, ENGINE_PARAMETERS per-engine, TANKS per-path, SOLAR per-charger, EXHAUST_TEMPERATURE per-engine, RAYMARINE_BRIGHTNESS per-group, TEMPERATURE_*/TEMPERATURE2_*) return `SubConversionModule` objects that lack `optionKey` and may lack `title`. The plugin-manager's `wireConversion()` helper (called from the start() enablement loop) spreads each into a fresh `ConversionModule` with derived identity:
 
 ```typescript
@@ -200,7 +220,7 @@ PGN 126984 (Alert Response, inbound) is NOT handled. Acknowledgements from an MF
 
 As of v1.6.5 the plugin's admin config UI is a webpack 5 Module Federation remote built into `public/remoteEntry.js` plus chunked `public/*.js` from `src/panel/`. The Signal K admin loads it because `package.json` `keywords` include `signalk-plugin-configurator`. Component contract: default export `PluginConfigurationPanel({ configuration, save })`. `save` is fire-and-forget, returns void; the next `configuration` prop reflects the saved state.
 
-Live data comes from an Express router mounted via `Plugin.registerWithRouter` under `/plugins/signalk-nmea2000-emitter-cannon/api/` with these endpoints: `/status`, `/conversions`, `/paths`, `/sources`. The router calls `app.securityStrategy.addAdminMiddleware` on the API prefix so unauthenticated requests are rejected. If the running server does not expose that hook, the router logs a warning and only the read-only GET endpoints stay open (compat fallback for older signalk-server builds); the mutating advisor routes (`/advisor/review`, `/advisor/apply`) fail closed with 403.
+Live data comes from an Express router mounted via `Plugin.registerWithRouter` under `/plugins/signalk-nmea2000-emitter-cannon/api/`. It serves status, conversion, path, source, and advisor routes. Signal K applies its admin middleware to all `/plugins` routes before invoking registered plugin routers, so this code must not reach into the server's internal `securityStrategy` object or add a second authorization layer.
 
 The `/conversions` catalog must be served even when the plugin is disabled or startup fails. signalk-server calls `registerWithRouter` for every loaded plugin but only calls `start()` (which builds `PluginManager`) once it is enabled, so a disabled plugin has no manager and the panel would otherwise show every category at zero with nothing to configure (the one moment the catalog is needed). A failed start also clears the manager's modules. The catalog is pure module metadata, so the mapping lives in `buildConversionMetadata()` (`src/api/conversion-metadata.ts`) and `PluginManager.getConversionMetadata()` delegates to it. `index.ts` builds one shared `getMetadata` provider, injected into both the API router (`/conversions`) and the advisor: it returns a populated manager catalog when available, else a standalone copy built once from `createConversionModules(app, plugin)` and cached.
 
@@ -210,11 +230,11 @@ Layout: conversions render as dense rows (`src/panel/components/ConversionRow.ts
 
 `PanelToolbar.tsx` (a labelled `<section>` landmark, `position: sticky` via a `--skn-toolbar-height` variable) carries the catalog search, a condensed status chip (a dot, the enabled-over-total count, a readiness word, a visible stale-poll marker, and the `ErrorBadgeButton` jump-to-error), the Configure / Status `SegmentedControl`, the `ThemeToggle`, and the Setup wizard shortcut. Quick presets (`PresetChips`) collapses into a one-line `Disclosure` below the toolbar (state key `panel:presets`), because `PresetChips` has no collapsible of its own. The Config Advisor (`AdvisorPanel`) and Global settings (`GlobalSettings`) render directly there: each already provides its own one-line collapsible section, so an extra wrapper would duplicate the title. `AdvisorPanel` keeps its review and pending state because the configure view stays mounted. Each category section header (`CollapsibleSection`) gained Enable all and Disable all controls via a `Disclosure` `headerTrailing` slot (so the bulk buttons are valid siblings outside the toggle button); they act on that section's keys via `setEnabledForKeys(keys, enabled)`, announce through `role="status"`, and appear only in the tab view, never on a search-result section.
 
-`ThemeToggle` pins the panel theme to Auto, Light, Dark, or the red-preserving Night mode by writing a `data-skn-theme` attribute on the `.skn-panel` root, persisted under the `skn-theme` localStorage key; the matching token blocks and semantic dimension tokens live in `theme.ts` (`THEME_STYLE`). Feature styles are split by boundary: `advisorStyles.ts`, `conversionStyles.ts`, `statusStyles.ts`, `toolbarStyles.ts`, and `wizardStyles.ts`, with responsive table primitives in `tableStyles.ts` and only shared UI primitives in `styles.ts`. The Configure / Status toggle switches the body between the editor and `StatusView`, a read-only live-emit table; both views stay mounted (swapped with the `hidden` attribute) so advisor state survives the switch. `FirstRunWizard` is a guided modal that fetches `GET /api/paths`, runs the advisor's pure `recommend()` over the observed paths, and proposes the enable-action conversions (grouped by category, pre-checked) plus the preset shortcuts, so its proposals always agree with Review now; Apply stages the enables through the reducer and the user reviews and Saves. A first-run callout above the catalog opens it once the catalog is loaded and the current panel configuration has no enabled catalog conversion. The footer is sticky at the bottom of the viewport, a `beforeunload` guard fires while dirty, and Save / Discard move focus to the save-status element so keyboard focus is not dropped when those buttons disable themselves. Conflict-safe saves: `useConfig` keeps the saved config as a baseline and, when an external `configuration` prop arrives while the panel is dirty (an advisor write or scheduled review), runs a three-way merge (`mergeExternalConfig`) that adopts external changes for every key the user has not touched while keeping the user's edits for keys they have touched, then updates the baseline so the next Save persists the merged result. Semantic no-op actions preserve identity and do not mark the panel dirty.
+`ThemeToggle` pins the panel theme to Auto, Light, Dark, or the red-preserving Night mode by writing a `data-skn-theme` attribute on the `.skn-panel` root, persisted under the `skn-theme` localStorage key; the matching token blocks and semantic dimension tokens live in `theme.ts` (`THEME_STYLE`). Feature styles are split by boundary: `advisorStyles.ts`, `conversionStyles.ts`, `statusStyles.ts`, `toolbarStyles.ts`, and `wizardStyles.ts`, with responsive table primitives in `tableStyles.ts`. Shared styles are split by concern under `sharedStyles/`, while `styles.ts` provides the stable `S` facade used by components. The Configure / Status toggle switches the body between the editor and `StatusView`, a read-only live-emit table; both views stay mounted (swapped with the `hidden` attribute) so advisor state survives the switch. `FirstRunWizard` is a guided modal that fetches `GET /api/paths`, runs the runtime-neutral `recommend()` from `src/recommendation/` over the observed paths, and proposes the enable-action conversions (grouped by category, pre-checked) plus the preset shortcuts, so its proposals always agree with Review now; Apply stages the enables through the reducer and the user reviews and Saves. A first-run callout above the catalog opens it once the catalog is loaded and the current panel configuration has no enabled catalog conversion. The footer is sticky at the bottom of the viewport, a `beforeunload` guard fires while dirty, and Save / Discard move focus to the save-status element so keyboard focus is not dropped when those buttons disable themselves. Conflict-safe saves: `useConfig` keeps the saved config as a baseline and, when an external `configuration` prop arrives while the panel is dirty (an advisor write or scheduled review), runs a three-way merge (`mergeExternalConfig`) that adopts external changes for every key the user has not touched while keeping the user's edits on conflict, then updates the baseline so the next Save persists the merged result. Semantic no-op actions preserve identity and do not mark the panel dirty.
 
 Federation specifics:
 
-- The webpack config builds a classic (`var`-type) Module Federation container: `remoteEntry.js` assigns the container to the global `window[<safeName>]`. The Signal K admin UI's configurator loader looks the panel up by that global. `package.json` deliberately omits `"type": "module"` so the admin injects `remoteEntry.js` as a classic `<script>` (not `<script type="module">`): a classic script is what makes the bundle's top-level `var` land on `window`.
+- The webpack config builds a classic (`var`-type) Module Federation container: `remoteEntry.js` assigns the container to the global `window[<safeName>]`. The Signal K admin UI's configurator loader looks the panel up by that global. `package.json` explicitly uses `"type": "commonjs"` so the admin injects `remoteEntry.js` as a classic `<script>` (not `<script type="module">`): a classic script is what makes the bundle's top-level `var` land on `window`.
 - Do NOT switch the panel to an ESM federation container (`experiments.outputModule`, `output.module: true`, `library: { type: "module" }`) and do NOT add `"type": "module"` back to `package.json`. v1.5.4 through v1.6.4 shipped exactly that: an ESM container is only loadable by `@signalk/server-admin-ui >= 2.27.0` and failed with a bare "Error loading component" on every older admin UI (issue #8). The classic `var` container loads on all signalk-server 2.x admin UIs.
 - The plugin runtime bundle is `dist/index.mjs`. The explicit `.mjs` extension marks it as ESM for Node now that `package.json` has no `"type": "module"`.
 - Library name: `pkg.name.replace(/[-@/]/g, "_")` (the safe identifier form derived from the package name).
@@ -231,11 +251,11 @@ Source discovery: `enumerateSourcesForPath` uses `app.getSelfPath(path)` because
 
 `PluginManager.recordEmit` aggregates per-conversion emit counters by stripping the `[N]` suffix used for sub-conversion bucket keys (via `stripSubIndex()` from `pathUtils`, also used by `parentKeyFromBucketKey` and the panel), so totals are reported under the parent `optionKey`. The `/api/status` snapshot walks all source-type bucket suffixes (delta, stream, subscription, timer) and matches both parent and sub-conversion key forms so a flaky sub-conversion still surfaces as an error indicator on the parent card.
 
-## Config Advisor (`src/advisor/`)
+## Config Advisor (`src/advisor/` and `src/recommendation/`)
 
 Optional subsystem (added v1.6.0) that reviews observed Signal K paths and recommends which conversions to enable or disable, and flags enabled conversions whose per-path `$source` pin no longer matches a live source. It is dormant unless `advisor.enabled` is set and adds no work to the emit hot path. It is fully deterministic and makes no outbound LLM calls (the earlier optional OpenRouter rationale enrichment was removed). Design spec and the four phase plans are under `docs/superpowers/`.
 
-- `recommender.ts` is the deterministic core: it matches inventory paths to conversions by each module's declared `keys`. Pure, no app, no network. It owns the `action` (`enable` / `disable` / `keep` / `clear-source`). `clear-source` is emitted for an enabled conversion whose configured `sources` pin names a `$source` not among that path's current `liveSources`, in two flavors. When the path is live from some OTHER source, the pin is provably stale (`confidence: "high"`, `origin: "live"`). When the path has NO live source at all but the inventory entry carries QuestDB `historic` (the path was seen in the look-back window), the pin is probably stale (`confidence: "low"`, `origin: "historic"`), since the sensor could merely be powered off; without historic evidence no claim is made, so a history-less dead path is left alone and QuestDB being off suppresses this case rather than nagging every idle pin. The tier is derived post-loop with `staleSources.some((s) => s.liveSources.length > 0)`, not a mutable flag. The recommendation carries `staleSources` (path, the dead pin, and the live sources, empty for the dead-but-historic case).
+- `src/recommendation/recommender.ts` is the deterministic core: it matches inventory paths to conversions by each module's declared `keys`. Pure, no app, no network. It owns the `action` (`enable` / `disable` / `keep` / `clear-source`). `clear-source` is emitted for an enabled conversion whose configured `sources` pin names a `$source` not among that path's current `liveSources`, in two flavors. When the path is live from some OTHER source, the pin is provably stale (`confidence: "high"`, `origin: "live"`). When the path has NO live source at all but the inventory entry carries QuestDB `historic` (the path was seen in the look-back window), the pin is probably stale (`confidence: "low"`, `origin: "historic"`), since the sensor could merely be powered off; without historic evidence no claim is made, so a history-less dead path is left alone and QuestDB being off suppresses this case rather than nagging every idle pin. The tier is derived post-loop with `staleSources.some((s) => s.liveSources.length > 0)`, not a mutable flag. The recommendation carries `staleSources` (path, the dead pin, and the live sources, empty for the dead-but-historic case).
 - `busSource.ts` `isN2KSource(label)` flags a `$source` already on the NMEA 2000 bus (trailing `.<digits>` or the bare `NMEA2000` echo-guard label). It errs toward classifying a source as N2K: a false positive only suppresses a recommendation, a false negative would recommend a conversion that echoes bus data.
 - `inventory.ts` builds the live `PathInventory` (reusing `discovery.ts`, whose `enumerateSourcesForPath` returns the winning `$source` plus every contributor in the path's `values` map) and `mergeHistoric` folds in QuestDB history.
 - `questdb.ts` is a zero-dependency HTTP client (Node 22 global `fetch`) that uses the `withTimeout()` abort-timeout helper in `withTimeout.ts` (one AbortController plus timer per request; retry and backoff stay with the client). QuestDB is optional; every failure falls back to the deterministic result plus a `ReviewResult` note, never a throw.

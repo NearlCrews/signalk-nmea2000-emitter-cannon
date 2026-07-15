@@ -1,14 +1,8 @@
 import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
-import type {
-	ConversionModule,
-	N2KMessage,
-	SignalKApp,
-} from "../types/index.js";
+import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
 import { toUnsignedAngle, toValidNumber } from "../utils/validation.js";
 
-export default function createSetDriftConversion(
-	_app: SignalKApp,
-): ConversionModule {
+export default function createSetDriftConversion(_app: SignalKApp): ConversionModule {
 	return {
 		title: "Set and Drift (PGN 129291)",
 		optionKey: "SET_DRIFT",

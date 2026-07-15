@@ -5,13 +5,18 @@ const pkg = require("./package.json");
 const safeName = pkg.name.replace(/[-@/]/g, "_");
 
 module.exports = {
-	entry: "./src/panel/index.tsx",
+	// The Signal K host loads only the Module Federation container. An ordinary
+	// webpack entry would emit an unused main.js that executes before the host
+	// initializes the shared React scope.
+	entry: {},
 	mode: "production",
 	output: {
 		path: path.resolve(__dirname, "public"),
 		filename: "[name].js",
 		chunkFilename: "[name].js",
-		clean: false,
+		// build:panel is also useful on its own. Clean here so a removed entry or
+		// renamed chunk cannot survive from an earlier build and enter the package.
+		clean: true,
 	},
 	module: {
 		rules: [
@@ -22,7 +27,7 @@ module.exports = {
 				options: {
 					presets: [
 						"@babel/preset-typescript",
-						["@babel/preset-react", { runtime: "automatic" }],
+						["@babel/preset-react", { runtime: "automatic", development: false }],
 					],
 				},
 			},

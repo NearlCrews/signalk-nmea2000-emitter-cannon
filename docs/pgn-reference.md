@@ -14,7 +14,7 @@ silently drifting away from the current PGN definitions.
 ## Navigation and Positioning
 
 | PGN | Description | Module |
-|--------|-------------|--------|
+| -------- | ------------- | -------- |
 | 127245 | Rudder Position | `rudder.ts` |
 | 127250 | Vessel Heading / True Heading | `heading.ts`, `trueheading.ts` |
 | 127251 | Rate of Turn | `rateOfTurn.ts` |
@@ -41,7 +41,7 @@ silently drifting away from the current PGN definitions.
 ## AIS
 
 | PGN | Description | Module |
-|--------|-------------|--------|
+| -------- | ------------- | -------- |
 | 129038 | Class A Position Report | `ais.ts` |
 | 129039 | Class B Position Report | `aisExtended.ts` |
 | 129040 | Class B Extended Position Report | `aisExtended.ts` |
@@ -53,7 +53,7 @@ silently drifting away from the current PGN definitions.
 > **Note on PGN 129802 (AIS Safety Related Broadcast).** ITU-R M.1371 limits AIS
 > safety broadcasts to vessels with a licensed AIS transceiver whose MMSI
 > matches the one published on the bus. Some jurisdictions also require a ship
-> station licence (e.g. FCC in the US). The `AIS_SAFETY_MESSAGE` conversion is
+> station license (e.g. FCC in the US). The `AIS_SAFETY_MESSAGE` conversion is
 > disabled by default; confirm local rules permit transmit on AIS frequencies
 > before enabling. The plugin also requires an upstream Signal K provider
 > publishing `communication.ais.safetyMessage` and a self MMSI on the vessel
@@ -62,7 +62,7 @@ silently drifting away from the current PGN definitions.
 ## Engine and Propulsion
 
 | PGN | Description | Module |
-|--------|-------------|--------|
+| -------- | ------------- | -------- |
 | 127488 | Engine Parameters Rapid Update | `engineParameters.ts` |
 | 127489 | Engine Parameters Dynamic | `engineParameters.ts` |
 | 127493 | Transmission Parameters | `transmissionParameters.ts` |
@@ -78,7 +78,7 @@ on the wire.
 ## Environmental
 
 | PGN | Description | Module | Status |
-|--------|-------------|--------|--------|
+| -------- | ------------- | -------- | -------- |
 | 130306 | Wind Data (apparent, true ground, true water, weather-forecast apparent and boat-referenced true) | `wind.ts`, `windTrueGround.ts`, `windTrueWater.ts`, `windWeatherApparent.ts`, `windWeatherTrue.ts` | Current |
 | 130310 | Environmental Parameters (sea temp legacy) | `seaTemp.ts` | Legacy (still widely supported) |
 | 130311 | Environmental Parameters (atmospheric pressure) | `environmentParameters.ts` | Deprecated, replaced by 130313/130314/130316 |
@@ -126,7 +126,7 @@ default) and meant only for a boat without a real masthead anemometer.
 ## Electrical Systems
 
 | PGN | Description | Module |
-|--------|-------------|--------|
+| -------- | ------------- | -------- |
 | 127505 | Fluid/Tank Level | `tanks.ts` |
 | 127506 | DC Detailed Status (state of charge) | `battery.ts`, `solar.ts` |
 | 127508 | Battery Status (voltage/current) | `battery.ts`, `solar.ts` |
@@ -142,7 +142,7 @@ one of them.
 ## Safety and Communications
 
 | PGN | Description | Module |
-|--------|-------------|--------|
+| -------- | ------------- | -------- |
 | 126464 | PGN List (transmit/receive) | `pgnList.ts` |
 | 126983 | Alert | `notifications.ts` |
 | 126985 | Alert Text | `notifications.ts` |
@@ -160,7 +160,7 @@ when a VHF radio reports an incoming DSC message) and forwards them as PGN
 ## Vendor-Specific
 
 | PGN | Description | Module |
-|--------|-------------|--------|
+| -------- | ------------- | -------- |
 | 65288 | Raymarine (Seatalk) Alarms | `raymarineAlarms.ts` |
 | 126720 | Raymarine Display Brightness | `raymarineBrightness.ts` |
 
@@ -175,7 +175,7 @@ Garmin chartplotters from ageing the device out of their Network panel after
 about 30 s.
 
 | PGN | Description |
-|--------|-------------|
+| -------- | ------------- |
 | 59392 | ISO Acknowledgement |
 | 59904 | ISO Request |
 | 60928 | ISO Address Claim |
@@ -184,7 +184,7 @@ about 30 s.
 
 ## Data Flow
 
-```
+```text
 Signal K deltas (any plugin or device) --> Signal K server bus
                                                 |
                                           this plugin (subscribe + source filter)

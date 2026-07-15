@@ -1,8 +1,4 @@
-import {
-	DEFAULT_DATA_TIMEOUT_MS,
-	N2K_BROADCAST_DST,
-	N2K_DEFAULT_PRIORITY,
-} from "../constants.js";
+import { DEFAULT_DATA_TIMEOUT_MS, N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import type { ConversionModule, N2KMessage } from "../types/index.js";
 import { isValidNumber, toValidNumber } from "../utils/validation.js";
 
@@ -37,11 +33,7 @@ export default function createTransmissionParametersConversion(): ConversionModu
 			"propulsion.main.transmission.oilTemperature",
 		],
 		timeouts: TRANSMISSION_TIMEOUTS,
-		callback: (
-			gear: unknown,
-			oilPressure: unknown,
-			oilTemperature: unknown,
-		): N2KMessage[] => {
+		callback: (gear: unknown, oilPressure: unknown, oilTemperature: unknown): N2KMessage[] => {
 			if (
 				typeof gear !== "string" &&
 				!isValidNumber(oilPressure) &&

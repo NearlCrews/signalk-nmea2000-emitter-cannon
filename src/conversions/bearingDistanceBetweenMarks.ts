@@ -1,8 +1,4 @@
-import {
-	N2K_BROADCAST_DST,
-	N2K_DEFAULT_PRIORITY,
-	N2K_SID_ZERO,
-} from "../constants.js";
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, N2K_SID_ZERO } from "../constants.js";
 import type {
 	ConversionCallback,
 	ConversionModule,
@@ -73,8 +69,7 @@ export default function createBearingDistanceBetweenMarksConversion(
 				bearingReference: "True",
 			};
 
-			if (bearing !== null)
-				fields.bearingOriginToDestination = toUnsignedAngle(bearing);
+			if (bearing !== null) fields.bearingOriginToDestination = toUnsignedAngle(bearing);
 			if (validNextDistance !== null) fields.distance = validNextDistance;
 
 			if (prevType != null) fields.originMarkType = markTypeFor(prevType);

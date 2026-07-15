@@ -4,11 +4,7 @@ import {
 	N2K_DEFAULT_PRIORITY,
 	N2K_SID_ZERO,
 } from "../constants.js";
-import type {
-	ConversionCallback,
-	ConversionModule,
-	SignalKApp,
-} from "../types/index.js";
+import type { ConversionCallback, ConversionModule, SignalKApp } from "../types/index.js";
 import { isValidNumber } from "../utils/validation.js";
 
 interface SatelliteData {
@@ -20,9 +16,7 @@ interface SatelliteData {
 	used?: boolean;
 }
 
-export default function createGnssDataConversions(
-	_app: SignalKApp,
-): ConversionModule<unknown[]>[] {
+export default function createGnssDataConversions(_app: SignalKApp): ConversionModule<unknown[]>[] {
 	return [
 		// GNSS DOPs (PGN 129539)
 		{
@@ -34,10 +28,7 @@ export default function createGnssDataConversions(
 			// and signalk-server does not push them into the streambundle, so
 			// the matching PGN fields (vdop, tdop) are left undefined: canboatjs
 			// encodes that as the spec's "data not available" sentinel.
-			keys: [
-				"navigation.gnss.horizontalDilution",
-				"navigation.gnss.positionDilution",
-			],
+			keys: ["navigation.gnss.horizontalDilution", "navigation.gnss.positionDilution"],
 			timeouts: [DEFAULT_DATA_TIMEOUT_MS, DEFAULT_DATA_TIMEOUT_MS],
 			callback: ((hdop: number | null, pdop: number | null) => {
 				const hdopValue = isValidNumber(hdop) ? hdop : undefined;
@@ -224,8 +215,7 @@ export default function createGnssDataConversions(
 							dst: 255,
 							fields: {
 								sid: N2K_SID_ZERO,
-								rangeResidualMode:
-									"Range residuals were used to calculate data",
+								rangeResidualMode: "Range residuals were used to calculate data",
 								// satsInView tracks the emitted list length, not
 								// the provider's reported count.
 								satsInView: 3,

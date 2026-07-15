@@ -1,9 +1,6 @@
 import type * as React from "react";
 import { extraRows } from "./extraRows";
-import MappingTable, {
-	instanceIdColumn,
-	signalkIdColumn,
-} from "./MappingTable";
+import MappingTable, { instanceIdColumn, signalkIdColumn } from "./MappingTable";
 
 interface Row {
 	signalkId: string;
@@ -40,7 +37,7 @@ export default function InstanceMappingEditor({
 	return (
 		<MappingTable<Row>
 			title={title}
-			helpText={helpText}
+			{...(helpText === undefined ? {} : { helpText })}
 			rows={rows}
 			emptyRow={() => ({ signalkId: "", instanceId: 0 })}
 			onChange={setRows}
@@ -48,11 +45,11 @@ export default function InstanceMappingEditor({
 				signalkIdColumn<Row>({
 					header: idHeader,
 					placeholder: idPlaceholder,
-					ariaLabel: idAriaLabel,
+					...(idAriaLabel === undefined ? {} : { ariaLabel: idAriaLabel }),
 				}),
 				instanceIdColumn<Row>({
 					header: instanceHeader,
-					ariaLabel: instanceAriaLabel,
+					...(instanceAriaLabel === undefined ? {} : { ariaLabel: instanceAriaLabel }),
 				}),
 			]}
 		/>

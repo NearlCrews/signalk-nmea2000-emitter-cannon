@@ -10,11 +10,13 @@
   source filter that points at a decommissioned plugin or a device that no
   longer publishes the path silently rejects every delta and the conversion
   appears to be enabled but emits nothing. Audit with:
+
   ```bash
   curl -s -H "Authorization: Bearer $TOKEN" \
     "http://localhost:3000/signalk/v1/api/vessels/self/<path>" \
     | jq -r '."$source"'
   ```
+
   Compare the result to the filter value saved in the admin UI for that
   conversion.
 

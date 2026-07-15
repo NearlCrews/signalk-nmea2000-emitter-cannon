@@ -1,10 +1,7 @@
 import type * as React from "react";
 import NumberInput from "../NumberInput";
 import { extraRows } from "./extraRows";
-import MappingTable, {
-	instanceIdColumn,
-	signalkIdColumn,
-} from "./MappingTable";
+import MappingTable, { instanceIdColumn, signalkIdColumn } from "./MappingTable";
 
 // signalkId is the final segment of the SK solar charger key (e.g. "0", "1",
 // "mppt-1") under electrical.solar.<id>, not the full SK path. Tank rows use
@@ -20,10 +17,7 @@ interface Props {
 	onChange: (next: Record<string, unknown>) => void;
 }
 
-export default function SolarMappingEditor({
-	value,
-	onChange,
-}: Props): React.ReactElement {
+export default function SolarMappingEditor({ value, onChange }: Props): React.ReactElement {
 	const { rows, setRows } = extraRows<Row>(value, "chargers", onChange);
 	return (
 		<MappingTable<Row>

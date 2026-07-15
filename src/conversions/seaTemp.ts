@@ -1,18 +1,8 @@
-import {
-	N2K_BROADCAST_DST,
-	N2K_DEFAULT_PRIORITY,
-	N2K_SID_ZERO,
-} from "../constants.js";
-import type {
-	ConversionModule,
-	N2KMessage,
-	SignalKApp,
-} from "../types/index.js";
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, N2K_SID_ZERO } from "../constants.js";
+import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
 import { toValidNumber } from "../utils/validation.js";
 
-export default function createSeaTempConversion(
-	_app: SignalKApp,
-): ConversionModule {
+export default function createSeaTempConversion(_app: SignalKApp): ConversionModule {
 	return {
 		title: "Sea Temperature (PGN 130310)",
 		optionKey: "SEA_TEMP",
@@ -23,11 +13,7 @@ export default function createSeaTempConversion(
 			"environment.outside.temperature",
 			"environment.outside.pressure",
 		],
-		callback: (
-			water: unknown,
-			air: unknown,
-			pressure: unknown,
-		): N2KMessage[] => {
+		callback: (water: unknown, air: unknown, pressure: unknown): N2KMessage[] => {
 			const waterTemperature = toValidNumber(water);
 			const outsideTemperature = toValidNumber(air);
 			const atmosphericPressure = toValidNumber(pressure);

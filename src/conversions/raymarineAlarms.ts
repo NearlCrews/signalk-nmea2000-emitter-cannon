@@ -48,9 +48,7 @@ const ALARM_ID_BY_PATH_PREFIX: ReadonlyArray<[prefix: string, id: string]> = [
 	["notifications.steering.autopilot.windShift", "Pilot Wind Shift"],
 ];
 
-const SUBSCRIBED_KEYS: ReadonlyArray<string> = ALARM_ID_BY_PATH_PREFIX.map(
-	([prefix]) => prefix,
-);
+const SUBSCRIBED_KEYS: ReadonlyArray<string> = ALARM_ID_BY_PATH_PREFIX.map(([prefix]) => prefix);
 
 // Seatalk alarm group per alarmId (values must match @canboat/ts-pgns
 // SeatalkAlarmGroup enum verbatim). Autopilot alarms route to the "Autopilot"
@@ -72,9 +70,7 @@ function alarmStatus(state: string, hasSound: boolean): string | undefined {
 	if (isClearState(state)) {
 		return hasSound ? "Alarm condition not met" : undefined;
 	}
-	return hasSound
-		? "Alarm condition met and not silenced"
-		: "Alarm condition met and silenced";
+	return hasSound ? "Alarm condition met and not silenced" : "Alarm condition met and silenced";
 }
 
 function alarmIdForPath(path: string): string | undefined {
@@ -101,11 +97,7 @@ export default function createRaymarineAlarmsConversion(): ConversionModule {
 			}
 
 			const deltaMsg = delta as RaymarineAlarmDelta;
-			if (
-				!deltaMsg.updates ||
-				!Array.isArray(deltaMsg.updates) ||
-				deltaMsg.updates.length === 0
-			) {
+			if (!deltaMsg.updates || !Array.isArray(deltaMsg.updates) || deltaMsg.updates.length === 0) {
 				return [];
 			}
 
@@ -129,11 +121,7 @@ export default function createRaymarineAlarmsConversion(): ConversionModule {
 			// Signal K emits cleared notifications as `value: null`. Without
 			// this guard, reading value.method / value.state below throws a
 			// TypeError and the alarm never clears.
-			if (
-				typeof path !== "string" ||
-				value === null ||
-				typeof value !== "object"
-			) {
+			if (typeof path !== "string" || value === null || typeof value !== "object") {
 				return [...pgns];
 			}
 

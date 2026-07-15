@@ -25,6 +25,6 @@ jobs:
       build-command: npm run build
       # Formatting/lint is already enforced on Linux by ci.yml; skipping it
       # here avoids a CRLF false-positive on the Windows runner.
-      # The plugin requires Node >= 22.12 (see package.json engines), so the
+      # The plugin requires Node >= 22.18 (see package.json engines), so the
       # armv7 / Cerbo GX lane (Node 20, Venus OS) is not a supported target.
       enable-armv7: false

@@ -44,16 +44,11 @@ function flattenConfigEnvelope(raw: unknown): Record<string, unknown> {
  * RootConfig without listing it here is a compile error; no further per-key
  * special case is needed in the loop.
  */
-const NON_CONVERSION_ROOT_KEYS: Record<
-	Exclude<keyof Config, "conversions">,
-	true
-> = {
+const NON_CONVERSION_ROOT_KEYS: Record<Exclude<keyof Config, "conversions">, true> = {
 	globalResendInterval: true,
 	advisor: true,
 };
-const RESERVED_ROOT_KEYS: ReadonlySet<string> = new Set(
-	Object.keys(NON_CONVERSION_ROOT_KEYS),
-);
+const RESERVED_ROOT_KEYS: ReadonlySet<string> = new Set(Object.keys(NON_CONVERSION_ROOT_KEYS));
 
 /** Keep only the string-valued entries of an object; everything else is dropped. */
 function toStringRecord(value: unknown): Record<string, string> {
@@ -197,20 +192,12 @@ function migrateEngineStaticExtras(
 	if (Array.isArray(extras.engines)) return extras;
 
 	const ratedEngineSpeed =
-		typeof extras.ratedEngineSpeed === "number"
-			? extras.ratedEngineSpeed
-			: undefined;
+		typeof extras.ratedEngineSpeed === "number" ? extras.ratedEngineSpeed : undefined;
 	const VIN = typeof extras.VIN === "string" ? extras.VIN : undefined;
 	const softwareVersion =
-		typeof extras.softwareVersion === "string"
-			? extras.softwareVersion
-			: undefined;
+		typeof extras.softwareVersion === "string" ? extras.softwareVersion : undefined;
 
-	if (
-		ratedEngineSpeed === undefined &&
-		VIN === undefined &&
-		softwareVersion === undefined
-	) {
+	if (ratedEngineSpeed === undefined && VIN === undefined && softwareVersion === undefined) {
 		return extras;
 	}
 

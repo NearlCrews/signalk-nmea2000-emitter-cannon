@@ -1,19 +1,9 @@
-import {
-	N2K_BROADCAST_DST,
-	N2K_DEFAULT_PRIORITY,
-	N2K_SID_ZERO,
-} from "../constants.js";
-import type {
-	ConversionModule,
-	N2KMessage,
-	SignalKApp,
-} from "../types/index.js";
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, N2K_SID_ZERO } from "../constants.js";
+import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
 import { toN2KDate } from "../utils/dateUtils.js";
 import { isValidNumber } from "../utils/validation.js";
 
-export default function createMagneticVarianceConversion(
-	_app: SignalKApp,
-): ConversionModule {
+export default function createMagneticVarianceConversion(_app: SignalKApp): ConversionModule {
 	return {
 		title: "Magnetic Variation (PGN 127258)",
 		// The Signal K path and user-facing title use "Variation" (the spec
@@ -23,14 +13,8 @@ export default function createMagneticVarianceConversion(
 		// deliberate and preserved for backward compatibility.
 		optionKey: "MAGNETIC_VARIANCE",
 		category: "navigation",
-		keys: [
-			"navigation.magneticVariation",
-			"navigation.magneticVariationAgeOfService",
-		],
-		callback: (
-			magneticVariation: unknown,
-			ageOfService: unknown,
-		): N2KMessage[] => {
+		keys: ["navigation.magneticVariation", "navigation.magneticVariationAgeOfService"],
+		callback: (magneticVariation: unknown, ageOfService: unknown): N2KMessage[] => {
 			if (!isValidNumber(magneticVariation)) {
 				return [];
 			}

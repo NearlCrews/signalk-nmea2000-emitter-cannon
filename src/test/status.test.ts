@@ -52,18 +52,12 @@ describe("outputStateFor", () => {
 	});
 
 	it("gives plugin inactivity precedence over a stale readiness flag", () => {
-		expect(outputStateFor({ pluginRunning: false, nmea2000Ready: true })).toBe(
-			"inactive",
-		);
+		expect(outputStateFor({ pluginRunning: false, nmea2000Ready: true })).toBe("inactive");
 	});
 
 	it("distinguishes a running plugin that is waiting from one that is ready", () => {
-		expect(outputStateFor({ pluginRunning: true, nmea2000Ready: false })).toBe(
-			"waiting",
-		);
-		expect(outputStateFor({ pluginRunning: true, nmea2000Ready: true })).toBe(
-			"ready",
-		);
+		expect(outputStateFor({ pluginRunning: true, nmea2000Ready: false })).toBe("waiting");
+		expect(outputStateFor({ pluginRunning: true, nmea2000Ready: true })).toBe("ready");
 	});
 });
 
@@ -89,9 +83,7 @@ describe("PluginManager.getStatusSnapshot", () => {
 		// Simulate emits from two sub-conversions of the BATTERY module
 		// (factory creates one sub-conversion per battery instance). The
 		// processToN2K path calls recordEmit() with the indexed sub-key.
-		const recordEmit = (
-			pm as unknown as { recordEmit: (k: string) => void }
-		).recordEmit.bind(pm);
+		const recordEmit = (pm as unknown as { recordEmit: (k: string) => void }).recordEmit.bind(pm);
 		recordEmit("BATTERY[0]");
 		recordEmit("BATTERY[1]");
 		recordEmit("BATTERY[0]");
@@ -196,9 +188,7 @@ describe("PluginManager.throttledError window", () => {
 			vi.advanceTimersByTime(31_000);
 			throttledError(key, "boom");
 			expect(errors).toHaveLength(2);
-			expect(errors[1]).toBe(
-				"boom (1 similar errors suppressed in the last 60s)",
-			);
+			expect(errors[1]).toBe("boom (1 similar errors suppressed in the last 60s)");
 		} finally {
 			vi.useRealTimers();
 		}

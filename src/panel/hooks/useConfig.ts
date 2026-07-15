@@ -1,12 +1,5 @@
 import type * as React from "react";
-import {
-	useCallback,
-	useEffect,
-	useMemo,
-	useReducer,
-	useRef,
-	useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { ConversionMetadata } from "../../api/types.js";
 import { emptyConversionConfig } from "../../config/defaults.js";
 import type { PresetTag } from "../../config/enums.js";
@@ -32,10 +25,7 @@ export type Action =
 // return s` guard each reducer case used to need under noUncheckedIndexedAccess:
 // once we have the entry typed as ConversionConfig, the index dereference is
 // already type-safe.
-function withEntry(
-	s: Config,
-	key: string,
-): { state: Config; entry: ConversionConfig } {
+function withEntry(s: Config, key: string): { state: Config; entry: ConversionConfig } {
 	const existing = s.conversions[key];
 	if (existing) return { state: s, entry: existing };
 	const entry: ConversionConfig = emptyConversionConfig();
@@ -64,11 +54,14 @@ function reducer(state: Config, action: Action): Config {
 			return { ...state, globalResendInterval: action.ms };
 		case "setAdvisor":
 			if (sameConfigValue(state.advisor, action.advisor)) return state;
+			if (action.advisor === undefined) {
+				const next = { ...state };
+				delete next.advisor;
+				return next;
+			}
 			return { ...state, advisor: action.advisor };
 		case "setEnabled": {
-			if (
-				(state.conversions[action.key]?.enabled ?? false) === action.enabled
-			) {
+			if ((state.conversions[action.key]?.enabled ?? false) === action.enabled) {
 				return state;
 			}
 			const { state: s, entry } = withEntry(state, action.key);
@@ -94,10 +87,7 @@ function reducer(state: Config, action: Action): Config {
 			};
 		}
 		case "setSource": {
-			if (
-				(state.conversions[action.key]?.sources[action.path] ?? "") ===
-				action.source
-			) {
+			if ((state.conversions[action.key]?.sources[action.path] ?? "") === action.source) {
 				return state;
 			}
 			const { state: s, entry } = withEntry(state, action.key);
@@ -115,12 +105,7 @@ function reducer(state: Config, action: Action): Config {
 			};
 		}
 		case "setExtras": {
-			if (
-				sameConfigValue(
-					state.conversions[action.key]?.extras ?? {},
-					action.extras,
-				)
-			) {
+			if (sameConfigValue(state.conversions[action.key]?.extras ?? {}, action.extras)) {
 				return state;
 			}
 			const { state: s, entry } = withEntry(state, action.key);
@@ -137,8 +122,7 @@ function reducer(state: Config, action: Action): Config {
 			// keeps re-applying an already active preset from marking the panel
 			// dirty while retaining one shallow copy for a multi-key update.
 			let conversions = state.conversions;
-			const ensure = (key: string): ConversionConfig =>
-				conversions[key] ?? emptyConversionConfig();
+			const ensure = (key: string): ConversionConfig => conversions[key] ?? emptyConversionConfig();
 			const write = (key: string, entry: ConversionConfig): void => {
 				if (conversions === state.conversions) {
 					conversions = { ...state.conversions };
@@ -160,9 +144,8 @@ function reducer(state: Config, action: Action): Config {
 			if (action.preset === "raymarine") {
 				for (const [key, patch] of RAYMARINE_PATCH_ENTRIES) {
 					const entry = ensure(key);
-					const extrasAlreadyApplied = Object.entries(patch).every(
-						([patchKey, patchValue]) =>
-							sameConfigValue(entry.extras[patchKey], patchValue),
+					const extrasAlreadyApplied = Object.entries(patch).every(([patchKey, patchValue]) =>
+						sameConfigValue(entry.extras[patchKey], patchValue),
 					);
 					if (entry.enabled && extrasAlreadyApplied) continue;
 					write(key, {
@@ -172,9 +155,7 @@ function reducer(state: Config, action: Action): Config {
 					});
 				}
 			}
-			return conversions === state.conversions
-				? state
-				: { ...state, conversions };
+			return conversions === state.conversions ? state : { ...state, conversions };
 		}
 	}
 }
@@ -203,11 +184,7 @@ function reducer(state: Config, action: Action): Config {
  * the new reducer state, `theirs` becomes the new baseline, so Save persists
  * the merged config and Discard reverts to the latest external state.
  */
-export function mergeExternalConfig(
-	base: Config,
-	ours: Config,
-	theirs: Config,
-): Config {
+export function mergeExternalConfig(base: Config, ours: Config, theirs: Config): Config {
 	const conversions: Record<string, ConversionConfig> = {};
 	const keys = new Set<string>([
 		...Object.keys(theirs.conversions),
@@ -217,8 +194,7 @@ export function mergeExternalConfig(
 		const ourEntry = ours.conversions[key];
 		// Untouched (ours === base for this key): adopt the external entry, which
 		// may add, change, or drop it. Touched: keep the user's edit verbatim.
-		const entry =
-			ourEntry === base.conversions[key] ? theirs.conversions[key] : ourEntry;
+		const entry = ourEntry === base.conversions[key] ? theirs.conversions[key] : ourEntry;
 		if (entry !== undefined) conversions[key] = entry;
 	}
 	const merged: Config = {
@@ -276,10 +252,7 @@ export function useConfig(initial: unknown): {
 		// cannot stand in for "did anything actually change"; the deep compare
 		// runs here only on a genuine prop change, not per keystroke.
 		if (JSON.stringify(incoming) === JSON.stringify(savedState)) return;
-		const next =
-			state === savedState
-				? incoming
-				: mergeExternalConfig(savedState, state, incoming);
+		const next = state === savedState ? incoming : mergeExternalConfig(savedState, state, incoming);
 		setSavedState(incoming);
 		dispatch({ type: "discard", config: next });
 	}, [incoming, state, savedState]);
@@ -287,10 +260,7 @@ export function useConfig(initial: unknown): {
 }
 
 // Test-only: exercises the setAdvisor reducer case without a React render.
-export function __advisorReducerForTest(
-	state: Config,
-	advisor: Config["advisor"],
-): Config {
+export function __advisorReducerForTest(state: Config, advisor: Config["advisor"]): Config {
 	return reducer(state, { type: "setAdvisor", advisor });
 }
 

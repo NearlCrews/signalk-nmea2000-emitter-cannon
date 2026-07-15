@@ -2,10 +2,7 @@ import { getPGNWithNumber } from "@canboat/ts-pgns";
 import { describe, expect, it } from "vitest";
 import { PGN_SUMMARIES } from "../api/pgnSummaries.js";
 import type { N2KMessage } from "../types/index.js";
-import {
-	CANBOAT_PGN_PRIORITIES,
-	withCanonicalPgnPriority,
-} from "../utils/pgnPriorities.js";
+import { CANBOAT_PGN_PRIORITIES, withCanonicalPgnPriority } from "../utils/pgnPriorities.js";
 
 function definedPriorities(pgn: number): number[] {
 	return (getPGNWithNumber(pgn) ?? [])

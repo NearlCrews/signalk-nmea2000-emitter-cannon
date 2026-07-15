@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-	enumerateActivePaths,
-	enumerateSourcesForPath,
-} from "../api/discovery.js";
+import { enumerateActivePaths, enumerateSourcesForPath } from "../api/discovery.js";
 import type { SignalKApp } from "../types/index.js";
 
 function mockPathsApp(paths: string[]): SignalKApp {
@@ -53,12 +50,9 @@ describe("enumerateSourcesForPath", () => {
 				value: 0.63,
 			},
 		});
-		expect(
-			enumerateSourcesForPath(
-				app,
-				"electrical.batteries.x.capacity.stateOfCharge",
-			),
-		).toEqual(["ConsoleBattery"]);
+		expect(enumerateSourcesForPath(app, "electrical.batteries.x.capacity.stateOfCharge")).toEqual([
+			"ConsoleBattery",
+		]);
 	});
 	it("returns empty when path is missing from the model", () => {
 		expect(enumerateSourcesForPath(mockApp({}), "nope.nope")).toEqual([]);

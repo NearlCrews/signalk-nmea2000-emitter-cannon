@@ -43,21 +43,25 @@ Please include the following information in your report:
 We classify vulnerabilities using the following severity levels:
 
 #### Critical
+
 - Remote code execution
 - Privilege escalation
 - Data loss or corruption
 
 #### High
+
 - Denial of service
 - Information disclosure of sensitive data
 - Authentication bypass
 
 #### Medium
+
 - Cross-site scripting
 - Limited information disclosure
 - Minor security misconfigurations
 
 #### Low
+
 - Issues with minimal security impact
 - Theoretical vulnerabilities requiring unlikely conditions
 
@@ -74,11 +78,13 @@ When using this plugin:
 ## Dependency Security
 
 This project uses:
+
 - `npm audit` for vulnerability scanning
 - Automated dependency updates for security patches
 - Override mechanisms for transitive dependency vulnerabilities
 
 Run security audit:
+
 ```bash
 npm audit
 ```
@@ -86,6 +92,7 @@ npm audit
 ## Signal K Security
 
 This plugin operates within the Signal K server environment. Please also refer to:
+
 - [Signal K Security Documentation](https://signalk.org/documentation/)
 - Signal K server security best practices
 
@@ -112,8 +119,9 @@ Security issues affecting the original [signalk-to-nmea2000](https://github.com/
 ## Contact
 
 For security concerns, please contact:
-- Repository: https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon
-- Issues: https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/issues
+
+- Repository: <https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon>
+- Issues: <https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/issues>
 - Security: Use GitHub Security Advisory feature
 
 Thank you for helping keep Signal K NMEA 2000 Emitter Cannon secure!

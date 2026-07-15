@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { Advisor, type AdvisorDeps } from "../advisor/advisor.js";
-import { isN2KSource } from "../advisor/busSource.js";
 import { buildLiveInventory, mergeHistoric } from "../advisor/inventory.js";
 import { fetchHistoricPaths, QuestDBClient } from "../advisor/questdb.js";
-import { recommend } from "../advisor/recommender.js";
-import type { ApplyDecision } from "../advisor/types.js";
 import type { ConversionMetadata } from "../api/types.js";
 import { DEFAULT_ADVISOR_CONFIG } from "../config/enums.js";
+import { isN2KSource } from "../recommendation/busSource.js";
+import { recommend } from "../recommendation/recommender.js";
+import type { ApplyDecision } from "../recommendation/types.js";
 import type { SignalKApp } from "../types/index.js";
 
 describe("isN2KSource", () => {
@@ -39,9 +39,7 @@ function inventoryApp(): SignalKApp {
 			],
 		},
 		getSelfPath: (p: string) =>
-			p === "navigation.depth.belowTransducer"
-				? { $source: "depth.0" }
-				: { $source: "can0.35" },
+			p === "navigation.depth.belowTransducer" ? { $source: "depth.0" } : { $source: "can0.35" },
 	} as unknown as SignalKApp;
 }
 
@@ -49,9 +47,7 @@ describe("buildLiveInventory", () => {
 	it("returns one entry per active path with its live sources", () => {
 		const inv = buildLiveInventory(inventoryApp());
 		expect(inv).toHaveLength(2);
-		const depth = inv.find(
-			(e) => e.path === "navigation.depth.belowTransducer",
-		);
+		const depth = inv.find((e) => e.path === "navigation.depth.belowTransducer");
 		expect(depth?.live).toBe(true);
 		expect(depth?.liveSources).toEqual(["depth.0"]);
 	});
@@ -96,9 +92,7 @@ describe("recommend", () => {
 
 	it("recommends disabling an enabled conversion whose data is already on the bus", () => {
 		const recs = recommend({
-			inventory: [
-				{ path: "navigation.position", live: true, liveSources: ["can0.35"] },
-			],
+			inventory: [{ path: "navigation.position", live: true, liveSources: ["can0.35"] }],
 			metadata: [meta("GPS", ["navigation.position"])],
 			currentConfig: {
 				GPS: { enabled: true, resend: 0, sources: {}, extras: {} },
@@ -133,10 +127,7 @@ describe("recommend", () => {
 					liveSources: ["depthSounder"],
 				},
 			],
-			metadata: [
-				meta("BATTERY", []),
-				meta("WIND", ["environment.wind.speedApparent"]),
-			],
+			metadata: [meta("BATTERY", []), meta("WIND", ["environment.wind.speedApparent"])],
 			currentConfig: {},
 		});
 		expect(recs).toEqual([]);
@@ -290,9 +281,7 @@ describe("Advisor.runReview", () => {
 
 	it("parks a disable as pending and does not write it", async () => {
 		const deps = advisorDeps({
-			buildInventory: () => [
-				{ path: "navigation.position", live: true, liveSources: ["can0.9"] },
-			],
+			buildInventory: () => [{ path: "navigation.position", live: true, liveSources: ["can0.9"] }],
 			getMetadata: () => [meta("GPS", ["navigation.position"])],
 			readConfig: () => ({
 				conversions: {
@@ -374,10 +363,7 @@ describe("Advisor.applyReview", () => {
 	it("clears the named source pins on an approved clear-source decision", async () => {
 		const deps = advisorDeps({
 			getMetadata: () => [
-				meta("SEA_TEMP", [
-					"environment.water.temperature",
-					"environment.outside.temperature",
-				]),
+				meta("SEA_TEMP", ["environment.water.temperature", "environment.outside.temperature"]),
 			],
 			readConfig: () => ({
 				conversions: {
@@ -398,10 +384,7 @@ describe("Advisor.applyReview", () => {
 				optionKey: "SEA_TEMP",
 				approved: true,
 				action: "clear-source",
-				clearSourcePaths: [
-					"environment.water.temperature",
-					"environment.outside.temperature",
-				],
+				clearSourcePaths: ["environment.water.temperature", "environment.outside.temperature"],
 			},
 		]);
 		const saved = deps.getSaved() as {
@@ -413,10 +396,7 @@ describe("Advisor.applyReview", () => {
 	it("clears only the named path pins on a clear-source decision, leaving others", async () => {
 		const deps = advisorDeps({
 			getMetadata: () => [
-				meta("SEA_TEMP", [
-					"environment.water.temperature",
-					"environment.outside.temperature",
-				]),
+				meta("SEA_TEMP", ["environment.water.temperature", "environment.outside.temperature"]),
 			],
 			readConfig: () => ({
 				conversions: {
@@ -456,9 +436,7 @@ describe("Advisor.applyReview", () => {
 				},
 			}),
 		});
-		await new Advisor(deps).applyReview([
-			{ optionKey: "DEPTH", approved: true, action: "enable" },
-		]);
+		await new Advisor(deps).applyReview([{ optionKey: "DEPTH", approved: true, action: "enable" }]);
 		const saved = deps.getSaved() as {
 			conversions: Record<string, { enabled: boolean }>;
 		};
@@ -519,10 +497,7 @@ describe("QuestDBClient", () => {
 	}
 
 	it("probe returns true on a well-formed response", async () => {
-		const c = new QuestDBClient(
-			{ url: "http://h:9000" },
-			fakeFetch(200, { dataset: [[1]] }),
-		);
+		const c = new QuestDBClient({ url: "http://h:9000" }, fakeFetch(200, { dataset: [[1]] }));
 		expect(await c.probe()).toBe(true);
 	});
 
@@ -562,15 +537,11 @@ describe("fetchHistoricPaths", () => {
 		const responses: Record<string, unknown> = {
 			signalk: {
 				columns: [],
-				dataset: [
-					["navigation.speedThroughWater", 1200, "2026-05-16T09:00:00.000000Z"],
-				],
+				dataset: [["navigation.speedThroughWater", 1200, "2026-05-16T09:00:00.000000Z"]],
 			},
 			signalk_str: {
 				columns: [],
-				dataset: [
-					["navigation.gnss.methodQuality", 30, "2026-05-16T08:00:00.000000Z"],
-				],
+				dataset: [["navigation.gnss.methodQuality", 30, "2026-05-16T08:00:00.000000Z"]],
 			},
 			signalk_position: {
 				columns: [],
@@ -602,9 +573,7 @@ describe("fetchHistoricPaths", () => {
 			ok: true,
 			status: 200,
 			json: async () =>
-				url.includes("signalk_position")
-					? { dataset: [[0, null]] }
-					: { dataset: [] },
+				url.includes("signalk_position") ? { dataset: [[0, null]] } : { dataset: [] },
 		})) as typeof fetch;
 		const client = new QuestDBClient({ url: "http://h:9000" }, fetchImpl);
 		const paths = await fetchHistoricPaths(client, 7);
@@ -626,9 +595,7 @@ describe("mergeHistoric", () => {
 			["navigation.speedThroughWater", { samples: 50, lastSeen: "t2" }],
 		]);
 		const merged = mergeHistoric(live, historic);
-		const wind = merged.find(
-			(e) => e.path === "environment.wind.speedApparent",
-		);
+		const wind = merged.find((e) => e.path === "environment.wind.speedApparent");
 		expect(wind?.historic?.samples).toBe(100);
 		const stw = merged.find((e) => e.path === "navigation.speedThroughWater");
 		expect(stw?.live).toBe(false);
@@ -671,9 +638,7 @@ describe("Advisor.runReview with QuestDB", () => {
 				},
 			}),
 			fetchHistoric: async () =>
-				new Map([
-					["navigation.speedThroughWater", { samples: 9, lastSeen: "t" }],
-				]),
+				new Map([["navigation.speedThroughWater", { samples: 9, lastSeen: "t" }]]),
 		});
 		const result = await new Advisor(deps).runReview();
 		expect(result.autoApplied.map((r) => r.optionKey)).toEqual(["SPEED"]);

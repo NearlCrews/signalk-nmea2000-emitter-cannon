@@ -5,7 +5,7 @@
 [![CI](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/actions/workflows/ci.yml/badge.svg)](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/actions/workflows/ci.yml)
 [![Plugin CI](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/actions/workflows/plugin-ci.yml/badge.svg)](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/actions/workflows/plugin-ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/blob/main/LICENSE)
-[![node](https://img.shields.io/badge/node-%3E%3D22.12-brightgreen.svg)](https://nodejs.org)
+[![node](https://img.shields.io/badge/node-%3E%3D22.18-brightgreen.svg)](https://nodejs.org)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?logo=buymeacoffee&logoColor=black)](https://www.buymeacoffee.com/nearlcrews)
 
 A [Signal K](https://signalk.org) plugin that converts Signal K deltas into
@@ -15,27 +15,27 @@ Garmin ECHOMAP, GPSMAP, and GMI specifications and the canboatjs encoder.
 > Built on the foundation of [`signalk-to-nmea2000`](https://github.com/SignalK/signalk-to-nmea2000)
 > by Scott Bender and the Signal K community.
 
-## What's new in 1.9.0
+## What's new in 1.9.1
 
-- **Correct arbitration priority for every emitted standard PGN.** The transport
-  boundary now applies the Canboat 7.1.0 priority, including variant-specific
-  handling for the SeaTalk Alarm PGN, while proprietary PGNs keep their supplied
-  priority. Transmission Parameters also sends its discrete status as the
-  Canboat-defined empty bit set.
-- **A more resilient configuration panel.** It distinguishes loading, inactive,
-  waiting, and ready states, preserves the conversion catalog after a failed
-  startup, times out stalled status requests, cancels obsolete polling, and bases
-  first-run guidance on the current panel configuration.
-- **A cleaner and more accessible marine UI.** Theme values and component
-  dimensions are tokenized, advisor, conversion, status, toolbar, and wizard
-  styles have focused modules, repeated mapping editors share one primitive, and
-  live-region announcements no longer repeat changing counters.
-- **Current dependencies and a smaller browser entry.** Babel 8, TypeScript 7,
-  CanboatJS, Signal K APIs, React, Vitest, and the build toolchain are current;
-  unused packages and internal exports are gone; and the panel entry is down from
-  64.9 KiB to 15.4 KiB.
+- **A current, enforceable development stack.** Node 22.18, npm 11.18, Biome,
+  typed ESLint, spelling and Markdown checks, dependency boundaries, dead-code
+  analysis, coverage, bundle budgets, package validation, and repository-owned
+  Git hooks now share one release gate. Direct dependencies and GitHub Actions
+  are at their latest compatible releases.
+- **Stronger runtime and panel correctness.** The panel TypeScript project now
+  checks the React sources it was intended to cover, periodic resend work keeps
+  rejected promises inside plugin error handling, and plugin routes use the
+  admin protection Signal K applies to registered routers without reaching into
+  server internals.
+- **A leaner, safer production panel.** Babel uses the production React
+  transform, webpack emits only the federation container and on-demand chunks,
+  standalone builds remove obsolete bundles, and package validation rejects
+  unexpected panel entries.
+- **Clearer architecture and theming.** Runtime-neutral recommendation code now
+  has its own boundary, shared styles are split into focused modules, and input,
+  checkbox, status, table, and disclosure dimensions use semantic CSS tokens.
 
-See the [v1.9.0 changelog entry](CHANGELOG.md#v190) and the
+See the [v1.9.1 changelog entry](CHANGELOG.md#v191) and the
 [full release history](CHANGELOG.md).
 
 ## What it does
@@ -77,8 +77,8 @@ published specifications. It pairs well with sensor-side plugins such as
   and a red-preserving night mode
 - **`$source: 'NMEA2000'` echo guard** on AIS conversions to avoid re-emitting
   received AIS deltas back onto the bus
-- **Strict TypeScript**, pure ESM, a single esbuild bundle with RxJS as the
-  only runtime dependency
+- **Strict TypeScript**, an ESM plugin bundle, and RxJS as the only runtime
+  dependency
 - **Embedded canboatjs round-trip tests** on every conversion module, plus
   advisor, lifecycle, panel, and protocol-boundary unit tests
 
@@ -92,7 +92,7 @@ published specifications. It pairs well with sensor-side plugins such as
 
 - [Signal K server](https://github.com/SignalK/signalk-server) 2.x. The React
   config panel loads on every signalk-server 2.x admin UI.
-- Node.js 22.12 or newer.
+- Node.js 22.18 or newer.
 - A supported NMEA 2000 gateway (for example an Actisense NGT-1 or a Yacht
   Devices YDNR-02) connected so emitted messages reach the bus.
 
@@ -169,10 +169,10 @@ payloads migrate transparently the first time the panel loads them.
 
 ## Development
 
-The published plugin targets Node 22.12 or newer. Development requires Node
-22.18 or newer within the 22.x line, or Node 24.11 or newer, because the Babel
-8 build toolchain uses that engine range. canboatjs and `@canboat/ts-pgns` are
-exercised in the test suite and are not runtime dependencies.
+The published plugin and development toolchain require Node 22.18 or newer.
+The repository pins Node 22.18 and npm 11.18, while CI verifies on Node 24.
+CanboatJS and `@canboat/ts-pgns` are exercised in the test suite and are not
+runtime dependencies.
 
 ```bash
 git clone https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon.git
@@ -181,13 +181,15 @@ npm install
 npm run hooks        # one-time: enable the pre-commit hook
 npm run build        # esbuild plugin bundle plus webpack panel
 npm test             # Vitest suite
-npm run typecheck    # type-check the plugin, the panel, and the tests
-npm run check        # full Biome check
-npm run lint         # Biome linting only
+npm run check        # type-check the plugin, the panel, and the tests
+npm run lint         # code, Markdown, and spelling checks
 npm run format       # Biome auto-format
+npm run verify       # local full verification gate
 ```
 
-Run `npm run check`, `npm run typecheck`, and `npm test` before committing.
+The repository-owned pre-commit hook runs formatting, lint, architecture, and
+dead-code gates. The pre-push hook runs `npm run verify` serially. Run
+`npm run verify:release` before preparing a release.
 See the [development guide](docs/development.md) for the full workflow.
 
 ## License

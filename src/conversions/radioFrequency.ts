@@ -28,11 +28,7 @@ export default function createRadioFrequencyConversion(): ConversionModule {
 			"communication.vhf.txFrequency",
 			"communication.vhf.power",
 		],
-		callback: (
-			rxFreq: unknown,
-			txFreq: unknown,
-			power: unknown,
-		): N2KMessage[] => {
+		callback: (rxFreq: unknown, txFreq: unknown, power: unknown): N2KMessage[] => {
 			const rxFreqHz = normalizeFreq(rxFreq);
 			const txFreqHz = normalizeFreq(txFreq);
 			if (rxFreqHz === null && txFreqHz === null) return [];

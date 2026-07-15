@@ -16,7 +16,10 @@ export const TABLE_STYLES = {
 		marginBottom: 4,
 		color: "var(--skn-text)",
 	},
-	cell: { padding: 6 },
-	actionCell: { padding: 6, paddingLeft: 16 },
-	headCell: { padding: 6, fontWeight: 500 },
+	cell: { padding: "var(--skn-table-cell-padding)" },
+	actionCell: {
+		padding: "var(--skn-table-cell-padding)",
+		paddingLeft: "var(--skn-space-3)",
+	},
+	headCell: { padding: "var(--skn-table-cell-padding)", fontWeight: 500 },
 } satisfies Record<string, CSSProperties>;

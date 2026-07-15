@@ -47,8 +47,7 @@ const INSTANCE_LABELS: Record<number, string> = {
 function buildPgn(engine: EngineStaticEngineConfig): N2KMessage[] {
 	const ratedEngineSpeed = toValidNumber(engine.ratedEngineSpeed);
 	const vinRaw = typeof engine.VIN === "string" ? engine.VIN : "";
-	const softwareIdRaw =
-		typeof engine.softwareVersion === "string" ? engine.softwareVersion : "";
+	const softwareIdRaw = typeof engine.softwareVersion === "string" ? engine.softwareVersion : "";
 	const vin = clampString(vinRaw, MAX_VIN_CHARS);
 	const softwareId = clampString(softwareIdRaw, MAX_SOFTWARE_ID_CHARS);
 
@@ -80,8 +79,7 @@ function buildPgn(engine: EngineStaticEngineConfig): N2KMessage[] {
 function expectedFromEngine(engine: EngineStaticEngineConfig): N2KMessage[] {
 	const ratedEngineSpeed = toValidNumber(engine.ratedEngineSpeed);
 	const vinRaw = typeof engine.VIN === "string" ? engine.VIN : "";
-	const softwareIdRaw =
-		typeof engine.softwareVersion === "string" ? engine.softwareVersion : "";
+	const softwareIdRaw = typeof engine.softwareVersion === "string" ? engine.softwareVersion : "";
 	// Truncate independently of clampString so the embedded round-trip test
 	// catches a regression in clampString itself: if the oracle used
 	// clampString too, a bug that truncated to the wrong width would change
@@ -99,9 +97,7 @@ function expectedFromEngine(engine: EngineStaticEngineConfig): N2KMessage[] {
 	return [{ prio: 2, pgn: 127498, dst: 255, fields }];
 }
 
-export default function createEngineStaticConversion(
-	_app: SignalKApp,
-): ConversionModule {
+export default function createEngineStaticConversion(_app: SignalKApp): ConversionModule {
 	return {
 		title: "Engine Configuration Parameters (PGN 127498)",
 		optionKey: "ENGINE_STATIC",
@@ -141,10 +137,7 @@ export default function createEngineStaticConversion(
 		},
 
 		conversions: (options): SubConversionModule[] | null => {
-			const engines = instanceList<EngineStaticEngineConfig>(
-				options,
-				"engines",
-			);
+			const engines = instanceList<EngineStaticEngineConfig>(options, "engines");
 			if (engines.length === 0) return null;
 
 			return engines.map((engine): SubConversionModule => {

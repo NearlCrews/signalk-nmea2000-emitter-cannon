@@ -1,18 +1,8 @@
-import {
-	N2K_BROADCAST_DST,
-	N2K_DEFAULT_PRIORITY,
-	N2K_SID_ZERO,
-} from "../constants.js";
-import type {
-	ConversionCallback,
-	ConversionModule,
-	SignalKApp,
-} from "../types/index.js";
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, N2K_SID_ZERO } from "../constants.js";
+import type { ConversionCallback, ConversionModule, SignalKApp } from "../types/index.js";
 import { isValidNumber } from "../utils/validation.js";
 
-export default function createHeaveConversion(
-	_app: SignalKApp,
-): ConversionModule<[number | null]> {
+export default function createHeaveConversion(_app: SignalKApp): ConversionModule<[number | null]> {
 	return {
 		title: "Vessel Heave (PGN 127252)",
 		optionKey: "HEAVE",

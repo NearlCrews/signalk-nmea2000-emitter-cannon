@@ -15,27 +15,27 @@
 ## File Structure
 
 **New files:**
-- `src/advisor/types.ts` — shared advisor types: `PathInventoryEntry`, `PathInventory`, `Recommendation`, `ReviewResult`, `ApplyDecision`.
-- `src/advisor/busSource.ts` — `isN2KSource(label)` predicate.
-- `src/advisor/inventory.ts` — `buildLiveInventory(app)`.
-- `src/advisor/recommender.ts` — `recommend(input)` pure function.
-- `src/advisor/advisor.ts` — `Advisor` class: `runReview()`, `applyReview()`.
-- `src/panel/hooks/useAdvisor.ts` — panel hook owning the review/apply API calls.
-- `src/panel/components/advisor/AdvisorPanel.tsx` — the collapsible section.
-- `src/panel/components/advisor/ReviewResultView.tsx` — auto-applied + pending lists.
-- `src/test/advisor.test.ts` — recommender, inventory, busSource, Advisor unit tests.
+- `src/advisor/types.ts`: shared advisor types: `PathInventoryEntry`, `PathInventory`, `Recommendation`, `ReviewResult`, `ApplyDecision`.
+- `src/advisor/busSource.ts`: `isN2KSource(label)` predicate.
+- `src/advisor/inventory.ts`: `buildLiveInventory(app)`.
+- `src/advisor/recommender.ts`: `recommend(input)` pure function.
+- `src/advisor/advisor.ts`: `Advisor` class: `runReview()`, `applyReview()`.
+- `src/panel/hooks/useAdvisor.ts`: panel hook owning the review/apply API calls.
+- `src/panel/components/advisor/AdvisorPanel.tsx`: the collapsible section.
+- `src/panel/components/advisor/ReviewResultView.tsx`: auto-applied + pending lists.
+- `src/test/advisor.test.ts`: recommender, inventory, busSource, Advisor unit tests.
 
 **Modified files:**
-- `src/config/schema.ts` — add the `advisor` config block.
-- `src/api/types.ts` — add advisor request/response types.
-- `src/api/router.ts` — add three advisor endpoints.
-- `src/panel/PluginConfigurationPanel.tsx` — mount `AdvisorPanel`.
-- `src/test/api.test.ts` — add advisor endpoint tests.
+- `src/config/schema.ts`: add the `advisor` config block.
+- `src/api/types.ts`: add advisor request/response types.
+- `src/api/router.ts`: add three advisor endpoints.
+- `src/panel/PluginConfigurationPanel.tsx`: mount `AdvisorPanel`.
+- `src/test/api.test.ts`: add advisor endpoint tests.
 
 **Parallelization for a 3-teammate team:**
-- **Lane A (backend core):** Tasks 3, 4, 5, 6 — `src/advisor/*` and `src/test/advisor.test.ts`.
-- **Lane B (config + API):** Tasks 2, 7, 8 — `src/config/schema.ts`, `src/api/types.ts`, `src/api/router.ts`, `src/test/api.test.ts`.
-- **Lane C (panel):** Tasks 9, 10, 11 — `src/panel/hooks/useAdvisor.ts`, `src/panel/components/advisor/*`, `PluginConfigurationPanel.tsx`.
+- **Lane A (backend core):** Tasks 3, 4, 5, and 6: `src/advisor/*` and `src/test/advisor.test.ts`.
+- **Lane B (config + API):** Tasks 2, 7, and 8: `src/config/schema.ts`, `src/api/types.ts`, `src/api/router.ts`, and `src/test/api.test.ts`.
+- **Lane C (panel):** Tasks 9, 10, and 11: `src/panel/hooks/useAdvisor.ts`, `src/panel/components/advisor/*`, and `PluginConfigurationPanel.tsx`.
 
 Task 1 defines the shared type module and MUST land first; every lane imports from it. After Task 1, the three lanes touch disjoint files and run concurrently. Task 12 is the final integration gate and runs last. Lane B's Task 7 (`api/types.ts`) and Lane A's Task 5 both define types the others import; Task 1 front-loads every cross-lane type so the lanes never edit the same file.
 

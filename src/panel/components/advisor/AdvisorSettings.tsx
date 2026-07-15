@@ -89,9 +89,7 @@ export default function AdvisorSettings({
 		try {
 			const body = await fetchJson<{ ok: boolean }>(path, init);
 			setProbe(
-				body.ok
-					? { phase: "ok", message: okMessage }
-					: { phase: "fail", message: failMessage },
+				body.ok ? { phase: "ok", message: okMessage } : { phase: "fail", message: failMessage },
 			);
 		} catch (err) {
 			setProbe({
@@ -122,8 +120,8 @@ export default function AdvisorSettings({
 				<span style={A.toggleLabel}>Enable the Config Advisor</span>
 			</label>
 			<p style={S.helpHint}>
-				When enabled, the advisor can review on a schedule. The Review now
-				button above always works regardless of this toggle.
+				When enabled, the advisor can review on a schedule. The Review now button above always works
+				regardless of this toggle.
 			</p>
 
 			<label style={checkboxRow}>
@@ -133,29 +131,25 @@ export default function AdvisorSettings({
 					checked={cfg.autoApply}
 					onChange={(e) => patch({ autoApply: e.target.checked })}
 				/>
-				<span style={A.toggleLabel}>
-					Apply recommended enables automatically
-				</span>
+				<span style={A.toggleLabel}>Apply recommended enables automatically</span>
 			</label>
 			<p style={S.helpHint}>
-				When on, a review enables recommended conversions for you right away.
-				When off, those enables wait for your approval. Recommendations that
-				disable a conversion always wait for your approval.
+				When on, a review enables recommended conversions for you right away. When off, those
+				enables wait for your approval. Recommendations that disable a conversion always wait for
+				your approval.
 			</p>
 
 			<div style={A.subhead}>QuestDB history (optional)</div>
 			<p style={S.helpHint}>
-				If you run QuestDB with Signal K history, the advisor can also see paths
-				that are not live right now. Leave disabled if you do not run QuestDB.
+				If you run QuestDB with Signal K history, the advisor can also see paths that are not live
+				right now. Leave disabled if you do not run QuestDB.
 			</p>
 			<label style={checkboxRow}>
 				<input
 					type="checkbox"
 					style={S.checkbox}
 					checked={cfg.questdb.enabled}
-					onChange={(e) =>
-						patch({ questdb: { ...cfg.questdb, enabled: e.target.checked } })
-					}
+					onChange={(e) => patch({ questdb: { ...cfg.questdb, enabled: e.target.checked } })}
 				/>
 				<span style={A.toggleLabel}>Use QuestDB history</span>
 			</label>
@@ -165,9 +159,7 @@ export default function AdvisorSettings({
 					type="text"
 					style={S.input}
 					value={cfg.questdb.url}
-					onChange={(e) =>
-						patch({ questdb: { ...cfg.questdb, url: e.target.value } })
-					}
+					onChange={(e) => patch({ questdb: { ...cfg.questdb, url: e.target.value } })}
 					aria-label="QuestDB REST URL"
 				/>
 				<button
@@ -181,8 +173,7 @@ export default function AdvisorSettings({
 				<ProbeStatus probe={questdbTest} />
 			</div>
 			<p style={S.helpHint}>
-				Test connection checks the saved URL. If you just changed it, Save
-				first.
+				Test connection checks the saved URL. If you just changed it, Save first.
 			</p>
 			<div style={S.fieldRow}>
 				<span style={S.label}>History look-back (days)</span>
@@ -198,14 +189,14 @@ export default function AdvisorSettings({
 				/>
 			</div>
 			<p style={S.helpHint}>
-				How far into QuestDB history to search for paths that are not live right
-				now. Longer catches seasonal gear; shorter is faster.
+				How far into QuestDB history to search for paths that are not live right now. Longer catches
+				seasonal gear; shorter is faster.
 			</p>
 
 			<div style={A.subhead}>Scheduled review</div>
 			<p style={S.helpHint}>
-				Re-run the review automatically on an interval. The Review now button
-				always works on demand regardless of this setting.
+				Re-run the review automatically on an interval. The Review now button always works on demand
+				regardless of this setting.
 			</p>
 			<label style={checkboxRow}>
 				<input

@@ -29,9 +29,7 @@ interface EngineTripConfig {
 
 type TripInputs = [number | null, number | null, number | null, number | null];
 
-export default function createEngineTripConversion(
-	_app: SignalKApp,
-): ConversionModule {
+export default function createEngineTripConversion(_app: SignalKApp): ConversionModule {
 	return {
 		title: "Engine Trip Parameters (PGN 127497)",
 		optionKey: "ENGINE_TRIP",
@@ -61,18 +59,14 @@ export default function createEngineTripConversion(
 					fuelRateEconomy,
 					instantaneousFuelEconomy,
 				) => {
-					const tripFuelUsed = isValidNumber(fuelUsed)
-						? fuelUsed * M3_TO_L
-						: null;
+					const tripFuelUsed = isValidNumber(fuelUsed) ? fuelUsed * M3_TO_L : null;
 					const fuelRateAverageLph = isValidNumber(fuelRateAverage)
 						? fuelRateAverage * M3PS_TO_LPH
 						: null;
 					const fuelRateEconomyLph = isValidNumber(fuelRateEconomy)
 						? fuelRateEconomy * M3PS_TO_LPH
 						: null;
-					const instantaneousFuelEconomyLph = isValidNumber(
-						instantaneousFuelEconomy,
-					)
+					const instantaneousFuelEconomyLph = isValidNumber(instantaneousFuelEconomy)
 						? instantaneousFuelEconomy * M3PS_TO_LPH
 						: null;
 
@@ -97,8 +91,7 @@ export default function createEngineTripConversion(
 								tripFuelUsed: tripFuelUsed ?? undefined,
 								fuelRateAverage: fuelRateAverageLph ?? undefined,
 								fuelRateEconomy: fuelRateEconomyLph ?? undefined,
-								instantaneousFuelEconomy:
-									instantaneousFuelEconomyLph ?? undefined,
+								instantaneousFuelEconomy: instantaneousFuelEconomyLph ?? undefined,
 							},
 						},
 					];

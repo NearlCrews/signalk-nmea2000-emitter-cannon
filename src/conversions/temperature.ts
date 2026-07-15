@@ -1,14 +1,7 @@
 import { raymarinePresetsFor } from "../config/raymarinePreset.js";
-import {
-	N2K_BROADCAST_DST,
-	N2K_DEFAULT_PRIORITY,
-	N2K_DEFAULT_SID,
-} from "../constants.js";
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, N2K_DEFAULT_SID } from "../constants.js";
 import type { ConversionModule, N2KMessage } from "../types/index.js";
-import {
-	isValidNumber,
-	resolveInstanceAndSource,
-} from "../utils/validation.js";
+import { isValidNumber, resolveInstanceAndSource } from "../utils/validation.js";
 
 export interface TemperatureInfo {
 	n2kSource: string;
@@ -58,18 +51,10 @@ function makeTemperatureConversion(
 		// Flat option shape, matching production: `instance` and `n2kSource` are
 		// read directly off the options object. The third case exercises the
 		// source-type override (used by the Raymarine remap).
-		testOptions: [
-			{ instance: 0 },
-			{},
-			{ instance: 5, n2kSource: "Inside Temperature" },
-		],
+		testOptions: [{ instance: 0 }, {}, { instance: 5, n2kSource: "Inside Temperature" }],
 
 		conversions: (options: unknown) => {
-			const { instance, source } = resolveInstanceAndSource(
-				options,
-				info.instance,
-				info.n2kSource,
-			);
+			const { instance, source } = resolveInstanceAndSource(options, info.instance, info.n2kSource);
 
 			return [
 				{
@@ -79,15 +64,7 @@ function makeTemperatureConversion(
 							return [];
 						}
 
-						return [
-							createTemperatureMessage(
-								pgn,
-								tempFieldName,
-								temperature,
-								instance,
-								source,
-							),
-						];
+						return [createTemperatureMessage(pgn, tempFieldName, temperature, instance, source)];
 					},
 					tests: [
 						{
@@ -99,13 +76,7 @@ function makeTemperatureConversion(
 										info.instance,
 										info.n2kSource,
 									);
-									return createTemperatureMessage(
-										pgn,
-										tempFieldName,
-										281.2,
-										i,
-										s,
-									);
+									return createTemperatureMessage(pgn, tempFieldName, 281.2, i, s);
 								},
 							],
 						},

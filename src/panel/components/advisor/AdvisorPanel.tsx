@@ -1,8 +1,8 @@
 import type * as React from "react";
 import { useEffect, useState } from "react";
-import type { ApplyDecision, Recommendation } from "../../../advisor/types.js";
 import type { ConversionMetadata } from "../../../api/types.js";
 import type { Config } from "../../../config/schema.js";
+import type { ApplyDecision, Recommendation } from "../../../recommendation/types.js";
 import { ADVISOR_STYLES as A } from "../../advisorStyles";
 import { useAdvisor } from "../../hooks/useAdvisor.js";
 import { plural } from "../../recency";
@@ -110,10 +110,9 @@ export default function AdvisorPanel({
 				}
 			>
 				<p style={A.intro}>
-					Reviews the Signal K paths your boat publishes and recommends which
-					conversions to enable or disable. Recommended enables apply
-					automatically unless you turn that off in Advisor settings below;
-					disables always wait for your approval.
+					Reviews the Signal K paths your boat publishes and recommends which conversions to enable
+					or disable. Recommended enables apply automatically unless you turn that off in Advisor
+					settings below; disables always wait for your approval.
 				</p>
 				<button
 					type="button"
@@ -126,14 +125,12 @@ export default function AdvisorPanel({
 				{dirty && (
 					<p style={S.note}>
 						<span style={S.notePrefix}>Heads up:</span>
-						Save or discard your changes first. A review rewrites the saved
-						configuration.
+						Save or discard your changes first. A review rewrites the saved configuration.
 					</p>
 				)}
 				{advisorSettingsDirty && (
 					<p style={S.helpHint}>
-						Unsaved advisor settings above will not affect a review until you
-						Save.
+						Unsaved advisor settings above will not affect a review until you Save.
 					</p>
 				)}
 				{state.error && (

@@ -10,11 +10,7 @@ let rowIdSeq = 0;
 
 export interface Column<T> {
 	header: string;
-	render: (
-		row: T,
-		onChange: (next: T) => void,
-		available: string[],
-	) => React.ReactElement;
+	render: (row: T, onChange: (next: T) => void, available: string[]) => React.ReactElement;
 }
 
 // Single-line text column keyed by an arbitrary string field of the row.
@@ -138,7 +134,8 @@ export default function MappingTable<T>(props: Props<T>): React.ReactElement {
 					</thead>
 					<tbody>
 						{props.rows.map((row, i) => {
-							const rowId = ids[i];
+							const rowId = ids[i] ?? `skn-row-${rowIdSeq++}`;
+							ids[i] = rowId;
 							const armed = confirmId === rowId;
 							return (
 								<tr key={rowId}>
@@ -158,9 +155,7 @@ export default function MappingTable<T>(props: Props<T>): React.ReactElement {
 									<td style={T.actionCell}>
 										<button
 											type="button"
-											style={
-												armed ? S.btnDestructiveSmArmed : S.btnDestructiveSm
-											}
+											style={armed ? S.btnDestructiveSmArmed : S.btnDestructiveSm}
 											onClick={() => {
 												if (armed) removeRow(i);
 												else setConfirmId(rowId);
@@ -168,11 +163,7 @@ export default function MappingTable<T>(props: Props<T>): React.ReactElement {
 											onBlur={() => {
 												if (armed) setConfirmId(null);
 											}}
-											aria-label={
-												armed
-													? `Confirm removing row ${i + 1}`
-													: `Remove row ${i + 1}`
-											}
+											aria-label={armed ? `Confirm removing row ${i + 1}` : `Remove row ${i + 1}`}
 										>
 											{armed ? "Confirm remove" : "Remove"}
 										</button>

@@ -37,9 +37,7 @@ export default function NumberInput(props: Props): React.ReactElement {
 		}
 		const n = Number(raw);
 		props.onChange(
-			Number.isFinite(n)
-				? clamp(Math.trunc(n), min, max ?? Number.POSITIVE_INFINITY)
-				: min,
+			Number.isFinite(n) ? clamp(Math.trunc(n), min, max ?? Number.POSITIVE_INFINITY) : min,
 		);
 	};
 

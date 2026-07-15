@@ -19,10 +19,7 @@ interface Props {
 	onChange: (next: Record<string, unknown>) => void;
 }
 
-export default function BrightnessMappingEditor({
-	value,
-	onChange,
-}: Props): React.ReactElement {
+export default function BrightnessMappingEditor({ value, onChange }: Props): React.ReactElement {
 	const { rows, setRows } = extraRows<Row>(value, "groups", onChange);
 	return (
 		<MappingTable<Row>
@@ -50,14 +47,9 @@ export default function BrightnessMappingEditor({
 							onChange={(e) => set({ ...r, groupLabel: e.target.value })}
 							aria-label="NMEA 2000 brightness group label"
 						>
-							{r.groupLabel === "" ? (
-								<option value="">Select a group</option>
-							) : null}
-							{!SEATALK_NETWORK_GROUPS.includes(r.groupLabel) &&
-							r.groupLabel !== "" ? (
-								<option value={r.groupLabel}>
-									{r.groupLabel} (not a known group)
-								</option>
+							{r.groupLabel === "" ? <option value="">Select a group</option> : null}
+							{!SEATALK_NETWORK_GROUPS.includes(r.groupLabel) && r.groupLabel !== "" ? (
+								<option value={r.groupLabel}>{r.groupLabel} (not a known group)</option>
 							) : null}
 							{SEATALK_NETWORK_GROUPS.map((g) => (
 								<option key={g} value={g}>

@@ -4,11 +4,7 @@ import { PGN_SUMMARIES } from "../api/pgnSummaries.js";
 import { RootConfig } from "../config/schema.js";
 import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import { createConversionModules } from "../conversions/index.js";
-import type {
-	ConversionModule,
-	SignalKApp,
-	SignalKPlugin,
-} from "../types/index.js";
+import type { ConversionModule, SignalKApp, SignalKPlugin } from "../types/index.js";
 import { cleanN2KMessage, validateN2KMessage } from "../utils/messageUtils.js";
 import { isDefined } from "../utils/pathUtils.js";
 import { withCanonicalPgnPriority } from "../utils/pgnPriorities.js";
@@ -101,9 +97,7 @@ describe("Conversion modules", () => {
 
 	it("should have tests for every conversion", () => {
 		for (const conversion of conversions) {
-			const conversionArray = Array.isArray(conversion)
-				? conversion
-				: [conversion];
+			const conversionArray = Array.isArray(conversion) ? conversion : [conversion];
 
 			for (const conv of conversionArray) {
 				// Get sub-conversions
@@ -129,14 +123,10 @@ describe("Conversion modules", () => {
 
 	it("should execute all conversion tests", async () => {
 		for (const conversion of conversions) {
-			const conversionArray = Array.isArray(conversion)
-				? conversion
-				: [conversion];
+			const conversionArray = Array.isArray(conversion) ? conversion : [conversion];
 
 			for (const conv of conversionArray) {
-				const optionsList = Array.isArray(conv.testOptions)
-					? conv.testOptions
-					: [conv.testOptions];
+				const optionsList = Array.isArray(conv.testOptions) ? conv.testOptions : [conv.testOptions];
 
 				for (const [_optionIndex, options] of optionsList.entries()) {
 					// Get sub-conversions
@@ -176,9 +166,7 @@ describe("Conversion modules", () => {
 
 									const results = await Promise.resolve(result);
 									if (!Array.isArray(results)) {
-										throw new Error(
-											`Expected array but got: ${typeof results}`,
-										);
+										throw new Error(`Expected array but got: ${typeof results}`);
 									}
 
 									const validResults = results.filter(isDefined);
@@ -207,9 +195,7 @@ describe("Conversion modules", () => {
 										// canboatjs accepts plain PGN JSON at runtime, but its declaration
 										// exposes only the generated PGN class hierarchy.
 										const encoded = pgnToActisenseSerialFormat(
-											wirePgn as unknown as Parameters<
-												typeof pgnToActisenseSerialFormat
-											>[0],
+											wirePgn as unknown as Parameters<typeof pgnToActisenseSerialFormat>[0],
 										);
 										expect(encoded).toBeTruthy();
 
@@ -237,19 +223,12 @@ describe("Conversion modules", () => {
 
 										// Handle preprocessing if defined
 										if ("__preprocess__" in expected) {
-											const expectedWithPreprocess = expected as Record<
-												string,
-												unknown
-											> & {
-												__preprocess__?: (
-													testResult: Record<string, unknown>,
-												) => void;
+											const expectedWithPreprocess = expected as Record<string, unknown> & {
+												__preprocess__?: (testResult: Record<string, unknown>) => void;
 											};
 											const preprocess = expectedWithPreprocess.__preprocess__;
 											if (typeof preprocess === "function") {
-												preprocess(
-													cleanParsed as unknown as Record<string, unknown>,
-												);
+												preprocess(cleanParsed as unknown as Record<string, unknown>);
 											}
 											delete expectedWithPreprocess.__preprocess__;
 										}

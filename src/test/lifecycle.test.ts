@@ -8,12 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RootConfig } from "../config/schema.js";
 import createPlugin from "../index.js";
 import { PluginManager } from "../plugin-manager.js";
-import type {
-	N2KMessage,
-	PluginOptions,
-	SignalKApp,
-	SignalKPlugin,
-} from "../types/index.js";
+import type { N2KMessage, PluginOptions, SignalKApp, SignalKPlugin } from "../types/index.js";
 
 /* ------------------------------------------------------------------ *
  * Mock SignalKApp
@@ -179,10 +174,8 @@ function createMockSignalKApp(): MockSignalKApp {
 			if (!set) return;
 			for (const cb of set) cb(data);
 		},
-		streamListenerCount: () =>
-			Array.from(streamListeners.values()).reduce((n, s) => n + s.size, 0),
-		eventListenerCount: () =>
-			Array.from(eventListeners.values()).reduce((n, s) => n + s.size, 0),
+		streamListenerCount: () => Array.from(streamListeners.values()).reduce((n, s) => n + s.size, 0),
+		eventListenerCount: () => Array.from(eventListeners.values()).reduce((n, s) => n + s.size, 0),
 		subscriptionCallCount: () => subscriptionCalls.length,
 		firstSubscription: () => subscriptionCalls[0]?.subscription,
 		emittedMessages,
@@ -271,12 +264,8 @@ describe("PluginManager lifecycle", () => {
 		} as unknown as PluginOptions);
 
 		// Not ready yet: status is the waiting form, not the running form.
-		expect(mock.statusUpdates).toContain(
-			"Waiting for NMEA 2000 output (1 conversions enabled)",
-		);
-		expect(mock.statusUpdates).not.toContain(
-			"Running with 1 conversions enabled",
-		);
+		expect(mock.statusUpdates).toContain("Waiting for NMEA 2000 output (1 conversions enabled)");
+		expect(mock.statusUpdates).not.toContain("Running with 1 conversions enabled");
 
 		// A delta arriving before readiness is dropped, not emitted onto a bus
 		// that is not up.
@@ -295,9 +284,7 @@ describe("PluginManager lifecycle", () => {
 		mock.pushStream("environment.wind.speedApparent", { value: 2.1 });
 		await flush();
 		expect(mock.emittedMessages.length).toBeGreaterThanOrEqual(1);
-		expect(mock.emittedMessages[mock.emittedMessages.length - 1]?.pgn).toBe(
-			130306,
-		);
+		expect(mock.emittedMessages[mock.emittedMessages.length - 1]?.pgn).toBe(130306);
 
 		readyManager.stop();
 	});
@@ -518,9 +505,7 @@ describe("PluginManager lifecycle", () => {
 
 		// Replace getSelfPath with a thrower to force the callback's inner
 		// try/catch into the catch branch on the next tick.
-		(
-			mock.app as unknown as { getSelfPath: (p: string) => unknown }
-		).getSelfPath = () => {
+		(mock.app as unknown as { getSelfPath: (p: string) => unknown }).getSelfPath = () => {
 			throw new Error("boom from getSelfPath");
 		};
 
@@ -528,9 +513,7 @@ describe("PluginManager lifecycle", () => {
 		await flush();
 
 		// Conversion's try/catch inside depth.ts logs via app.error and returns [].
-		expect(
-			mock.loggedErrors.some((m) => m.includes("boom from getSelfPath")),
-		).toBe(true);
+		expect(mock.loggedErrors.some((m) => m.includes("boom from getSelfPath"))).toBe(true);
 
 		// stop() must still tear everything down without throwing.
 		expect(() => manager.stop()).not.toThrow();
@@ -545,9 +528,7 @@ describe("PluginManager lifecycle", () => {
 		} as unknown as PluginOptions;
 
 		manager.start(options);
-		(
-			mock.app as unknown as { getSelfPath: (p: string) => unknown }
-		).getSelfPath = () => 0;
+		(mock.app as unknown as { getSelfPath: (p: string) => unknown }).getSelfPath = () => 0;
 
 		mock.pushStream("environment.depth.belowTransducer", { value: 5 });
 		await flush();
@@ -577,8 +558,7 @@ describe("createPlugin NMEA 2000 readiness seeding", () => {
 
 	it("applies the canonical PGN priority at the emit boundary", async () => {
 		const mock = createMockSignalKApp();
-		(mock.app as { isNmea2000OutAvailable?: boolean }).isNmea2000OutAvailable =
-			true;
+		(mock.app as { isNmea2000OutAvailable?: boolean }).isNmea2000OutAvailable = true;
 		const plugin = createPlugin(mock.app);
 		plugin.start(
 			{
@@ -604,8 +584,7 @@ describe("createPlugin NMEA 2000 readiness seeding", () => {
 		// registration-time snapshot is the only readiness signal. createPlugin
 		// must seed from it, otherwise processToN2K drops every PGN.
 		const mock = createMockSignalKApp();
-		(mock.app as { isNmea2000OutAvailable?: boolean }).isNmea2000OutAvailable =
-			true;
+		(mock.app as { isNmea2000OutAvailable?: boolean }).isNmea2000OutAvailable = true;
 
 		const plugin = createPlugin(mock.app);
 		plugin.start(

@@ -61,10 +61,7 @@ export default function createEngineParametersConversions(
 			},
 
 			conversions: (options: unknown) => {
-				const engines = instanceList<ExhaustTempEngineConfig>(
-					options,
-					"engines",
-				);
+				const engines = instanceList<ExhaustTempEngineConfig>(options, "engines");
 				if (engines.length === 0) return null;
 
 				return engines.map((engine) => ({
@@ -127,14 +124,10 @@ export default function createEngineParametersConversions(
 				if (engines.length === 0) return null;
 
 				const engParTimeouts = engParKeys.map(() => DEFAULT_DATA_TIMEOUT_MS);
-				const engRapidTimeouts = engRapidKeys.map(
-					() => DEFAULT_DATA_TIMEOUT_MS,
-				);
+				const engRapidTimeouts = engRapidKeys.map(() => DEFAULT_DATA_TIMEOUT_MS);
 
 				const dyn = engines.map((engine) => ({
-					keys: engParKeys.map(
-						(key) => `propulsion.${engine.signalkId}.${key}`,
-					),
+					keys: engParKeys.map((key) => `propulsion.${engine.signalkId}.${key}`),
 					timeouts: engParTimeouts,
 					callback: ((
 						oilPres: number | null,
@@ -152,16 +145,12 @@ export default function createEngineParametersConversions(
 						const oilTemperature = toValidNumber(oilTemp);
 						const temperature = toValidNumber(temp);
 						const alternatorPotential = toValidNumber(altVolt);
-						const fuelRateConverted = isValidNumber(fuelRate)
-							? fuelRate * M3PS_TO_LPH
-							: null;
+						const fuelRateConverted = isValidNumber(fuelRate) ? fuelRate * M3PS_TO_LPH : null;
 						const totalEngineHours = toValidNumber(runTime);
 						const coolantPressure = toValidNumber(coolPres);
 						const fuelPressure = toValidNumber(fuelPres);
 						const engineLoad = isValidNumber(engLoad) ? engLoad * 100 : null;
-						const engineTorque = isValidNumber(engTorque)
-							? engTorque * 100
-							: null;
+						const engineTorque = isValidNumber(engTorque) ? engTorque * 100 : null;
 
 						return [
 							{
@@ -201,10 +190,7 @@ export default function createEngineParametersConversions(
 					>,
 					tests: [
 						{
-							input: [
-								102733, 210, 220, 13.1, 0.0001, 201123, 202133, 11111111, 0.5,
-								1.0,
-							],
+							input: [102733, 210, 220, 13.1, 0.0001, 201123, 202133, 11111111, 0.5, 1.0],
 							expected: [
 								{
 									prio: 2,
@@ -232,9 +218,7 @@ export default function createEngineParametersConversions(
 				}));
 
 				const rapid = engines.map((engine) => ({
-					keys: engRapidKeys.map(
-						(key) => `propulsion.${engine.signalkId}.${key}`,
-					),
+					keys: engRapidKeys.map((key) => `propulsion.${engine.signalkId}.${key}`),
 					timeouts: engRapidTimeouts,
 					callback: ((
 						revolutions: number | null,
@@ -258,9 +242,7 @@ export default function createEngineParametersConversions(
 								},
 							},
 						];
-					}) as ConversionCallback<
-						[number | null, number | null, number | null]
-					>,
+					}) as ConversionCallback<[number | null, number | null, number | null]>,
 					tests: [
 						{
 							// 30 rev/s = 1800 RPM, a realistic cruising engine speed that

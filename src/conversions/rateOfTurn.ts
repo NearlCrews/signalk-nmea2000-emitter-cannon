@@ -1,18 +1,8 @@
-import {
-	N2K_BROADCAST_DST,
-	N2K_DEFAULT_PRIORITY,
-	N2K_SID_ZERO,
-} from "../constants.js";
-import type {
-	ConversionModule,
-	N2KMessage,
-	SignalKApp,
-} from "../types/index.js";
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, N2K_SID_ZERO } from "../constants.js";
+import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
 import { isValidNumber } from "../utils/validation.js";
 
-export default function createRateOfTurnConversion(
-	_app: SignalKApp,
-): ConversionModule {
+export default function createRateOfTurnConversion(_app: SignalKApp): ConversionModule {
 	return {
 		title: "Rate of Turn (PGN 127251)",
 		optionKey: "RATE_OF_TURN",

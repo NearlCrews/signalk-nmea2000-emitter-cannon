@@ -1,9 +1,6 @@
-import {
-	enumerateActivePaths,
-	enumerateSourcesForPath,
-} from "../api/discovery.js";
+import { enumerateActivePaths, enumerateSourcesForPath } from "../api/discovery.js";
+import type { HistoricPaths, PathInventory } from "../recommendation/types.js";
 import type { SignalKApp } from "../types/index.js";
-import type { HistoricPaths, PathInventory } from "./types.js";
 
 /**
  * Snapshot of every Signal K path the local server currently publishes,
@@ -23,10 +20,7 @@ export function buildLiveInventory(app: SignalKApp): PathInventory {
  * `historic` stats, and a path seen only in history is appended as a
  * non-live entry. The result is sorted by path for stable output.
  */
-export function mergeHistoric(
-	live: PathInventory,
-	historic: HistoricPaths,
-): PathInventory {
+export function mergeHistoric(live: PathInventory, historic: HistoricPaths): PathInventory {
 	const byPath = new Map(live.map((e) => [e.path, { ...e }]));
 	for (const [path, stats] of historic) {
 		const existing = byPath.get(path);

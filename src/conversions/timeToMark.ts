@@ -1,13 +1,5 @@
-import {
-	N2K_BROADCAST_DST,
-	N2K_DEFAULT_PRIORITY,
-	N2K_SID_ZERO,
-} from "../constants.js";
-import type {
-	ConversionModule,
-	N2KFieldValue,
-	N2KMessage,
-} from "../types/index.js";
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, N2K_SID_ZERO } from "../constants.js";
+import type { ConversionModule, N2KFieldValue, N2KMessage } from "../types/index.js";
 import { toValidNumber } from "../utils/validation.js";
 import { markTypeFor } from "./routeTypes.js";
 

@@ -15,10 +15,8 @@
 
 ## Verification
 
-- [ ] `npm test` passes
-- [ ] `npm run typecheck` passes
-- [ ] `npm run check` (Biome) passes
-- [ ] `npm run build` passes
+- [ ] `npm run verify` passes
+- [ ] Documentation and package metadata are updated where needed
 
 ## PGN / Signal K paths affected
 

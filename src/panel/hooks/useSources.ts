@@ -32,9 +32,7 @@ export function useSources(): {
 	sourcesFor: (path: string) => string[];
 	ensureLoaded: (path: string) => Promise<void>;
 } {
-	const cache = useRef<Map<string, { ts: number; sources: string[] }>>(
-		new Map(),
-	);
+	const cache = useRef<Map<string, { ts: number; sources: string[] }>>(new Map());
 	const pending = useRef<Map<string, Promise<void>>>(new Map());
 	const cancelled = useRef(false);
 	const [, force] = useState(0);
@@ -68,10 +66,7 @@ export function useSources(): {
 				// Skip the re-render when the source list is unchanged: TTL-driven
 				// refreshes that return the same content otherwise trigger a
 				// pointless re-render of every SourceField that called us.
-				if (
-					!cancelled.current &&
-					(prev === undefined || !sameSources(prev, body.sources))
-				) {
+				if (!cancelled.current && (prev === undefined || !sameSources(prev, body.sources))) {
 					force((n) => n + 1);
 				}
 			} catch {
@@ -90,10 +85,7 @@ export function useSources(): {
 		return p;
 	}, []);
 
-	const sourcesFor = useCallback(
-		(path: string) => cache.current.get(path)?.sources ?? [],
-		[],
-	);
+	const sourcesFor = useCallback((path: string) => cache.current.get(path)?.sources ?? [], []);
 
 	return { sourcesFor, ensureLoaded };
 }

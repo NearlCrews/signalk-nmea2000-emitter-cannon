@@ -45,9 +45,7 @@ const mockPlugin: SignalKPlugin = {
 
 describe("pathToPropName", () => {
 	it("collapses dots in a Signal K path", () => {
-		expect(pathToPropName("environment.wind.angleApparent")).toBe(
-			"environmentwindangleApparent",
-		);
+		expect(pathToPropName("environment.wind.angleApparent")).toBe("environmentwindangleApparent");
 		expect(pathToPropName("a.b.c")).toBe("abc");
 		expect(pathToPropName("noDots")).toBe("noDots");
 	});
@@ -60,9 +58,7 @@ describe("pathToPropName", () => {
 
 		const allPaths = new Set<string>();
 		for (const conversion of conversions) {
-			const conversionArray = Array.isArray(conversion)
-				? conversion
-				: [conversion];
+			const conversionArray = Array.isArray(conversion) ? conversion : [conversion];
 			for (const conv of conversionArray) {
 				if (Array.isArray(conv.keys)) {
 					for (const key of conv.keys) allPaths.add(key);

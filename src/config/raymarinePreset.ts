@@ -43,7 +43,5 @@ export const RAYMARINE_EXTRAS_PATCH: Record<string, RaymarinePatch> = {
 // the panel counts it. Shared by temperature.ts and humidity.ts so the tag set
 // stays derived from this one patch table.
 export function raymarinePresetsFor(optionKey: string): PresetTag[] {
-	return optionKey in RAYMARINE_EXTRAS_PATCH
-		? ["environmental", "raymarine"]
-		: ["environmental"];
+	return optionKey in RAYMARINE_EXTRAS_PATCH ? ["environmental", "raymarine"] : ["environmental"];
 }

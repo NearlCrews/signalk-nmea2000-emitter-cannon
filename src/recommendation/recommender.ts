@@ -1,3 +1,4 @@
+// Runtime-neutral recommendation logic shared by the advisor and setup wizard.
 import type { ConversionMetadata } from "../api/types.js";
 import type { ConversionMap } from "../config/schema.js";
 import { isDefined } from "../utils/pathUtils.js";
@@ -82,9 +83,7 @@ export function recommend(input: RecommendInput): Recommendation[] {
 				if (live.length > 0) {
 					if (!live.includes(pinned)) {
 						staleSources.push({ path: e.path, pinned, liveSources: live });
-						reasonParts.push(
-							`'${pinned}' for ${e.path} (now ${live.join(", ")})`,
-						);
+						reasonParts.push(`'${pinned}' for ${e.path} (now ${live.join(", ")})`);
 					}
 				} else if (e.historic) {
 					staleSources.push({ path: e.path, pinned, liveSources: live });

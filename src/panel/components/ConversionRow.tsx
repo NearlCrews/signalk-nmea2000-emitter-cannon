@@ -1,10 +1,7 @@
 import type * as React from "react";
 import { Fragment, memo, useCallback, useEffect, useRef } from "react";
 import { pgnSummaryFor } from "../../api/pgnSummaries.js";
-import type {
-	ConversionMetadata,
-	PerConversionStatus,
-} from "../../api/types.js";
+import type { ConversionMetadata, PerConversionStatus } from "../../api/types.js";
 import { emptyConversionConfig } from "../../config/defaults.js";
 import type { ConversionConfig } from "../../config/schema.js";
 import { splitPgnTitle } from "../../utils/pgnUtils.js";
@@ -78,13 +75,11 @@ function ConversionRow(props: Props): React.ReactElement {
 		[dispatch, key],
 	);
 	const onSetSource = useCallback(
-		(path: string, source: string) =>
-			dispatch({ type: "setSource", key, path, source }),
+		(path: string, source: string) => dispatch({ type: "setSource", key, path, source }),
 		[dispatch, key],
 	);
 	const onSetExtras = useCallback(
-		(extras: Record<string, unknown>) =>
-			dispatch({ type: "setExtras", key, extras }),
+		(extras: Record<string, unknown>) => dispatch({ type: "setExtras", key, extras }),
 		[dispatch, key],
 	);
 	const onToggle = useCallback(() => setExpanded(key), [setExpanded, key]);
@@ -94,8 +89,7 @@ function ConversionRow(props: Props): React.ReactElement {
 	);
 	const onRowClick = useCallback(
 		(e: React.MouseEvent<HTMLDivElement>) => {
-			if ((e.target as HTMLElement).closest("input, button, select, a, label"))
-				return;
+			if ((e.target as HTMLElement).closest("input, button, select, a, label")) return;
 			setExpanded(key);
 		},
 		[setExpanded, key],
@@ -152,9 +146,7 @@ function ConversionRow(props: Props): React.ReactElement {
 							L
 						</span>
 					) : null}
-					{props.meta.legacy ? (
-						<span style={S.visuallyHidden}>Legacy</span>
-					) : null}
+					{props.meta.legacy ? <span style={S.visuallyHidden}>Legacy</span> : null}
 				</span>
 				{props.status?.lastErrorMessage ? (
 					<span

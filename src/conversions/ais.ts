@@ -1,8 +1,4 @@
-import {
-	N2K_BROADCAST_DST,
-	N2K_DEFAULT_PRIORITY,
-	SOURCE_TYPE,
-} from "../constants.js";
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, SOURCE_TYPE } from "../constants.js";
 import type {
 	ConversionCallback,
 	ConversionModule,
@@ -20,12 +16,7 @@ import {
 	parseMmsi,
 	starboardOffset,
 } from "../utils/aisUtils.js";
-import {
-	clamp,
-	clampString,
-	isValidNumber,
-	toFiniteOrUndefined,
-} from "../utils/validation.js";
+import { clamp, clampString, isValidNumber, toFiniteOrUndefined } from "../utils/validation.js";
 import type { Position } from "./routeTypes.js";
 
 // AIS Message 1 spec value for "Not defined". canboat NAV_STATUS lookup
@@ -652,58 +643,24 @@ export default function createAisConversion(
 	};
 }
 
-function generateStatic(
-	vessel: Vessel,
-	mmsi: string,
-	index: Map<string, unknown>,
-): N2KMessage {
+function generateStatic(vessel: Vessel, mmsi: string, index: Map<string, unknown>): N2KMessage {
 	const name = indexedFindValue<string>(index, vessel, "name");
-	const typeObj = indexedFindValue<AisShipType>(
-		index,
-		vessel,
-		"design.aisShipType",
-	);
+	const typeObj = indexedFindValue<AisShipType>(index, vessel, "design.aisShipType");
 	const type = typeObj?.id;
-	const callsign = indexedFindValue<string>(
-		index,
-		vessel,
-		"communication.callsignVhf",
-	);
-	const lengthObj = indexedFindValue<{ overall?: number }>(
-		index,
-		vessel,
-		"design.length",
-	);
+	const callsign = indexedFindValue<string>(index, vessel, "communication.callsignVhf");
+	const lengthObj = indexedFindValue<{ overall?: number }>(index, vessel, "design.length");
 	const length = lengthObj?.overall;
 	const validLength = toFiniteOrUndefined(length);
 	const beam = indexedFindValue<number>(index, vessel, "design.beam");
 	const validBeam = toFiniteOrUndefined(beam);
-	const fromCenter = indexedFindValue<number>(
-		index,
-		vessel,
-		"sensors.ais.fromCenter",
-	);
-	const fromBow = indexedFindValue<number>(
-		index,
-		vessel,
-		"sensors.ais.fromBow",
-	);
+	const fromCenter = indexedFindValue<number>(index, vessel, "sensors.ais.fromCenter");
+	const fromBow = indexedFindValue<number>(index, vessel, "sensors.ais.fromBow");
 	const validFromBow = toFiniteOrUndefined(fromBow);
-	const draftObj = indexedFindValue<{ maximum?: number }>(
-		index,
-		vessel,
-		"design.draft",
-	);
+	const draftObj = indexedFindValue<{ maximum?: number }>(index, vessel, "design.draft");
 	const draft = draftObj?.maximum;
 	const validDraft = toFiniteOrUndefined(draft);
-	const dest = indexedFindValue<string>(
-		index,
-		vessel,
-		"navigation.destination.commonName",
-	);
-	const imoNumber = parseImo(
-		indexedFindValue<string>(index, vessel, "registrations.imo"),
-	);
+	const dest = indexedFindValue<string>(index, vessel, "navigation.destination.commonName");
+	const imoNumber = parseImo(indexedFindValue<string>(index, vessel, "registrations.imo"));
 
 	const fromStarboard = starboardOffset(beam, fromCenter);
 
@@ -739,35 +696,15 @@ function generatePosition(
 	mmsi: string,
 	index: Map<string, unknown>,
 ): N2KMessage | null {
-	const position = indexedFindValue<Position>(
-		index,
-		vessel,
-		"navigation.position",
-	);
+	const position = indexedFindValue<Position>(index, vessel, "navigation.position");
 
-	if (
-		!position ||
-		!isValidNumber(position.latitude) ||
-		!isValidNumber(position.longitude)
-	) {
+	if (!position || !isValidNumber(position.latitude) || !isValidNumber(position.longitude)) {
 		return null;
 	}
 
-	const cog = indexedFindValue<number>(
-		index,
-		vessel,
-		"navigation.courseOverGroundTrue",
-	);
-	const sog = indexedFindValue<number>(
-		index,
-		vessel,
-		"navigation.speedOverGround",
-	);
-	const heading = indexedFindValue<number>(
-		index,
-		vessel,
-		"navigation.headingTrue",
-	);
+	const cog = indexedFindValue<number>(index, vessel, "navigation.courseOverGroundTrue");
+	const sog = indexedFindValue<number>(index, vessel, "navigation.speedOverGround");
+	const heading = indexedFindValue<number>(index, vessel, "navigation.headingTrue");
 	const rot = indexedFindValue<number>(index, vessel, "navigation.rateOfTurn");
 	const state = indexedFindValue<string>(index, vessel, "navigation.state");
 
@@ -779,12 +716,9 @@ function generatePosition(
 	// as "not available" on the MFD, not as a plausible-but-wrong heading.
 	// (aisExtended.ts wraps the same fields because those are own-vessel sensor
 	// values, which can legitimately sit a hair outside [0, 2pi).)
-	const validCog =
-		isValidNumber(cog) && cog >= 0 && cog <= Math.PI * 2 ? cog : undefined;
+	const validCog = isValidNumber(cog) && cog >= 0 && cog <= Math.PI * 2 ? cog : undefined;
 	const validHeading =
-		isValidNumber(heading) && heading >= 0 && heading <= Math.PI * 2
-			? heading
-			: undefined;
+		isValidNumber(heading) && heading >= 0 && heading <= Math.PI * 2 ? heading : undefined;
 	// Guard sog/rot like cog/heading: a NaN or Infinity from a flaky provider
 	// must not reach the encoder.
 	const validSog = toFiniteOrUndefined(sog);
@@ -821,38 +755,18 @@ function generateAtoN(
 	mmsi: string,
 	index: Map<string, unknown>,
 ): N2KMessage | null {
-	const position = indexedFindValue<Position>(
-		index,
-		vessel,
-		"navigation.position",
-	);
+	const position = indexedFindValue<Position>(index, vessel, "navigation.position");
 
-	if (
-		!position ||
-		!isValidNumber(position.latitude) ||
-		!isValidNumber(position.longitude)
-	) {
+	if (!position || !isValidNumber(position.latitude) || !isValidNumber(position.longitude)) {
 		return null;
 	}
 
 	const name = vessel?.name || indexedFindValue<string>(index, vessel, "name");
-	const lengthObj = indexedFindValue<{ overall?: number }>(
-		index,
-		vessel,
-		"design.length",
-	);
+	const lengthObj = indexedFindValue<{ overall?: number }>(index, vessel, "design.length");
 	const length = lengthObj?.overall;
 	const beam = indexedFindValue<number>(index, vessel, "design.beam");
-	const fromCenter = indexedFindValue<number>(
-		index,
-		vessel,
-		"sensors.ais.fromCenter",
-	);
-	const fromBow = indexedFindValue<number>(
-		index,
-		vessel,
-		"sensors.ais.fromBow",
-	);
+	const fromCenter = indexedFindValue<number>(index, vessel, "sensors.ais.fromCenter");
+	const fromBow = indexedFindValue<number>(index, vessel, "sensors.ais.fromBow");
 
 	const fromStarboard = starboardOffset(beam, fromCenter);
 
@@ -868,14 +782,8 @@ function generateAtoN(
 	// is a 5-bit field, so clamp to [0, 31] before the encoder: a value above
 	// 31 would otherwise wrap on the wire. Default to 0 ("not specified") when
 	// missing.
-	const atonTypeObj = indexedFindValue<{ id?: number }>(
-		index,
-		vessel,
-		"atonType",
-	);
-	const atonType = isValidNumber(atonTypeObj?.id)
-		? clamp(atonTypeObj.id, 0, 31)
-		: 0;
+	const atonTypeObj = indexedFindValue<{ id?: number }>(index, vessel, "atonType");
+	const atonType = isValidNumber(atonTypeObj?.id) ? clamp(atonTypeObj.id, 0, 31) : 0;
 
 	return {
 		prio: N2K_DEFAULT_PRIORITY,

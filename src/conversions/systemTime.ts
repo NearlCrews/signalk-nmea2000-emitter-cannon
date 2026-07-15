@@ -1,18 +1,8 @@
-import {
-	N2K_BROADCAST_DST,
-	N2K_DEFAULT_PRIORITY,
-	SOURCE_TYPE,
-} from "../constants.js";
-import type {
-	ConversionModule,
-	N2KMessage,
-	SignalKApp,
-} from "../types/index.js";
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, SOURCE_TYPE } from "../constants.js";
+import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
 import { toN2KDateTime } from "../utils/dateUtils.js";
 
-export default function createSystemTimeConversion(
-	_app: SignalKApp,
-): ConversionModule {
+export default function createSystemTimeConversion(_app: SignalKApp): ConversionModule {
 	return {
 		title: "System Time (PGN 126992)",
 		sourceType: SOURCE_TYPE.TIMER,
@@ -20,9 +10,7 @@ export default function createSystemTimeConversion(
 		optionKey: "SYSTEM_TIME",
 		category: "system",
 		callback: (_app: unknown, inputDate?: unknown): N2KMessage[] => {
-			const { date, time } = toN2KDateTime(
-				inputDate instanceof Date ? inputDate : new Date(),
-			);
+			const { date, time } = toN2KDateTime(inputDate instanceof Date ? inputDate : new Date());
 
 			return [
 				{

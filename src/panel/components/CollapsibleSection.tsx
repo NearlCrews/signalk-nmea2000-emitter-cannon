@@ -82,9 +82,7 @@ export default function CollapsibleSection({
 						{plural(count, "conversion")}
 						{enabledCount > 0 ? ` · ${enabledCount} enabled` : ""}
 						{errorCount && errorCount > 0 ? (
-							<span style={S.sectionErrorCount}>
-								{plural(errorCount, "error")}
-							</span>
+							<span style={S.sectionErrorCount}>{plural(errorCount, "error")}</span>
 						) : null}
 					</>
 				}

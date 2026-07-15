@@ -1,20 +1,10 @@
-import {
-	N2K_BROADCAST_DST,
-	N2K_DEFAULT_PRIORITY,
-	N2K_SID_ZERO,
-} from "../constants.js";
-import type {
-	ConversionCallback,
-	ConversionModule,
-	SignalKApp,
-} from "../types/index.js";
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, N2K_SID_ZERO } from "../constants.js";
+import type { ConversionCallback, ConversionModule, SignalKApp } from "../types/index.js";
 import { toUnsignedAngle, toValidNumber } from "../utils/validation.js";
 
 export default function createDirectionDataConversion(
 	_app: SignalKApp,
-): ConversionModule<
-	[number | null, number | null, number | null, number | null]
-> {
+): ConversionModule<[number | null, number | null, number | null, number | null]> {
 	return {
 		title: "Direction Data (PGN 130577)",
 		optionKey: "DIRECTION_DATA",
@@ -64,9 +54,7 @@ export default function createDirectionDataConversion(
 					},
 				},
 			];
-		}) as ConversionCallback<
-			[number | null, number | null, number | null, number | null]
-		>,
+		}) as ConversionCallback<[number | null, number | null, number | null, number | null]>,
 
 		tests: [
 			{

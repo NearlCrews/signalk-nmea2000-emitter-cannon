@@ -1,8 +1,10 @@
 {
 	"name": "signalk-nmea2000-emitter-cannon",
-	"version": "1.9.0",
+	"version": "1.9.1",
 	"description": "Signal K plugin that converts Signal K deltas to Garmin-aligned NMEA 2000 PGNs",
+	"type": "commonjs",
 	"main": "dist/index.mjs",
+	"exports": "./dist/index.mjs",
 	"files": [
 		"dist/",
 		"public/",
@@ -16,15 +18,33 @@
 		"build:plugin": "esbuild src/index.ts --bundle --platform=node --target=node22 --format=esm --outfile=dist/index.mjs --external:rxjs",
 		"build:panel": "webpack --config webpack.config.cjs",
 		"build:watch": "npm run clean && npm run build:plugin -- --sourcemap=linked --watch",
-		"test": "vitest --run",
+		"test": "vitest run",
+		"test:watch": "vitest",
 		"test:ui": "vitest --ui",
-		"test:coverage": "vitest --coverage",
-		"lint": "biome lint src/",
-		"format": "biome format src/ --write",
-		"check": "biome check src/",
-		"typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.panel.json && tsc --noEmit -p tsconfig.test.json",
+		"test:coverage": "vitest run --coverage",
+		"test:panel": "node scripts/check-panel-bundle.mjs",
+		"check": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.panel.json && tsc --noEmit -p tsconfig.test.json",
+		"typecheck": "npm run check",
+		"lint": "npm run lint:code && npm run lint:docs && npm run spellcheck",
+		"lint:code": "biome lint . && eslint . --cache --cache-location .cache/eslint",
+		"lint:docs": "markdownlint-cli2 \"*.md\" \".github/*.md\" \"docs/*.md\"",
+		"lint:fix": "biome lint --write . && eslint . --fix --cache --cache-location .cache/eslint",
+		"spellcheck": "cspell --no-progress --show-suggestions README.md CLAUDE.md \".github/**/*.{md,yml,yaml}\" \"docs/*.md\"",
+		"ci:biome": "biome ci .",
+		"cruise": "depcruise src --config .dependency-cruiser.cjs",
+		"deadcode": "knip",
+		"format": "biome format --write .",
+		"format:check": "biome format .",
+		"size": "size-limit",
+		"package:check": "publint --pack npm --strict && node scripts/check-package.mjs",
+		"audit": "npm audit --audit-level=high && npm run audit:runtime",
+		"audit:runtime": "npm audit --omit=dev --audit-level=high",
+		"verify:commit": "npm run ci:biome && npm run lint && npm run cruise && npm run deadcode",
+		"verify:fast": "npm run verify:commit && npm run check",
+		"verify": "npm run verify:fast && npm run test:coverage && npm run build && npm run test:panel && npm run size",
+		"verify:release": "npm run verify && npm run package:check && npm run audit",
 		"clean": "node scripts/clean.mjs",
-		"hooks": "husky",
+		"hooks": "git config core.hooksPath .githooks && chmod +x .githooks/pre-commit .githooks/pre-push",
 		"release": "node scripts/release.mjs"
 	},
 	"keywords": [
@@ -82,48 +102,75 @@
 		"@babel/core": "^8.0.1",
 		"@babel/preset-react": "^8.0.1",
 		"@babel/preset-typescript": "^8.0.1",
-		"@biomejs/biome": "^2.5.3",
+		"@biomejs/biome": "2.5.4",
 		"@canboat/canboatjs": "^3.20.0",
 		"@canboat/ts-pgns": "^1.11.18",
 		"@signalk/server-api": "^2.30.0",
 		"@sinclair/typebox": "^0.34.52",
+		"@size-limit/file": "12.1.0",
 		"@types/express": "^5.0.6",
-		"@types/node": "^26.1.1",
+		"@types/node": "24.13.3",
 		"@types/react": "^19.2.17",
 		"@types/react-dom": "^19.2.3",
 		"@types/supertest": "^7.2.1",
-		"@vitest/coverage-v8": "^4.1.10",
-		"@vitest/ui": "^4.1.10",
+		"@vitest/coverage-v8": "4.1.10",
+		"@vitest/ui": "4.1.10",
 		"babel-loader": "^10.1.1",
+		"cspell": "10.0.1",
+		"dependency-cruiser": "^18.1.0",
 		"esbuild": "^0.28.1",
+		"eslint": "10.7.0",
 		"express": "^5.2.1",
-		"husky": "^9.1.7",
-		"lint-staged": "^17.0.8",
+		"knip": "6.27.0",
+		"markdownlint-cli2": "0.23.0",
+		"publint": "0.3.21",
 		"react": "^19.2.7",
 		"react-dom": "^19.2.7",
+		"size-limit": "12.1.0",
 		"supertest": "^7.2.2",
-		"typescript": "^7.0.2",
-		"vitest": "^4.1.10",
+		"typescript": "^6.0.3",
+		"typescript-eslint": "8.64.0",
+		"vitest": "4.1.10",
 		"webpack": "^5.108.4",
 		"webpack-cli": "^7.2.1"
 	},
 	"engines": {
-		"node": ">=22.12"
+		"node": ">=22.18"
 	},
-	"lint-staged": {
-		"*.{ts,tsx}": [
-			"biome check --write"
-		],
-		"*.json": [
-			"biome format --write --no-errors-on-unmatched"
-		]
+	"devEngines": {
+		"runtime": {
+			"name": "node",
+			"version": ">=22.18",
+			"onFail": "error"
+		},
+		"packageManager": {
+			"name": "npm",
+			"version": ">=10.9.8",
+			"onFail": "error"
+		}
 	},
-	"overrides": {
-		"cookie": "^0.7.0",
-		"nanoid": "^3.3.8",
-		"semver": "^7.6.3",
-		"tmp": "^0.2.3",
-		"inquirer": "^10.0.0",
-		"ip-address": "^10.1.1"
-	}
+	"allowScripts": {
+		"@canboat/canboatjs@3.20.0": true,
+		"@serialport/bindings-cpp@11.0.3": true,
+		"es5-ext": false,
+		"esbuild@0.28.1": true
+	},
+	"packageManager": "npm@11.18.0",
+	"size-limit": [
+		{
+			"name": "Plugin bundle",
+			"path": "dist/index.mjs",
+			"limit": "70 kB"
+		},
+		{
+			"name": "Panel component chunks",
+			"path": "public/[0-9]*.js",
+			"limit": "30 kB"
+		},
+		{
+			"name": "Panel federation runtime",
+			"path": "public/remoteEntry.js",
+			"limit": "4 kB"
+		}
+	]
 }

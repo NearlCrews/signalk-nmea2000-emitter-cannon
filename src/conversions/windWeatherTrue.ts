@@ -1,19 +1,11 @@
-import {
-	N2K_BROADCAST_DST,
-	N2K_DEFAULT_PRIORITY,
-	N2K_DEFAULT_SID,
-} from "../constants.js";
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, N2K_DEFAULT_SID } from "../constants.js";
 import type {
 	ConversionCallback,
 	ConversionModule,
 	N2KMessage,
 	SignalKApp,
 } from "../types/index.js";
-import {
-	isValidNumber,
-	toFiniteOrUndefined,
-	toUnsignedAngle,
-} from "../utils/validation.js";
+import { isValidNumber, toFiniteOrUndefined, toUnsignedAngle } from "../utils/validation.js";
 
 const EMPTY_EMIT: N2KMessage[] = [];
 

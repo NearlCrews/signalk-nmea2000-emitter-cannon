@@ -7,11 +7,7 @@ import {
 import type { ConversionModule, N2KMessage } from "../types/index.js";
 import { toN2KDateTime } from "../utils/dateUtils.js";
 import { isClearState } from "../utils/notificationUtils.js";
-import {
-	isValidNumber,
-	toUnsignedAngle,
-	toValidNumber,
-} from "../utils/validation.js";
+import { isValidNumber, toUnsignedAngle, toValidNumber } from "../utils/validation.js";
 import type { Position } from "./routeTypes.js";
 
 // PGN 129284 uses a fixed sequence identifier per common implementations.
@@ -101,10 +97,7 @@ function createNavDataConversion(
 			}
 
 			const route = rte as ActiveRoute;
-			const wpid =
-				route && typeof route.pointIndex === "number"
-					? route.pointIndex + 1
-					: 0;
+			const wpid = route && typeof route.pointIndex === "number" ? route.pointIndex + 1 : 0;
 			const destination = destPos as DestinationPoint;
 
 			return [
@@ -122,12 +115,8 @@ function createNavDataConversion(
 						etaTime,
 						etaDate,
 						// Both bearings are unsigned [0, 2pi) fields; see toUnsignedAngle.
-						bearingOriginToDestinationWaypoint: toUnsignedAngle(
-							toValidNumber(bearingOriginToDest),
-						),
-						bearingPositionToDestinationWaypoint: toUnsignedAngle(
-							toValidNumber(bearingToDest),
-						),
+						bearingOriginToDestinationWaypoint: toUnsignedAngle(toValidNumber(bearingOriginToDest)),
+						bearingPositionToDestinationWaypoint: toUnsignedAngle(toValidNumber(bearingToDest)),
 						destinationWaypointNumber: wpid,
 						destinationLatitude: destination?.position?.latitude,
 						destinationLongitude: destination?.position?.longitude,
@@ -150,9 +139,7 @@ function createNavDataConversion(
 				],
 				expected: [
 					{
-						__preprocess__: (testResult: {
-							fields: { etaDate?: unknown; etaTime?: unknown };
-						}) => {
+						__preprocess__: (testResult: { fields: { etaDate?: unknown; etaTime?: unknown } }) => {
 							delete testResult.fields.etaDate;
 							delete testResult.fields.etaTime;
 						},
@@ -263,11 +250,7 @@ export default function createNavigationDataConversions(): ConversionModule[] {
 		},
 
 		// Navigation Data (PGN 129284)
-		createNavDataConversion(
-			"NAVIGATION_DATA",
-			"Navigation Data (PGN 129284)",
-			"Rhumbline",
-		),
+		createNavDataConversion("NAVIGATION_DATA", "Navigation Data (PGN 129284)", "Rhumbline"),
 
 		// Navigation Data Great Circle (PGN 129284)
 		createNavDataConversion(

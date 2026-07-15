@@ -14,13 +14,13 @@
 
 ## File Structure
 
-- Modify: `src/config/enums.ts` — add `DEFAULT_ADVISOR_CONFIG` (panel-safe plain object).
-- Modify: `src/panel/hooks/useConfig.ts` — add the `setAdvisor` action and reducer case.
-- Create: `src/panel/components/advisor/AdvisorSettings.tsx` — the settings form.
-- Modify: `src/panel/components/advisor/AdvisorPanel.tsx` — accept `advisor` + `onChangeAdvisor` props, render `AdvisorSettings`.
-- Modify: `src/panel/PluginConfigurationPanel.tsx` — pass `state.advisor` and a `setAdvisor` dispatch callback to `AdvisorPanel`.
-- Modify: `src/panel/styles.ts` — add a section-subheading style.
-- Test: `src/test/advisor-config.test.ts` — assert `DEFAULT_ADVISOR_CONFIG` matches the schema defaults; `src/test/useConfig` coverage for `setAdvisor` is added inline in a new `src/test/useConfig.test.ts`.
+- Modify: `src/config/enums.ts`: add `DEFAULT_ADVISOR_CONFIG` (panel-safe plain object).
+- Modify: `src/panel/hooks/useConfig.ts`: add the `setAdvisor` action and reducer case.
+- Create: `src/panel/components/advisor/AdvisorSettings.tsx`: the settings form.
+- Modify: `src/panel/components/advisor/AdvisorPanel.tsx`: accept `advisor` and `onChangeAdvisor` props, then render `AdvisorSettings`.
+- Modify: `src/panel/PluginConfigurationPanel.tsx`: pass `state.advisor` and a `setAdvisor` dispatch callback to `AdvisorPanel`.
+- Modify: `src/panel/styles.ts`: add a section-subheading style.
+- Test: `src/test/advisor-config.test.ts`: assert `DEFAULT_ADVISOR_CONFIG` matches the schema defaults; `src/test/useConfig` coverage for `setAdvisor` is added inline in a new `src/test/useConfig.test.ts`.
 
 ---
 

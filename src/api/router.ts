@@ -17,11 +17,8 @@ import type {
 	SourcesResponse,
 } from "./types.js";
 
-const API_PREFIX = "/plugins/signalk-nmea2000-emitter-cannon/api";
-
 const HTTP_STATUS = {
 	BAD_REQUEST: 400,
-	FORBIDDEN: 403,
 	SERVICE_UNAVAILABLE: 503,
 } as const;
 
@@ -38,8 +35,9 @@ const HTTP_STATUS = {
  * start(), so the catalog must come from a manager-free source until the user
  * enables the plugin, otherwise the panel shows every category at zero.
  *
- * All `/api/*` routes are admin-gated via `securityStrategy.addAdminMiddleware`
- * registered on the parent Express app at router setup time.
+ * Signal K mounts routes registered directly through `registerWithRouter`
+ * behind its admin authentication middleware. The plugin must not reach into
+ * the server's internal security strategy or duplicate that middleware.
  */
 export function createApiRouter(
 	app: SignalKApp,
@@ -48,21 +46,6 @@ export function createApiRouter(
 	getAdvisor: () => Advisor | null,
 ): (router: IRouter) => void {
 	return (router) => {
-		// Spec requires admin-gated routes. The optional-chain check below
-		// stays defensive so the plugin still loads against older
-		// signalk-server builds that don't expose securityStrategy /
-		// addAdminMiddleware, but absence is logged once (not silently
-		// no-op'd) so operators can see why the routes are unauthenticated.
-		const addMw = app.securityStrategy?.addAdminMiddleware;
-		const adminGuarded = typeof addMw === "function";
-		if (adminGuarded) {
-			addMw.call(app.securityStrategy, API_PREFIX);
-		} else {
-			app.error(
-				`securityStrategy.addAdminMiddleware unavailable; read-only ${API_PREFIX}/* routes will be unauthenticated and the mutating advisor routes (review, apply) will be refused with 403. Update signalk-server to >= 2.x.`,
-			);
-		}
-
 		router.get("/api/status", (_req: Request, res: Response) => {
 			const pm = getManager();
 			if (!pm) {
@@ -121,60 +104,24 @@ export function createApiRouter(
 		// wired, and any thrown error coerced to a 503. advisorRoute factors
 		// that out so each handler is just its happy path.
 		const advisorRoute =
-			(
-				handler: (
-					advisor: Advisor,
-					req: Request,
-					res: Response,
-				) => Promise<void> | void,
-			) =>
+			(handler: (advisor: Advisor, req: Request, res: Response) => Promise<void> | void) =>
 			async (req: Request, res: Response): Promise<void> => {
 				const advisor = getAdvisor();
 				if (!advisor) {
-					res
-						.status(HTTP_STATUS.SERVICE_UNAVAILABLE)
-						.json({ error: "advisor unavailable" });
+					res.status(HTTP_STATUS.SERVICE_UNAVAILABLE).json({ error: "advisor unavailable" });
 					return;
 				}
 				try {
 					await handler(advisor, req, res);
 				} catch (err) {
 					app.error(`advisor request failed: ${errMessage(err)}`);
-					res
-						.status(HTTP_STATUS.SERVICE_UNAVAILABLE)
-						.json({ error: "request failed" });
+					res.status(HTTP_STATUS.SERVICE_UNAVAILABLE).json({ error: "request failed" });
 				}
 			};
-
-		// Mutating advisor routes have side effects (config writes), so they must
-		// not run unauthenticated. When addAdminMiddleware is unavailable they
-		// fail closed with a 403, while the read-only GETs stay open for
-		// older-server compatibility.
-		const guardedAdvisorRoute = (
-			handler: (
-				advisor: Advisor,
-				req: Request,
-				res: Response,
-			) => Promise<void> | void,
-		) => {
-			// Wrap once at registration; rebuilding the advisorRoute closure on
-			// every request would allocate per hit for no benefit.
-			const wrapped = advisorRoute(handler);
-			return async (req: Request, res: Response): Promise<void> => {
-				if (!adminGuarded) {
-					res.status(HTTP_STATUS.FORBIDDEN).json({
-						error:
-							"This action requires an authenticated admin session, which this Signal K server build does not support. Update signalk-server to >= 2.x.",
-					});
-					return;
-				}
-				await wrapped(req, res);
-			};
-		};
 
 		router.post(
 			"/api/advisor/review",
-			guardedAdvisorRoute(async (advisor, _req, res) => {
+			advisorRoute(async (advisor, _req, res) => {
 				const body: AdvisorReviewResponse = {
 					result: await advisor.runReview(),
 				};
@@ -201,7 +148,7 @@ export function createApiRouter(
 
 		router.post(
 			"/api/advisor/apply",
-			guardedAdvisorRoute(async (advisor, req, res) => {
+			advisorRoute(async (advisor, req, res) => {
 				// Validate the request shape before touching the advisor: a
 				// malformed body must not reach applyReview, which writes config.
 				// Reject anything that is not an array of plain objects each
@@ -210,20 +157,13 @@ export function createApiRouter(
 				// blocks a missing-optionKey decision from injecting a
 				// `conversions["undefined"]` entry. (The advisor additionally
 				// allow-lists optionKey against known conversions.)
-				const rawDecisions: unknown = isPlainObject(req.body)
-					? req.body.decisions
-					: undefined;
+				const rawDecisions: unknown = isPlainObject(req.body) ? req.body.decisions : undefined;
 				if (!Array.isArray(rawDecisions)) {
-					res
-						.status(HTTP_STATUS.BAD_REQUEST)
-						.json({ error: "decisions must be an array" });
+					res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "decisions must be an array" });
 					return;
 				}
 				const allValid = rawDecisions.every(
-					(d) =>
-						isPlainObject(d) &&
-						typeof d.optionKey === "string" &&
-						d.optionKey.length > 0,
+					(d) => isPlainObject(d) && typeof d.optionKey === "string" && d.optionKey.length > 0,
 				);
 				if (!allValid) {
 					res.status(HTTP_STATUS.BAD_REQUEST).json({

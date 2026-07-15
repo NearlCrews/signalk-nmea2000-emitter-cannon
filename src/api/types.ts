@@ -1,5 +1,5 @@
-import type { ApplyDecision, ReviewResult } from "../advisor/types.js";
 import type { ConversionCategory, PresetTag } from "../config/enums.js";
+import type { ApplyDecision, ReviewResult } from "../recommendation/types.js";
 
 export interface StatusSnapshot {
 	pluginRunning: boolean;
@@ -141,6 +141,4 @@ export interface AdvisorApplyResponse {
 type AdvisorApi = import("../advisor/advisor.js").Advisor;
 
 /** Body of `GET /api/advisor/questdb-test`. */
-export type AdvisorQuestDbTestResponse = Awaited<
-	ReturnType<AdvisorApi["testQuestDB"]>
->;
+export type AdvisorQuestDbTestResponse = Awaited<ReturnType<AdvisorApi["testQuestDB"]>>;

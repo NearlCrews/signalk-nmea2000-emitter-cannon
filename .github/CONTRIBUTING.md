@@ -29,15 +29,15 @@ serves, and any implementation ideas you have.
    test commands.
 3. Make focused commits with clear messages (see below).
 4. Add tests for any new functionality and keep the existing suite green.
-5. Run `npm run check`, `npm run typecheck`, and `npm test` before pushing.
+5. Run `npm run verify` before pushing.
 6. Update documentation (`README.md`, `CHANGELOG.md`, `docs/`) as needed.
 7. Open a pull request with a clear description of the change.
 
 ## Code style
 
 - Strict TypeScript: no `any` types; validate unknown inputs with type guards.
-- Formatting is handled by Biome (`npm run format`); pre-commit hooks run
-  `biome check` on staged files.
+- Formatting is handled by Biome (`npm run format`); the pre-commit hook runs
+  the repository's formatting, lint, module-boundary, and dead-code gates.
 - Use constants from `src/constants.ts` instead of magic numbers.
 - Validate numeric input with `isValidNumber` / `toValidNumber` from
   `src/utils/validation.ts`; never use `typeof x === "number"` (it lets `NaN`
@@ -61,7 +61,7 @@ under `src/conversions/`), not a new package or a monorepo split.
 
 Use conventional-commit prefixes that match the actual diff scope:
 
-```
+```text
 feat: add support for PGN 12345 (feature description)
 fix: correct temperature conversion in PGN 130312
 docs: update installation instructions

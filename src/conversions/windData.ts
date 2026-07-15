@@ -1,18 +1,6 @@
-import {
-	N2K_BROADCAST_DST,
-	N2K_DEFAULT_PRIORITY,
-	N2K_DEFAULT_SID,
-} from "../constants.js";
-import type {
-	ConversionModule,
-	N2KMessage,
-	SignalKApp,
-} from "../types/index.js";
-import {
-	isValidNumber,
-	toUnsignedAngle,
-	toValidNumber,
-} from "../utils/validation.js";
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, N2K_DEFAULT_SID } from "../constants.js";
+import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
+import { isValidNumber, toUnsignedAngle, toValidNumber } from "../utils/validation.js";
 
 // Shared PGN 130306 (Wind Data) builder. Every wind-130306 module (apparent,
 // true-over-water, true-over-ground, weather-forecast apparent) differs only

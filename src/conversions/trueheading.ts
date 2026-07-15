@@ -1,13 +1,5 @@
-import {
-	N2K_BROADCAST_DST,
-	N2K_DEFAULT_PRIORITY,
-	N2K_DEFAULT_SID,
-} from "../constants.js";
-import type {
-	ConversionModule,
-	N2KMessage,
-	SignalKApp,
-} from "../types/index.js";
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, N2K_DEFAULT_SID } from "../constants.js";
+import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
 import { isValidNumber, toUnsignedAngle } from "../utils/validation.js";
 
 // Deliberately NOT in the basic-nav preset. heading.ts already emits PGN 127250
@@ -19,9 +11,7 @@ import { isValidNumber, toUnsignedAngle } from "../utils/validation.js";
 // (Magnetic Variation), letting the MFD derive true heading. This module stays
 // available (enable it on a vessel whose only heading source is a satellite or
 // GPS compass that publishes navigation.headingTrue), just not on by default.
-export default function createTrueHeadingConversion(
-	_app: SignalKApp,
-): ConversionModule {
+export default function createTrueHeadingConversion(_app: SignalKApp): ConversionModule {
 	return {
 		title: "True Heading (PGN 127250)",
 		optionKey: "TRUE_HEADING",

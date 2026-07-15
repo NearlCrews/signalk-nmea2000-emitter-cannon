@@ -18,10 +18,7 @@ export interface RowStatus {
  * reads "no recent output", which is the load-bearing emitting-versus-silent
  * cue in the night theme where the rail hue cannot carry it.
  */
-export function rowStatus(
-	status: PerConversionStatus | undefined,
-	enabled: boolean,
-): RowStatus {
+export function rowStatus(status: PerConversionStatus | undefined, enabled: boolean): RowStatus {
 	const rail: RailState = status?.lastErrorMessage
 		? "error"
 		: status && status.emitCount > 0

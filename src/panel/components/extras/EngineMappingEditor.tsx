@@ -9,10 +9,7 @@ interface Props {
 	onChange: (next: Record<string, unknown>) => void;
 }
 
-export default function EngineMappingEditor({
-	value,
-	onChange,
-}: Props): React.ReactElement {
+export default function EngineMappingEditor({ value, onChange }: Props): React.ReactElement {
 	return (
 		<InstanceMappingEditor
 			value={value}

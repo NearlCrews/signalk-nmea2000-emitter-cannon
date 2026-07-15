@@ -1,8 +1,4 @@
-import {
-	DEFAULT_DATA_TIMEOUT_MS,
-	N2K_BROADCAST_DST,
-	N2K_DEFAULT_PRIORITY,
-} from "../constants.js";
+import { DEFAULT_DATA_TIMEOUT_MS, N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import type {
 	ConversionCallback,
 	ConversionModule,
@@ -142,24 +138,12 @@ export default function createAisExtendedConversions(
 					},
 				];
 			}) as ConversionCallback<
-				[
-					string | null,
-					Position | null,
-					number | null,
-					number | null,
-					number | null,
-				]
+				[string | null, Position | null, number | null, number | null, number | null]
 			>,
 			tests: [
 				{
 					skSelfData: { mmsi: "367301250" },
-					input: [
-						"B",
-						{ latitude: 39.1296, longitude: -76.3947 },
-						1.501,
-						0.05,
-						5.6199,
-					],
+					input: ["B", { latitude: 39.1296, longitude: -76.3947 }, 1.501, 0.05, 5.6199],
 					expected: [
 						{
 							prio: 2,
@@ -388,18 +372,11 @@ export default function createAisExtendedConversions(
 						},
 					},
 				];
-			}) as ConversionCallback<
-				[string | null, Position | null, number | null, number | null]
-			>,
+			}) as ConversionCallback<[string | null, Position | null, number | null, number | null]>,
 			tests: [
 				{
 					skSelfData: { mmsi: "111000001" },
-					input: [
-						"SAR",
-						{ latitude: 40.7128, longitude: -74.006, altitude: 500 },
-						0.7854,
-						25.7,
-					],
+					input: ["SAR", { latitude: 40.7128, longitude: -74.006, altitude: 500 }, 0.7854, 25.7],
 					expected: [
 						{
 							prio: 2,
@@ -427,12 +404,7 @@ export default function createAisExtendedConversions(
 					// Regression: a negative COG is normalized into [0, 2pi) before
 					// the unsigned PGN 129798 field. -0.5 rad wraps to 5.7832 rad.
 					skSelfData: { mmsi: "111000001" },
-					input: [
-						"SAR",
-						{ latitude: 40.7128, longitude: -74.006, altitude: 500 },
-						-0.5,
-						25.7,
-					],
+					input: ["SAR", { latitude: 40.7128, longitude: -74.006, altitude: 500 }, -0.5, 25.7],
 					expected: [
 						{
 							prio: 2,
@@ -502,10 +474,7 @@ export default function createAisExtendedConversions(
 							sourceId: mmsi,
 							reserved: 1,
 							aisTransceiverInformation: "Channel A VDL reception",
-							safetyRelatedText: clampString(
-								safetyMessage,
-								AIS_SAFETY_TEXT_CHARS,
-							),
+							safetyRelatedText: clampString(safetyMessage, AIS_SAFETY_TEXT_CHARS),
 						},
 					},
 				];
@@ -525,8 +494,7 @@ export default function createAisExtendedConversions(
 								sourceId: 367301250,
 								reserved: 1,
 								aisTransceiverInformation: "Channel A VDL reception",
-								safetyRelatedText:
-									"STORM WARNING: SEVERE WEATHER APPROACHING FROM WEST",
+								safetyRelatedText: "STORM WARNING: SEVERE WEATHER APPROACHING FROM WEST",
 							},
 						},
 					],

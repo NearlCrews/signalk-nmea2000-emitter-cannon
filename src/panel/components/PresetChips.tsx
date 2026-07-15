@@ -37,10 +37,7 @@ interface Props {
 	meta: ConversionMetadata[];
 }
 
-export default function PresetChips({
-	onApply,
-	meta,
-}: Props): React.ReactElement {
+export default function PresetChips({ onApply, meta }: Props): React.ReactElement {
 	// Count of conversions each preset enables. Recomputed only when the
 	// catalog changes. Mirrors the applyPreset reducer, which enables every
 	// conversion whose `presets` include the tag.

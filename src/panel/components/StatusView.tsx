@@ -1,9 +1,5 @@
 import type * as React from "react";
-import type {
-	ConversionMetadata,
-	PerConversionStatus,
-	StatusSnapshot,
-} from "../../api/types.js";
+import type { ConversionMetadata, PerConversionStatus, StatusSnapshot } from "../../api/types.js";
 import { stripSubIndex } from "../../utils/pathUtils.js";
 import { extractPgnsFromTitle } from "../../utils/pgnUtils.js";
 import { outputStateFor } from "../outputState";
@@ -37,21 +33,13 @@ interface Props {
 	onErrorClick: () => void;
 }
 
-function pgnsFor(
-	row: PerConversionStatus,
-	byKey: Map<string, ConversionMetadata>,
-): string {
+function pgnsFor(row: PerConversionStatus, byKey: Map<string, ConversionMetadata>): string {
 	const m = byKey.get(row.key) ?? byKey.get(stripSubIndex(row.key));
-	const pgns =
-		m && m.pgns.length > 0 ? m.pgns : extractPgnsFromTitle(row.title);
+	const pgns = m && m.pgns.length > 0 ? m.pgns : extractPgnsFromTitle(row.title);
 	return pgns.join(", ");
 }
 
-export default function StatusView({
-	status,
-	metaByKey,
-	onErrorClick,
-}: Props): React.ReactElement {
+export default function StatusView({ status, metaByKey, onErrorClick }: Props): React.ReactElement {
 	if (!status) {
 		return <StatusLoading />;
 	}
@@ -62,11 +50,7 @@ export default function StatusView({
 	const outputState = outputStateFor(status);
 	const running = outputState === "waiting" || outputState === "ready";
 	const readyDot =
-		outputState === "ready"
-			? S.dotOk
-			: outputState === "waiting"
-				? S.dotWait
-				: S.dotOff;
+		outputState === "ready" ? S.dotOk : outputState === "waiting" ? S.dotWait : S.dotOff;
 
 	// Plain container, not S.root: this view is already nested inside the
 	// panel root, and doubling the root padding made the view toggle jump.
@@ -74,10 +58,7 @@ export default function StatusView({
 		<div>
 			<div style={V.headerRow}>
 				<span role="status">
-					<span
-						style={{ ...S.dot, ...readyDot, ...V.readyDot }}
-						aria-hidden="true"
-					/>
+					<span style={{ ...S.dot, ...readyDot, ...V.readyDot }} aria-hidden="true" />
 					<span style={S.statLabel}>NMEA 2000 </span>
 					<span style={S.statValue}>{outputState}</span>
 				</span>
@@ -91,21 +72,17 @@ export default function StatusView({
 					<span style={S.statLabel}>Total emits </span>
 					<span style={S.statValue}>{totalEmits}</span>
 				</span>
-				{errorCount > 0 ? (
-					<ErrorBadgeButton count={errorCount} onClick={onErrorClick} />
-				) : null}
+				{errorCount > 0 ? <ErrorBadgeButton count={errorCount} onClick={onErrorClick} /> : null}
 			</div>
 
 			{!running ? (
 				<p style={V.emptyText}>
-					The plugin is not running. Enable it in the Signal K plugin list if it
-					is disabled. If it is already enabled, check the plugin and server
-					logs for its startup error.
+					The plugin is not running. Enable it in the Signal K plugin list if it is disabled. If it
+					is already enabled, check the plugin and server logs for its startup error.
 				</p>
 			) : enabledRows.length === 0 ? (
 				<p style={V.emptyText}>
-					No conversions enabled. Enable conversions in the Configure view to
-					see live output here.
+					No conversions enabled. Enable conversions in the Configure view to see live output here.
 				</p>
 			) : (
 				<div style={T.wrap}>
@@ -132,20 +109,14 @@ export default function StatusView({
 						<tbody>
 							{enabledRows.map((row) => {
 								const recency =
-									row.emitCount > 0
-										? humanizeAgo(row.lastEmitMs)
-										: "no recent output";
+									row.emitCount > 0 ? humanizeAgo(row.lastEmitMs) : "no recent output";
 								return (
 									<tr key={row.key}>
 										<td style={V.cell}>{row.title}</td>
 										<td style={V.pgnCell}>{pgnsFor(row, metaByKey) || "-"}</td>
 										<td style={V.numberCell}>{row.emitCount}</td>
 										<td style={V.cell}>
-											{row.emitCount > 0 ? (
-												recency
-											) : (
-												<span style={S.textFaint}>{recency}</span>
-											)}
+											{row.emitCount > 0 ? recency : <span style={S.textFaint}>{recency}</span>}
 										</td>
 										<td style={V.cell}>
 											{row.lastErrorMessage ? (

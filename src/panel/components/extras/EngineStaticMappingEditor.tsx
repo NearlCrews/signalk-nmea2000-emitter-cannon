@@ -1,11 +1,7 @@
 import type * as React from "react";
 import NumberInput from "../NumberInput";
 import { extraRows } from "./extraRows";
-import MappingTable, {
-	instanceIdColumn,
-	signalkIdColumn,
-	textColumn,
-} from "./MappingTable";
+import MappingTable, { instanceIdColumn, signalkIdColumn, textColumn } from "./MappingTable";
 
 // PGN 127498 (Engine Configuration / Static) carries identity metadata per
 // engine instance: rated speed, VIN, software version. Signal K has no
@@ -26,10 +22,7 @@ interface Props {
 	onChange: (next: Record<string, unknown>) => void;
 }
 
-export default function EngineStaticMappingEditor({
-	value,
-	onChange,
-}: Props): React.ReactElement {
+export default function EngineStaticMappingEditor({ value, onChange }: Props): React.ReactElement {
 	const { rows, setRows } = extraRows<Row>(value, "engines", onChange);
 	return (
 		<MappingTable<Row>
@@ -54,7 +47,12 @@ export default function EngineStaticMappingEditor({
 					render: (r, set) => (
 						<NumberInput
 							value={r.ratedEngineSpeed}
-							onChange={(n) => set({ ...r, ratedEngineSpeed: n })}
+							onChange={(n) => {
+								const next = { ...r };
+								if (n === undefined) delete next.ratedEngineSpeed;
+								else next.ratedEngineSpeed = n;
+								set(next);
+							}}
 							min={0}
 							placeholder="3600"
 							allowEmpty

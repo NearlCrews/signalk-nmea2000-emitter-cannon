@@ -25,11 +25,7 @@ export default function createRouteWpListConversion(): ConversionModule {
 			"navigation.courseGreatCircle.activeRoute.name",
 			"navigation.courseGreatCircle.activeRoute.reverse",
 		],
-		callback: (
-			waypoints: unknown,
-			_routeName: unknown,
-			_reverse: unknown,
-		): N2KMessage[] => {
+		callback: (waypoints: unknown, _routeName: unknown, _reverse: unknown): N2KMessage[] => {
 			if (!waypoints || !Array.isArray(waypoints) || waypoints.length === 0) {
 				return [];
 			}

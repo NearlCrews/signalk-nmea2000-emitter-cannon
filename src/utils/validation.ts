@@ -7,9 +7,7 @@ export function isValidNumber(value: unknown): value is number {
 }
 
 /** True for a non-null, non-array object literal. */
-export function isPlainObject(
-	value: unknown,
-): value is Record<string, unknown> {
+export function isPlainObject(value: unknown): value is Record<string, unknown> {
 	if (typeof value !== "object" || value === null || Array.isArray(value)) {
 		return false;
 	}
@@ -50,9 +48,7 @@ export function resolveInstanceAndSource(
 	const rawInstance = isValidNumber(o.instance) ? o.instance : defaultInstance;
 	const instance = clamp(Math.trunc(rawInstance), 0, MAX_N2K_INSTANCE);
 	const source =
-		typeof o.n2kSource === "string" && o.n2kSource.trim() !== ""
-			? o.n2kSource
-			: defaultSource;
+		typeof o.n2kSource === "string" && o.n2kSource.trim() !== "" ? o.n2kSource : defaultSource;
 	return { instance, source };
 }
 
@@ -68,9 +64,7 @@ export function normalizeAngle(angle: number): number {
 // as a wrong direction. Normalize before the field. null and undefined pass
 // through unchanged; a non-finite number returns undefined. Both null and
 // undefined encode as the "not available" sentinel on the wire.
-export function toUnsignedAngle(
-	value: number | null | undefined,
-): number | null | undefined {
+export function toUnsignedAngle(value: number | null | undefined): number | null | undefined {
 	if (value === null || value === undefined) return value;
 	if (!Number.isFinite(value)) return undefined;
 	return normalizeAngle(value);
@@ -85,14 +79,8 @@ export function toUnsignedAngle(
 // or null where a string is expected) returns undefined rather than crashing
 // at .slice; callers can then fall back to a sentinel or skip the field.
 export function clampString(value: string, maxChars: number): string;
-export function clampString(
-	value: string | undefined,
-	maxChars: number,
-): string | undefined;
-export function clampString(
-	value: unknown,
-	maxChars: number,
-): string | undefined {
+export function clampString(value: string | undefined, maxChars: number): string | undefined;
+export function clampString(value: unknown, maxChars: number): string | undefined {
 	if (typeof value !== "string") return undefined;
 	return value.length <= maxChars ? value : value.slice(0, maxChars);
 }

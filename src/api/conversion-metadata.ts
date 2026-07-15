@@ -21,9 +21,7 @@ import type { ConversionMetadata } from "./types.js";
  * delegates here for the running case; index.ts builds a standalone catalog for
  * the disabled case.
  */
-export function buildConversionMetadata(
-	conversions: ConversionModule[],
-): ConversionMetadata[] {
+export function buildConversionMetadata(conversions: ConversionModule[]): ConversionMetadata[] {
 	return conversions.map((c) => {
 		const entry: ConversionMetadata = {
 			key: c.optionKey,

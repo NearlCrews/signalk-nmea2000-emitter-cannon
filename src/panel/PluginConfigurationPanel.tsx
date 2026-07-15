@@ -68,6 +68,7 @@ function matchesQuery(m: ConversionMetadata, needle: string): boolean {
 	return false;
 }
 
+/** @public Module Federation entry point consumed by the Signal K admin UI. */
 export default function PluginConfigurationPanel({
 	configuration,
 	save,
@@ -271,10 +272,7 @@ export default function PluginConfigurationPanel({
 		/>
 	);
 
-	const showFirstRunCallout = shouldShowFirstRunCallout(
-		meta,
-		state.conversions,
-	);
+	const showFirstRunCallout = shouldShowFirstRunCallout(meta, state.conversions);
 
 	return (
 		<div className="skn-panel" style={S.root} ref={rootRef}>
@@ -302,18 +300,12 @@ export default function PluginConfigurationPanel({
 			    mounted, a deep scroll offset in one view would persist into the
 			    other, so changeView scrolls the panel top back into view. */}
 			<div hidden={view !== "status"}>
-				<StatusView
-					status={status}
-					metaByKey={metaByKey}
-					onErrorClick={jumpToFirstError}
-				/>
+				<StatusView status={status} metaByKey={metaByKey} onErrorClick={jumpToFirstError} />
 			</div>
 			<div hidden={view !== "configure"}>
 				{error ? (
 					<div role="alert" style={S.errorBanner}>
-						<span>
-							Status: {error}. The next poll will retry automatically.
-						</span>
+						<span>Status: {error}. The next poll will retry automatically.</span>
 					</div>
 				) : null}
 				{metaError ? (
@@ -332,14 +324,10 @@ export default function PluginConfigurationPanel({
 				{showFirstRunCallout ? (
 					<div style={S.calloutFirstRun}>
 						<span style={S.calloutText}>
-							Nothing is emitting yet. Apply a preset below, open the setup
-							wizard, or let the Config Advisor scan your boat's live data.
+							Nothing is emitting yet. Apply a preset below, open the setup wizard, or let the
+							Config Advisor scan your boat's live data.
 						</span>
-						<button
-							type="button"
-							style={S.btnPrimary}
-							onClick={() => setWizardOpen(true)}
-						>
+						<button type="button" style={S.btnPrimary} onClick={() => setWizardOpen(true)}>
 							Open setup wizard
 						</button>
 					</div>
@@ -363,9 +351,7 @@ export default function PluginConfigurationPanel({
 				    configure view is never unmounted. */}
 				<AdvisorPanel
 					advisor={state.advisor}
-					onChangeAdvisor={(advisor) =>
-						dispatch({ type: "setAdvisor", advisor })
-					}
+					onChangeAdvisor={(advisor) => dispatch({ type: "setAdvisor", advisor })}
 					dirty={dirty}
 					advisorSettingsDirty={advisorSettingsDirty}
 					metaByKey={metaByKey}
@@ -381,16 +367,10 @@ export default function PluginConfigurationPanel({
 							{plural(searchResult.matchCount, "match")} across all categories
 						</p>
 						{searchResult.matchCount === 0 ? (
-							<p style={S.loadingText}>
-								No conversions match "{search.trim()}".
-							</p>
+							<p style={S.loadingText}>No conversions match "{search.trim()}".</p>
 						) : null}
 						{searchResult.groups.map((g) => {
-							const counts = sectionCounts(
-								g.list,
-								state.conversions,
-								errorKeys,
-							);
+							const counts = sectionCounts(g.list, state.conversions, errorKeys);
 							return (
 								<CollapsibleSection
 									key={g.cat}
@@ -415,22 +395,14 @@ export default function PluginConfigurationPanel({
 							countsByCategory={counts}
 							errorCountByCategory={errorCountByCategory}
 						/>
-						<div
-							role="tabpanel"
-							id={`skn-panel-${tab}`}
-							aria-labelledby={`skn-tab-${tab}`}
-						>
+						<div role="tabpanel" id={`skn-panel-${tab}`} aria-labelledby={`skn-tab-${tab}`}>
 							{!hasConversions && !metaLoading ? (
 								<p style={S.loadingText}>No conversions in this category.</p>
 							) : null}
 							{sections.map((s) => {
 								if (s.list.length === 0) return null;
 								const sectionKey = `${tab}:${s.group}`;
-								const counts = sectionCounts(
-									s.list,
-									state.conversions,
-									errorKeys,
-								);
+								const counts = sectionCounts(s.list, state.conversions, errorKeys);
 								return (
 									<CollapsibleSection
 										key={s.group}
@@ -474,9 +446,7 @@ export default function PluginConfigurationPanel({
 					meta={meta}
 					config={state}
 					onEnableKeys={enableKeys}
-					onApplyPreset={(p) =>
-						dispatch({ type: "applyPreset", preset: p, meta })
-					}
+					onApplyPreset={(p) => dispatch({ type: "applyPreset", preset: p, meta })}
 					onClose={closeWizard}
 				/>
 			) : null}

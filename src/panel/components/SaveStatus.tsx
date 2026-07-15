@@ -8,10 +8,7 @@ interface Props {
 }
 
 /** The "Unsaved changes" / "Saved" indicator shared by the footer and the advisor save controls. */
-export default function SaveStatus({
-	dirty,
-	justSavedAt,
-}: Props): React.ReactElement | null {
+export default function SaveStatus({ dirty, justSavedAt }: Props): React.ReactElement | null {
 	if (dirty) return <span style={S.dirty}>Unsaved changes</span>;
 	if (justSavedAt) {
 		return (

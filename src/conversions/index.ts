@@ -68,9 +68,7 @@ function buildConversions(
 ): ConversionModule<unknown[]>[] {
 	try {
 		const moduleOrModules = factory(app, plugin);
-		const arr = Array.isArray(moduleOrModules)
-			? moduleOrModules
-			: [moduleOrModules];
+		const arr = Array.isArray(moduleOrModules) ? moduleOrModules : [moduleOrModules];
 		return arr.filter(isDefined);
 	} catch (e) {
 		app.error(`Error loading conversion module: ${errMessage(e)}`);

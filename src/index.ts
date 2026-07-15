@@ -53,8 +53,7 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 	const plugin: SignalKPlugin = {
 		id: "signalk-nmea2000-emitter-cannon",
 		name: "NMEA 2000 Emitter Cannon",
-		description:
-			"Plugin to convert Signal K to NMEA 2000 with enhanced Garmin compatibility",
+		description: "Plugin to convert Signal K to NMEA 2000 with enhanced Garmin compatibility",
 		schema: () => RootConfig,
 		start: startPlugin,
 		stop: stopPlugin,
@@ -76,9 +75,7 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 			if (managerMetadata.length > 0) return managerMetadata;
 		}
 		if (!conversionCatalog) {
-			conversionCatalog = buildConversionMetadata(
-				createConversionModules(app, plugin),
-			);
+			conversionCatalog = buildConversionMetadata(createConversionModules(app, plugin));
 		}
 		return conversionCatalog;
 	};
@@ -143,10 +140,7 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 		() => advisor,
 	);
 
-	function startPlugin(
-		options: unknown,
-		_restartPlugin?: (cfg: object) => void,
-	): void {
+	function startPlugin(options: unknown, _restartPlugin?: (cfg: object) => void): void {
 		// Tear down any prior instance (and the scheduler) before re-wiring;
 		// the configure() call below re-arms the scheduler from fresh config.
 		stopPlugin();

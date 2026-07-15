@@ -2,9 +2,13 @@
 
 ## Prerequisites
 
-- Node.js 22.18 or newer within the 22.x line, or Node.js 24.11+ (Babel 8 development toolchain)
-- TypeScript 7+
-- Modern package manager (npm recommended)
+- Node.js 22.18 or newer (`.node-version` pins 22.18 for local development)
+- npm 11.6 or newer for local development (`packageManager` pins npm 11.18)
+- TypeScript 6, installed by the repository
+
+The `devEngines` compatibility floor also admits npm 10.9.8 because the
+official Signal K plugin-CI Node 22 lanes use that bundled npm release. Local
+development and repository-owned CI stay pinned to npm 11.18.
 
 ## Setup
 
@@ -12,14 +16,13 @@
 git clone https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon.git
 cd signalk-nmea2000-emitter-cannon
 npm install
-npm run hooks          # one-time: enable the lint-staged pre-commit hook
+npm run hooks          # one-time: enable the repository-owned Git hooks
 ```
 
-Git hooks are not auto-installed on `npm install`: the husky `prepare`
-lifecycle is omitted because it breaks `npm pack` on Node 22's npm 10 (the
-script banner leaks into the packed-tarball name, which fails the app-store
-install check in CI). Run `npm run hooks` once after cloning to enable the
-pre-commit hook.
+Git hooks are not auto-installed on `npm install`, because lifecycle hooks can
+interfere with Signal K's package-install checks. Run `npm run hooks` once after
+cloning. The pre-commit hook runs the fast code-quality gates, and the pre-push
+hook runs full verification serially for predictable memory use on small hosts.
 
 ## Build commands
 
@@ -29,10 +32,14 @@ npm run build:watch    # Development build with watch mode
 npm test               # Run all tests (Vitest)
 npm run test:ui        # Run tests with interactive UI
 npm run test:coverage  # Run tests with coverage report
-npm run typecheck      # TypeScript validation (strict mode)
-npm run lint           # Biome linting
+npm run check          # Strict TypeScript validation for runtime, panel, and tests
+npm run lint           # Biome, typed ESLint, Markdown, and spelling checks
+npm run cruise         # Module-boundary and cycle checks
+npm run deadcode       # Unused file, dependency, and export checks
 npm run format         # Biome auto-format with --write
-npm run check          # Full Biome check
+npm run format:check   # Formatting check without writes
+npm run verify         # Coverage, build, panel smoke, and size gates
+npm run verify:release # Verify plus package contents and security audits
 ```
 
 ## Architecture
@@ -51,7 +58,7 @@ NMEA 2000 output messages follow the CanboatJS format: required `prio`, `pgn`,
 
 ## Project structure
 
-```
+```text
 src/
 ├── index.ts              # Plugin entry point (registerWithRouter, lifecycle)
 ├── plugin-manager.ts     # Core lifecycle (subscriptions, resend, status snapshot, emit counters)
@@ -66,10 +73,12 @@ src/
 │   ├── extras-meta.ts    # ExtrasMeta discriminator per optionKey
 │   ├── pgnSummaries.ts   # Per-PGN human-readable summary strings
 │   └── types.ts          # API response shapes
+├── advisor/              # Server-side orchestration, inventory, QuestDB, and scheduling
+├── recommendation/       # Runtime-neutral recommendation matcher and shared types
 ├── panel/                # Federated React config panel (webpack module federation)
-│   ├── index.tsx         # Federation entry; re-exports PluginConfigurationPanel
 │   ├── PluginConfigurationPanel.tsx
-│   ├── styles.ts         # Shared inline-style primitives
+│   ├── styles.ts         # Stable facade for shared inline-style primitives
+│   ├── sharedStyles/     # Shared action, disclosure, feedback, form, and shell styles
 │   ├── advisorStyles.ts  # Advisor panel, result, and settings styles
 │   ├── conversionStyles.ts # Dense conversion list and editor styles
 │   ├── statusStyles.ts   # Status dashboard style module
@@ -108,7 +117,7 @@ src/
     ├── index.test.ts          # All conversion-module test cases (round-trip via canboatjs)
     ├── advisor.test.ts        # Config Advisor: recommender, inventory, QuestDB, stale-source, orchestrator
     ├── advisor-config.test.ts # Advisor config defaults vs schema
-    ├── api.test.ts            # /api/* router endpoints + admin auth
+    ├── api.test.ts            # /api/* routing, validation, and error responses
     ├── discovery.test.ts      # Path / source enumeration
     ├── lifecycle.test.ts      # Plugin start/stop/resend lifecycle
     ├── migrate.test.ts        # v1.4.x legacy config migration
@@ -121,14 +130,13 @@ src/
     └── useConfig.test.ts      # Panel useConfig reducer (setAdvisor, preset apply)
 public/                   # Webpack module federation output (shipped via "files" array)
 ├── remoteEntry.js        # Federation entry script (classic var-type container)
-├── main.js               # Panel main bundle
 └── *.js / *.LICENSE.txt  # Federation chunks
 webpack.config.cjs        # Classic module federation build config
 tsconfig.panel.json       # Panel-specific TypeScript config (jsx: react-jsx)
 tsconfig.test.json        # TypeScript config for the src/test/ suite
 .github/
 └── workflows/
-    ├── ci.yml            # GitHub Actions CI pipeline (lint, typecheck, test, build)
+    ├── ci.yml            # Complete release verification on Node 24
     ├── plugin-ci.yml     # Official SignalK reusable plugin-ci workflow (cross-platform)
     └── publish.yml       # Auto-publish to npm on GitHub release (with provenance)
 ```
@@ -148,6 +156,7 @@ advisor, panel-state, and protocol-boundary behavior.
 npm test               # Run all tests
 npm run test:ui        # Run tests with UI
 npm run test:coverage  # Run tests with coverage
+npm run test:panel     # Render the production federation bundle in a VM
 ```
 
 ## Adding new conversions
@@ -160,7 +169,8 @@ npm run test:coverage  # Run tests with coverage
    because the TypeBox schema in `src/config/schema.ts` already accepts any
    conversion key with `enabled`, `resend`, `sources`, and `extras`.
 4. Include embedded test cases in the module's `tests` array.
-5. Run `npm test` and `npm run typecheck`.
+5. Run `npm run verify:fast` while iterating, then `npm run verify` before the
+   change is ready.
 
 Each conversion module carries a required `category` field (one of
 `navigation`, `engine`, `electrical`, `tanks`, `environment`, `ais`, `comms`,

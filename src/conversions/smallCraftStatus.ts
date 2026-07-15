@@ -1,9 +1,5 @@
 import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
-import type {
-	ConversionModule,
-	N2KFieldValue,
-	N2KMessage,
-} from "../types/index.js";
+import type { ConversionModule, N2KFieldValue, N2KMessage } from "../types/index.js";
 import { isValidNumber } from "../utils/validation.js";
 
 export default function createSmallCraftStatusConversion(): ConversionModule {

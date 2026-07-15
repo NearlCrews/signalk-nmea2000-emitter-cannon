@@ -18,10 +18,7 @@ interface Props {
 	onChange: (next: Record<string, unknown>) => void;
 }
 
-export default function ExhaustMappingEditor({
-	value,
-	onChange,
-}: Props): React.ReactElement {
+export default function ExhaustMappingEditor({ value, onChange }: Props): React.ReactElement {
 	const { rows, setRows } = extraRows<Row>(value, "engines", onChange);
 	return (
 		<MappingTable<Row>

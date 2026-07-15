@@ -15,11 +15,7 @@ interface Props {
 	onChange: (next: Record<string, unknown>) => void;
 }
 
-export default function ExtrasEditor({
-	meta,
-	value,
-	onChange,
-}: Props): React.ReactElement | null {
+export default function ExtrasEditor({ meta, value, onChange }: Props): React.ReactElement | null {
 	switch (meta.type) {
 		case "none":
 			return null;

@@ -16,9 +16,7 @@ export function starboardOffset(
 	beam: number | null | undefined,
 	fromCenter: number | null | undefined,
 ): number | undefined {
-	return isValidNumber(beam) && isValidNumber(fromCenter)
-		? beam / 2 + fromCenter
-		: undefined;
+	return isValidNumber(beam) && isValidNumber(fromCenter) ? beam / 2 + fromCenter : undefined;
 }
 
 /**

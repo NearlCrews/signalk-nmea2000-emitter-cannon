@@ -10,11 +10,7 @@ type SubFactory = (o: unknown) => Array<{
 // with the FLAT option shape the plugin-manager produces, so these assertions
 // exercise the real production read path (not a tautology against the same
 // resolver the embedded tests use).
-function emit(
-	optionKey: string,
-	options: unknown,
-	input: number[],
-): N2KMessage {
+function emit(optionKey: string, options: unknown, input: number[]): N2KMessage {
 	const mod = createHumidityConversions(null as unknown as SignalKApp).find(
 		(m) => m.optionKey === optionKey,
 	);
@@ -47,11 +43,7 @@ describe("Humidity overrides", () => {
 	});
 
 	it("clamps an out-of-range instance into the encodable uint8 data range", () => {
-		expect(
-			emit("HUMIDITY_INSIDE", { instance: 300 }, [0.5]).fields.instance,
-		).toBe(252);
-		expect(
-			emit("HUMIDITY_INSIDE", { instance: -5 }, [0.5]).fields.instance,
-		).toBe(0);
+		expect(emit("HUMIDITY_INSIDE", { instance: 300 }, [0.5]).fields.instance).toBe(252);
+		expect(emit("HUMIDITY_INSIDE", { instance: -5 }, [0.5]).fields.instance).toBe(0);
 	});
 });

@@ -1,8 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type {
-	ConversionMetadata,
-	ConversionsResponse,
-} from "../../api/types.js";
+import type { ConversionMetadata, ConversionsResponse } from "../../api/types.js";
 import { errMessage } from "../../utils/errorUtils.js";
 import { fetchJson, isAbortError } from "../api-base";
 

@@ -23,10 +23,7 @@ const CARD: React.CSSProperties = {
  * of the conversion catalog. The trailing summary keeps the effective
  * interval visible while the editor is collapsed.
  */
-export default function GlobalSettings({
-	value,
-	onChange,
-}: Props): React.ReactElement {
+export default function GlobalSettings({ value, onChange }: Props): React.ReactElement {
 	return (
 		<div style={CARD}>
 			<Disclosure

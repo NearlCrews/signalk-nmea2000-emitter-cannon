@@ -1,9 +1,6 @@
 import { useCallback, useState } from "react";
-import type { ApplyDecision, ReviewResult } from "../../advisor/types.js";
-import type {
-	AdvisorPendingResponse,
-	AdvisorReviewResponse,
-} from "../../api/types.js";
+import type { AdvisorPendingResponse, AdvisorReviewResponse } from "../../api/types.js";
+import type { ApplyDecision, ReviewResult } from "../../recommendation/types.js";
 import { fetchJson, friendlyApiError } from "../api-base";
 
 // Advisor-specific 503 wording for friendlyApiError, shared by every advisor
@@ -92,9 +89,7 @@ export function useAdvisor(): {
 			setState((s) => {
 				if (!s.result) return { result: null, loading: false, error: null };
 				const handled = new Set(decisions.map((d) => d.optionKey));
-				const pending = s.result.pending.filter(
-					(r) => !handled.has(r.optionKey),
-				);
+				const pending = s.result.pending.filter((r) => !handled.has(r.optionKey));
 				return {
 					result: pending.length > 0 ? { ...s.result, pending } : null,
 					loading: false,

@@ -1,14 +1,10 @@
 import type * as React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { recommend } from "../../advisor/recommender.js";
-import type { PathInventory } from "../../advisor/types.js";
 import type { ConversionMetadata, PathsResponse } from "../../api/types.js";
-import {
-	CategoryLabels,
-	groupByCategory,
-	type PresetTag,
-} from "../../config/enums.js";
+import { CategoryLabels, groupByCategory, type PresetTag } from "../../config/enums.js";
 import type { Config } from "../../config/schema.js";
+import { recommend } from "../../recommendation/recommender.js";
+import type { PathInventory } from "../../recommendation/types.js";
 import { errMessage } from "../../utils/errorUtils.js";
 import { fetchJson, isAbortError } from "../api-base";
 import { plural } from "../recency";
@@ -96,6 +92,7 @@ export default function FirstRunWizard({
 			if (focusables.length === 0) return;
 			const first = focusables[0];
 			const last = focusables[focusables.length - 1];
+			if (first === undefined || last === undefined) return;
 			const active = document.activeElement;
 			const inside = active instanceof Node && dialog.contains(active);
 			if (e.shiftKey) {
@@ -141,22 +138,16 @@ export default function FirstRunWizard({
 			metadata: meta,
 			currentConfig: config.conversions,
 		});
-		const enableKeys = new Set(
-			recs.filter((r) => r.action === "enable").map((r) => r.optionKey),
-		);
+		const enableKeys = new Set(recs.filter((r) => r.action === "enable").map((r) => r.optionKey));
 		return meta.filter((m) => enableKeys.has(m.key));
 	}, [paths, meta, config.conversions]);
 	const grouped = useMemo(() => groupByCategory(proposed), [proposed]);
 
-	const checkedKeys = proposed
-		.filter((m) => overrides[m.key] ?? true)
-		.map((m) => m.key);
+	const checkedKeys = proposed.filter((m) => overrides[m.key] ?? true).map((m) => m.key);
 
 	const handleApply = (): void => {
 		if (checkedKeys.length > 0) onEnableKeys(checkedKeys);
-		setHint(
-			`Staged ${plural(checkedKeys.length, "conversion")}. ${REVIEW_THEN_SAVE}`,
-		);
+		setHint(`Staged ${plural(checkedKeys.length, "conversion")}. ${REVIEW_THEN_SAVE}`);
 	};
 
 	const scanning = paths === null && loadError === null;
@@ -185,42 +176,32 @@ export default function FirstRunWizard({
 					<h2 id={titleId} style={W.title}>
 						Setup wizard
 					</h2>
-					<button
-						type="button"
-						style={W.close}
-						onClick={onClose}
-						aria-label="Close setup wizard"
-					>
+					<button type="button" style={W.close} onClick={onClose} aria-label="Close setup wizard">
 						×
 					</button>
 				</div>
 
 				<div style={W.body}>
 					<p style={W.intro}>
-						This scans the Signal K paths your boat is publishing right now and
-						proposes the not-yet-enabled conversions that have live data. Review
-						the pre-checked list, then Apply to stage them. Nothing is saved
-						until you Save in the main panel.
+						This scans the Signal K paths your boat is publishing right now and proposes the
+						not-yet-enabled conversions that have live data. Review the pre-checked list, then Apply
+						to stage them. Nothing is saved until you Save in the main panel.
 					</p>
 
-					{scanning ? (
-						<p style={S.loadingText}>Scanning live Signal K paths...</p>
-					) : null}
+					{scanning ? <p style={S.loadingText}>Scanning live Signal K paths...</p> : null}
 
 					{loadError ? (
 						<div role="alert" style={S.errorBanner}>
 							<span>
-								Could not scan live paths: {loadError}. You can still apply a
-								preset below.
+								Could not scan live paths: {loadError}. You can still apply a preset below.
 							</span>
 						</div>
 					) : null}
 
 					{paths !== null && grouped.length === 0 && !loadError ? (
 						<p style={S.helpHint}>
-							No new conversions matched live data; conversions already enabled
-							are not listed. Apply a preset below, or close this wizard and
-							enable conversions manually.
+							No new conversions matched live data; conversions already enabled are not listed.
+							Apply a preset below, or close this wizard and enable conversions manually.
 						</p>
 					) : null}
 
@@ -248,8 +229,8 @@ export default function FirstRunWizard({
 
 					<h3 style={W.subhead}>Or apply a preset now</h3>
 					<p style={S.helpHint}>
-						Preset chips stage their conversions the moment you tap one; there
-						is no separate Apply step.
+						Preset chips stage their conversions the moment you tap one; there is no separate Apply
+						step.
 					</p>
 					{/* Preset chips show their own "Enabled N conversions, not yet
 					    saved." confirmation, so a chip tap does not also rewrite the

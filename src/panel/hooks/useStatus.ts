@@ -67,9 +67,7 @@ export function useStatus(): {
 				}
 			} catch (e) {
 				if (!cancelled && timedOut) {
-					setError(
-						`Status request timed out after ${REQUEST_TIMEOUT_MS / 1000} seconds`,
-					);
+					setError(`Status request timed out after ${REQUEST_TIMEOUT_MS / 1000} seconds`);
 				} else if (!cancelled && !isAbortError(e)) {
 					setError(errMessage(e));
 				}

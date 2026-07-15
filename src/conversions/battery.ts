@@ -32,9 +32,7 @@ export default function createBatteryConversion(
 	_app: SignalKApp,
 	_plugin: SignalKPlugin,
 ): ConversionModule {
-	const timeRemainingSmoother = new ExponentialSmoother(
-		BATTERY_TIME_REMAINING_ALPHA,
-	);
+	const timeRemainingSmoother = new ExponentialSmoother(BATTERY_TIME_REMAINING_ALPHA);
 
 	const batteryKeys = [
 		"voltage",
@@ -72,9 +70,7 @@ export default function createBatteryConversion(
 			return batteries.map((battery): SubConversionModule => {
 				const smoothingKey = `${battery.signalkId}_${battery.instanceId}`;
 				return {
-					keys: batteryKeys.map(
-						(key) => `electrical.batteries.${battery.signalkId}.${key}`,
-					),
+					keys: batteryKeys.map((key) => `electrical.batteries.${battery.signalkId}.${key}`),
 					timeouts: sharedTimeouts,
 					callback: ((
 						voltage: number | null,
@@ -97,11 +93,7 @@ export default function createBatteryConversion(
 
 						const res: N2KMessage[] = [];
 
-						if (
-							validVoltage !== null ||
-							validCurrent !== null ||
-							validTemperature !== null
-						) {
+						if (validVoltage !== null || validCurrent !== null || validTemperature !== null) {
 							res.push({
 								prio: N2K_DEFAULT_PRIORITY,
 								pgn: 127508,
@@ -146,9 +138,7 @@ export default function createBatteryConversion(
 								if (seconds > MAX_TIME_REMAINING_S) {
 									seconds = MAX_TIME_REMAINING_S;
 								}
-								computedTR = Math.round(
-									timeRemainingSmoother.smooth(smoothingKey, seconds),
-								);
+								computedTR = Math.round(timeRemainingSmoother.smooth(smoothingKey, seconds));
 							}
 						}
 
@@ -170,13 +160,9 @@ export default function createBatteryConversion(
 									instance: battery.instanceId,
 									dcType: "Battery",
 									stateOfCharge:
-										validStateOfCharge !== null
-											? validStateOfCharge * PERCENT_SCALE
-											: undefined,
+										validStateOfCharge !== null ? validStateOfCharge * PERCENT_SCALE : undefined,
 									stateOfHealth:
-										validStateOfHealth !== null
-											? validStateOfHealth * PERCENT_SCALE
-											: undefined,
+										validStateOfHealth !== null ? validStateOfHealth * PERCENT_SCALE : undefined,
 									timeRemaining: resolvedTimeRemaining ?? undefined,
 									// SK capacity.remaining is Coulombs (As); canboatjs
 									// converts it to the PGN 127506 Ah wire field, so the

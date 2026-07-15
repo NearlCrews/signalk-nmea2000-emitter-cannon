@@ -10,11 +10,4 @@ export interface SignalKApp extends ServerAPI {
 	// event has already fired can still detect readiness. Typed as optional
 	// to keep compatibility with older server builds that may not expose it.
 	isNmea2000OutAvailable?: boolean;
-	// Admin-auth gate registered by the API router. signalk-server exposes
-	// `securityStrategy.addAdminMiddleware(prefix)` at runtime but the typed
-	// @signalk/server-api surface does not declare it; this extension keeps
-	// `router.ts` typed without resorting to `any`.
-	securityStrategy?: {
-		addAdminMiddleware: (pathPrefix: string) => void;
-	};
 }

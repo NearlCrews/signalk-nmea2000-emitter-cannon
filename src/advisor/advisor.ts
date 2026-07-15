@@ -1,17 +1,17 @@
 import type { ConversionMetadata } from "../api/types.js";
 import { emptyConversionConfig } from "../config/defaults.js";
 import type { ConversionConfig, ConversionMap } from "../config/schema.js";
-import { errMessage } from "../utils/errorUtils.js";
-import { isPlainObject, isValidNumber } from "../utils/validation.js";
-import { mergeHistoric } from "./inventory.js";
-import { recommend } from "./recommender.js";
+import { recommend } from "../recommendation/recommender.js";
 import type {
 	ApplyDecision,
 	HistoricPaths,
 	PathInventory,
 	Recommendation,
 	ReviewResult,
-} from "./types.js";
+} from "../recommendation/types.js";
+import { errMessage } from "../utils/errorUtils.js";
+import { isPlainObject, isValidNumber } from "../utils/validation.js";
+import { mergeHistoric } from "./inventory.js";
 
 /**
  * Everything the orchestrator needs, abstracted from `SignalKApp` so it is
@@ -46,16 +46,9 @@ const DEFAULT_LOOKBACK_DAYS = 7;
  * string naming a loaded conversion. Malformed or unknown-key entries are
  * dropped so they neither throw nor inject a junk key into the saved config.
  */
-function isApplicableDecision(
-	d: unknown,
-	knownKeys: ReadonlySet<string>,
-): d is ApplyDecision {
+function isApplicableDecision(d: unknown, knownKeys: ReadonlySet<string>): d is ApplyDecision {
 	if (!isPlainObject(d)) return false;
-	return (
-		d.approved === true &&
-		typeof d.optionKey === "string" &&
-		knownKeys.has(d.optionKey)
-	);
+	return d.approved === true && typeof d.optionKey === "string" && knownKeys.has(d.optionKey);
 }
 
 export class Advisor {
@@ -75,16 +68,11 @@ export class Advisor {
 		const questdb = this.questdbConfig(config);
 		if (questdb?.enabled && this.deps.fetchHistoric) {
 			try {
-				const historic = await this.deps.fetchHistoric(
-					questdb.url,
-					questdb.lookbackDays,
-				);
+				const historic = await this.deps.fetchHistoric(questdb.url, questdb.lookbackDays);
 				inventory = mergeHistoric(inventory, historic);
 			} catch (err) {
 				const detail = errMessage(err);
-				notes.push(
-					`QuestDB history unavailable (${detail}); reviewed live data only.`,
-				);
+				notes.push(`QuestDB history unavailable (${detail}); reviewed live data only.`);
 			}
 		}
 
@@ -155,9 +143,7 @@ export class Advisor {
 		// malformed elements (null, missing optionKey) without throwing and
 		// stops an arbitrary key from being written to the saved config.
 		const knownKeys = new Set(this.deps.getMetadata().map((m) => m.key));
-		const approved = decisions.filter((d) =>
-			isApplicableDecision(d, knownKeys),
-		);
+		const approved = decisions.filter((d) => isApplicableDecision(d, knownKeys));
 		if (approved.length === 0) return;
 		const config = this.deps.readConfig();
 		const conversions = { ...this.conversionsOf(config) };
@@ -167,9 +153,7 @@ export class Advisor {
 				// Remove only the named path pins so the conversion follows the
 				// live source for them again; other pins and `enabled` stay as-is.
 				const sources = { ...entry.sources };
-				const paths = Array.isArray(d.clearSourcePaths)
-					? d.clearSourcePaths
-					: [];
+				const paths = Array.isArray(d.clearSourcePaths) ? d.clearSourcePaths : [];
 				for (const p of paths) delete sources[p];
 				conversions[d.optionKey] = { ...entry, sources };
 			} else {
@@ -186,9 +170,7 @@ export class Advisor {
 		// Advisor instance outlives PluginManager restarts, so the implicit
 		// restart from writeConfig does not clear this on its own.
 		const appliedKeys = new Set(approved.map((d) => d.optionKey));
-		this.lastPending = this.lastPending.filter(
-			(r) => !appliedKeys.has(r.optionKey),
-		);
+		this.lastPending = this.lastPending.filter((r) => !appliedKeys.has(r.optionKey));
 	}
 
 	private conversionsOf(config: Record<string, unknown>): ConversionMap {
@@ -197,9 +179,7 @@ export class Advisor {
 	}
 
 	/** The `advisor` config block as an object, or null when absent. */
-	private advisorSection(
-		config: Record<string, unknown>,
-	): Record<string, unknown> | null {
+	private advisorSection(config: Record<string, unknown>): Record<string, unknown> | null {
 		const advisor = config.advisor;
 		return isPlainObject(advisor) ? advisor : null;
 	}
@@ -218,9 +198,7 @@ export class Advisor {
 		const { enabled, url, lookbackDays } = q;
 		if (typeof url !== "string") return null;
 		const days =
-			isValidNumber(lookbackDays) && lookbackDays > 0
-				? lookbackDays
-				: DEFAULT_LOOKBACK_DAYS;
+			isValidNumber(lookbackDays) && lookbackDays > 0 ? lookbackDays : DEFAULT_LOOKBACK_DAYS;
 		return { enabled: enabled === true, url, lookbackDays: days };
 	}
 

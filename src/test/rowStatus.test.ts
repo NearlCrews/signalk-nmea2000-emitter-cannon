@@ -5,10 +5,7 @@ const base = { key: "K", title: "Test", emitCount: 0, enabled: false } as const;
 
 describe("rowStatus", () => {
 	it("is emitting with a count and age when emitCount > 0 and no error", () => {
-		const r = rowStatus(
-			{ ...base, enabled: true, emitCount: 5, lastEmitMs: 1000 },
-			true,
-		);
+		const r = rowStatus({ ...base, enabled: true, emitCount: 5, lastEmitMs: 1000 }, true);
 		expect(r.rail).toBe("emitting");
 		expect(r.recency).toMatch(/^5 emits, last /);
 	});
@@ -35,10 +32,7 @@ describe("rowStatus", () => {
 	});
 
 	it("is error with 'no recent output' when erroring and never emitted", () => {
-		const r = rowStatus(
-			{ ...base, enabled: true, emitCount: 0, lastErrorMessage: "boom" },
-			true,
-		);
+		const r = rowStatus({ ...base, enabled: true, emitCount: 0, lastErrorMessage: "boom" }, true);
 		expect(r.rail).toBe("error");
 		expect(r.recency).toBe("no recent output");
 	});
@@ -54,11 +48,9 @@ describe("rowStatus", () => {
 			rail: "disabled",
 			recency: null,
 		});
-		expect(rowStatus({ ...base, enabled: false, emitCount: 0 }, false)).toEqual(
-			{
-				rail: "disabled",
-				recency: null,
-			},
-		);
+		expect(rowStatus({ ...base, enabled: false, emitCount: 0 }, false)).toEqual({
+			rail: "disabled",
+			recency: null,
+		});
 	});
 });

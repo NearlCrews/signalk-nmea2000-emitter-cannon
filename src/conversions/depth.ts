@@ -1,17 +1,11 @@
 import { N2K_BROADCAST_DST, N2K_DEFAULT_SID } from "../constants.js";
-import type {
-	ConversionCallback,
-	ConversionModule,
-	SignalKApp,
-} from "../types/index.js";
+import type { ConversionCallback, ConversionModule, SignalKApp } from "../types/index.js";
 import { getSelfValue } from "../utils/pathUtils.js";
 import { isValidNumber, toValidNumber } from "../utils/validation.js";
 
 const N2K_DEPTH_PRIORITY = 3;
 
-export default function createDepthConversion(
-	app: SignalKApp,
-): ConversionModule<[number | null]> {
+export default function createDepthConversion(app: SignalKApp): ConversionModule<[number | null]> {
 	return {
 		title: "Water Depth (PGN 128267)",
 		optionKey: "DEPTH",

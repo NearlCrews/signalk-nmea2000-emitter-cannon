@@ -23,10 +23,10 @@ interface Props {
 	// Wall-clock timestamp (ms) of the last successful status poll. When the
 	// snapshot is older than STALE_AFTER_MS a dim "updated Xs ago" marker is
 	// shown. Optional.
-	lastUpdatedMs?: number;
+	lastUpdatedMs: number | undefined;
 	// Timestamp of the latest poll completion, used as the render clock for the
 	// staleness label when consecutive polls fail.
-	lastAttemptMs?: number;
+	lastAttemptMs: number | undefined;
 	onErrorBadgeClick: () => void;
 	search: string;
 	onSearch: (v: string) => void;
@@ -40,9 +40,7 @@ interface Props {
 export default function PanelToolbar(props: Props): React.ReactElement {
 	const s = props.status;
 	const outputState = outputStateFor(s);
-	const errors = s
-		? s.perConversion.filter((c) => c.lastErrorMessage).length
-		: 0;
+	const errors = s ? s.perConversion.filter((c) => c.lastErrorMessage).length : 0;
 	const staleAgeMs =
 		props.lastUpdatedMs !== undefined
 			? (props.lastAttemptMs ?? Date.now()) - props.lastUpdatedMs
@@ -85,18 +83,11 @@ export default function PanelToolbar(props: Props): React.ReactElement {
 					title={OUTPUT_STATE_TITLES[outputState]}
 				/>
 				<span role="status">
-					{s ? `${s.enabledCount} / ${s.totalConversions}` : "..."}{" "}
-					{outputState}
+					{s ? `${s.enabledCount} / ${s.totalConversions}` : "..."} {outputState}
 				</span>
-				{stale ? (
-					<span style={T.statusChipStale}>
-						updated {humanizeAgo(staleAgeMs)}
-					</span>
-				) : null}
+				{stale ? <span style={T.statusChipStale}>updated {humanizeAgo(staleAgeMs)}</span> : null}
 			</span>
-			{errors > 0 ? (
-				<ErrorBadgeButton count={errors} onClick={props.onErrorBadgeClick} />
-			) : null}
+			{errors > 0 ? <ErrorBadgeButton count={errors} onClick={props.onErrorBadgeClick} /> : null}
 			<SegmentedControl
 				legend="View"
 				choices={props.viewChoices}

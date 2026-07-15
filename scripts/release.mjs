@@ -49,26 +49,15 @@ function main() {
 	}
 
 	if (
-		capture("git", [
-			"rev-parse",
-			"--abbrev-ref",
-			"--symbolic-full-name",
-			"@{upstream}",
-		]) !== expectedUpstream
+		capture("git", ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"]) !==
+		expectedUpstream
 	) {
 		throw new Error(`the ${expectedBranch} branch must track ${expectedUpstream}`);
 	}
 
-	execFileSync(
-		"git",
-		[
-			"fetch",
-			"--quiet",
-			"origin",
-			"+refs/heads/main:refs/remotes/origin/main",
-		],
-		{ stdio: "inherit" },
-	);
+	execFileSync("git", ["fetch", "--quiet", "origin", "+refs/heads/main:refs/remotes/origin/main"], {
+		stdio: "inherit",
+	});
 
 	const counts = capture("git", [
 		"rev-list",
@@ -90,9 +79,7 @@ function main() {
 		throw new Error(`local tag ${tag} already exists`);
 	}
 
-	if (
-		exists("git", ["ls-remote", "--exit-code", "--tags", "origin", `refs/tags/${tag}`], 2)
-	) {
+	if (exists("git", ["ls-remote", "--exit-code", "--tags", "origin", `refs/tags/${tag}`], 2)) {
 		throw new Error(`remote tag ${tag} already exists`);
 	}
 
@@ -101,7 +88,7 @@ function main() {
 	});
 
 	if (checkOnly) {
-		console.log(`Release preflight passed for ${tag}`);
+		process.stdout.write(`Release preflight passed for ${tag}\n`);
 		return;
 	}
 

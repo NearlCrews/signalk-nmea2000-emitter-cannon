@@ -22,7 +22,8 @@
 // .875rem = 14px) so the panel reads native inside the CoreUI admin shell.
 // The display size gives the wizard title and view-level headings one step of
 // real contrast over the 15px card titles. Spacing runs an 8/12/16 scale so
-// gutters stay on a consistent rhythm.
+// gutters stay on a consistent rhythm. Repeated component dimensions live
+// here too, which keeps shared controls aligned across style modules.
 const SCALE_TOKENS = `
 	--skn-radius: 6px;
 	--skn-radius-sm: 4px;
@@ -39,6 +40,11 @@ const SCALE_TOKENS = `
 	--skn-control-height: 36px;
 	--skn-row-height: 40px;
 	--skn-toolbar-height: 52px;
+	--skn-status-dot-size: 10px;
+	--skn-input-width: 220px;
+	--skn-checkbox-size: 22px;
+	--skn-table-cell-padding: 6px;
+	--skn-disclosure-gap: 10px;
 	--skn-field-padding: 6px 10px;
 	--skn-control-padding: 6px 12px;
 	--skn-transition-fast: 120ms;

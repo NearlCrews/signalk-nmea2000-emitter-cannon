@@ -5,21 +5,10 @@ import {
 	N2K_DEFAULT_PRIORITY,
 	N2K_SID_ZERO,
 } from "../constants.js";
-import type {
-	ConversionModule,
-	N2KMessage,
-	SignalKApp,
-} from "../types/index.js";
-import {
-	isValidNumber,
-	resolveInstanceAndSource,
-} from "../utils/validation.js";
+import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
+import { isValidNumber, resolveInstanceAndSource } from "../utils/validation.js";
 
-function createHumidityMessage(
-	humidity: number,
-	source: string,
-	instance: number,
-): N2KMessage {
+function createHumidityMessage(humidity: number, source: string, instance: number): N2KMessage {
 	// SK relativeHumidity is a ratio (0..1); PGN 130313 actualHumidity is a
 	// percentage (0..100).
 	return {
@@ -59,15 +48,9 @@ function expectHumidity(
 
 // Flat option shape, matching production. The third case exercises the
 // source-type and instance overrides (used by the Raymarine remap).
-const HUMIDITY_TEST_OPTIONS = [
-	{ instance: 0 },
-	{},
-	{ instance: 4, n2kSource: "Inside" },
-];
+const HUMIDITY_TEST_OPTIONS = [{ instance: 0 }, {}, { instance: 4, n2kSource: "Inside" }];
 
-export default function createHumidityConversions(
-	_app: SignalKApp,
-): ConversionModule<unknown[]>[] {
+export default function createHumidityConversions(_app: SignalKApp): ConversionModule<unknown[]>[] {
 	return [
 		{
 			title: "Outside Humidity (PGN 130313)",
@@ -77,10 +60,7 @@ export default function createHumidityConversions(
 			// Some upstream plugins publish `environment.outside.humidity`,
 			// others publish `environment.outside.relativeHumidity`. The
 			// `relativeHumidity` path wins when both are present.
-			keys: [
-				"environment.outside.relativeHumidity",
-				"environment.outside.humidity",
-			],
+			keys: ["environment.outside.relativeHumidity", "environment.outside.humidity"],
 			testOptions: HUMIDITY_TEST_OPTIONS,
 			conversions: (options: unknown) => {
 				const { instance, source } = resolveInstanceAndSource(
@@ -90,16 +70,9 @@ export default function createHumidityConversions(
 				);
 				return [
 					{
-						keys: [
-							"environment.outside.relativeHumidity",
-							"environment.outside.humidity",
-						],
+						keys: ["environment.outside.relativeHumidity", "environment.outside.humidity"],
 						callback: (rel: unknown, hum: unknown): N2KMessage[] => {
-							const value = isValidNumber(rel)
-								? rel
-								: isValidNumber(hum)
-									? hum
-									: null;
+							const value = isValidNumber(rel) ? rel : isValidNumber(hum) ? hum : null;
 							if (value === null) {
 								return [];
 							}

@@ -1,21 +1,11 @@
-import type {
-	Delta,
-	PathValue,
-	SourceRef,
-	Timestamp,
-	Update,
-} from "@signalk/server-api";
+import type { Delta, PathValue, SourceRef, Timestamp, Update } from "@signalk/server-api";
 import {
 	N2K_BROADCAST_DST,
 	N2K_DEFAULT_PRIORITY,
 	SOURCE_TYPE,
 	VESSELS_SELF_CONTEXT,
 } from "../constants.js";
-import type {
-	ConversionModule,
-	N2KMessage,
-	SignalKApp,
-} from "../types/index.js";
+import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
 import { isDebugEnabled } from "../utils/debugUtils.js";
 import { isClearState } from "../utils/notificationUtils.js";
 import { matchPathPrefix } from "../utils/pathUtils.js";
@@ -199,10 +189,7 @@ export default function createNotificationsConversion(
 	// computed at set time so the per-callback emit gate is an integer
 	// `Date.now` check plus a string compare, not a stringify per active
 	// alert per delta.
-	const pgnsByAlertId: Map<
-		number,
-		{ pgns: [N2KMessage, N2KMessage]; digest: string }
-	> = new Map();
+	const pgnsByAlertId: Map<number, { pgns: [N2KMessage, N2KMessage]; digest: string }> = new Map();
 	// Per-alert emit gate. The conversion callback fires for every
 	// `notifications.*` delta on the vessel (Evinrude alone broadcasts 24
 	// state=normal paths at ~2.4 Hz each), so returning the full PGN cache
@@ -210,8 +197,7 @@ export default function createNotificationsConversion(
 	// Emit only when the payload digest changed (state, ack, silence, etc.)
 	// or MIN_EMIT_INTERVAL_MS has elapsed (1 Hz rebroadcast, matching the
 	// NMEA 2000 guidance for PGN 126983).
-	const emitTracker: Map<number, { lastEmitMs: number; lastDigest: string }> =
-		new Map();
+	const emitTracker: Map<number, { lastEmitMs: number; lastDigest: string }> = new Map();
 	const MIN_EMIT_INTERVAL_MS = 1000;
 	const EMPTY_EMIT: N2KMessage[] = [];
 	let excludePrefixes: string[] = [];
@@ -233,8 +219,7 @@ export default function createNotificationsConversion(
 		for (const [alertId, entry] of pgnsByAlertId) {
 			const prev = emitTracker.get(alertId);
 			const changed = prev === undefined || prev.lastDigest !== entry.digest;
-			const stale =
-				prev === undefined || now - prev.lastEmitMs >= MIN_EMIT_INTERVAL_MS;
+			const stale = prev === undefined || now - prev.lastEmitMs >= MIN_EMIT_INTERVAL_MS;
 			if (changed || stale) {
 				out.push(entry.pgns[0], entry.pgns[1]);
 				emitTracker.set(alertId, { lastEmitMs: now, lastDigest: entry.digest });
@@ -298,8 +283,7 @@ export default function createNotificationsConversion(
 		context: VESSELS_SELF_CONTEXT,
 		sourceType: SOURCE_TYPE.SUBSCRIPTION,
 		onOptionsLoaded: (options) => {
-			const raw =
-				typeof options.excludePaths === "string" ? options.excludePaths : "";
+			const raw = typeof options.excludePaths === "string" ? options.excludePaths : "";
 			excludePrefixes = raw
 				.split(",")
 				.map((s) => s.trim())
@@ -308,26 +292,16 @@ export default function createNotificationsConversion(
 			// leak through stale cached PGNs.
 			resetState();
 			if (excludePrefixes.length > 0) {
-				app.debug(
-					`Notifications excluding paths: ${excludePrefixes.join(", ")}`,
-				);
+				app.debug(`Notifications excluding paths: ${excludePrefixes.join(", ")}`);
 			}
 		},
 		callback: (delta: Delta): N2KMessage[] => {
-			if (
-				!delta?.updates ||
-				!Array.isArray(delta.updates) ||
-				delta.updates.length === 0
-			) {
+			if (!delta?.updates || !Array.isArray(delta.updates) || delta.updates.length === 0) {
 				return [];
 			}
 
 			const firstUpdate = delta.updates[0];
-			if (
-				!firstUpdate ||
-				!hasValues(firstUpdate) ||
-				firstUpdate.values.length === 0
-			) {
+			if (!firstUpdate || !hasValues(firstUpdate) || firstUpdate.values.length === 0) {
 				return [];
 			}
 
@@ -384,10 +358,7 @@ export default function createNotificationsConversion(
 				// on the common path where the same id arrives on every delta.
 				bindAlertId(update.path, alertId);
 
-				setAlertPgns(
-					alertId,
-					buildAlertPgns({ alertId, type, category, priority, value }),
-				);
+				setAlertPgns(alertId, buildAlertPgns({ alertId, type, category, priority, value }));
 				evictOldestIfOverCap();
 				return buildEmitList();
 			}
@@ -430,10 +401,7 @@ export default function createNotificationsConversion(
 				return buildEmitList();
 			}
 
-			setAlertPgns(
-				alertId,
-				buildAlertPgns({ alertId, type, category, priority, value }),
-			);
+			setAlertPgns(alertId, buildAlertPgns({ alertId, type, category, priority, value }));
 			evictOldestIfOverCap();
 
 			// One-shot publish of the assigned alertId. signalk-server's

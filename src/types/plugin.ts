@@ -25,9 +25,7 @@ export interface PluginOptions {
 	conversions: Record<string, ConversionOptions>;
 }
 
-export function isConversionOptions(
-	v: ConversionOptions | undefined,
-): v is ConversionOptions {
+export function isConversionOptions(v: ConversionOptions | undefined): v is ConversionOptions {
 	return typeof v === "object" && v !== null;
 }
 
@@ -81,10 +79,7 @@ interface ConversionTest {
 	testOptions?: Record<string, unknown>;
 }
 
-export type SourceTypeMapper = (
-	conversion: ConversionModule,
-	options: ConversionOptions,
-) => void;
+export type SourceTypeMapper = (conversion: ConversionModule, options: ConversionOptions) => void;
 
 export type ConversionModuleFactory = (
 	app: SignalKApp,

@@ -26,12 +26,7 @@ import { isConversionOptions } from "./types/index.js";
 import { isDebugEnabled } from "./utils/debugUtils.js";
 import { errMessage } from "./utils/errorUtils.js";
 import { formatN2KMessage, validateN2KMessage } from "./utils/messageUtils.js";
-import {
-	isDefined,
-	pathToPropName,
-	stripSubIndex,
-	subIndexKey,
-} from "./utils/pathUtils.js";
+import { isDefined, pathToPropName, stripSubIndex, subIndexKey } from "./utils/pathUtils.js";
 import { withCanonicalPgnPriority } from "./utils/pgnPriorities.js";
 import { clearAllSmoothers } from "./utils/smoothing.js";
 
@@ -146,8 +141,7 @@ export class PluginManager {
 		}
 	> = new Map();
 	private static readonly ERROR_THROTTLE_S = 60;
-	private static readonly ERROR_THROTTLE_MS =
-		PluginManager.ERROR_THROTTLE_S * 1000;
+	private static readonly ERROR_THROTTLE_MS = PluginManager.ERROR_THROTTLE_S * 1000;
 	/**
 	 * Single per-conversion state record indexed by parent optionKey. Replaces
 	 * four earlier Maps (emitCounts, lastEmitAt, lastEnabledKeys, and the
@@ -228,11 +222,7 @@ export class PluginManager {
 		return `${title}${key}`;
 	}
 
-	private bucketKey(
-		prefix: string,
-		conversion: ConversionModule,
-		suffix?: string,
-	): string {
+	private bucketKey(prefix: string, conversion: ConversionModule, suffix?: string): string {
 		const id = conversion.optionKey ?? conversion.title ?? "?";
 		return suffix ? `${prefix}:${id}:${suffix}` : `${prefix}:${id}`;
 	}
@@ -261,8 +251,7 @@ export class PluginManager {
 		if (firstColon === -1) return undefined;
 		const afterPrefix = bucketKey.substring(firstColon + 1);
 		const secondColon = afterPrefix.indexOf(":");
-		const id =
-			secondColon === -1 ? afterPrefix : afterPrefix.substring(0, secondColon);
+		const id = secondColon === -1 ? afterPrefix : afterPrefix.substring(0, secondColon);
 		return stripSubIndex(id);
 	}
 
@@ -360,10 +349,7 @@ export class PluginManager {
 	 * and a useful log label so per-instance errors do not collapse into one
 	 * throttle bucket.
 	 */
-	private wireConversion(
-		conv: ConversionModule,
-		convOptions: ConversionOptions,
-	): void {
+	private wireConversion(conv: ConversionModule, convOptions: ConversionOptions): void {
 		const rawConversions = conv.conversions;
 		let subConversions: SubConversionModule[] | null;
 		if (rawConversions === undefined) {
@@ -383,8 +369,7 @@ export class PluginManager {
 			const subConversion = subConversions[idx];
 			if (subConversion === undefined) continue;
 
-			const sourceType =
-				subConversion.sourceType ?? SOURCE_TYPE.ON_VALUE_CHANGE;
+			const sourceType = subConversion.sourceType ?? SOURCE_TYPE.ON_VALUE_CHANGE;
 			const mapper = this.sourceTypes[sourceType];
 
 			if (!mapper) {
@@ -436,9 +421,7 @@ export class PluginManager {
 			// directly would miss the boot-then-ready case.
 			if (this.factoryNmea2000Ready()) {
 				this.nmea2000Ready = true;
-				this.app.debug(
-					"NMEA 2000 output already available at start (factory-latched flag)",
-				);
+				this.app.debug("NMEA 2000 output already available at start (factory-latched flag)");
 			}
 			const options = this.buildPluginOptions(rawOptions);
 			// Nullish-coalesce, not `||`: a configured 0 is a meaningful value
@@ -446,8 +429,7 @@ export class PluginManager {
 			// already guarantees a number here, so `??` only fills a genuinely
 			// absent value with the default. A conversion with its own resend > 0
 			// still resends; only the global default is switched off.
-			this.globalResendInterval =
-				options.globalResendInterval ?? DEFAULT_GLOBAL_RESEND_SECONDS;
+			this.globalResendInterval = options.globalResendInterval ?? DEFAULT_GLOBAL_RESEND_SECONDS;
 
 			this.app.setPluginStatus("Starting...");
 			this.app.debug(
@@ -457,8 +439,7 @@ export class PluginManager {
 			let enabledCount = 0;
 			for (const conv of this.conversions) {
 				const convOptions = options.conversions[conv.optionKey];
-				const isEnabled =
-					isConversionOptions(convOptions) && convOptions.enabled === true;
+				const isEnabled = isConversionOptions(convOptions) && convOptions.enabled === true;
 				if (!isEnabled) continue;
 				enabledCount++;
 				this.getPerConversionState(conv.optionKey).enabled = true;
@@ -474,9 +455,7 @@ export class PluginManager {
 
 			this.lastEnabledCount = enabledCount;
 			if (enabledCount === 0) {
-				this.app.setPluginStatus(
-					"No conversions enabled. Enable at least one in plugin settings.",
-				);
+				this.app.setPluginStatus("No conversions enabled. Enable at least one in plugin settings.");
 			} else if (!this.nmea2000Ready) {
 				// Plugin is wired up but signalk-server has not announced
 				// nmea2000OutAvailable yet. onNmea2000Ready will refresh to the
@@ -502,9 +481,7 @@ export class PluginManager {
 				// the failure cause from the admin UI.
 				this.stop(true);
 			} catch (stopErr) {
-				this.app.error(
-					`stop() during start() failure also failed: ${errMessage(stopErr)}`,
-				);
+				this.app.error(`stop() during start() failure also failed: ${errMessage(stopErr)}`);
 			}
 		}
 	}
@@ -590,9 +567,7 @@ export class PluginManager {
 		// caller is start()'s catch path: it just called setPluginError() and
 		// "Stopped" would overwrite the failure indicator.
 		if (!suppressStatus) {
-			safe("setPluginStatus(Stopped)", () =>
-				this.app.setPluginStatus("Stopped"),
-			);
+			safe("setPluginStatus(Stopped)", () => this.app.setPluginStatus("Stopped"));
 		}
 
 		if (errors.length > 0) {
@@ -607,6 +582,28 @@ export class PluginManager {
 	 * recent input rather than re-emitting cached output, so time-derived
 	 * callbacks (e.g. systemTime) produce fresh values on every tick.
 	 */
+	private async resendConversion(conversion: ConversionModule): Promise<void> {
+		try {
+			if (this.stopped) return;
+			const lastInput = this.lastInputs.get(conversion);
+			// No input ever observed: skip; do not emit stale defaults.
+			if (lastInput === undefined) return;
+
+			const raw = this.invokeCallback(conversion, lastInput, BUCKET_PREFIX.RESEND);
+			if (raw === undefined) return;
+
+			const values = await Promise.resolve(raw);
+			if (this.stopped) return;
+			await this.processToN2K(values, conversion.optionKey);
+		} catch (err) {
+			const message = errMessage(err);
+			this.throttledError(
+				this.bucketKey(BUCKET_PREFIX.RESEND, conversion),
+				`Error in resend timer for ${this.moduleLabel(conversion)}: ${message}`,
+			);
+		}
+	}
+
 	private async processOutput(
 		conversion: ConversionModule,
 		options: ProcessingOptions | null,
@@ -639,9 +636,7 @@ export class PluginManager {
 
 		// Resolve effective resend interval: per-conversion overrides global when non-zero
 		const effectiveResend =
-			options?.resend && options.resend > 0
-				? options.resend
-				: this.globalResendInterval;
+			options?.resend && options.resend > 0 ? options.resend : this.globalResendInterval;
 
 		// processOutput is async: stop() may have run while it was mid-flight.
 		// Arming a resend timer now would push it to a this.timers array that
@@ -649,40 +644,15 @@ export class PluginManager {
 		if (this.stopped) return;
 
 		if (effectiveResend > 0 && !conversion.resendTimer) {
-			conversion.resendTimer = setInterval(async () => {
-				try {
-					if (this.stopped) return;
-					const lastInput = this.lastInputs.get(conversion);
-					// No input ever observed: skip; do not emit stale defaults.
-					if (lastInput === undefined) return;
-
-					const raw = this.invokeCallback(
-						conversion,
-						lastInput,
-						BUCKET_PREFIX.RESEND,
-					);
-					if (raw === undefined) return;
-
-					const values = await Promise.resolve(raw);
-					if (this.stopped) return;
-					await this.processToN2K(values, conversion.optionKey);
-				} catch (err) {
-					const message = errMessage(err);
-					this.throttledError(
-						this.bucketKey(BUCKET_PREFIX.RESEND, conversion),
-						`Error in resend timer for ${this.moduleLabel(conversion)}: ${message}`,
-					);
-				}
+			conversion.resendTimer = setInterval(() => {
+				void this.resendConversion(conversion);
 			}, effectiveResend * 1000);
 
 			this.timers.push(conversion.resendTimer);
 		}
 	}
 
-	private mapOnDelta(
-		conversion: ConversionModule,
-		options: ConversionOptions,
-	): void {
+	private mapOnDelta(conversion: ConversionModule, options: ConversionOptions): void {
 		if (!conversion.callback) {
 			this.app.error(`Delta conversion ${conversion.title} missing callback`);
 			return;
@@ -729,26 +699,18 @@ export class PluginManager {
 			// are not AIS. Skip the processOutput promise chain for that no-op.
 			// Array.isArray screens out a Promise result (a Promise is not an
 			// array), so an async callback still falls through to processOutput.
-			if (
-				result === undefined ||
-				(Array.isArray(result) && result.length === 0)
-			) {
+			if (result === undefined || (Array.isArray(result) && result.length === 0)) {
 				continue;
 			}
 			void this.processOutput(conversion, options, result);
 		}
 	}
 
-	private mapRxJS(
-		conversion: ConversionModule,
-		options: ConversionOptions,
-	): void {
+	private mapRxJS(conversion: ConversionModule, options: ConversionOptions): void {
 		const keys = resolveKeys(conversion.keys, options);
 		const timeouts = conversion.timeouts || [];
 
-		this.app.debug(
-			`Setting up conversion: ${conversion.title} with ${keys.length} keys`,
-		);
+		this.app.debug(`Setting up conversion: ${conversion.title} with ${keys.length} keys`);
 
 		// Per-key timestamp / value records, plus a parallel typed timestamp
 		// array for the per-delta freshness check. Avoids O(keys) hash lookups
@@ -777,9 +739,7 @@ export class PluginManager {
 			// Panel writes use the dotted Signal K path as the source key; legacy
 			// on-disk configs and migrate.ts use the dotless propName form. Reading
 			// both keeps source-locks working regardless of how the config landed.
-			const sourceRef = (options[skKey] ?? options[pathToPropName(skKey)]) as
-				| string
-				| undefined;
+			const sourceRef = (options[skKey] ?? options[pathToPropName(skKey)]) as string | undefined;
 
 			let bus = this.app.streambundle.getSelfBus(skKey as Path);
 
@@ -809,8 +769,7 @@ export class PluginManager {
 				for (let i = 0; i < keys.length; i++) {
 					const timeout = timeouts[i];
 					const ts = timestamps[i] ?? 0;
-					currentValues[i] =
-						!isDefined(timeout) || ts + (timeout || 0) > now ? values[i] : null;
+					currentValues[i] = !isDefined(timeout) || ts + (timeout || 0) > now ? values[i] : null;
 				}
 
 				combinedBus.next(currentValues);
@@ -821,27 +780,21 @@ export class PluginManager {
 			}
 		});
 
-		const subscription = combinedBus
-			.pipe(debounceTime(STREAM_DEBOUNCE_MS))
-			.subscribe({
-				next: (args) => {
-					if (this.stopped) return;
-					this.lastInputs.set(conversion, args.slice());
-					const result = this.invokeCallback(
-						conversion,
-						args,
-						BUCKET_PREFIX.STREAM,
-					);
-					if (result === undefined) return;
-					void this.processOutput(conversion, options, result);
-				},
-				error: (err) => {
-					this.throttledError(
-						this.bucketKey(BUCKET_PREFIX.STREAM, conversion),
-						`Stream error for ${this.moduleLabel(conversion)}: ${errMessage(err)}`,
-					);
-				},
-			});
+		const subscription = combinedBus.pipe(debounceTime(STREAM_DEBOUNCE_MS)).subscribe({
+			next: (args) => {
+				if (this.stopped) return;
+				this.lastInputs.set(conversion, args.slice());
+				const result = this.invokeCallback(conversion, args, BUCKET_PREFIX.STREAM);
+				if (result === undefined) return;
+				void this.processOutput(conversion, options, result);
+			},
+			error: (err) => {
+				this.throttledError(
+					this.bucketKey(BUCKET_PREFIX.STREAM, conversion),
+					`Stream error for ${this.moduleLabel(conversion)}: ${errMessage(err)}`,
+				);
+			},
+		});
 
 		this.unsubscribes.push(() => {
 			subscription.unsubscribe();
@@ -849,10 +802,7 @@ export class PluginManager {
 		});
 	}
 
-	private mapSubscription(
-		conversion: ConversionModule,
-		options: ConversionOptions,
-	): void {
+	private mapSubscription(conversion: ConversionModule, options: ConversionOptions): void {
 		const keys = resolveKeys(conversion.keys, options);
 
 		// Event-like sources (notifications, alarms) need policy:"instant" so
@@ -879,21 +829,14 @@ export class PluginManager {
 				if (this.stopped) return;
 				const args: unknown[] = [delta];
 				this.lastInputs.set(conversion, args);
-				const result = this.invokeCallback(
-					conversion,
-					args,
-					BUCKET_PREFIX.SUBSCRIPTION,
-				);
+				const result = this.invokeCallback(conversion, args, BUCKET_PREFIX.SUBSCRIPTION);
 				if (result === undefined) return;
 				void this.processOutput(conversion, options, result);
 			},
 		);
 	}
 
-	private mapTimer(
-		conversion: ConversionModule,
-		options: ConversionOptions,
-	): void {
+	private mapTimer(conversion: ConversionModule, options: ConversionOptions): void {
 		if (!conversion.interval) {
 			this.app.error(`Timer conversion ${conversion.title} missing interval`);
 			return;
@@ -916,20 +859,14 @@ export class PluginManager {
 		this.timers.push(timer);
 	}
 
-	private sourceTypes: Record<
-		NonNullable<ConversionModule["sourceType"]>,
-		SourceTypeMapper
-	> = {
+	private sourceTypes: Record<NonNullable<ConversionModule["sourceType"]>, SourceTypeMapper> = {
 		[SOURCE_TYPE.ON_DELTA]: (...args) => this.mapOnDelta(...args),
 		[SOURCE_TYPE.ON_VALUE_CHANGE]: (...args) => this.mapRxJS(...args),
 		[SOURCE_TYPE.SUBSCRIPTION]: (...args) => this.mapSubscription(...args),
 		[SOURCE_TYPE.TIMER]: (...args) => this.mapTimer(...args),
 	};
 
-	private async processToN2K(
-		values: N2KMessage[] | null,
-		optionKey?: string,
-	): Promise<void> {
+	private async processToN2K(values: N2KMessage[] | null, optionKey?: string): Promise<void> {
 		if (!values) return;
 
 		if (!this.nmea2000Ready) {
@@ -944,13 +881,9 @@ export class PluginManager {
 
 			for (const pgn of validPgns) {
 				try {
-					const validatedPgn = withCanonicalPgnPriority(
-						validateN2KMessage(pgn),
-					);
+					const validatedPgn = withCanonicalPgnPriority(validateN2KMessage(pgn));
 					if (debugEnabled) {
-						this.app.debug(
-							`emit nmea2000JsonOut ${formatN2KMessage(validatedPgn)}`,
-						);
+						this.app.debug(`emit nmea2000JsonOut ${formatN2KMessage(validatedPgn)}`);
 					}
 					this.app.emit("nmea2000JsonOut", validatedPgn);
 					emitted++;
@@ -1004,8 +937,8 @@ export class PluginManager {
 	 */
 	public getStatusSnapshot(): import("./api/types.js").StatusSnapshot {
 		const now = Date.now();
-		const perConversion: import("./api/types.js").PerConversionStatus[] =
-			this.conversions.map((c) => {
+		const perConversion: import("./api/types.js").PerConversionStatus[] = this.conversions.map(
+			(c) => {
 				// All four pieces of per-conversion state (enabled, emit counter,
 				// last-emit timestamp, latest error) live in one record indexed
 				// by parent optionKey. Sub-conversions (BATTERY[0], BATTERY[1],
@@ -1027,7 +960,8 @@ export class PluginManager {
 					entry.lastErrorAgeMs = now - state.latestError.emittedAt;
 				}
 				return entry;
-			});
+			},
+		);
 
 		return {
 			pluginRunning: this.running,

@@ -44,28 +44,16 @@ export default function FooterBar({
 
 	return (
 		<div style={S.footer}>
-			<button
-				type="button"
-				style={S.btnPrimary}
-				onClick={handleSave}
-				disabled={saveDisabled}
-			>
+			<button type="button" style={S.btnPrimary} onClick={handleSave} disabled={saveDisabled}>
 				Save
 			</button>
-			<button
-				type="button"
-				style={S.btnSecondary}
-				onClick={handleDiscard}
-				disabled={!dirty}
-			>
+			<button type="button" style={S.btnSecondary} onClick={handleDiscard} disabled={!dirty}>
 				Discard
 			</button>
 			<span ref={statusRef} tabIndex={-1} style={S.saveStatusFocus}>
 				<SaveStatus dirty={dirty} justSavedAt={justSavedAt ?? null} />
 			</span>
-			{unconfigured && !dirty ? (
-				<span style={S.textFaint}>Save to enable the plugin.</span>
-			) : null}
+			{unconfigured && !dirty ? <span style={S.textFaint}>Save to enable the plugin.</span> : null}
 		</div>
 	);
 }

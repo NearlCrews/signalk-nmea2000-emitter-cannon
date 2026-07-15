@@ -1,18 +1,8 @@
-import {
-	N2K_BROADCAST_DST,
-	N2K_DEFAULT_PRIORITY,
-	N2K_DEFAULT_SID,
-} from "../constants.js";
-import type {
-	ConversionModule,
-	N2KMessage,
-	SignalKApp,
-} from "../types/index.js";
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, N2K_DEFAULT_SID } from "../constants.js";
+import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
 import { isValidNumber } from "../utils/validation.js";
 
-export default function createSpeedConversion(
-	_app: SignalKApp,
-): ConversionModule {
+export default function createSpeedConversion(_app: SignalKApp): ConversionModule {
 	return {
 		title: "Speed Through Water (PGN 128259)",
 		optionKey: "SPEED",

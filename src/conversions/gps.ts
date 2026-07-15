@@ -1,8 +1,4 @@
-import {
-	N2K_BROADCAST_DST,
-	N2K_DEFAULT_PRIORITY,
-	N2K_DEFAULT_SID,
-} from "../constants.js";
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, N2K_DEFAULT_SID } from "../constants.js";
 import type {
 	ConversionCallback,
 	ConversionModule,
@@ -39,10 +35,7 @@ export default function createGpsConversion(
 				return [];
 			}
 
-			if (
-				!isValidNumber(position.latitude) ||
-				!isValidNumber(position.longitude)
-			) {
+			if (!isValidNumber(position.latitude) || !isValidNumber(position.longitude)) {
 				return [];
 			}
 
@@ -50,10 +43,7 @@ export default function createGpsConversion(
 			// Out-of-range upstream values (NMEA 0183 bridge glitches, dead
 			// reckoning) are silently dropped by Garmin chartplotters: drop the
 			// frame here so we never put nonsense on the wire.
-			if (
-				Math.abs(position.latitude) > 90 ||
-				Math.abs(position.longitude) > 180
-			) {
+			if (Math.abs(position.latitude) > 90 || Math.abs(position.longitude) > 180) {
 				return [];
 			}
 
@@ -81,10 +71,7 @@ export default function createGpsConversion(
 				const numberOfSvs = getSelfValue(app, "navigation.gnss.satellites");
 				const hdop = getSelfValue(app, "navigation.gnss.horizontalDilution");
 				const pdop = getSelfValue(app, "navigation.gnss.positionDilution");
-				const geoidalSeparation = getSelfValue(
-					app,
-					"navigation.gnss.geoidalSeparation",
-				);
+				const geoidalSeparation = getSelfValue(app, "navigation.gnss.geoidalSeparation");
 
 				const fields: N2KMessage["fields"] = {
 					sid: N2K_DEFAULT_SID,
@@ -93,15 +80,13 @@ export default function createGpsConversion(
 					latitude: position.latitude,
 					longitude: position.longitude,
 				};
-				if (isValidNumber(position.altitude))
-					fields.altitude = position.altitude;
+				if (isValidNumber(position.altitude)) fields.altitude = position.altitude;
 				if (typeof gnssType === "string") fields.gnssType = gnssType;
 				if (typeof method === "string") fields.method = method;
 				if (typeof integrity === "string") fields.integrity = integrity;
 				if (isValidNumber(numberOfSvs)) fields.numberOfSvs = numberOfSvs;
 				if (isValidNumber(hdop)) fields.hdop = hdop;
-				if (isValidNumber(geoidalSeparation))
-					fields.geoidalSeparation = geoidalSeparation;
+				if (isValidNumber(geoidalSeparation)) fields.geoidalSeparation = geoidalSeparation;
 				if (isValidNumber(pdop)) fields.pdop = pdop;
 
 				res.push({
@@ -117,9 +102,7 @@ export default function createGpsConversion(
 
 		tests: [
 			{
-				input: [
-					{ longitude: -75.487264, latitude: 32.0631296, altitude: 12.5 },
-				],
+				input: [{ longitude: -75.487264, latitude: 32.0631296, altitude: 12.5 }],
 				skSelfData: {
 					"navigation.gnss.methodQuality": { value: "GNSS fix" },
 					"navigation.gnss.integrity": { value: "No integrity checking" },

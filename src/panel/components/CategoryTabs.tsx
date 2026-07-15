@@ -1,10 +1,6 @@
 import type * as React from "react";
 import { useRef } from "react";
-import {
-	Categories,
-	CategoryLabels,
-	type ConversionCategory,
-} from "../../config/enums";
+import { Categories, CategoryLabels, type ConversionCategory } from "../../config/enums";
 import { plural } from "../recency";
 import { S } from "../styles";
 
@@ -30,13 +26,14 @@ export default function CategoryTabs({
 	const onKeyDown = (e: React.KeyboardEvent, index: number): void => {
 		let next = index;
 		if (e.key === "ArrowRight") next = (index + 1) % Categories.length;
-		else if (e.key === "ArrowLeft")
-			next = (index - 1 + Categories.length) % Categories.length;
+		else if (e.key === "ArrowLeft") next = (index - 1 + Categories.length) % Categories.length;
 		else if (e.key === "Home") next = 0;
 		else if (e.key === "End") next = Categories.length - 1;
 		else return;
+		const category = Categories[next];
+		if (category === undefined) return;
 		e.preventDefault();
-		onChange(Categories[next]);
+		onChange(category);
 		refs.current[next]?.focus();
 	};
 
@@ -61,8 +58,7 @@ export default function CategoryTabs({
 						aria-selected={isActive}
 						tabIndex={isActive ? 0 : -1}
 					>
-						{CategoryLabels[c]}{" "}
-						<span style={S.tabCount}>({countsByCategory[c] ?? 0})</span>
+						{CategoryLabels[c]} <span style={S.tabCount}>({countsByCategory[c] ?? 0})</span>
 						{errorCount > 0 ? (
 							<span
 								role="img"

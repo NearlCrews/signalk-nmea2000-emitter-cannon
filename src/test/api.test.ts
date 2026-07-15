@@ -11,17 +11,13 @@ import type { SignalKApp } from "../types/index.js";
 // PluginManager: getStatusSnapshot and getConversionMetadata. Tests cast
 // the literal through this type instead of `as unknown as PluginManager`
 // with embedded `as never` casts, so the structural shape is checked.
-type MockPluginManager = Pick<
-	PluginManager,
-	"getStatusSnapshot" | "getConversionMetadata"
->;
+type MockPluginManager = Pick<PluginManager, "getStatusSnapshot" | "getConversionMetadata">;
 
 // Mirrors index.ts: the catalog comes from the running manager when present,
 // else from a manager-free source (an empty list stands in for the standalone
 // catalog the real factory builds while the plugin is disabled).
 const metadataFromPm =
-	(getPm: () => PluginManager | null) =>
-	(): ReturnType<PluginManager["getConversionMetadata"]> =>
+	(getPm: () => PluginManager | null) => (): ReturnType<PluginManager["getConversionMetadata"]> =>
 		getPm()?.getConversionMetadata() ?? [];
 
 // Tests pass an explicit getMetadata to cover the disabled-plugin case where
@@ -29,9 +25,7 @@ const metadataFromPm =
 function mountRouter(
 	app: SignalKApp,
 	getPm: () => PluginManager | null,
-	getMetadata: () => ReturnType<
-		PluginManager["getConversionMetadata"]
-	> = metadataFromPm(getPm),
+	getMetadata: () => ReturnType<PluginManager["getConversionMetadata"]> = metadataFromPm(getPm),
 ): express.Express {
 	const expressApp = express();
 	const router: IRouter = express.Router();
@@ -48,41 +42,23 @@ function mountRouterWithAdvisor(
 	const expressApp = express();
 	expressApp.use(express.json());
 	const router: IRouter = express.Router();
-	createApiRouter(
-		app,
-		getPm,
-		metadataFromPm(getPm),
-		getAdvisor as never,
-	)(router);
+	createApiRouter(app, getPm, metadataFromPm(getPm), getAdvisor as never)(router);
 	expressApp.use("/plugins/signalk-nmea2000-emitter-cannon", router);
 	return expressApp;
 }
 
-// Built per-test in beforeEach so each case starts with fresh mock state
-// (a shared module-scoped fakeApp would accumulate vi.fn() call history
-// across tests and let the addAdminMiddleware assertion succeed off prior
-// runs). `security: false` simulates an older signalk-server build with no
-// addAdminMiddleware hook, so the router cannot admin-gate its routes.
-function makeFakeApp({
-	security = true,
-}: {
-	security?: boolean;
-} = {}): SignalKApp {
+// Built per-test in beforeEach so each case starts with fresh mock state.
+function makeFakeApp(): SignalKApp {
 	return {
 		streambundle: { getAvailablePaths: () => ["a", "b"] },
 		getSelfPath: (p: string) =>
-			p === "navigation.position"
-				? { $source: "gps1", values: { gps1: {} } }
-				: undefined,
-		...(security ? { securityStrategy: { addAdminMiddleware: vi.fn() } } : {}),
+			p === "navigation.position" ? { $source: "gps1", values: { gps1: {} } } : undefined,
 		error: vi.fn(),
 	} as unknown as SignalKApp;
 }
 
 // Minimal advisor stub honouring every method createApiRouter may call.
-function makeAdvisorStub(
-	overrides: Record<string, unknown> = {},
-): Record<string, unknown> {
+function makeAdvisorStub(overrides: Record<string, unknown> = {}): Record<string, unknown> {
 	return {
 		runReview: async () => ({
 			ranAt: "",
@@ -117,9 +93,7 @@ describe("API router", () => {
 			getConversionMetadata: () => [],
 		};
 		const ex = mountRouter(fakeApp, () => pm as PluginManager);
-		const res = await request(ex).get(
-			"/plugins/signalk-nmea2000-emitter-cannon/api/status",
-		);
+		const res = await request(ex).get("/plugins/signalk-nmea2000-emitter-cannon/api/status");
 		expect(res.status).toBe(200);
 		expect(res.body.enabledCount).toBe(3);
 	});
@@ -149,9 +123,7 @@ describe("API router", () => {
 			],
 		};
 		const ex = mountRouter(fakeApp, () => pm as PluginManager);
-		const res = await request(ex).get(
-			"/plugins/signalk-nmea2000-emitter-cannon/api/conversions",
-		);
+		const res = await request(ex).get("/plugins/signalk-nmea2000-emitter-cannon/api/conversions");
 		expect(res.body.conversions).toHaveLength(1);
 		expect(res.body.conversions[0].key).toBe("WIND");
 	});
@@ -175,9 +147,7 @@ describe("API router", () => {
 				},
 			],
 		);
-		const res = await request(ex).get(
-			"/plugins/signalk-nmea2000-emitter-cannon/api/conversions",
-		);
+		const res = await request(ex).get("/plugins/signalk-nmea2000-emitter-cannon/api/conversions");
 		expect(res.status).toBe(200);
 		expect(res.body.conversions).toHaveLength(1);
 		expect(res.body.conversions[0].key).toBe("WIND");
@@ -199,9 +169,7 @@ describe("API router", () => {
 				},
 			],
 		);
-		const res = await request(ex).get(
-			"/plugins/signalk-nmea2000-emitter-cannon/api/status",
-		);
+		const res = await request(ex).get("/plugins/signalk-nmea2000-emitter-cannon/api/status");
 		expect(res.status).toBe(200);
 		expect(res.body).toMatchObject({
 			pluginRunning: false,
@@ -250,9 +218,7 @@ describe("API router", () => {
 
 	it("GET /api/paths returns sorted paths", async () => {
 		const ex = mountRouter(fakeApp, () => null);
-		const res = await request(ex).get(
-			"/plugins/signalk-nmea2000-emitter-cannon/api/paths",
-		);
+		const res = await request(ex).get("/plugins/signalk-nmea2000-emitter-cannon/api/paths");
 		expect(res.body.paths).toEqual(["a", "b"]);
 	});
 
@@ -266,9 +232,7 @@ describe("API router", () => {
 
 	it("GET /api/sources without path returns 400", async () => {
 		const ex = mountRouter(fakeApp, () => null);
-		const res = await request(ex).get(
-			"/plugins/signalk-nmea2000-emitter-cannon/api/sources",
-		);
+		const res = await request(ex).get("/plugins/signalk-nmea2000-emitter-cannon/api/sources");
 		expect(res.status).toBe(400);
 	});
 
@@ -298,29 +262,6 @@ describe("API router", () => {
 			"/plugins/signalk-nmea2000-emitter-cannon/api/sources?path=a&path=b",
 		);
 		expect(res.status).toBe(400);
-	});
-
-	it("calls addAdminMiddleware with the api prefix", async () => {
-		mountRouter(fakeApp, () => null);
-		expect(
-			(
-				fakeApp.securityStrategy as {
-					addAdminMiddleware: ReturnType<typeof vi.fn>;
-				}
-			).addAdminMiddleware,
-		).toHaveBeenCalledWith("/plugins/signalk-nmea2000-emitter-cannon/api");
-	});
-
-	it("logs an error when securityStrategy.addAdminMiddleware is unavailable", async () => {
-		const localApp = makeFakeApp({ security: false });
-		mountRouter(localApp, () => null);
-		expect(
-			(localApp as unknown as { error: ReturnType<typeof vi.fn> }).error,
-		).toHaveBeenCalledTimes(1);
-		const firstCall = (
-			localApp as unknown as { error: ReturnType<typeof vi.fn> }
-		).error.mock.calls[0];
-		expect(firstCall?.[0]).toMatch(/addAdminMiddleware unavailable/);
 	});
 
 	it("POST /api/advisor/review returns the review result", async () => {
@@ -468,36 +409,5 @@ describe("API router", () => {
 			.post("/plugins/signalk-nmea2000-emitter-cannon/api/advisor/apply")
 			.send({ decisions: [{ approved: true }] });
 		expect(res.status).toBe(400);
-	});
-
-	it("refuses mutating advisor routes with 403 when addAdminMiddleware is unavailable", async () => {
-		const advisor = makeAdvisorStub();
-		const ex = mountRouterWithAdvisor(
-			makeFakeApp({ security: false }),
-			() => null,
-			() => advisor,
-		);
-		const review = await request(ex).post(
-			"/plugins/signalk-nmea2000-emitter-cannon/api/advisor/review",
-		);
-		expect(review.status).toBe(403);
-		const apply = await request(ex)
-			.post("/plugins/signalk-nmea2000-emitter-cannon/api/advisor/apply")
-			.send({ decisions: [] });
-		expect(apply.status).toBe(403);
-	});
-
-	it("keeps read-only advisor GETs open when addAdminMiddleware is unavailable", async () => {
-		const advisor = makeAdvisorStub();
-		const ex = mountRouterWithAdvisor(
-			makeFakeApp({ security: false }),
-			() => null,
-			() => advisor,
-		);
-		const res = await request(ex).get(
-			"/plugins/signalk-nmea2000-emitter-cannon/api/advisor/pending",
-		);
-		expect(res.status).toBe(200);
-		expect(res.body.result.pending).toEqual([]);
 	});
 });

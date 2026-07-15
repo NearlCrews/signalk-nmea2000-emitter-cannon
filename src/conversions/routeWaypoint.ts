@@ -1,8 +1,4 @@
-import {
-	N2K_BROADCAST_DST,
-	N2K_DEFAULT_PRIORITY,
-	SLOW_DATA_TIMEOUT_MS,
-} from "../constants.js";
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, SLOW_DATA_TIMEOUT_MS } from "../constants.js";
 import type { ConversionModule, N2KMessage } from "../types/index.js";
 import { clampString, isValidNumber } from "../utils/validation.js";
 import {
@@ -37,26 +33,14 @@ export default function createRouteWaypointConversion(): ConversionModule {
 			"navigation.courseGreatCircle.activeRoute.name",
 			"navigation.courseGreatCircle.activeRoute.waypoints",
 		],
-		timeouts: [
-			SLOW_DATA_TIMEOUT_MS,
-			SLOW_DATA_TIMEOUT_MS,
-			SLOW_DATA_TIMEOUT_MS,
-		],
-		callback: (
-			nextPosition: unknown,
-			routeName: unknown,
-			waypoints: unknown,
-		): N2KMessage[] => {
+		timeouts: [SLOW_DATA_TIMEOUT_MS, SLOW_DATA_TIMEOUT_MS, SLOW_DATA_TIMEOUT_MS],
+		callback: (nextPosition: unknown, routeName: unknown, waypoints: unknown): N2KMessage[] => {
 			if (!nextPosition && !routeName && !waypoints) {
 				return [];
 			}
 
-			const routeNameString =
-				typeof routeName === "string" ? routeName : DEFAULT_ROUTE_NAME;
-			const clampedRouteName = clampString(
-				routeNameString,
-				MAX_ROUTE_NAME_CHARS,
-			);
+			const routeNameString = typeof routeName === "string" ? routeName : DEFAULT_ROUTE_NAME;
+			const clampedRouteName = clampString(routeNameString, MAX_ROUTE_NAME_CHARS);
 
 			// Pack the waypoint list against the 223-byte fast-packet budget. The
 			// header grows with the route name, so the per-frame waypoint count
@@ -70,8 +54,7 @@ export default function createRouteWaypointConversion(): ConversionModule {
 			// when neither a waypoint list nor a nextPoint position is present:
 			// a route name alone is not enough to describe a route.
 			const pos = nextPosition as Position | null | undefined;
-			const hasNextPosition =
-				isValidNumber(pos?.latitude) && isValidNumber(pos?.longitude);
+			const hasNextPosition = isValidNumber(pos?.latitude) && isValidNumber(pos?.longitude);
 			if (list.length === 0 && !hasNextPosition) {
 				return [];
 			}
@@ -187,11 +170,7 @@ export default function createRouteWaypointConversion(): ConversionModule {
 				// budget. With a 32-char route name (44-byte header) only six
 				// 16-char-named waypoints fit (6 * 28 + 44 = 212); the seventh and
 				// eighth are dropped and nitems tracks the packed count.
-				input: [
-					{ latitude: 40, longitude: -75 },
-					"R".repeat(32),
-					longNameWaypoints(8),
-				],
+				input: [{ latitude: 40, longitude: -75 }, "R".repeat(32), longNameWaypoints(8)],
 				expected: [
 					{
 						prio: 2,

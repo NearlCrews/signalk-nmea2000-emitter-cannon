@@ -4,11 +4,7 @@ import {
 	N2K_DEFAULT_PRIORITY,
 	N2K_SID_ZERO,
 } from "../constants.js";
-import type {
-	ConversionModule,
-	N2KMessage,
-	SignalKApp,
-} from "../types/index.js";
+import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
 import { isValidNumber } from "../utils/validation.js";
 
 function createPressureMessage(pressure: number, source: string): N2KMessage[] {
@@ -27,9 +23,7 @@ function createPressureMessage(pressure: number, source: string): N2KMessage[] {
 	];
 }
 
-export default function createPressureConversions(
-	_app: SignalKApp,
-): ConversionModule[] {
+export default function createPressureConversions(_app: SignalKApp): ConversionModule[] {
 	return [
 		{
 			title: "Atmospheric Pressure (PGN 130314)",

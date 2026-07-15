@@ -8,8 +8,6 @@
  */
 export function instanceList<T>(options: unknown, key: string): T[] {
 	const coll =
-		options && typeof options === "object"
-			? (options as Record<string, unknown>)[key]
-			: undefined;
+		options && typeof options === "object" ? (options as Record<string, unknown>)[key] : undefined;
 	return Array.isArray(coll) ? (coll as T[]) : [];
 }

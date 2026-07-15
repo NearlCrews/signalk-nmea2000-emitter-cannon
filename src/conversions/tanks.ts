@@ -5,11 +5,7 @@ import {
 	SLOW_DATA_TIMEOUT_MS,
 	VESSELS_SELF_CONTEXT,
 } from "../constants.js";
-import type {
-	ConversionModule,
-	N2KMessage,
-	SignalKApp,
-} from "../types/index.js";
+import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
 import { clamp, toValidNumber } from "../utils/validation.js";
 import { instanceList } from "./instanceOptions.js";
 
@@ -30,9 +26,7 @@ interface TankConfig {
 	instanceId: number;
 }
 
-export default function createTanksConversion(
-	app: SignalKApp,
-): ConversionModule {
+export default function createTanksConversion(app: SignalKApp): ConversionModule {
 	return {
 		title: "Tank Levels (PGN 127505)",
 		optionKey: "TANKS",
@@ -71,15 +65,9 @@ export default function createTanksConversion(
 					// onto a different tank gauge.
 					const instance = clamp(tank.instanceId, 0, MAX_TANK_INSTANCE);
 					return {
-						keys: [
-							`${tank.signalkPath}.currentLevel`,
-							`${tank.signalkPath}.capacity`,
-						],
+						keys: [`${tank.signalkPath}.currentLevel`, `${tank.signalkPath}.capacity`],
 						timeouts: [SLOW_DATA_TIMEOUT_MS, SLOW_DATA_TIMEOUT_MS],
-						callback: (
-							currentLevel: unknown,
-							capacity: unknown,
-						): N2KMessage[] => {
+						callback: (currentLevel: unknown, capacity: unknown): N2KMessage[] => {
 							const level = toValidNumber(currentLevel);
 							const cap = toValidNumber(capacity);
 
@@ -127,9 +115,7 @@ export default function createTanksConversion(
 				}
 			});
 
-			return validConversions.filter(
-				(conv): conv is NonNullable<typeof conv> => conv !== null,
-			);
+			return validConversions.filter((conv): conv is NonNullable<typeof conv> => conv !== null);
 		},
 	};
 }

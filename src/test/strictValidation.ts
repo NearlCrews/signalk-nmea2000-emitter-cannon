@@ -98,9 +98,9 @@ export function validateN2KMessageStrict(message: unknown): N2KMessage {
 		// those; only flag genuinely unmatched labels.
 		if (/^-?\d+$/.test(value)) continue;
 		throw new N2KValidationError(
-			`PGN ${validated.pgn}: field "${key}" value "${value}" is not in lookup ${[
-				...lookups,
-			].join(", ")}`,
+			`PGN ${validated.pgn}: field "${key}" value "${value}" is not in lookup ${[...lookups].join(
+				", ",
+			)}`,
 			key,
 		);
 	}

@@ -1,8 +1,5 @@
 import type * as React from "react";
-import type {
-	ConversionMetadata,
-	PerConversionStatus,
-} from "../../api/types.js";
+import type { ConversionMetadata, PerConversionStatus } from "../../api/types.js";
 import type { ConversionConfig } from "../../config/schema.js";
 import { pathToPropName } from "../../utils/pathUtils.js";
 import { CONVERSION_STYLES as C } from "../conversionStyles";
@@ -62,14 +59,10 @@ export default function ConversionDetail(props: Props): React.ReactElement {
 			: `global: ${props.globalResendSeconds} s`;
 
 	const errorAgeSuffix =
-		status?.lastErrorAgeMs !== undefined
-			? ` (${humanizeAgo(status.lastErrorAgeMs)})`
-			: "";
+		status?.lastErrorAgeMs !== undefined ? ` (${humanizeAgo(status.lastErrorAgeMs)})` : "";
 
 	const compatibility = meta.compatibility;
-	const compatStyle = compatibility
-		? COMPATIBILITY_STYLES[compatibility.garmin]
-		: null;
+	const compatStyle = compatibility ? COMPATIBILITY_STYLES[compatibility.garmin] : null;
 
 	return (
 		<div id={props.bodyId} style={C.detail}>
@@ -111,9 +104,7 @@ export default function ConversionDetail(props: Props): React.ReactElement {
 			    enabled, so a source or resend can be set up before the
 			    enable checkbox is ticked. */}
 			<div style={C.fieldStack}>
-				<span style={C.fieldStackLabel}>
-					Resend interval (seconds, 0 = use global setting)
-				</span>
+				<span style={C.fieldStackLabel}>Resend interval (seconds, 0 = use global setting)</span>
 				<NumberInput
 					value={cfg.resend}
 					onChange={props.onSetResend}
@@ -142,11 +133,7 @@ export default function ConversionDetail(props: Props): React.ReactElement {
 					ensureLoaded={props.ensureLoaded}
 				/>
 			))}
-			<ExtrasEditor
-				meta={meta.extras}
-				value={cfg.extras}
-				onChange={props.onSetExtras}
-			/>
+			<ExtrasEditor meta={meta.extras} value={cfg.extras} onChange={props.onSetExtras} />
 		</div>
 	);
 }

@@ -1,4 +1,4 @@
-// Shared types for the Config Advisor subsystem. Pure declarations: no
+// Shared recommendation types used by both server and browser code. Pure declarations: no
 // runtime behavior, so no test file. Behavior that uses these types is
 // tested in src/test/advisor.test.ts.
 

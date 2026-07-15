@@ -1,3 +1,4 @@
+// Runtime-neutral source classification shared by the advisor and setup wizard.
 // A Signal K `$source` for data already on the NMEA 2000 bus has the form
 // `<connection-id>.<n2k-address>`, where the address is the numeric N2K
 // source address (0-251), e.g. `can0.35`, `ttyUSB0.115`, `actisense.15`.

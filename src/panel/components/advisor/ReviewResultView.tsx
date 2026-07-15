@@ -1,11 +1,7 @@
 import type * as React from "react";
 import type { CSSProperties } from "react";
-import type {
-	AdvisorAction,
-	Recommendation,
-	ReviewResult,
-} from "../../../advisor/types.js";
 import type { ConversionMetadata } from "../../../api/types.js";
+import type { AdvisorAction, Recommendation, ReviewResult } from "../../../recommendation/types.js";
 import { ADVISOR_STYLES as A } from "../../advisorStyles";
 import { S } from "../../styles";
 
@@ -73,17 +69,11 @@ export default function ReviewResultView({
 		<div>
 			{result.autoApplied.length > 0 && (
 				<div style={A.autoBlock}>
-					<span style={A.blockTitle}>
-						Auto-applied ({result.autoApplied.length})
-					</span>
+					<span style={A.blockTitle}>Auto-applied ({result.autoApplied.length})</span>
 					<ul style={A.list}>
 						{result.autoApplied.map((r) => (
 							<li key={r.optionKey}>
-								Enabled{" "}
-								<ConversionLabel
-									optionKey={r.optionKey}
-									metaByKey={metaByKey}
-								/>
+								Enabled <ConversionLabel optionKey={r.optionKey} metaByKey={metaByKey} />
 								<div style={A.reason}>{r.reason}</div>
 							</li>
 						))}
@@ -92,20 +82,14 @@ export default function ReviewResultView({
 			)}
 			{result.pending.length > 0 && (
 				<div style={A.pendingBlock}>
-					<span style={A.blockTitle}>
-						Needs your approval ({result.pending.length})
-					</span>
+					<span style={A.blockTitle}>Needs your approval ({result.pending.length})</span>
 					{result.pending.map((r) => {
 						const verb = PENDING_VERB[r.action];
 						return (
 							<div key={r.optionKey} style={A.row}>
 								<div style={A.rowHead}>
 									<span style={A.rowKey}>
-										{verb}{" "}
-										<ConversionLabel
-											optionKey={r.optionKey}
-											metaByKey={metaByKey}
-										/>
+										{verb} <ConversionLabel optionKey={r.optionKey} metaByKey={metaByKey} />
 									</span>
 									<button
 										type="button"
@@ -131,9 +115,7 @@ export default function ReviewResultView({
 				</div>
 			)}
 			{empty && (
-				<div style={A.note}>
-					No changes recommended. Every live path is already handled.
-				</div>
+				<div style={A.note}>No changes recommended. Every live path is already handled.</div>
 			)}
 			{result.notes.map((n, i) => (
 				// biome-ignore lint/suspicious/noArrayIndexKey: notes are render-only and never reordered, and two notes can be identical strings

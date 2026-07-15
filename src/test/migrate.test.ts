@@ -232,9 +232,7 @@ describe("migrateLegacyConfig", () => {
 				},
 			});
 			expect(out.advisor).toBeDefined();
-			expect(
-				(out.advisor as Record<string, unknown>).openRouter,
-			).toBeUndefined();
+			expect((out.advisor as Record<string, unknown>).openRouter).toBeUndefined();
 			// The surviving advisor settings are untouched.
 			expect(out.advisor?.enabled).toBe(true);
 			expect(out.advisor?.autoApply).toBe(false);

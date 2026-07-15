@@ -8,17 +8,16 @@ Maintainer reference for cutting a release of `signalk-nmea2000-emitter-cannon`.
 `origin/main`, checks that it is not behind, tags the current `package.json`
 version, atomically pushes only `main` and that tag, and creates a GitHub
 release with auto-generated notes. The `Publish to npm` workflow then fires on
-the `release: published` event, runs typecheck and tests, verifies the tag
-matches `package.json`, and publishes to npm with sigstore provenance.
-
-The workflow also supports manual `workflow_dispatch` with a `tag` input from
-the Actions tab, useful for backfilling a release that was created before the
-workflow existed. It requires an `NPM_TOKEN` repo secret (npm Automation token,
-or Granular token with publish + read on this package).
+the `release: published` event. It verifies the tag and main-branch ancestry,
+runs the complete release gate, packs one immutable tarball, transfers that
+artifact to a separate least-privilege publish job, and publishes to npm with
+sigstore provenance. Publishing requires an `NPM_TOKEN` repository secret with
+publish access to this package.
 
 ## Checklist
 
-Before running `npm run release`:
+Before running `npm run release`, obtain explicit approval to create the tag,
+GitHub release, and npm publication. Then:
 
 1. Run `npm version X.Y.Z --no-git-tag-version`. This keeps `package.json`,
    the top-level lockfile version, and the lockfile root package aligned without
@@ -33,13 +32,14 @@ Before running `npm run release`:
    history (`CHANGELOG.md`). Update the `## What's new in X.Y.Z` heading to
    the new version.
 4. Run `npm ci` to prove the lockfile installs from a clean dependency tree.
-5. Run `npm run check`, `npm run typecheck`, `npm test`,
-   `npm run test:coverage`, and `npm run build`.
-6. Run `npm outdated --long`, `npm audit`, `npm audit --omit=dev`,
-   `npm exec --yes --package=knip@latest -- knip`, and
-   `npm pack --dry-run --json`. Resolve unexpected output before publishing.
-   Also ask npm's resolver whether the installed tree and lockfile have any
-   remaining updates under their declared parent ranges:
+5. Run `npm run verify:release`. This covers formatting, linting, spelling,
+   module boundaries, dead code, strict types, coverage, production builds,
+   the panel runtime smoke test, bundle budgets, package contents, publint, and
+   full and runtime security audits.
+6. Run `npm outdated --long` and resolve unexpected output. A newer TypeScript
+   or `@types/node` major is expected only when it is outside the typed-lint or
+   supported-Node compatibility range. Also ask npm's resolver whether the
+   installed tree and lockfile have updates within their declared ranges:
 
    ```bash
    set -o pipefail
@@ -84,9 +84,6 @@ After `npm run release`:
   package (an `npm publish` to a package that exists never legitimately 404s).
   Set a fresh npm Automation token, or a Granular token with publish + read on
   this package, by running `gh secret set NPM_TOKEN` and pasting the value at
-  its hidden prompt. Never put the token directly on the command line. Then
-  re-run the workflow from the Actions tab. To sanity-check a token without
-  cutting a new version, dispatch the workflow against an already-published tag
-  (`gh workflow run publish.yml -f tag=vX.Y.Z`): a healthy token gets past auth
-  and stops at `E403 ... cannot publish over the previously published versions`,
-  which confirms the credential works.
+  its hidden prompt. Never put the token directly on the command line. Then use
+  `gh run rerun RUN_ID --failed` to retry the failed publish job against the
+  already verified artifact.

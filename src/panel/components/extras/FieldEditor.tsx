@@ -19,8 +19,7 @@ function FieldRow({
 	onChange: (next: Record<string, unknown>) => void;
 }): React.ReactElement {
 	const v = value[spec.key] ?? spec.default ?? "";
-	const update = (next: unknown): void =>
-		onChange({ ...value, [spec.key]: next });
+	const update = (next: unknown): void => onChange({ ...value, [spec.key]: next });
 
 	let control: React.ReactElement;
 	if (spec.control === "boolean") {
@@ -37,8 +36,8 @@ function FieldRow({
 		control = (
 			<NumberInput
 				value={Number(v) || 0}
-				min={spec.min}
-				max={spec.max}
+				{...(spec.min === undefined ? {} : { min: spec.min })}
+				{...(spec.max === undefined ? {} : { max: spec.max })}
 				onChange={update}
 				ariaLabel={spec.label}
 			/>
@@ -48,9 +47,7 @@ function FieldRow({
 		// longer one of the options (e.g. after a canboat enum rename), so the
 		// control never shows the first option while holding a stale string.
 		const current = String(v);
-		const selected = spec.options.some((o) => o.value === current)
-			? current
-			: "";
+		const selected = spec.options.some((o) => o.value === current) ? current : "";
 		control = (
 			<select
 				style={S.input}
@@ -85,21 +82,12 @@ function FieldRow({
 	);
 }
 
-export default function FieldEditor({
-	meta,
-	value,
-	onChange,
-}: Props): React.ReactElement {
+export default function FieldEditor({ meta, value, onChange }: Props): React.ReactElement {
 	if (meta.type === "fields") {
 		return (
 			<>
 				{meta.fields.map((spec) => (
-					<FieldRow
-						key={spec.key}
-						spec={spec}
-						value={value}
-						onChange={onChange}
-					/>
+					<FieldRow key={spec.key} spec={spec} value={value} onChange={onChange} />
 				))}
 			</>
 		);

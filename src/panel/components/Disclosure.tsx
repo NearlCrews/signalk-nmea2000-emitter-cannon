@@ -26,9 +26,9 @@ interface Props {
 	 */
 	headerTrailing?: React.ReactNode;
 	/** Header button style. Defaults to the borderless S.disclosureToggle. */
-	headerStyle?: CSSProperties;
+	headerStyle?: CSSProperties | undefined;
 	/** Body style while open. Defaults to S.disclosureBody. */
-	bodyStyle?: CSSProperties;
+	bodyStyle?: CSSProperties | undefined;
 	/**
 	 * Body mount strategy. false (the default) mounts the body once and toggles
 	 * the `hidden` attribute, so the aria-controls target is always the real

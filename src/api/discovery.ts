@@ -24,10 +24,7 @@ export function enumerateActivePaths(app: SignalKApp): string[] {
  * returns undefined on a live server. This call is sync and cheap: one
  * `getSelfPath` lookup plus a small `Object.keys`.
  */
-export function enumerateSourcesForPath(
-	app: SignalKApp,
-	path: string,
-): string[] {
+export function enumerateSourcesForPath(app: SignalKApp, path: string): string[] {
 	if (!path) return [];
 	const node = app.getSelfPath?.(path);
 	if (!isPlainObject(node)) return [];

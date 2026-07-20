@@ -16,7 +16,7 @@ reviewed against model-specific chartplotter receive lists.
 > Built on the foundation of [`signalk-to-nmea2000`](https://github.com/SignalK/signalk-to-nmea2000)
 > by Scott Bender and the Signal K community.
 
-## What's new since 1.9.1
+## What's new in 1.10.0
 
 - **More navigation and range data.** Vessel Trip Parameters (PGN 127496)
   derives remaining fuel, time to empty, and distance to empty from configured
@@ -33,8 +33,7 @@ reviewed against model-specific chartplotter receive lists.
   production panel's mapping editors, themes, and narrow layout are exercised
   in Chromium during release verification.
 
-See the [Unreleased changelog entry](CHANGELOG.md#unreleased), the
-[v1.9.1 changelog entry](CHANGELOG.md#v191), and the
+See the [v1.10.0 changelog entry](CHANGELOG.md#v1100) and the
 [full release history](CHANGELOG.md).
 
 ## What it does

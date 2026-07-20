@@ -5,6 +5,10 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+<a id="v1100"></a>
+
+## [1.10.0] - 2026-07-20
+
 ### Added
 
 - Configurable Vessel Trip Parameters (PGN 127496) aggregates selected fuel tanks and engine fuel rates to emit fuel remaining, time to empty, and distance to empty without inventing trip runtime.

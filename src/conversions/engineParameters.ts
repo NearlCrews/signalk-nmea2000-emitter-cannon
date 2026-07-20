@@ -11,8 +11,12 @@ import type {
 	SignalKApp,
 	SubConversionModule,
 } from "../types/index.js";
-import { isValidNumber, toValidNumber } from "../utils/validation.js";
-import { instanceList } from "./instanceOptions.js";
+import { isPlainObject, isValidNumber, toValidNumber } from "../utils/validation.js";
+import {
+	instanceList,
+	isValidInstanceSignalKId,
+	normalizedN2kInstance,
+} from "./instanceOptions.js";
 
 interface ExhaustTempEngineConfig {
 	signalkId: string | number;
@@ -22,6 +26,18 @@ interface ExhaustTempEngineConfig {
 interface EngineConfig {
 	signalkId: string | number;
 	instanceId: number;
+}
+
+function normalizedExhaustConfig(config: unknown): ExhaustTempEngineConfig | null {
+	if (!isPlainObject(config) || !isValidInstanceSignalKId(config.signalkId)) return null;
+	const tempInstanceId = normalizedN2kInstance(config.tempInstanceId);
+	return tempInstanceId === undefined ? null : { signalkId: config.signalkId, tempInstanceId };
+}
+
+function normalizedEngineConfig(config: unknown): EngineConfig | null {
+	if (!isPlainObject(config) || !isValidInstanceSignalKId(config.signalkId)) return null;
+	const instanceId = normalizedN2kInstance(config.instanceId);
+	return instanceId === undefined ? null : { signalkId: config.signalkId, instanceId };
 }
 
 export default function createEngineParametersConversions(
@@ -61,7 +77,9 @@ export default function createEngineParametersConversions(
 			},
 
 			conversions: (options: unknown) => {
-				const engines = instanceList<ExhaustTempEngineConfig>(options, "engines");
+				const engines = instanceList<unknown>(options, "engines")
+					.map(normalizedExhaustConfig)
+					.filter((engine): engine is ExhaustTempEngineConfig => engine !== null);
 				if (engines.length === 0) return null;
 
 				return engines.map((engine) => ({
@@ -120,7 +138,9 @@ export default function createEngineParametersConversions(
 			},
 
 			conversions: (options: unknown) => {
-				const engines = instanceList<EngineConfig>(options, "engines");
+				const engines = instanceList<unknown>(options, "engines")
+					.map(normalizedEngineConfig)
+					.filter((engine): engine is EngineConfig => engine !== null);
 				if (engines.length === 0) return null;
 
 				const engParTimeouts = engParKeys.map(() => DEFAULT_DATA_TIMEOUT_MS);

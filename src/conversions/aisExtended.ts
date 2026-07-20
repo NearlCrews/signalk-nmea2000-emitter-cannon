@@ -14,8 +14,9 @@ import {
 } from "../utils/aisUtils.js";
 import {
 	clampString,
-	isValidNumber,
-	toFiniteOrUndefined,
+	isValidLatitude,
+	isValidLongitude,
+	toFiniteInRange,
 	toUnsignedAngle,
 } from "../utils/validation.js";
 import type { Position as GeoPosition } from "./routeTypes.js";
@@ -31,6 +32,11 @@ interface Position extends GeoPosition {
 // is still useful, while reapplying DEFAULT_DATA_TIMEOUT_MS would expire
 // after 10 seconds and silently mute the message between repeats.
 const SAFETY_MESSAGE_TIMEOUT_MS = 300000;
+const MAX_CLASS_B_SOG_METERS_PER_SECOND = 655.32;
+const MAX_SAR_SOG_METERS_PER_SECOND = 6553.2;
+const MAX_AIS_DIMENSION_METERS = 6553.2;
+const MIN_SAR_ALTITUDE_METERS = -21_474_836.47;
+const MAX_SAR_ALTITUDE_METERS = 21_474_836.44;
 
 export default function createAisExtendedConversions(
 	app: SignalKApp,
@@ -39,7 +45,7 @@ export default function createAisExtendedConversions(
 	// Self-vessel mmsi and name live on the empty-path bag in Signal K
 	// (`vessels.self`), so streambundle.getSelfBus() does not emit them.
 	// Read them at callback time via getSelfPath instead.
-	const selfMmsi = (): number => parseMmsi(app.getSelfPath("mmsi"));
+	const selfMmsi = (): number | undefined => parseMmsi(app.getSelfPath("mmsi"));
 	const selfName = (): string => {
 		const n = app.getSelfPath("name");
 		return typeof n === "string" ? n : "";
@@ -94,15 +100,14 @@ export default function createAisExtendedConversions(
 					aisClass !== "B" ||
 					typeof position !== "object" ||
 					position == null ||
-					!isValidNumber(position.latitude) ||
-					!isValidNumber(position.longitude)
+					!isValidLatitude(position.latitude) ||
+					!isValidLongitude(position.longitude)
 				) {
 					return [];
 				}
 
-				// Drop the frame until self MMSI is published. parseMmsi() returns
-				// 0 when the SK value is missing or unparseable, and emitting an
-				// MMSI=0 AIS frame would broadcast as a malformed contact.
+				// Drop the frame until a valid self MMSI is published. Emitting an
+				// invalid AIS User ID would broadcast a malformed contact.
 				const mmsi = selfMmsi();
 				if (!mmsi) return [];
 
@@ -123,7 +128,7 @@ export default function createAisExtendedConversions(
 							// COG and heading are unsigned [0, 2pi) fields; see
 							// toUnsignedAngle.
 							cog: toUnsignedAngle(cog),
-							sog: toFiniteOrUndefined(sog),
+							sog: toFiniteInRange(sog, 0, MAX_CLASS_B_SOG_METERS_PER_SECOND),
 							aisTransceiverInformation: "Channel A VDL reception",
 							heading: toUnsignedAngle(heading),
 							regionalApplication: 0,
@@ -201,8 +206,8 @@ export default function createAisExtendedConversions(
 					aisClass !== "B" ||
 					typeof position !== "object" ||
 					position == null ||
-					!isValidNumber(position.latitude) ||
-					!isValidNumber(position.longitude)
+					!isValidLatitude(position.latitude) ||
+					!isValidLongitude(position.longitude)
 				) {
 					return [];
 				}
@@ -211,12 +216,20 @@ export default function createAisExtendedConversions(
 				const mmsi = selfMmsi();
 				if (!mmsi) return [];
 
-				const fromStarboard = starboardOffset(beam, fromCenter);
+				const validLength = toFiniteInRange(length, 0, MAX_AIS_DIMENSION_METERS);
+				const validBeam = toFiniteInRange(beam, 0, MAX_AIS_DIMENSION_METERS);
+				const fromStarboard = toFiniteInRange(
+					starboardOffset(validBeam, fromCenter),
+					0,
+					MAX_AIS_DIMENSION_METERS,
+				);
 
 				// canboat SHIP_TYPE is a numeric LOOKUP. Passing the SK
 				// `shipType.id` directly avoids the silent-encode-as-zero
 				// failure mode of passing an unmatched string label.
-				const typeOfShip = toFiniteOrUndefined(shipType?.id);
+				const typeOfShip = Number.isInteger(shipType?.id)
+					? toFiniteInRange(shipType?.id, 0, 252)
+					: undefined;
 
 				return [
 					{
@@ -235,14 +248,14 @@ export default function createAisExtendedConversions(
 							// COG and true heading are unsigned [0, 2pi) fields; see
 							// toUnsignedAngle.
 							cog: toUnsignedAngle(cog),
-							sog: toFiniteOrUndefined(sog),
+							sog: toFiniteInRange(sog, 0, MAX_CLASS_B_SOG_METERS_PER_SECOND),
 							aisTransceiverInformation: "Channel A VDL reception",
 							trueHeading: toUnsignedAngle(heading),
 							typeOfShip,
-							length: toFiniteOrUndefined(length),
-							beam: toFiniteOrUndefined(beam),
+							length: validLength,
+							beam: validBeam,
 							positionReferenceFromStarboard: fromStarboard,
-							positionReferenceFromBow: toFiniteOrUndefined(fromBow),
+							positionReferenceFromBow: toFiniteInRange(fromBow, 0, MAX_AIS_DIMENSION_METERS),
 							name: clampString(selfName(), AIS_NAME_CHARS),
 							dte: "Available",
 							aisMode: "Assigned",
@@ -337,8 +350,8 @@ export default function createAisExtendedConversions(
 					aisClass !== "SAR" ||
 					typeof position !== "object" ||
 					position == null ||
-					!isValidNumber(position.latitude) ||
-					!isValidNumber(position.longitude)
+					!isValidLatitude(position.latitude) ||
+					!isValidLongitude(position.longitude)
 				) {
 					return [];
 				}
@@ -365,9 +378,9 @@ export default function createAisExtendedConversions(
 							timeStamp: "0",
 							// COG is an unsigned [0, 2pi) field; see toUnsignedAngle.
 							cog: toUnsignedAngle(cog),
-							sog: toFiniteOrUndefined(sog),
+							sog: toFiniteInRange(sog, 0, MAX_SAR_SOG_METERS_PER_SECOND),
 							aisTransceiverInformation: "Channel A VDL reception",
-							altitude: toFiniteOrUndefined(altitude),
+							altitude: toFiniteInRange(altitude, MIN_SAR_ALTITUDE_METERS, MAX_SAR_ALTITUDE_METERS),
 							dte: "Available",
 						},
 					},
@@ -435,7 +448,7 @@ export default function createAisExtendedConversions(
 		//
 		// Broadcasting AIS safety messages may be regulated in some
 		// jurisdictions (transmit-class AIS station licensing, e.g. FCC ship
-		// station licence in the US). This conversion is disable-by-default;
+		// station license in the US). This conversion is disable-by-default;
 		// operators must opt in via the plugin config and are responsible for
 		// confirming local rules permit transmit on AIS frequencies before
 		// enabling.

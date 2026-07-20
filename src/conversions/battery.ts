@@ -13,8 +13,12 @@ import type {
 	SubConversionModule,
 } from "../types/index.js";
 import { ExponentialSmoother } from "../utils/smoothing.js";
-import { toValidNumber } from "../utils/validation.js";
-import { instanceList } from "./instanceOptions.js";
+import { isPlainObject, toValidNumber } from "../utils/validation.js";
+import {
+	instanceList,
+	isValidInstanceSignalKId,
+	normalizedN2kInstance,
+} from "./instanceOptions.js";
 
 const BATTERY_TIME_REMAINING_ALPHA = 0.3;
 const DISCHARGE_THRESHOLD_A = 0.5;
@@ -26,6 +30,12 @@ const PERCENT_SCALE = 100;
 interface BatteryConfig {
 	signalkId: string | number;
 	instanceId: number;
+}
+
+function normalizedBatteryConfig(config: unknown): BatteryConfig | null {
+	if (!isPlainObject(config) || !isValidInstanceSignalKId(config.signalkId)) return null;
+	const instanceId = normalizedN2kInstance(config.instanceId);
+	return instanceId === undefined ? null : { signalkId: config.signalkId, instanceId };
 }
 
 export default function createBatteryConversion(
@@ -62,7 +72,9 @@ export default function createBatteryConversion(
 		},
 
 		conversions: (options: unknown): SubConversionModule[] | null => {
-			const batteries = instanceList<BatteryConfig>(options, "batteries");
+			const batteries = instanceList<unknown>(options, "batteries")
+				.map(normalizedBatteryConfig)
+				.filter((battery): battery is BatteryConfig => battery !== null);
 			if (batteries.length === 0) return null;
 
 			const sharedTimeouts = batteryKeys.map(() => SLOW_DATA_TIMEOUT_MS);

@@ -22,7 +22,7 @@ export default function createSmallCraftStatusConversion(): ConversionModule {
 			}
 
 			const normalizeTabPosition = (position: unknown): number | null => {
-				if (!isValidNumber(position)) return null;
+				if (!isValidNumber(position) || position < -1 || position > 1) return null;
 				return Math.round(position * 100);
 			};
 
@@ -70,6 +70,21 @@ export default function createSmallCraftStatusConversion(): ConversionModule {
 							portTrimTab: 100,
 							starboardTrimTab: -100,
 						},
+					},
+				],
+			},
+			{
+				input: [1.01, -1.01],
+				expected: [],
+			},
+			{
+				input: [2, 0.25],
+				expected: [
+					{
+						prio: 2,
+						pgn: 130576,
+						dst: 255,
+						fields: { starboardTrimTab: 25 },
 					},
 				],
 			},

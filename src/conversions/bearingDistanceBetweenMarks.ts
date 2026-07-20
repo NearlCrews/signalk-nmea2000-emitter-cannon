@@ -1,164 +1,285 @@
-import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, N2K_SID_ZERO } from "../constants.js";
-import type {
-	ConversionCallback,
-	ConversionModule,
-	N2KFieldValue,
-	SignalKApp,
-} from "../types/index.js";
 import {
+	N2K_BROADCAST_DST,
+	N2K_DEFAULT_PRIORITY,
+	N2K_SID_ZERO,
+	SOURCE_TYPE,
+} from "../constants.js";
+import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
+import {
+	isValidLatitude,
+	isValidLongitude,
 	isValidNumber,
-	normalizeAngle,
 	toUnsignedAngle,
-	toValidNumber,
 } from "../utils/validation.js";
+import {
+	courseCalculation,
+	courseDeltaTouches,
+	currentCourse,
+	routePointIndex,
+} from "./courseData.js";
 import { markTypeFor } from "./routeTypes.js";
 
-type BearingDistanceInputs = [
-	number | null,
-	number | null,
-	number | null,
-	number | null,
-	string | null,
-	string | null,
-];
+const MAX_DISTANCE_METERS = 42_949_672.92;
+const EARTH_MEAN_RADIUS_METERS = 6_371_008.8;
+const POLE_EPSILON_RADIANS = 1e-12;
+
+interface LegCoordinates {
+	latitude1: number;
+	latitude2: number;
+	latitudeDelta: number;
+	longitudeDelta: number;
+}
+
+function legCoordinates(
+	origin: { latitude?: unknown; longitude?: unknown } | null | undefined,
+	destination: { latitude?: unknown; longitude?: unknown } | null | undefined,
+): LegCoordinates | undefined {
+	if (
+		!isValidLatitude(origin?.latitude) ||
+		!isValidLongitude(origin.longitude) ||
+		!isValidLatitude(destination?.latitude) ||
+		!isValidLongitude(destination.longitude)
+	) {
+		return undefined;
+	}
+	const toRadians = Math.PI / 180;
+	const latitude1 = origin.latitude * toRadians;
+	const latitude2 = destination.latitude * toRadians;
+	let longitudeDelta = (destination.longitude - origin.longitude) * toRadians;
+	if (longitudeDelta > Math.PI) longitudeDelta -= Math.PI * 2;
+	if (longitudeDelta < -Math.PI) longitudeDelta += Math.PI * 2;
+	return {
+		latitude1,
+		latitude2,
+		latitudeDelta: latitude2 - latitude1,
+		longitudeDelta,
+	};
+}
+
+function greatCircleLeg(
+	origin: { latitude?: unknown; longitude?: unknown } | null | undefined,
+	destination: { latitude?: unknown; longitude?: unknown } | null | undefined,
+): { bearing: number; distance: number } | undefined {
+	const coordinates = legCoordinates(origin, destination);
+	if (coordinates === undefined) return undefined;
+	const { latitude1, latitude2, latitudeDelta, longitudeDelta } = coordinates;
+	const sinLatitude = Math.sin(latitudeDelta / 2);
+	const sinLongitude = Math.sin(longitudeDelta / 2);
+	const haversine =
+		sinLatitude * sinLatitude +
+		Math.cos(latitude1) * Math.cos(latitude2) * sinLongitude * sinLongitude;
+	const centralAngle = 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(Math.max(0, 1 - haversine)));
+	const bearing = Math.atan2(
+		Math.sin(longitudeDelta) * Math.cos(latitude2),
+		Math.cos(latitude1) * Math.sin(latitude2) -
+			Math.sin(latitude1) * Math.cos(latitude2) * Math.cos(longitudeDelta),
+	);
+	return { bearing, distance: EARTH_MEAN_RADIUS_METERS * centralAngle };
+}
+
+function rhumblineLeg(
+	origin: { latitude?: unknown; longitude?: unknown } | null | undefined,
+	destination: { latitude?: unknown; longitude?: unknown } | null | undefined,
+): { bearing: number; distance: number } | undefined {
+	const coordinates = legCoordinates(origin, destination);
+	if (coordinates === undefined) return undefined;
+	const { latitude1, latitude2, latitudeDelta, longitudeDelta } = coordinates;
+	const mercatorLatitude1 = Math.max(
+		-Math.PI / 2 + POLE_EPSILON_RADIANS,
+		Math.min(Math.PI / 2 - POLE_EPSILON_RADIANS, latitude1),
+	);
+	const mercatorLatitude2 = Math.max(
+		-Math.PI / 2 + POLE_EPSILON_RADIANS,
+		Math.min(Math.PI / 2 - POLE_EPSILON_RADIANS, latitude2),
+	);
+	const meridionalDelta = Math.log(
+		Math.tan(Math.PI / 4 + mercatorLatitude2 / 2) / Math.tan(Math.PI / 4 + mercatorLatitude1 / 2),
+	);
+	const q =
+		Math.abs(meridionalDelta) > Number.EPSILON
+			? latitudeDelta / meridionalDelta
+			: Math.cos(latitude1);
+	return {
+		bearing: Math.atan2(longitudeDelta, meridionalDelta),
+		distance: Math.hypot(latitudeDelta, q * longitudeDelta) * EARTH_MEAN_RADIUS_METERS,
+	};
+}
 
 export default function createBearingDistanceBetweenMarksConversion(
-	_app: SignalKApp,
-): ConversionModule<BearingDistanceInputs> {
+	app: SignalKApp,
+): ConversionModule {
 	return {
 		title: "Bearing and Distance Between Marks (PGN 129302)",
 		optionKey: "BEARING_DISTANCE_MARKS",
 		category: "navigation",
-		// v2 navigation.course.* is not pushed into the v1 streambundle;
-		// use the v1 sibling under navigation.courseGreatCircle.* so the
-		// subscriptions actually fire.
-		keys: [
-			"navigation.courseGreatCircle.nextPoint.bearingTrue",
-			"navigation.courseGreatCircle.nextPoint.bearingMagnetic",
-			"navigation.magneticVariation",
-			"navigation.courseGreatCircle.nextPoint.distance",
-			"navigation.courseGreatCircle.nextPoint.type",
-			"navigation.courseGreatCircle.previousPoint.type",
-		],
-		timeouts: [5000, 5000, 5000, 5000, 5000, 5000],
-		callback: ((
-			nextBearingTrue: number | null,
-			nextBearingMagnetic: number | null,
-			magneticVariation: number | null,
-			nextDistance: number | null,
-			nextType: string | null,
-			prevType: string | null,
-		) => {
-			let bearing = toValidNumber(nextBearingTrue);
+		sourceType: SOURCE_TYPE.ON_DELTA,
+		allowResend: false,
+		callback: async (delta: unknown): Promise<N2KMessage[]> => {
+			if (!courseDeltaTouches(app, delta, ["navigation.course.calcValues"])) return [];
+			const method = courseCalculation(app, "calcMethod", delta);
+			if (method !== "GreatCircle" && method !== "Rhumbline") return [];
+			const course = await currentCourse(app);
+			const leg =
+				method === "Rhumbline"
+					? rhumblineLeg(course?.previousPoint?.position, course?.nextPoint?.position)
+					: greatCircleLeg(course?.previousPoint?.position, course?.nextPoint?.position);
 			if (
-				bearing === null &&
-				isValidNumber(nextBearingMagnetic) &&
-				isValidNumber(magneticVariation)
+				leg === undefined ||
+				!isValidNumber(leg.bearing) ||
+				!isValidNumber(leg.distance) ||
+				leg.distance < 0 ||
+				leg.distance > MAX_DISTANCE_METERS
 			) {
-				bearing = normalizeAngle(nextBearingMagnetic + magneticVariation);
-			}
-			const validNextDistance = toValidNumber(nextDistance);
-
-			if (bearing === null && validNextDistance === null) {
 				return [];
 			}
-
-			const fields: Record<string, N2KFieldValue> = {
-				sid: N2K_SID_ZERO,
-				calculationType: "Great Circle",
-				bearingReference: "True",
-			};
-
-			if (bearing !== null) fields.bearingOriginToDestination = toUnsignedAngle(bearing);
-			if (validNextDistance !== null) fields.distance = validNextDistance;
-
-			if (prevType != null) fields.originMarkType = markTypeFor(prevType);
-			if (nextType != null) fields.destinationMarkType = markTypeFor(nextType);
-
+			const pointIndex = routePointIndex(course);
 			return [
 				{
 					prio: N2K_DEFAULT_PRIORITY,
 					pgn: 129302,
 					dst: N2K_BROADCAST_DST,
-					fields,
+					fields: {
+						sid: N2K_SID_ZERO,
+						calculationType: method === "Rhumbline" ? "Rhumbline" : "Great Circle",
+						bearingReference: "True",
+						bearingOriginToDestination: toUnsignedAngle(leg.bearing),
+						distance: leg.distance,
+						originMarkType: markTypeFor(course?.previousPoint?.type),
+						destinationMarkType: markTypeFor(course?.nextPoint?.type),
+						originMarkId: pointIndex !== undefined && pointIndex > 0 ? pointIndex : undefined,
+						destinationMarkId: pointIndex === undefined ? undefined : pointIndex + 1,
+					},
 				},
 			];
-		}) as ConversionCallback<BearingDistanceInputs>,
+		},
 		tests: [
 			{
-				input: [1.2217, null, null, 2000, "waypoint", "waypoint"],
+				input: [
+					{
+						context: "vessels.self",
+						updates: [
+							{
+								values: [
+									{ path: "navigation.course.calcValues.calcMethod", value: "GreatCircle" },
+									{ path: "navigation.course.calcValues.bearingTrackTrue", value: 1.2217 },
+									{ path: "navigation.course.calcValues.previousPoint.distance", value: 2000 },
+								],
+							},
+						],
+					},
+				],
+				skSelfData: {
+					courseInfo: {
+						activeRoute: { pointIndex: 5 },
+						previousPoint: {
+							type: "RoutePoint",
+							position: { latitude: 0, longitude: 0 },
+						},
+						nextPoint: {
+							type: "RoutePoint",
+							position: { latitude: 0, longitude: 1 },
+						},
+					},
+				},
 				expected: [
 					{
 						prio: 2,
 						pgn: 129302,
 						dst: 255,
 						fields: {
-							bearingOriginToDestination: 1.2217,
-							bearingReference: "True",
-							calculationType: "Great Circle",
-							distance: 2000,
-							destinationMarkType: "Waypoint",
-							originMarkType: "Waypoint",
 							sid: 0,
+							calculationType: "Great Circle",
+							bearingReference: "True",
+							bearingOriginToDestination: 1.5708,
+							distance: 111_195.08,
+							originMarkType: "Waypoint",
+							destinationMarkType: "Waypoint",
+							originMarkId: 5,
+							destinationMarkId: 6,
 						},
 					},
 				],
 			},
 			{
-				input: [null, 1.2, 0.0217, 2000, "waypoint", "waypoint"],
+				input: [
+					{
+						context: "vessels.self",
+						updates: [
+							{
+								values: [
+									{ path: "navigation.course.calcValues.calcMethod", value: "GreatCircle" },
+									{ path: "navigation.course.calcValues.bearingTrackTrue", value: 1 },
+									{ path: "navigation.course.calcValues.previousPoint.distance", value: 100 },
+								],
+							},
+						],
+					},
+				],
+				expected: [],
+			},
+			{
+				input: [
+					{
+						context: "vessels.self",
+						updates: [
+							{
+								values: [
+									{ path: "navigation.course.calcValues.calcMethod", value: "GreatCircle" },
+									{ path: "navigation.course.calcValues.bearingTrackTrue", value: 0 },
+								],
+							},
+						],
+					},
+				],
+				skSelfData: {
+					courseInfo: {
+						previousPoint: { position: { latitude: 0, longitude: 0 } },
+						nextPoint: { position: { latitude: 1, longitude: 0 } },
+					},
+				},
 				expected: [
 					{
 						prio: 2,
 						pgn: 129302,
 						dst: 255,
 						fields: {
-							bearingOriginToDestination: 1.2217,
-							bearingReference: "True",
-							calculationType: "Great Circle",
-							distance: 2000,
-							destinationMarkType: "Waypoint",
-							originMarkType: "Waypoint",
 							sid: 0,
+							calculationType: "Great Circle",
+							bearingReference: "True",
+							bearingOriginToDestination: 0,
+							distance: 111_195.08,
 						},
 					},
 				],
 			},
 			{
-				input: [2.0944, null, null, 5000, "mark", null],
-				expected: [
+				input: [
 					{
-						prio: 2,
-						pgn: 129302,
-						dst: 255,
-						fields: {
-							bearingOriginToDestination: 2.0944,
-							bearingReference: "True",
-							calculationType: "Great Circle",
-							distance: 5000,
-							destinationMarkType: "Reference",
-							sid: 0,
-						},
+						context: "vessels.self",
+						updates: [
+							{
+								values: [{ path: "navigation.course.calcValues.calcMethod", value: "Rhumbline" }],
+							},
+						],
 					},
 				],
-			},
-			{
-				// Regression: a negative true bearing is normalized into [0, 2pi)
-				// before the unsigned bearingOriginToDestination field, matching
-				// the magnetic-bearing fallback path and the sibling PGN 129284.
-				input: [-0.5, null, null, 1000, "waypoint", "waypoint"],
+				skSelfData: {
+					courseInfo: {
+						previousPoint: { position: { latitude: 50, longitude: -5 } },
+						nextPoint: { position: { latitude: 58, longitude: 10 } },
+					},
+				},
 				expected: [
 					{
 						prio: 2,
 						pgn: 129302,
 						dst: 255,
 						fields: {
-							bearingOriginToDestination: 5.7832,
-							bearingReference: "True",
-							calculationType: "Great Circle",
-							distance: 1000,
-							destinationMarkType: "Waypoint",
-							originMarkType: "Waypoint",
 							sid: 0,
+							calculationType: "Rhumbline",
+							bearingReference: "True",
+							bearingOriginToDestination: 0.832,
+							distance: 1_320_976.42,
 						},
 					},
 				],

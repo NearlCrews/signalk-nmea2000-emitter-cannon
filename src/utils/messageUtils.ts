@@ -44,6 +44,7 @@ function isValidN2KFieldValue(value: unknown): value is N2KFieldValue {
 	if (value === null || value === undefined) return true;
 	if (typeof value === "string" || typeof value === "boolean") return true;
 	if (typeof value === "number") return isValidNumber(value);
+	if (Buffer.isBuffer(value)) return true;
 	if (Array.isArray(value)) {
 		return value.every(isValidN2KFieldValue);
 	}

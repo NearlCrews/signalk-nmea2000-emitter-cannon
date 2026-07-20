@@ -5,13 +5,26 @@ import {
 	VESSELS_SELF_CONTEXT,
 } from "../constants.js";
 import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
-import { toValidNumber } from "../utils/validation.js";
-import { instanceList } from "./instanceOptions.js";
+import { isPlainObject, toValidNumber } from "../utils/validation.js";
+import {
+	instanceList,
+	isValidInstanceSignalKId,
+	normalizedN2kInstance,
+} from "./instanceOptions.js";
 
 interface SolarChargerConfig {
 	signalkId: string;
 	instanceId: number;
 	panelInstanceId: number;
+}
+
+function normalizedSolarConfig(config: unknown): SolarChargerConfig | null {
+	if (!isPlainObject(config) || !isValidInstanceSignalKId(config.signalkId)) return null;
+	const instanceId = normalizedN2kInstance(config.instanceId);
+	const panelInstanceId = normalizedN2kInstance(config.panelInstanceId);
+	return instanceId === undefined || panelInstanceId === undefined
+		? null
+		: { signalkId: String(config.signalkId), instanceId, panelInstanceId };
 }
 
 export default function createSolarConversion(_app: SignalKApp): ConversionModule {
@@ -35,7 +48,9 @@ export default function createSolarConversion(_app: SignalKApp): ConversionModul
 		},
 
 		conversions: (options: unknown) => {
-			const chargers = instanceList<SolarChargerConfig>(options, "chargers");
+			const chargers = instanceList<unknown>(options, "chargers")
+				.map(normalizedSolarConfig)
+				.filter((charger): charger is SolarChargerConfig => charger !== null);
 			if (chargers.length === 0) return null;
 
 			return chargers.map((charger) => ({

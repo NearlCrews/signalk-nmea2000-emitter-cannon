@@ -1,5 +1,6 @@
 import type * as React from "react";
 import { useEffect, useRef, useState } from "react";
+import { MAX_N2K_INSTANCE } from "../../../constants.js";
 import { S } from "../../styles";
 import { TABLE_STYLES as T } from "../../tableStyles";
 import NumberInput from "../NumberInput";
@@ -22,6 +23,7 @@ export function textColumn<R>(opts: {
 	field: keyof R & string;
 	placeholder?: string;
 	ariaLabel?: string;
+	pattern?: string;
 }): Column<R> {
 	return {
 		header: opts.header,
@@ -31,9 +33,47 @@ export function textColumn<R>(opts: {
 				style={S.input}
 				value={(r[opts.field] as string | undefined) ?? ""}
 				placeholder={opts.placeholder}
+				pattern={opts.pattern}
 				onChange={(e) => onRow({ ...r, [opts.field]: e.target.value } as R)}
 				aria-label={opts.ariaLabel ?? opts.header}
 			/>
+		),
+	};
+}
+
+/** Standard string-backed select column for mapping tables. */
+export function selectColumn<R>(opts: {
+	header: string;
+	field: keyof R & string;
+	options: { value: string; label: string }[];
+	ariaLabel?: string;
+	placeholder?: string;
+	disabled?: (row: R) => boolean;
+}): Column<R> {
+	return {
+		header: opts.header,
+		render: (r, onRow) => (
+			<select
+				style={S.input}
+				value={
+					(r[opts.field] as string | undefined) ??
+					(opts.placeholder ? "" : (opts.options[0]?.value ?? ""))
+				}
+				onChange={(e) => onRow({ ...r, [opts.field]: e.target.value } as R)}
+				aria-label={opts.ariaLabel ?? opts.header}
+				disabled={opts.disabled?.(r) ?? false}
+			>
+				{opts.placeholder ? (
+					<option value="" disabled>
+						{opts.placeholder}
+					</option>
+				) : null}
+				{opts.options.map((option) => (
+					<option key={option.value} value={option.value}>
+						{option.label}
+					</option>
+				))}
+			</select>
 		),
 	};
 }
@@ -48,7 +88,7 @@ export function signalkIdColumn<R extends { signalkId: string }>(opts: {
 	placeholder: string;
 	ariaLabel?: string;
 }): Column<R> {
-	return textColumn<R>({ field: "signalkId", ...opts });
+	return textColumn<R>({ field: "signalkId", pattern: "[A-Za-z0-9]+", ...opts });
 }
 
 // Standard NMEA 2000 instance-id number column. Reused for engine, battery,
@@ -66,6 +106,7 @@ export function instanceIdColumn<R extends { instanceId: number }>(opts: {
 				value={r.instanceId}
 				onChange={(n) => onRow({ ...r, instanceId: n } as R)}
 				min={0}
+				max={MAX_N2K_INSTANCE}
 				ariaLabel={opts.ariaLabel ?? opts.header}
 			/>
 		),

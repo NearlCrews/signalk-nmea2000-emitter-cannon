@@ -6,6 +6,16 @@ export function isValidNumber(value: unknown): value is number {
 	return typeof value === "number" && Number.isFinite(value);
 }
 
+/** True when a value is an encodable WGS 84 latitude in degrees. */
+export function isValidLatitude(value: unknown): value is number {
+	return isValidNumber(value) && value >= -90 && value <= 90;
+}
+
+/** True when a value is an encodable WGS 84 longitude in degrees. */
+export function isValidLongitude(value: unknown): value is number {
+	return isValidNumber(value) && value >= -180 && value <= 180;
+}
+
 /** True for a non-null, non-array object literal. */
 export function isPlainObject(value: unknown): value is Record<string, unknown> {
 	if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -13,6 +23,11 @@ export function isPlainObject(value: unknown): value is Record<string, unknown> 
 	}
 	const prototype = Object.getPrototypeOf(value);
 	return prototype === Object.prototype || prototype === null;
+}
+
+/** True for an identifier segment accepted by the Signal K vessel schema. */
+export function isValidSignalKId(value: unknown): value is string {
+	return typeof value === "string" && /^[A-Za-z0-9]+$/.test(value);
 }
 
 export function toValidNumber(value: unknown): number | null {
@@ -24,6 +39,11 @@ export function toValidNumber(value: unknown): number | null {
 // sentinel. A non-number or non-finite input returns undefined.
 export function toFiniteOrUndefined(value: unknown): number | undefined {
 	return isValidNumber(value) ? value : undefined;
+}
+
+/** Return a finite number only when it is inside an inclusive wire range. */
+export function toFiniteInRange(value: unknown, min: number, max: number): number | undefined {
+	return isValidNumber(value) && value >= min && value <= max ? value : undefined;
 }
 
 // Clamps a number into the inclusive [min, max] range. Replaces the hand-rolled
@@ -54,7 +74,7 @@ export function resolveInstanceAndSource(
 
 // Modulo-wraps any real angle into [0, 2π); a single-turn shift would corrupt
 // inputs outside [-2π, 2π].
-export function normalizeAngle(angle: number): number {
+function normalizeAngle(angle: number): number {
 	return ((angle % TWO_PI) + TWO_PI) % TWO_PI;
 }
 

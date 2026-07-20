@@ -154,6 +154,15 @@ describe("PluginManager.getConversionMetadata", () => {
 		const missing = meta.filter((m) => m.pgns.length === 0);
 		expect(missing).toEqual([]);
 	});
+
+	it("marks factory timers as ineligible for resend", () => {
+		const app = makeMockApp();
+		const pm = new PluginManager(app, mockPlugin);
+		const engineStatic = pm
+			.getConversionMetadata()
+			.find((conversion) => conversion.key === "ENGINE_STATIC");
+		expect(engineStatic?.canResend).toBe(false);
+	});
 });
 
 describe("PluginManager.throttledError window", () => {

@@ -5,10 +5,29 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Distance Log (PGN 128275) now emits total and trip distance from the canonical Signal K navigation paths in SI meters.
+- Vessel Speed Components (PGN 130578) now emits canonical longitudinal and transverse water-referenced speeds for compatible chartplotters and instruments.
+- Time and Date (PGN 129033) now emits the canonical UTC Signal K GNSS time without inventing a local offset.
+- Configurable AC input and output status (PGNs 127503 and 127504) maps single-phase or three-phase Signal K AC buses, configurable Charger Status (PGN 127507) maps unambiguous charger state and role values to a battery instance, and Inverter Status (PGN 127509) maps unambiguous inverter modes.
+- Release verification now launches the production Module Federation panel in Chromium and exercises the new mapping editors, Light, Dark, and Night themes, and a 320-pixel viewport.
+
+### Fixed
+
+- AIS output now rejects partial, malformed, and out-of-range MMSIs, coordinates, speeds, rates, dimensions, and lookup identifiers. Remote Class B targets retain their class through PGNs 129039, 129809, and 129810. DSC appends the required trailing address digit and suppresses non-distress categories that canboatjs 3.20 cannot encode faithfully.
+- Active-course PGNs 129283, 129284, 129301, and 129302 now consume the current v2 Course Provider deltas, preserve calculation state across notification-only updates, enforce Canboat ranges, and use mark-to-mark values for PGN 129302.
+- Incomplete PGN 129285 and 130074 route broadcasts were removed. Their implementations did not provide a complete versioned route transaction or register the directed Route and WP Service exchange needed for reliable transfer; PGN 129284 continues to carry active next-waypoint navigation.
+- The embedded conversion harness now fails when a conversion has no callback result instead of silently skipping that case.
+- System Time (PGN 126992) now identifies its host-clock source as a local crystal clock instead of claiming unverified GPS discipline.
+- Chartplotter documentation now treats support as model-specific, corrects the current Garmin battery-PGN claim, and labels Raymarine behavior as field-tested rather than universal.
+- Fixed timestamps and event-driven conversions no longer offer or honor resend controls, preventing old GNSS time, AIS targets, and course calculations from being replayed as current data.
+
 ### Changed
 
 - The configuration panel now uses `signalk-nearlcrews-ui` 0.3.0 for its shared theme root, theme and view controls, banners, buttons, and save action bar. Existing `skn-theme` preferences migrate into the shared theme contract, fresh profiles start in Light, and unsupported browsers receive an explicit native CSS `@scope` compatibility message.
 - `markdownlint-cli2` and its resolved Markdown tooling were refreshed to their latest releases. TypeScript remains on the latest 6.0 release required by `typescript-eslint`, and Node types remain on the latest 24.x release matching the repository's supported Node baseline.
+- Coverage floors now sit just below the verified project baseline, the panel component budget includes the new electrical mapping editors and resend metadata, the official Signal K reusable workflow is pinned to an immutable commit, and PGN 126464 documentation records the provider API limitation on directed ISO Request responses.
 
 <a id="v191"></a>
 

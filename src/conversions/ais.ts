@@ -16,13 +16,24 @@ import {
 	parseMmsi,
 	starboardOffset,
 } from "../utils/aisUtils.js";
-import { clamp, clampString, isValidNumber, toFiniteOrUndefined } from "../utils/validation.js";
+import {
+	clampString,
+	isValidLatitude,
+	isValidLongitude,
+	toFiniteInRange,
+} from "../utils/validation.js";
 import type { Position } from "./routeTypes.js";
 
 // AIS Message 1 spec value for "Not defined". canboat NAV_STATUS lookup
 // stops at 14, but the AIS bitfield is 4 bits and 15 is the spec default
 // for "navigation state unknown". canboatjs accepts the numeric value.
 const NAV_STATUS_NOT_DEFINED = 15;
+const MAX_AIS_ANGLE_RADIANS = 6.2831852;
+const MAX_AIS_SOG_METERS_PER_SECOND = 655.32;
+const MIN_AIS_ROT_RADIANS_PER_SECOND = -1.02396875;
+const MAX_AIS_ROT_RADIANS_PER_SECOND = 1.023875;
+const MAX_AIS_DIMENSION_METERS = 6553.2;
+const MAX_AIS_DRAFT_METERS = 655.32;
 
 interface Design {
 	length?: { overall?: number };
@@ -46,6 +57,7 @@ interface Vessel {
 	};
 	sensors?: {
 		ais?: {
+			class?: string;
 			fromCenter?: number;
 			fromBow?: number;
 		};
@@ -78,6 +90,8 @@ const staticKeys = [
 	"design.draft",
 	"design.length",
 	"design.beam",
+	"communication.callsignVhf",
+	"navigation.destination.commonName",
 	"sensors.ais.fromCenter",
 	"sensors.ais.fromBow",
 	"registrations.imo",
@@ -125,7 +139,7 @@ export default function createAisConversion(
 	let cachedSelfContext: string | null = null;
 
 	return {
-		title: "AIS (PGNs 129038, 129041, 129794)",
+		title: "AIS (PGNs 129038, 129039, 129041, 129794, 129809, 129810)",
 		sourceType: SOURCE_TYPE.ON_DELTA,
 		optionKey: "AIS",
 		category: "ais",
@@ -164,12 +178,22 @@ export default function createAisConversion(
 
 				const vessel = app.getPath(ctx) as Vessel;
 				const mmsiValue = indexedFindValue<string>(index, vessel, "mmsi");
+				const aisClass = indexedFindValue<string>(index, vessel, "sensors.ais.class");
 
 				if (!mmsiValue || typeof mmsiValue !== "string") {
 					return [];
 				}
 
 				const res: N2KMessage[] = [];
+				if (aisClass === "B") {
+					if (hasPosition) {
+						const positionMessage = generateClassBPosition(vessel, mmsiValue, index);
+						if (positionMessage) res.push(positionMessage);
+					}
+					if (hasStatic) res.push(...generateClassBStatic(vessel, mmsiValue, index));
+					return res;
+				}
+				if (aisClass !== "A") return [];
 				if (hasPosition) {
 					const posMsg = generatePosition(vessel, mmsiValue, index);
 					if (posMsg) res.push(posMsg);
@@ -209,6 +233,7 @@ export default function createAisConversion(
 									{ path: "navigation.headingTrue", value: 5.6199 },
 									{ path: "navigation.rateOfTurn", value: 0 },
 									{ path: "navigation.state", value: "motoring" },
+									{ path: "sensors.ais.class", value: "A" },
 									{
 										path: "navigation.destination.commonName",
 										value: "BALTIMORE",
@@ -535,6 +560,7 @@ export default function createAisConversion(
 										value: { longitude: -76.4, latitude: 39.0 },
 									},
 									{ path: "navigation.state", value: "anchored" },
+									{ path: "sensors.ais.class", value: "A" },
 									{ path: "", value: { mmsi: "367301250" } },
 								],
 							},
@@ -561,6 +587,157 @@ export default function createAisConversion(
 						},
 					},
 				],
+			},
+			{
+				// A canonical remote Class B contact must stay Class B on the bus:
+				// position uses 129039 and static message 24 is split into 129809/810.
+				input: [
+					{
+						context: "vessels.urn:mrn:imo:mmsi:367555111",
+						updates: [
+							{
+								values: [
+									{ path: "", value: { mmsi: "367555111", name: "CLASS B BOAT" } },
+									{ path: "sensors.ais.class", value: "B" },
+									{
+										path: "navigation.position",
+										value: { longitude: -76.4, latitude: 39.1 },
+									},
+									{ path: "navigation.courseOverGroundTrue", value: 1.2 },
+									{ path: "navigation.speedOverGround", value: 3.4 },
+									{ path: "navigation.headingTrue", value: 1.1 },
+									{ path: "communication.callsignVhf", value: "WDC1234" },
+									{ path: "design.aisShipType", value: { id: 36, name: "Sailing" } },
+									{ path: "design.length", value: { overall: 10 } },
+									{ path: "design.beam", value: 3.2 },
+									{ path: "sensors.ais.fromCenter", value: 0.2 },
+									{ path: "sensors.ais.fromBow", value: 8 },
+								],
+							},
+						],
+					},
+				],
+				expected: [
+					{
+						prio: 2,
+						pgn: 129039,
+						dst: 255,
+						fields: {
+							messageId: "Standard Class B position report",
+							repeatIndicator: "Initial",
+							userId: 367555111,
+							longitude: -76.4,
+							latitude: 39.1,
+							positionAccuracy: "Low",
+							raim: "not in use",
+							timeStamp: "0",
+							cog: 1.2,
+							sog: 3.4,
+							aisTransceiverInformation: "Channel A VDL reception",
+							heading: 1.1,
+							regionalApplication: 0,
+							unitType: "CS",
+							integratedDisplay: "No",
+							dsc: "No",
+							band: "Top 525 kHz of marine band",
+							canHandleMsg22: "No",
+							aisMode: "Autonomous",
+							aisCommunicationState: "SOTDMA",
+						},
+					},
+					{
+						prio: 2,
+						pgn: 129809,
+						dst: 255,
+						fields: {
+							messageId: "Static data report",
+							repeatIndicator: "Initial",
+							userId: 367555111,
+							name: "CLASS B BOAT",
+							aisTransceiverInformation: "Channel A VDL reception",
+						},
+					},
+					{
+						prio: 2,
+						pgn: 129810,
+						dst: 255,
+						fields: {
+							messageId: "Static data report",
+							repeatIndicator: "Initial",
+							userId: 367555111,
+							typeOfShip: "Sailing",
+							callsign: "WDC1234",
+							length: 10,
+							beam: 3.2,
+							positionReferenceFromStarboard: 1.8,
+							positionReferenceFromBow: 8,
+							aisTransceiverInformation: "Channel A VDL reception",
+						},
+					},
+				],
+			},
+			{
+				// Invalid remote kinematics must become unavailable. Unsigned Canboat
+				// fields otherwise wrap values such as -1 m/s into plausible speeds.
+				input: [
+					{
+						context: "vessels.urn:mrn:imo:mmsi:367555112",
+						updates: [
+							{
+								values: [
+									{ path: "", value: { mmsi: "367555112" } },
+									{ path: "sensors.ais.class", value: "A" },
+									{
+										path: "navigation.position",
+										value: { longitude: -76.4, latitude: 39.1 },
+									},
+									{ path: "navigation.courseOverGroundTrue", value: Math.PI * 2 },
+									{ path: "navigation.speedOverGround", value: -1 },
+									{ path: "navigation.headingTrue", value: 7 },
+									{ path: "navigation.rateOfTurn", value: 2 },
+								],
+							},
+						],
+					},
+				],
+				expected: [
+					{
+						prio: 2,
+						pgn: 129038,
+						dst: 255,
+						fields: {
+							messageId: "Scheduled Class A position report",
+							repeatIndicator: "Initial",
+							userId: 367555112,
+							longitude: -76.4,
+							latitude: 39.1,
+							positionAccuracy: "Low",
+							raim: "not in use",
+							timeStamp: "0",
+							aisTransceiverInformation: "Channel A VDL reception",
+							specialManeuverIndicator: "Not available",
+						},
+					},
+				],
+			},
+			{
+				input: [
+					{
+						context: "vessels.urn:mrn:imo:mmsi:367555113",
+						updates: [
+							{
+								values: [
+									{ path: "", value: { mmsi: "367555113" } },
+									{
+										path: "navigation.position",
+										value: { longitude: -76.4, latitude: 39.1 },
+									},
+								],
+							},
+						],
+					},
+				],
+				expected: [],
 			},
 			{
 				// Echo loop: delta originated from the vessel's own N2K bus
@@ -602,6 +779,7 @@ export default function createAisConversion(
 							{
 								values: [
 									{ path: "", value: { mmsi: "367301250" } },
+									{ path: "sensors.ais.class", value: "A" },
 									{
 										path: "",
 										value: { name: "VERY LONG VESSEL NAME EXCEEDS LIMIT" },
@@ -643,28 +821,155 @@ export default function createAisConversion(
 	};
 }
 
-function generateStatic(vessel: Vessel, mmsi: string, index: Map<string, unknown>): N2KMessage {
+function generateClassBPosition(
+	vessel: Vessel,
+	mmsi: string,
+	index: Map<string, unknown>,
+): N2KMessage | null {
+	const position = indexedFindValue<Position>(index, vessel, "navigation.position");
+	const userId = parseMmsi(mmsi);
+	if (
+		userId === undefined ||
+		!position ||
+		!isValidLatitude(position.latitude) ||
+		!isValidLongitude(position.longitude)
+	) {
+		return null;
+	}
+	const cog = indexedFindValue<number>(index, vessel, "navigation.courseOverGroundTrue");
+	const sog = indexedFindValue<number>(index, vessel, "navigation.speedOverGround");
+	const heading = indexedFindValue<number>(index, vessel, "navigation.headingTrue");
+	return {
+		prio: N2K_DEFAULT_PRIORITY,
+		pgn: 129039,
+		dst: N2K_BROADCAST_DST,
+		fields: {
+			messageId: "Standard Class B position report",
+			repeatIndicator: "Initial",
+			userId,
+			longitude: position.longitude,
+			latitude: position.latitude,
+			positionAccuracy: "Low",
+			raim: "not in use",
+			timeStamp: "0",
+			cog: toFiniteInRange(cog, 0, MAX_AIS_ANGLE_RADIANS),
+			sog: toFiniteInRange(sog, 0, MAX_AIS_SOG_METERS_PER_SECOND),
+			aisTransceiverInformation: "Channel A VDL reception",
+			heading: toFiniteInRange(heading, 0, MAX_AIS_ANGLE_RADIANS),
+			regionalApplication: 0,
+			// Signal K identifies only Class B, not the radio subtype or optional
+			// features. Use conservative no-capability defaults instead of the
+			// all-ones bit patterns, which decode as affirmative values.
+			unitType: "CS",
+			integratedDisplay: "No",
+			dsc: "No",
+			band: "Top 525 kHz of marine band",
+			canHandleMsg22: "No",
+			aisMode: "Autonomous",
+			aisCommunicationState: "SOTDMA",
+		},
+	};
+}
+
+function generateClassBStatic(
+	vessel: Vessel,
+	mmsi: string,
+	index: Map<string, unknown>,
+): N2KMessage[] {
+	const userId = parseMmsi(mmsi);
+	if (userId === undefined) return [];
+	const name = indexedFindValue<string>(index, vessel, "name");
+	const callsign = indexedFindValue<string>(index, vessel, "communication.callsignVhf");
+	const typeObj = indexedFindValue<AisShipType>(index, vessel, "design.aisShipType");
+	const lengthValue = indexedFindValue<{ overall?: number }>(
+		index,
+		vessel,
+		"design.length",
+	)?.overall;
+	const length = toFiniteInRange(lengthValue, 0, MAX_AIS_DIMENSION_METERS);
+	const beamValue = indexedFindValue<number>(index, vessel, "design.beam");
+	const beam = toFiniteInRange(beamValue, 0, MAX_AIS_DIMENSION_METERS);
+	const fromCenter = indexedFindValue<number>(index, vessel, "sensors.ais.fromCenter");
+	const fromBowValue = indexedFindValue<number>(index, vessel, "sensors.ais.fromBow");
+	const fromBow = toFiniteInRange(fromBowValue, 0, MAX_AIS_DIMENSION_METERS);
+	const starboardValue = starboardOffset(beam, fromCenter);
+	const fromStarboard = toFiniteInRange(starboardValue, 0, MAX_AIS_DIMENSION_METERS);
+	const shipType = Number.isInteger(typeObj?.id) ? toFiniteInRange(typeObj?.id, 0, 252) : undefined;
+	const messages: N2KMessage[] = [];
+	if (typeof name === "string" && name !== "") {
+		messages.push({
+			prio: N2K_DEFAULT_PRIORITY,
+			pgn: 129809,
+			dst: N2K_BROADCAST_DST,
+			fields: {
+				messageId: "Static data report",
+				repeatIndicator: "Initial",
+				userId,
+				name: clampString(name, AIS_NAME_CHARS),
+				aisTransceiverInformation: "Channel A VDL reception",
+			},
+		});
+	}
+	if (
+		shipType !== undefined ||
+		typeof callsign === "string" ||
+		length !== undefined ||
+		beam !== undefined ||
+		fromStarboard !== undefined ||
+		fromBow !== undefined
+	) {
+		messages.push({
+			prio: N2K_DEFAULT_PRIORITY,
+			pgn: 129810,
+			dst: N2K_BROADCAST_DST,
+			fields: {
+				messageId: "Static data report",
+				repeatIndicator: "Initial",
+				userId,
+				typeOfShip: shipType,
+				callsign: clampString(callsign, AIS_CALLSIGN_CHARS),
+				length,
+				beam,
+				positionReferenceFromStarboard: fromStarboard,
+				positionReferenceFromBow: fromBow,
+				aisTransceiverInformation: "Channel A VDL reception",
+			},
+		});
+	}
+	return messages;
+}
+
+function generateStatic(
+	vessel: Vessel,
+	mmsi: string,
+	index: Map<string, unknown>,
+): N2KMessage | null {
 	const name = indexedFindValue<string>(index, vessel, "name");
 	const typeObj = indexedFindValue<AisShipType>(index, vessel, "design.aisShipType");
 	const type = typeObj?.id;
 	const callsign = indexedFindValue<string>(index, vessel, "communication.callsignVhf");
 	const lengthObj = indexedFindValue<{ overall?: number }>(index, vessel, "design.length");
 	const length = lengthObj?.overall;
-	const validLength = toFiniteOrUndefined(length);
+	const validLength = toFiniteInRange(length, 0, MAX_AIS_DIMENSION_METERS);
 	const beam = indexedFindValue<number>(index, vessel, "design.beam");
-	const validBeam = toFiniteOrUndefined(beam);
+	const validBeam = toFiniteInRange(beam, 0, MAX_AIS_DIMENSION_METERS);
 	const fromCenter = indexedFindValue<number>(index, vessel, "sensors.ais.fromCenter");
 	const fromBow = indexedFindValue<number>(index, vessel, "sensors.ais.fromBow");
-	const validFromBow = toFiniteOrUndefined(fromBow);
+	const validFromBow = toFiniteInRange(fromBow, 0, MAX_AIS_DIMENSION_METERS);
 	const draftObj = indexedFindValue<{ maximum?: number }>(index, vessel, "design.draft");
 	const draft = draftObj?.maximum;
-	const validDraft = toFiniteOrUndefined(draft);
+	const validDraft = toFiniteInRange(draft, 0, MAX_AIS_DRAFT_METERS);
 	const dest = indexedFindValue<string>(index, vessel, "navigation.destination.commonName");
 	const imoNumber = parseImo(indexedFindValue<string>(index, vessel, "registrations.imo"));
 
-	const fromStarboard = starboardOffset(beam, fromCenter);
+	const fromStarboard = toFiniteInRange(
+		starboardOffset(validBeam, fromCenter),
+		0,
+		MAX_AIS_DIMENSION_METERS,
+	);
 
 	const mmsiNumber = parseMmsi(mmsi);
+	if (mmsiNumber === undefined) return null;
 
 	return {
 		prio: N2K_DEFAULT_PRIORITY,
@@ -677,7 +982,7 @@ function generateStatic(vessel: Vessel, mmsi: string, index: Map<string, unknown
 			imoNumber,
 			callsign: clampString(callsign, AIS_CALLSIGN_CHARS),
 			name: clampString(name, AIS_NAME_CHARS),
-			typeOfShip: type,
+			typeOfShip: Number.isInteger(type) ? toFiniteInRange(type, 0, 252) : undefined,
 			length: validLength,
 			beam: validBeam,
 			positionReferenceFromStarboard: fromStarboard,
@@ -698,7 +1003,7 @@ function generatePosition(
 ): N2KMessage | null {
 	const position = indexedFindValue<Position>(index, vessel, "navigation.position");
 
-	if (!position || !isValidNumber(position.latitude) || !isValidNumber(position.longitude)) {
+	if (!position || !isValidLatitude(position.latitude) || !isValidLongitude(position.longitude)) {
 		return null;
 	}
 
@@ -716,15 +1021,19 @@ function generatePosition(
 	// as "not available" on the MFD, not as a plausible-but-wrong heading.
 	// (aisExtended.ts wraps the same fields because those are own-vessel sensor
 	// values, which can legitimately sit a hair outside [0, 2pi).)
-	const validCog = isValidNumber(cog) && cog >= 0 && cog <= Math.PI * 2 ? cog : undefined;
-	const validHeading =
-		isValidNumber(heading) && heading >= 0 && heading <= Math.PI * 2 ? heading : undefined;
+	const validCog = toFiniteInRange(cog, 0, MAX_AIS_ANGLE_RADIANS);
+	const validHeading = toFiniteInRange(heading, 0, MAX_AIS_ANGLE_RADIANS);
 	// Guard sog/rot like cog/heading: a NaN or Infinity from a flaky provider
 	// must not reach the encoder.
-	const validSog = toFiniteOrUndefined(sog);
-	const validRot = toFiniteOrUndefined(rot);
+	const validSog = toFiniteInRange(sog, 0, MAX_AIS_SOG_METERS_PER_SECOND);
+	const validRot = toFiniteInRange(
+		rot,
+		MIN_AIS_ROT_RADIANS_PER_SECOND,
+		MAX_AIS_ROT_RADIANS_PER_SECOND,
+	);
 
 	const mmsiNumber = parseMmsi(mmsi);
+	if (mmsiNumber === undefined) return null;
 
 	return {
 		prio: N2K_DEFAULT_PRIORITY,
@@ -757,7 +1066,7 @@ function generateAtoN(
 ): N2KMessage | null {
 	const position = indexedFindValue<Position>(index, vessel, "navigation.position");
 
-	if (!position || !isValidNumber(position.latitude) || !isValidNumber(position.longitude)) {
+	if (!position || !isValidLatitude(position.latitude) || !isValidLongitude(position.longitude)) {
 		return null;
 	}
 
@@ -768,22 +1077,29 @@ function generateAtoN(
 	const fromCenter = indexedFindValue<number>(index, vessel, "sensors.ais.fromCenter");
 	const fromBow = indexedFindValue<number>(index, vessel, "sensors.ais.fromBow");
 
-	const fromStarboard = starboardOffset(beam, fromCenter);
+	const validLength = toFiniteInRange(length, 0, MAX_AIS_DIMENSION_METERS);
+	const validBeam = toFiniteInRange(beam, 0, MAX_AIS_DIMENSION_METERS);
+	const fromStarboard = toFiniteInRange(
+		starboardOffset(validBeam, fromCenter),
+		0,
+		MAX_AIS_DIMENSION_METERS,
+	);
 
 	// canboat 129041 positionReferenceFromTrueNorthFacingEdge is res=0.1, unit=m;
 	// canboatjs round-trips plain SI meters, so pass fromBow unscaled to match
 	// the sibling geometry fields (lengthDiameter, beamDiameter,
 	// positionReferenceFromStarboardEdge), which are all the same spec.
-	const fromBowMeters = toFiniteOrUndefined(fromBow);
+	const fromBowMeters = toFiniteInRange(fromBow, 0, MAX_AIS_DIMENSION_METERS);
 	const mmsiNumber = parseMmsi(mmsi);
+	if (mmsiNumber === undefined) return null;
 
 	// SK atons.* contexts publish atonType.id as the canonical AIS Message
 	// 21 type code (0..31), aligned with canboat's ATON_TYPE lookup. atonType
-	// is a 5-bit field, so clamp to [0, 31] before the encoder: a value above
-	// 31 would otherwise wrap on the wire. Default to 0 ("not specified") when
-	// missing.
+	// is a 5-bit field. Invalid values become 0 ("not specified") rather than
+	// being clamped to a different, real aid type.
 	const atonTypeObj = indexedFindValue<{ id?: number }>(index, vessel, "atonType");
-	const atonType = isValidNumber(atonTypeObj?.id) ? clamp(atonTypeObj.id, 0, 31) : 0;
+	const atonTypeId = atonTypeObj?.id;
+	const atonType = Number.isInteger(atonTypeId) ? (toFiniteInRange(atonTypeId, 0, 31) ?? 0) : 0;
 
 	return {
 		prio: N2K_DEFAULT_PRIORITY,
@@ -799,8 +1115,8 @@ function generateAtoN(
 			raim: "not in use",
 			timeStamp: "0",
 			aisTransceiverInformation: "Channel A VDL reception",
-			lengthDiameter: length,
-			beamDiameter: beam,
+			lengthDiameter: validLength,
+			beamDiameter: validBeam,
 			positionReferenceFromStarboardEdge: fromStarboard,
 			positionReferenceFromTrueNorthFacingEdge: fromBowMeters,
 			atonType,

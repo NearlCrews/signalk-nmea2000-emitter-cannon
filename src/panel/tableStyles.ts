@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 
 /** Shared responsive table primitives used by status and mapping tables. */
 export const TABLE_STYLES = {
-	wrap: { overflowX: "auto" },
+	wrap: { width: "100%", maxWidth: "100%", minWidth: 0, overflowX: "auto" },
 	table: {
 		width: "100%",
 		borderCollapse: "collapse",

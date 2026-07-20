@@ -1,104 +1,113 @@
-import {
-	DEFAULT_DATA_TIMEOUT_MS,
-	N2K_BROADCAST_DST,
-	N2K_DEFAULT_PRIORITY,
-	SLOW_DATA_TIMEOUT_MS,
-} from "../constants.js";
-import type { ConversionModule, N2KMessage } from "../types/index.js";
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, SOURCE_TYPE } from "../constants.js";
+import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
 import { toN2KDateTime } from "../utils/dateUtils.js";
 import { isClearState } from "../utils/notificationUtils.js";
-import { isValidNumber, toUnsignedAngle, toValidNumber } from "../utils/validation.js";
-import type { Position } from "./routeTypes.js";
+import {
+	isValidLatitude,
+	isValidLongitude,
+	isValidNumber,
+	toUnsignedAngle,
+} from "../utils/validation.js";
+import {
+	courseCalculation,
+	courseDeltaTouches,
+	coursePathValue,
+	currentCourse,
+	routePointIndex,
+} from "./courseData.js";
 
-// PGN 129284 uses a fixed sequence identifier per common implementations.
 const NAV_DATA_SID = 0x88;
+const MAX_NAV_DISTANCE_METERS = 42_949_672.92;
+const MIN_WAYPOINT_CLOSING_VELOCITY = -327.67;
+const MAX_WAYPOINT_CLOSING_VELOCITY = 327.64;
+const MIN_XTE_METERS = -21_474_836.47;
+const MAX_XTE_METERS = 21_474_836.44;
 
-// A cleared notification object lingers on the path until its timeout, so a
-// bare presence check would keep the PGN flag raised after the alert ended.
-function notificationActive(v: unknown): boolean {
-	if (v == null) return false;
-	if (typeof v === "object") {
-		const state = (v as { state?: unknown }).state;
+function notificationActive(value: unknown): boolean {
+	if (value == null) return false;
+	if (typeof value === "object") {
+		const state = (value as { state?: unknown }).state;
 		return typeof state !== "string" || !isClearState(state);
 	}
 	return true;
 }
 
-interface DestinationPoint {
-	position?: Position;
+function validRange(value: unknown, min: number, max: number): value is number {
+	return isValidNumber(value) && value >= min && value <= max;
 }
 
-interface ActiveRoute {
-	pointIndex?: number;
+function etaFields(value: unknown): { etaDate?: number; etaTime?: number } {
+	if (typeof value !== "string") return {};
+	const eta = new Date(value);
+	if (!Number.isFinite(eta.getTime())) return {};
+	const converted = toN2KDateTime(eta);
+	return converted.date >= 0 && converted.date <= 65_532
+		? { etaDate: converted.date, etaTime: converted.time }
+		: {};
 }
 
 function createNavDataConversion(
+	app: SignalKApp,
 	optionKey: string,
 	title: string,
+	providerMethod: "Rhumbline" | "GreatCircle",
 	calculationType: "Rhumbline" | "Great Circle",
 ): ConversionModule {
-	// v2 Course API paths (navigation.course.*) are not pushed into the v1
-	// streambundle by signalk-server. Subscribe to the v1 siblings under
-	// navigation.courseRhumbline.* / navigation.courseGreatCircle.* per
-	// calculation mode.
-	const courseBranch =
-		calculationType === "Great Circle"
-			? "navigation.courseGreatCircle"
-			: "navigation.courseRhumbline";
 	return {
 		title,
 		optionKey,
 		category: "navigation",
-		keys: [
-			`${courseBranch}.calcValues.distance`,
-			`${courseBranch}.calcValues.bearingTrue`,
-			`${courseBranch}.calcValues.bearingTrackTrue`,
-			`${courseBranch}.nextPoint`,
-			`${courseBranch}.calcValues.velocityMadeGood`,
-			"notifications.navigation.arrivalCircleEntered",
-			"notifications.navigation.perpendicularPassed",
-			`${courseBranch}.activeRoute`,
-		],
-		// Arrival-circle and perpendicular-passed use a longer freshness window
-		// (SLOW_DATA_TIMEOUT_MS 60s vs DEFAULT_DATA_TIMEOUT_MS 10s) so a brief
-		// notification flicker stays visible across the full PGN window.
-		timeouts: [
-			DEFAULT_DATA_TIMEOUT_MS,
-			DEFAULT_DATA_TIMEOUT_MS,
-			DEFAULT_DATA_TIMEOUT_MS,
-			DEFAULT_DATA_TIMEOUT_MS,
-			DEFAULT_DATA_TIMEOUT_MS,
-			SLOW_DATA_TIMEOUT_MS,
-			SLOW_DATA_TIMEOUT_MS,
-			DEFAULT_DATA_TIMEOUT_MS,
-		],
-		callback: (
-			distToDest: unknown,
-			bearingToDest: unknown,
-			bearingOriginToDest: unknown,
-			destPos: unknown,
-			WCV: unknown,
-			ace: unknown,
-			pp: unknown,
-			rte: unknown,
-		): N2KMessage[] => {
-			if (!isValidNumber(distToDest)) {
+		sourceType: SOURCE_TYPE.ON_DELTA,
+		allowResend: false,
+		callback: async (delta: unknown): Promise<N2KMessage[]> => {
+			if (
+				!courseDeltaTouches(app, delta, [
+					"navigation.course.calcValues",
+					"notifications.navigation.course.arrivalCircleEntered",
+					"notifications.navigation.course.perpendicularPassed",
+					"notifications.navigation.arrivalCircleEntered",
+					"notifications.navigation.perpendicularPassed",
+				])
+			) {
 				return [];
 			}
+			if (courseCalculation(app, "calcMethod", delta) !== providerMethod) return [];
+			const distance = courseCalculation(app, "distance", delta);
+			if (!validRange(distance, 0, MAX_NAV_DISTANCE_METERS)) return [];
 
-			const wcvValid = isValidNumber(WCV);
-			let etaDate: number | undefined;
-			let etaTime: number | undefined;
-			if (wcvValid && WCV > 0) {
-				const secondsToGo = Math.trunc(distToDest / WCV);
-				const eta = toN2KDateTime(new Date(Date.now() + secondsToGo * 1000));
-				etaDate = eta.date;
-				etaTime = eta.time;
-			}
-
-			const route = rte as ActiveRoute;
-			const wpid = route && typeof route.pointIndex === "number" ? route.pointIndex + 1 : 0;
-			const destination = destPos as DestinationPoint;
+			const course = await currentCourse(app);
+			const destination = course?.nextPoint?.position;
+			const destinationLatitude = destination?.latitude;
+			const destinationLongitude = destination?.longitude;
+			const destinationValid =
+				isValidLatitude(destinationLatitude) && isValidLongitude(destinationLongitude);
+			const routeIndex = routePointIndex(course);
+			const bearingToDestination = courseCalculation(app, "bearingTrue", delta);
+			const bearingTrack = courseCalculation(app, "bearingTrackTrue", delta);
+			const closingVelocity = courseCalculation(app, "velocityMadeGood", delta);
+			const validClosingVelocity = validRange(
+				closingVelocity,
+				MIN_WAYPOINT_CLOSING_VELOCITY,
+				MAX_WAYPOINT_CLOSING_VELOCITY,
+			);
+			const arrivalCanonical = coursePathValue(
+				app,
+				"notifications.navigation.course.arrivalCircleEntered",
+				delta,
+			);
+			const arrival =
+				arrivalCanonical === undefined
+					? coursePathValue(app, "notifications.navigation.arrivalCircleEntered", delta)
+					: arrivalCanonical;
+			const perpendicularCanonical = coursePathValue(
+				app,
+				"notifications.navigation.course.perpendicularPassed",
+				delta,
+			);
+			const perpendicular =
+				perpendicularCanonical === undefined
+					? coursePathValue(app, "notifications.navigation.perpendicularPassed", delta)
+					: perpendicularCanonical;
 
 			return [
 				{
@@ -107,20 +116,24 @@ function createNavDataConversion(
 					dst: N2K_BROADCAST_DST,
 					fields: {
 						sid: NAV_DATA_SID,
-						distanceToWaypoint: distToDest,
+						distanceToWaypoint: distance,
 						courseBearingReference: "True",
-						perpendicularCrossed: notificationActive(pp) ? "Yes" : "No",
-						arrivalCircleEntered: notificationActive(ace) ? "Yes" : "No",
+						perpendicularCrossed: notificationActive(perpendicular) ? "Yes" : "No",
+						arrivalCircleEntered: notificationActive(arrival) ? "Yes" : "No",
 						calculationType,
-						etaTime,
-						etaDate,
-						// Both bearings are unsigned [0, 2pi) fields; see toUnsignedAngle.
-						bearingOriginToDestinationWaypoint: toUnsignedAngle(toValidNumber(bearingOriginToDest)),
-						bearingPositionToDestinationWaypoint: toUnsignedAngle(toValidNumber(bearingToDest)),
-						destinationWaypointNumber: wpid,
-						destinationLatitude: destination?.position?.latitude,
-						destinationLongitude: destination?.position?.longitude,
-						waypointClosingVelocity: wcvValid ? WCV : undefined,
+						...etaFields(courseCalculation(app, "estimatedTimeOfArrival", delta)),
+						bearingOriginToDestinationWaypoint: isValidNumber(bearingTrack)
+							? toUnsignedAngle(bearingTrack)
+							: undefined,
+						bearingPositionToDestinationWaypoint: isValidNumber(bearingToDestination)
+							? toUnsignedAngle(bearingToDestination)
+							: undefined,
+						originWaypointNumber:
+							routeIndex !== undefined && routeIndex > 0 ? routeIndex : undefined,
+						destinationWaypointNumber: routeIndex !== undefined ? routeIndex + 1 : undefined,
+						destinationLatitude: destinationValid ? destinationLatitude : undefined,
+						destinationLongitude: destinationValid ? destinationLongitude : undefined,
+						waypointClosingVelocity: validClosingVelocity ? closingVelocity : undefined,
 					},
 				},
 			];
@@ -128,21 +141,37 @@ function createNavDataConversion(
 		tests: [
 			{
 				input: [
-					12,
-					1.23,
-					3.1,
-					{ position: { longitude: -75.487264, latitude: 32.0631296 } },
-					4.0,
-					null,
-					1,
-					{ pointIndex: 5 },
+					{
+						context: "vessels.self",
+						updates: [
+							{
+								values: [
+									{ path: "navigation.course.calcValues.calcMethod", value: providerMethod },
+									{ path: "navigation.course.calcValues.distance", value: 12 },
+									{ path: "navigation.course.calcValues.bearingTrue", value: 1.23 },
+									{ path: "navigation.course.calcValues.bearingTrackTrue", value: 3.1 },
+									{ path: "navigation.course.calcValues.velocityMadeGood", value: 4 },
+									{
+										path: "navigation.course.calcValues.estimatedTimeOfArrival",
+										value: "2026-07-19T15:30:00Z",
+									},
+									{
+										path: "notifications.navigation.course.perpendicularPassed",
+										value: 1,
+									},
+								],
+							},
+						],
+					},
 				],
+				skSelfData: {
+					courseInfo: {
+						activeRoute: { pointIndex: 5 },
+						nextPoint: { position: { longitude: -75.487264, latitude: 32.0631296 } },
+					},
+				},
 				expected: [
 					{
-						__preprocess__: (testResult: { fields: { etaDate?: unknown; etaTime?: unknown } }) => {
-							delete testResult.fields.etaDate;
-							delete testResult.fields.etaTime;
-						},
 						prio: 2,
 						pgn: 129284,
 						dst: 255,
@@ -153,8 +182,11 @@ function createNavDataConversion(
 							perpendicularCrossed: "Yes",
 							arrivalCircleEntered: "No",
 							calculationType,
+							etaTime: "15:30:00",
+							etaDate: "2026.07.19",
 							bearingOriginToDestinationWaypoint: 3.1,
 							bearingPositionToDestinationWaypoint: 1.23,
+							originWaypointNumber: 5,
 							destinationWaypointNumber: 6,
 							destinationLatitude: 32.0631296,
 							destinationLongitude: -75.487264,
@@ -164,19 +196,37 @@ function createNavDataConversion(
 				],
 			},
 			{
-				// Regression: negative or out-of-range bearings are normalized into
-				// [0, 2pi) before the unsigned PGN 129284 bearing fields. -0.2 rad
-				// wraps to 6.0832 rad. WCV is null so no ETA fields are emitted.
 				input: [
-					12,
-					-0.2,
-					1.0,
-					{ position: { longitude: -75.5, latitude: 32.0 } },
-					null,
-					null,
-					null,
-					null,
+					{
+						context: "vessels.self",
+						updates: [
+							{
+								values: [
+									{ path: "navigation.course.calcValues.calcMethod", value: providerMethod },
+									{ path: "navigation.course.calcValues.distance", value: 12 },
+									{ path: "navigation.course.calcValues.bearingTrue", value: -0.2 },
+									{ path: "navigation.course.calcValues.bearingTrackTrue", value: 1 },
+									{ path: "navigation.course.calcValues.velocityMadeGood", value: 400 },
+									{
+										path: "navigation.course.calcValues.estimatedTimeOfArrival",
+										value: null,
+									},
+									{
+										path: "notifications.navigation.course.perpendicularPassed",
+										value: null,
+									},
+									{
+										path: "notifications.navigation.course.arrivalCircleEntered",
+										value: null,
+									},
+								],
+							},
+						],
+					},
 				],
+				skSelfData: {
+					courseInfo: { nextPoint: { position: { longitude: -181, latitude: 32 } } },
+				},
 				expected: [
 					{
 						prio: 2,
@@ -191,9 +241,41 @@ function createNavDataConversion(
 							calculationType,
 							bearingOriginToDestinationWaypoint: 1,
 							bearingPositionToDestinationWaypoint: 6.0832,
-							destinationWaypointNumber: 0,
-							destinationLatitude: 32,
-							destinationLongitude: -75.5,
+						},
+					},
+				],
+			},
+			{
+				input: [
+					{
+						context: "vessels.self",
+						updates: [
+							{
+								values: [
+									{ path: "navigation.course.calcValues.calcMethod", value: providerMethod },
+									{ path: "navigation.course.calcValues.distance", value: 12 },
+									{ path: "navigation.course.calcValues.bearingTrue", value: null },
+									{ path: "navigation.course.calcValues.bearingTrackTrue", value: null },
+								],
+							},
+						],
+					},
+				],
+				skSelfData: {
+					courseInfo: { activeRoute: { pointIndex: 4_294_967_292 } },
+				},
+				expected: [
+					{
+						prio: 2,
+						pgn: 129284,
+						dst: 255,
+						fields: {
+							sid: NAV_DATA_SID,
+							distanceToWaypoint: 12,
+							courseBearingReference: "True",
+							perpendicularCrossed: "No",
+							arrivalCircleEntered: "No",
+							calculationType,
 						},
 					},
 				],
@@ -202,60 +284,64 @@ function createNavDataConversion(
 	};
 }
 
-export default function createNavigationDataConversions(): ConversionModule[] {
+export default function createNavigationDataConversions(app: SignalKApp): ConversionModule[] {
 	return [
-		// Cross Track Error (PGN 129283)
 		{
 			title: "Cross Track Error (PGN 129283)",
 			optionKey: "CROSS_TRACK_ERROR",
 			category: "navigation",
-			// XTE applies to either course mode; rhumbline is the conservative
-			// v1 default (v2 navigation.course.* is not pushed to streambundle).
-			keys: ["navigation.courseRhumbline.calcValues.crossTrackError"],
-			callback: (XTE: unknown): N2KMessage[] => {
-				if (!isValidNumber(XTE)) {
+			sourceType: SOURCE_TYPE.ON_DELTA,
+			allowResend: false,
+			callback: (delta: unknown): N2KMessage[] => {
+				if (!courseDeltaTouches(app, delta, ["navigation.course.calcValues.crossTrackError"])) {
 					return [];
 				}
-
+				const xte = courseCalculation(app, "crossTrackError", delta);
+				if (!validRange(xte, MIN_XTE_METERS, MAX_XTE_METERS)) return [];
 				return [
 					{
 						prio: N2K_DEFAULT_PRIORITY,
 						pgn: 129283,
 						dst: N2K_BROADCAST_DST,
-						fields: {
-							xte: XTE,
-							xteMode: "Autonomous",
-							navigationTerminated: "No",
-						},
+						fields: { xte, xteMode: "Autonomous", navigationTerminated: "No" },
 					},
 				];
 			},
 			tests: [
 				{
-					input: [0.12],
+					input: [
+						{
+							context: "vessels.self",
+							updates: [
+								{
+									values: [{ path: "navigation.course.calcValues.crossTrackError", value: 0.12 }],
+								},
+							],
+						},
+					],
 					expected: [
 						{
 							prio: 2,
 							pgn: 129283,
 							dst: 255,
-							fields: {
-								xteMode: "Autonomous",
-								navigationTerminated: "No",
-								xte: 0.12,
-							},
+							fields: { xteMode: "Autonomous", navigationTerminated: "No", xte: 0.12 },
 						},
 					],
 				},
 			],
 		},
-
-		// Navigation Data (PGN 129284)
-		createNavDataConversion("NAVIGATION_DATA", "Navigation Data (PGN 129284)", "Rhumbline"),
-
-		// Navigation Data Great Circle (PGN 129284)
 		createNavDataConversion(
+			app,
+			"NAVIGATION_DATA",
+			"Navigation Data (PGN 129284)",
+			"Rhumbline",
+			"Rhumbline",
+		),
+		createNavDataConversion(
+			app,
 			"NAVIGATION_DATA_GREAT_CIRCLE",
 			"Navigation Data Great Circle (PGN 129284)",
+			"GreatCircle",
 			"Great Circle",
 		),
 	];

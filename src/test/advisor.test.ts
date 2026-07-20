@@ -63,6 +63,7 @@ function meta(key: string, paths: string[]): ConversionMetadata {
 	return {
 		key,
 		title: key,
+		canResend: true,
 		pgns: [],
 		category: "navigation",
 		presets: [],

@@ -3,7 +3,10 @@ import type { ConversionModule } from "../types/index.js";
 import type { ConversionLifecycle, ExtrasMeta } from "./types.js";
 
 const EXTRAS_BY_OPTION_KEY: Record<string, ExtrasMeta> = {
+	AC_STATUS: { type: "acMapping", minRows: 0 },
 	BATTERY: { type: "batteryMapping", minRows: 0 },
+	CHARGER_STATUS: { type: "chargerMapping", minRows: 0 },
+	INVERTER_STATUS: { type: "inverterMapping", minRows: 0 },
 	ENGINE_PARAMETERS: { type: "engineMapping", minRows: 0 },
 	// PGN 127497 trip parameters: one row per engine, same shape as
 	// ENGINE_PARAMETERS' mapping (SK engine id to N2K instance).
@@ -38,9 +41,11 @@ const EXTRAS_BY_OPTION_KEY: Record<string, ExtrasMeta> = {
 // AIS section of the README.
 const CONVERSION_DESCRIPTIONS: Record<string, string> = {
 	AIS_SAFETY_MESSAGE:
-		"Do not enable unless this vessel has a licensed AIS transceiver whose MMSI matches the value broadcast on the bus. Software-only emission of AIS safety messages violates ITU-R M.1371 and may breach licence terms (e.g. US FCC ship station rules). Use Notifications (PGN 126985) for non-AIS alerts.",
+		"Do not enable unless this vessel has a licensed AIS transceiver whose MMSI matches the value broadcast on the bus. Software-only emission of AIS safety messages violates ITU-R M.1371 and may breach license terms (e.g. US FCC ship station rules). Use Notifications (PGN 126985) for non-AIS alerts.",
 	WIND_WEATHER_APPARENT:
 		"Bridges the synthetic apparent wind from signalk-virtual-weather-sensors (forecast wind plus vessel motion) to PGN 130306. Leave disabled if a real masthead anemometer feeds apparent wind: emitting both puts competing values on the bus.",
+	DSC_CALLS:
+		"Source-lock all DSC paths to an off-bus VHF or DSC provider. This mapper cannot inspect the original delta source, so using the same NMEA 2000 input can echo and duplicate distress frames.",
 };
 
 export function descriptionFor(optionKey: string): string | undefined {
@@ -61,7 +66,15 @@ const CONVERSION_PURPOSES: Record<string, string> = {
 	ENGINE_TRIP:
 		"Cumulative trip fuel totals and average rates. Streams per delta from propulsion.<id>.trip.* paths.",
 	BATTERY:
-		"Basic battery status (voltage, current, temperature) plus detailed status (state-of-charge, time-remaining). The basic frame is what most chartplotters consume; the detailed frame serves Victron Cerbo, Maretron N2K-View, and the SK data browser.",
+		"Basic battery status (voltage, current, temperature) plus detailed status (state-of-charge, time-remaining). Receiver support for the detailed frame is model-specific.",
+	AC_STATUS:
+		"Per-line AC input and output measurements from electrical.ac.<id>.phase.* paths, with configurable direction, phase count, and NMEA 2000 instance.",
+	CHARGER_STATUS:
+		"Battery charger operating state and role from electrical.chargers.<id>, linked to a configured battery instance.",
+	INVERTER_STATUS:
+		"Unambiguous inverter operating states from electrical.inverters.<id>, linked to configured AC and DC instances.",
+	DISTANCE_LOG:
+		"Total and trip distance logs from navigation.log and navigation.trip.log, kept in Signal K SI meters. Directed trip-reset commands are not handled.",
 };
 
 export function purposeFor(optionKey: string): string | undefined {
@@ -71,30 +84,36 @@ export function purposeFor(optionKey: string): string | undefined {
 // Hint of how the most common MFD vendor (Garmin) treats each PGN. Used to
 // render a small badge on the card so a Garmin-only install knows which
 // enabled conversions actually display vs which are emitted for other
-// consumers (Victron, Maretron, B&G autopilots). Default is "consumes" when
-// no entry exists; only populate exceptions.
+// marine instruments. Missing entries render no badge; populate only cases
+// with useful model-specific evidence or cautions.
 const CONVERSION_COMPATIBILITY: Record<
 	string,
 	{ garmin: "consumes" | "ignores" | "partial"; note?: string }
 > = {
-	// Garmin reads PGN 127508 only; PGN 127506 is consumed by Victron Cerbo,
-	// Maretron N2K-View, and the SK data browser.
+	// Current ECHOMAP UHD2 documentation lists both PGNs. Older models vary,
+	// so this remains partial rather than claiming product-line-wide support.
 	BATTERY: {
 		garmin: "partial",
-		note: "Garmin reads voltage/current (127508), not state-of-charge (127506).",
+		note: "Current ECHOMAP UHD2 models list 127506 and 127508; older model support varies.",
 	},
 	// Seatalk proprietary; Raymarine-only.
 	RAYMARINE_ALARMS: { garmin: "ignores", note: "Seatalk proprietary." },
 	RAYMARINE_BRIGHTNESS: { garmin: "ignores", note: "Seatalk proprietary." },
-	// Garmin Reactor reads attitude/heave via SteadyCast internal channel;
-	// most Garmin chartplotters do not list these PGNs in their Rx tables.
 	ATTITUDE: {
 		garmin: "partial",
-		note: "Reactor autopilots consume via SteadyCast; chartplotters typically ignore.",
+		note: "Current ECHOMAP UHD2 models list 127257; older model support varies.",
 	},
 	HEAVE: {
 		garmin: "partial",
-		note: "Reactor autopilots consume via SteadyCast; chartplotters typically ignore.",
+		note: "Current ECHOMAP UHD2 models list 127252; older model support varies.",
+	},
+	TIME_DATE: {
+		garmin: "partial",
+		note: "Current ECHOMAP UHD2 models omit 129033; support varies by model.",
+	},
+	VESSEL_SPEED_COMPONENTS: {
+		garmin: "partial",
+		note: "Current ECHOMAP UHD2 models list 130578; older model support varies.",
 	},
 	// AIS safety broadcast: regulated. Many MFDs accept inbound but a
 	// software-only emit is non-compliant; some firmwares drop the frame.
@@ -114,6 +133,18 @@ export function compatibilityFor(
 // handled by prefix in lifecycleFor, not listed here, because it spans many
 // per-source optionKeys.
 const CONVERSION_LIFECYCLE: Record<string, ConversionLifecycle> = {
+	AC_STATUS: {
+		supersededBy: "PGNs 127744 to 127749 (per-phase AC power, current, voltage, and frequency)",
+		note: "The NMEA 3.002 Network Message Database marks PGNs 127503 and 127504 deprecated. Their replacements remain incomplete in the bundled Canboat database, so retain this conversion only for receivers that still require the legacy AC status frames.",
+	},
+	CHARGER_STATUS: {
+		supersededBy: "PGN 127750 (Converter Status)",
+		note: "The NMEA 3.002 Network Message Database marks PGN 127507 deprecated. Its replacement remains incomplete in the bundled Canboat database, so retain this conversion only for receivers that still require the legacy charger frame.",
+	},
+	INVERTER_STATUS: {
+		supersededBy: "PGN 127750 (Converter Status)",
+		note: "The NMEA 3.002 Network Message Database marks PGN 127509 deprecated. Its replacement remains incomplete in the bundled Canboat database, so retain this conversion only for receivers that still require the legacy inverter frame.",
+	},
 	// PGN 130310: canboat marks this "Environmental Parameters (obsolete)".
 	SEA_TEMP: {
 		supersededBy: "PGN 130316 (water temperature) and PGN 130314 (pressure)",
@@ -122,7 +153,7 @@ const CONVERSION_LIFECYCLE: Record<string, ConversionLifecycle> = {
 	// PGN 130311: canboat notes it "should no longer be generated".
 	ENVIRONMENT_PARAMETERS: {
 		supersededBy: "PGN 130314 (Actual Pressure)",
-		note: "PGN 130311 is deprecated in the NMEA 2000 spec in favour of the dedicated PGNs 130312 to 130316. Enable only for older MFDs that read this frame.",
+		note: "PGN 130311 is deprecated in the NMEA 2000 spec in favor of the dedicated PGNs 130312 to 130316. Enable only for older MFDs that read this frame.",
 	},
 };
 

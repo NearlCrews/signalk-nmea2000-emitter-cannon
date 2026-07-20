@@ -114,6 +114,7 @@ describe("API router", () => {
 				{
 					key: "WIND",
 					title: "Wind",
+					canResend: true,
 					pgns: [],
 					category: "navigation",
 					presets: [],
@@ -139,6 +140,7 @@ describe("API router", () => {
 				{
 					key: "WIND",
 					title: "Wind",
+					canResend: true,
 					pgns: [],
 					category: "navigation",
 					presets: [],
@@ -161,6 +163,7 @@ describe("API router", () => {
 				{
 					key: "WIND",
 					title: "Wind",
+					canResend: true,
 					pgns: ["130306"],
 					category: "navigation",
 					presets: [],

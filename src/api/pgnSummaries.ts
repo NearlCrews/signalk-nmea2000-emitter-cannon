@@ -13,7 +13,7 @@ export const PGN_SUMMARIES: Record<number, string> = {
 		"An active alarm or warning: its type, category, severity, and current acknowledged state",
 	126985:
 		"The plain-language text that goes with an alarm, so the chartplotter can show a readable message",
-	126992: "Current date and time broadcast to the network, typically sourced from GPS",
+	126992: "Current host date and time broadcast to the network",
 	127245: "Rudder angle: where the rudder currently sits and the commanded angle from an autopilot",
 	127250:
 		"Vessel heading, the direction the boat is pointing, with magnetic deviation and variation",
@@ -27,15 +27,21 @@ export const PGN_SUMMARIES: Record<number, string> = {
 	127493: "Transmission data: current gear, transmission oil pressure and temperature",
 	127497: "Engine trip totals: fuel used, average fuel rate, and fuel economy for the trip",
 	127498: "Fixed engine information: rated RPM, serial/VIN number, and software version",
+	127503: "AC input status by line: voltage, current, frequency, power, and power factor",
+	127504: "AC output status by line: voltage, current, frequency, power, and power factor",
 	127505: "Tank level: how full a fuel, water, holding, or other tank is, plus its total capacity",
 	127506: "Detailed battery status: state of charge, state of health, and estimated time remaining",
+	127507: "Battery charger state and role, linked to the battery instance being charged",
 	127508: "Battery basics: voltage, current draw or charge, and battery temperature",
+	127509: "Inverter operating state and its linked AC and DC system instances",
 	128000: "Leeway angle: how far the boat is slipping sideways off its heading",
 	128259: "Boat speed through the water and over the ground from the speed sensor",
 	128267: "Water depth below the transducer, plus the configured keel or surface offset",
+	128275: "Total cumulative distance and distance since the trip log was last reset",
 	129025: "Fast-updating GPS position: current latitude and longitude",
 	129026: "Fast-updating course over ground and speed over ground from GPS",
 	129029: "Full GPS fix: position, altitude, fix quality, satellites used, and accuracy figures",
+	129033: "Vessel UTC time and date from the explicit Signal K GNSS time path",
 	129038:
 		"AIS position report from a nearby commercial (Class A) vessel: location, course, speed, heading",
 	129039: "AIS position report from a nearby small-craft (Class B) vessel: location, course, speed",
@@ -43,7 +49,6 @@ export const PGN_SUMMARIES: Record<number, string> = {
 	129041: "AIS Aid to Navigation report: position and type of a buoy, beacon, or other marked aid",
 	129283: "Cross track error: how far the boat has drifted off the active navigation route line",
 	129284: "Navigation data for the active waypoint: distance, bearing, ETA, and arrival status",
-	129285: "Details of the active route and its waypoints: names and positions being navigated",
 	129291: "Set and drift: the speed and direction of the current pushing the vessel",
 	129301: "Time to reach or time since passing a navigation mark",
 	129302: "Bearing and distance from one mark to another",
@@ -56,9 +61,9 @@ export const PGN_SUMMARIES: Record<number, string> = {
 		"AIS position report from a search-and-rescue aircraft: location, course, speed, altitude",
 	129799: "Radio frequency, channel, mode, and transmit power settings for a VHF or similar radio",
 	129802: "AIS broadcast safety message: free text safety information sent to all nearby vessels",
-	129808:
-		"DSC distress and call information from a VHF radio: nature of distress, position, and MMSI",
-	130074: "A list of waypoints with their names and positions, exchanged as part of route services",
+	129808: "DSC distress alert from a VHF radio: nature of distress and distressed-vessel MMSI",
+	129809: "AIS Class B static report Part A: vessel name and MMSI",
+	129810: "AIS Class B static report Part B: callsign, vessel type, dimensions, and MMSI",
 	130306: "Wind data: wind speed and angle, either apparent or true depending on the reference",
 	130310:
 		"Legacy environmental message (now superseded): water temperature, air temperature, barometric pressure",
@@ -72,6 +77,7 @@ export const PGN_SUMMARIES: Record<number, string> = {
 	130576: "Small craft status: the current position of the port and starboard trim tabs",
 	130577:
 		"Direction data combining course and speed over ground with heading and speed through water",
+	130578: "Longitudinal and transverse water-referenced vessel speed components",
 };
 
 // `pgn` is a string because ConversionMetadata.pgns is a string[] (derived

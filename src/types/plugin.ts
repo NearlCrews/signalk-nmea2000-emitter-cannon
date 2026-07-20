@@ -41,6 +41,8 @@ export interface SubConversionModule<T extends unknown[] = unknown[]> {
 	sourceType?: SourceType;
 	timeouts?: number[];
 	interval?: number;
+	/** Disable replay for this sub-conversion or inherit the parent setting. */
+	allowResend?: boolean;
 	callback?(...values: T): N2KMessage[] | Promise<N2KMessage[]>;
 	tests?: ConversionTest[];
 }
@@ -55,6 +57,8 @@ export interface ConversionModule<T extends unknown[] = unknown[]> {
 	sourceType?: SourceType;
 	timeouts?: number[];
 	interval?: number;
+	/** Disable replay for fixed, event-driven, or independently scheduled output. */
+	allowResend?: boolean;
 	callback?(...values: T): N2KMessage[] | Promise<N2KMessage[]>;
 	conversions?:
 		| SubConversionModule<T>[]

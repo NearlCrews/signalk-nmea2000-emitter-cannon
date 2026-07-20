@@ -103,16 +103,18 @@ export default function ConversionDetail(props: Props): React.ReactElement {
 			{/* Options stay visible whether or not the conversion is
 			    enabled, so a source or resend can be set up before the
 			    enable checkbox is ticked. */}
-			<div style={C.fieldStack}>
-				<span style={C.fieldStackLabel}>Resend interval (seconds, 0 = use global setting)</span>
-				<NumberInput
-					value={cfg.resend}
-					onChange={props.onSetResend}
-					min={0}
-					placeholder={resendPlaceholder}
-					ariaLabel={`Resend interval seconds for ${meta.title}`}
-				/>
-			</div>
+			{meta.canResend ? (
+				<div style={C.fieldStack}>
+					<span style={C.fieldStackLabel}>Resend interval (seconds, 0 = use global setting)</span>
+					<NumberInput
+						value={cfg.resend}
+						onChange={props.onSetResend}
+						min={0}
+						placeholder={resendPlaceholder}
+						ariaLabel={`Resend interval seconds for ${meta.title}`}
+					/>
+				</div>
+			) : null}
 			{meta.paths.map((p) => (
 				<SourceField
 					key={p}

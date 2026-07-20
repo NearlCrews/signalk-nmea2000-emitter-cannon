@@ -7,7 +7,7 @@ import type {
 } from "../types/index.js";
 import { toN2KDateTime } from "../utils/dateUtils.js";
 import { getSelfValue } from "../utils/pathUtils.js";
-import { isValidNumber } from "../utils/validation.js";
+import { isValidLatitude, isValidLongitude, isValidNumber } from "../utils/validation.js";
 
 // Distinct from routeTypes' Position (which has optional lat/lon and no
 // altitude): the GPS callback requires a fixed lat/lon and accepts altitude.
@@ -35,15 +35,11 @@ export default function createGpsConversion(
 				return [];
 			}
 
-			if (!isValidNumber(position.latitude) || !isValidNumber(position.longitude)) {
-				return [];
-			}
-
 			// PGN 129025 latitude/longitude are Int32 scaled at 1e-7 degrees.
 			// Out-of-range upstream values (NMEA 0183 bridge glitches, dead
 			// reckoning) are silently dropped by Garmin chartplotters: drop the
 			// frame here so we never put nonsense on the wire.
-			if (Math.abs(position.latitude) > 90 || Math.abs(position.longitude) > 180) {
+			if (!isValidLatitude(position.latitude) || !isValidLongitude(position.longitude)) {
 				return [];
 			}
 

@@ -10,6 +10,7 @@ import {
 	STREAM_DEBOUNCE_MS,
 	VESSELS_SELF_CONTEXT,
 } from "./constants.js";
+import { resetCourseValueCache } from "./conversions/courseData.js";
 import { createConversionModules } from "./conversions/index.js";
 import type {
 	ConversionModule,
@@ -368,6 +369,7 @@ export class PluginManager {
 		for (let idx = 0; idx < subConversions.length; idx++) {
 			const subConversion = subConversions[idx];
 			if (subConversion === undefined) continue;
+			const allowResend = subConversion.allowResend ?? conv.allowResend;
 
 			const sourceType = subConversion.sourceType ?? SOURCE_TYPE.ON_VALUE_CHANGE;
 			const mapper = this.sourceTypes[sourceType];
@@ -391,6 +393,7 @@ export class PluginManager {
 							optionKey: subIndexKey(conv.optionKey, idx),
 							title: subConversion.title ?? `${conv.title} #${idx}`,
 							category: conv.category,
+							...(allowResend === undefined ? {} : { allowResend }),
 							...(conv.presets ? { presets: conv.presets } : {}),
 						};
 
@@ -402,6 +405,7 @@ export class PluginManager {
 		try {
 			this.stopped = false;
 			this.running = false;
+			resetCourseValueCache(this.app);
 			// Claim the process-wide delta-handler routing slot so the single
 			// registered handler dispatches deltas to this instance.
 			activeManager = this;
@@ -624,10 +628,10 @@ export class PluginManager {
 
 		// Timer-source conversions (e.g. systemTime) provide their own schedule;
 		// arming a resend timer on top would double-emit every global-resend
-		// window. ON_DELTA conversions (AIS) are purely event-driven: resend
-		// would re-broadcast one arbitrary stale target, so they get no timer
-		// either (see dispatchDelta).
+		// window. ON_DELTA conversions are event-driven: replaying an old AIS
+		// target or Course API calculation would make stale state look current.
 		if (
+			conversion.allowResend === false ||
 			conversion.sourceType === SOURCE_TYPE.TIMER ||
 			conversion.sourceType === SOURCE_TYPE.ON_DELTA
 		) {
@@ -686,17 +690,16 @@ export class PluginManager {
 	private dispatchDelta(delta: unknown): void {
 		if (this.stopped) return;
 		// ON_DELTA conversions are purely event-driven, so we neither record
-		// lastInputs nor arm a resend timer for them (see processOutput). AIS is
-		// the only ON_DELTA module: a resend would re-broadcast a single stale
-		// target every interval (lastInputs holds just one delta), making a dead
-		// contact look live on an MFD. The arg array is identical for every
+		// lastInputs nor arm a resend timer for them (see processOutput). A replay
+		// would re-broadcast one stale target or course calculation every interval.
+		// The arg array is identical for every
 		// delta-conversion this tick, so allocate it once.
 		const args: unknown[] = [delta];
 		for (const { conversion, options } of this.deltaConversions) {
 			const result = this.invokeCallback(conversion, args, BUCKET_PREFIX.DELTA);
 			// The process-wide delta handler fires on every server-wide delta;
-			// the AIS callback returns [] for the overwhelming majority that
-			// are not AIS. Skip the processOutput promise chain for that no-op.
+			// delta conversions return [] for unrelated updates. Skip the
+			// processOutput promise chain for that no-op.
 			// Array.isArray screens out a Promise result (a Promise is not an
 			// array), so an async callback still falls through to processOutput.
 			if (result === undefined || (Array.isArray(result) && result.length === 0)) {

@@ -73,8 +73,8 @@ published specifications. It pairs well with sensor-side plugins such as
 - **A React configuration panel** with dense one-line conversion rows, a
   single-open inline editor, a compact sticky toolbar carrying catalog search
   and live status, category tabs with per-category Enable all and Disable all,
-  preset chips, a first-run setup wizard, and a theme toggle with light, dark,
-  and a red-preserving night mode
+  preset chips, a first-run setup wizard, and shared `signalk-nearlcrews-ui`
+  controls with Light, Auto, Dark, and red-preserving Night themes
 - **`$source: 'NMEA2000'` echo guard** on AIS conversions to avoid re-emitting
   received AIS deltas back onto the bus
 - **Strict TypeScript**, an ESM plugin bundle, and RxJS as the only runtime
@@ -92,6 +92,8 @@ published specifications. It pairs well with sensor-side plugins such as
 
 - [Signal K server](https://github.com/SignalK/signalk-server) 2.x. The React
   config panel loads on every signalk-server 2.x admin UI.
+- A browser with native CSS `@scope` support: Chromium or Edge 118, Firefox
+  146, or Safari 17.4 and newer.
 - Node.js 22.18 or newer.
 - A supported NMEA 2000 gateway (for example an Actisense NGT-1 or a Yacht
   Devices YDNR-02) connected so emitted messages reach the bus.
@@ -172,7 +174,8 @@ payloads migrate transparently the first time the panel loads them.
 The published plugin and development toolchain require Node 22.18 or newer.
 The repository pins Node 22.18 and npm 11.18, while CI verifies on Node 24.
 CanboatJS and `@canboat/ts-pgns` are exercised in the test suite and are not
-runtime dependencies.
+runtime dependencies. `signalk-nearlcrews-ui` is bundled into the panel as a
+pinned development dependency, while React remains supplied by Signal K Admin.
 
 ```bash
 git clone https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon.git

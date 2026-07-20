@@ -83,7 +83,7 @@ src/
 │   ├── conversionStyles.ts # Dense conversion list and editor styles
 │   ├── statusStyles.ts   # Status dashboard style module
 │   ├── tableStyles.ts    # Shared responsive table primitives
-│   ├── theme.ts          # Theme palettes and semantic CSS tokens
+│   ├── theme.ts          # Emitter tokens bridged to signalk-nearlcrews-ui
 │   ├── toolbarStyles.ts  # Catalog toolbar styles
 │   ├── wizardStyles.ts   # First-run dialog styles
 │   ├── components/       # ConversionRow, ConversionDetail, PanelToolbar, CategoryTabs, etc.

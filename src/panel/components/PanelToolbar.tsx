@@ -1,12 +1,11 @@
 import type * as React from "react";
+import { Button, SegmentedControl, TextInput, ThemeToggle } from "signalk-nearlcrews-ui";
 import type { StatusSnapshot } from "../../api/types.js";
 import { type OutputState, outputStateFor } from "../outputState";
 import { humanizeAgo } from "../recency";
 import { S } from "../styles";
 import { TOOLBAR_STYLES as T } from "../toolbarStyles";
 import ErrorBadgeButton from "./ErrorBadgeButton";
-import SegmentedControl from "./SegmentedControl";
-import ThemeToggle from "./ThemeToggle";
 
 const STALE_AFTER_MS = 10000;
 type PanelView = "configure" | "status";
@@ -48,7 +47,7 @@ export default function PanelToolbar(props: Props): React.ReactElement {
 	const stale = staleAgeMs !== undefined && staleAgeMs > STALE_AFTER_MS;
 	return (
 		<section className="skn-toolbar" style={T.root} aria-label="Panel controls">
-			<input
+			<TextInput
 				type="search"
 				style={T.searchInput}
 				value={props.search}
@@ -60,14 +59,15 @@ export default function PanelToolbar(props: Props): React.ReactElement {
 				}}
 			/>
 			{props.search ? (
-				<button
-					type="button"
+				<Button
+					size="compact"
+					variant="ghost"
 					style={T.searchClear}
 					onClick={props.onClearSearch}
 					aria-label="Clear search"
 				>
 					Clear
-				</button>
+				</Button>
 			) : null}
 			<span style={T.statusChip}>
 				<span
@@ -90,14 +90,14 @@ export default function PanelToolbar(props: Props): React.ReactElement {
 			{errors > 0 ? <ErrorBadgeButton count={errors} onClick={props.onErrorBadgeClick} /> : null}
 			<SegmentedControl
 				legend="View"
-				choices={props.viewChoices}
+				options={props.viewChoices}
 				value={props.view}
 				onChange={props.onChangeView}
 			/>
 			<ThemeToggle />
-			<button type="button" style={T.setupButton} onClick={props.onOpenWizard}>
+			<Button size="compact" style={T.setupButton} onClick={props.onOpenWizard}>
 				Setup wizard
-			</button>
+			</Button>
 		</section>
 	);
 }

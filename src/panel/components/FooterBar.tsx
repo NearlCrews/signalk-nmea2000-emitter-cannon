@@ -1,5 +1,6 @@
 import type * as React from "react";
 import { useRef } from "react";
+import { ActionBar, Button, Cluster } from "signalk-nearlcrews-ui";
 import { isSaveDisabled } from "../saveDisabled";
 import { S } from "../styles";
 import SaveStatus from "./SaveStatus";
@@ -28,7 +29,7 @@ export default function FooterBar({
 	// false), which would drop keyboard focus to <body>. Move focus to the
 	// save-status wrapper instead so it lands on a stable, focusable element and
 	// a screen reader announces the resulting "Saved" status.
-	const statusRef = useRef<HTMLSpanElement>(null);
+	const statusRef = useRef<HTMLDivElement>(null);
 	const focusStatus = (): void => statusRef.current?.focus();
 
 	const handleSave = (): void => {
@@ -43,17 +44,27 @@ export default function FooterBar({
 	const saveDisabled = isSaveDisabled(dirty, unconfigured);
 
 	return (
-		<div style={S.footer}>
-			<button type="button" style={S.btnPrimary} onClick={handleSave} disabled={saveDisabled}>
-				Save
-			</button>
-			<button type="button" style={S.btnSecondary} onClick={handleDiscard} disabled={!dirty}>
-				Discard
-			</button>
-			<span ref={statusRef} tabIndex={-1} style={S.saveStatusFocus}>
-				<SaveStatus dirty={dirty} justSavedAt={justSavedAt ?? null} />
-			</span>
-			{unconfigured && !dirty ? <span style={S.textFaint}>Save to enable the plugin.</span> : null}
-		</div>
+		<ActionBar
+			sticky
+			actions={
+				<Cluster gap={2}>
+					<Button variant="primary" onClick={handleSave} disabled={saveDisabled}>
+						Save
+					</Button>
+					<Button onClick={handleDiscard} disabled={!dirty}>
+						Discard
+					</Button>
+				</Cluster>
+			}
+			status={
+				<>
+					<SaveStatus dirty={dirty} justSavedAt={justSavedAt ?? null} />
+					{unconfigured && !dirty ? (
+						<span style={S.textFaint}>Save to enable the plugin.</span>
+					) : null}
+				</>
+			}
+			statusRef={statusRef}
+		/>
 	);
 }

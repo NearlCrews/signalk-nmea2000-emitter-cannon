@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { readFile } from "node:fs/promises";
 
 const npm = process.platform === "win32" ? "npm.cmd" : "npm";
 const result = spawnSync(npm, ["pack", "--dry-run", "--ignore-scripts", "--json"], {
@@ -50,6 +51,14 @@ const unexpectedPanelBundles = [...paths].filter(
 		path !== "public/remoteEntry.js" &&
 		!/^public\/\d+\.js$/.test(path),
 );
+
+const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+if (packageJson.dependencies?.["signalk-nearlcrews-ui"]) {
+	throw new Error("signalk-nearlcrews-ui must be a bundled development dependency");
+}
+if (packageJson.devDependencies?.["signalk-nearlcrews-ui"] !== "0.3.0") {
+	throw new Error("signalk-nearlcrews-ui must be pinned to exact version 0.3.0");
+}
 
 if (
 	missing.length > 0 ||

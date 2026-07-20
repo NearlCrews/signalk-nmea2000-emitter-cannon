@@ -46,16 +46,6 @@ const btnSecondarySm: CSSProperties = {
 	fontSize: "var(--skn-font-small)",
 };
 
-const segmentedBtn: CSSProperties = {
-	padding: "var(--skn-control-padding)",
-	minHeight: "var(--skn-control-height)",
-	background: "transparent",
-	color: "var(--skn-text-muted)",
-	border: "none",
-	fontSize: "var(--skn-font-small)",
-	cursor: "pointer",
-};
-
 /** Navigation, buttons, chips, and persistent action bars. */
 export const ACTION_STYLES = {
 	tabs: {
@@ -81,25 +71,6 @@ export const ACTION_STYLES = {
 		fontWeight: 600,
 	},
 	tabCount: { color: "var(--skn-text-faint)" },
-	// Keep Save, Discard, and the dirty indicator reachable above long lists.
-	footer: {
-		position: "sticky",
-		bottom: 0,
-		display: "flex",
-		alignItems: "center",
-		flexWrap: "wrap",
-		gap: "var(--skn-space-1)",
-		padding: "var(--skn-space-2) 0",
-		borderTop: "1px solid var(--skn-border)",
-		marginTop: "var(--skn-space-3)",
-		background: "var(--skn-bg)",
-		zIndex: 5,
-	},
-	saveStatusFocus: {
-		display: "inline-flex",
-		alignItems: "center",
-		outline: "none",
-	},
 	btnPrimary,
 	btnSecondary,
 	btnDestructive,
@@ -134,23 +105,6 @@ export const ACTION_STYLES = {
 		fontSize: "var(--skn-font-small)",
 		fontWeight: 500,
 		cursor: "pointer",
-	},
-	segmented: {
-		display: "inline-flex",
-		flexShrink: 0,
-		margin: 0,
-		padding: 0,
-		border: "1px solid var(--skn-border)",
-		borderRadius: "var(--skn-radius)",
-		overflow: "hidden",
-		background: "var(--skn-surface)",
-	},
-	segmentedBtn,
-	segmentedBtnActive: {
-		...segmentedBtn,
-		background: "var(--skn-accent)",
-		color: "var(--skn-accent-text)",
-		fontWeight: 600,
 	},
 	bulkBtn: {
 		...btnSecondarySm,

@@ -56,8 +56,13 @@ module.exports = {
 				"./PluginConfigurationPanel": "./src/panel/PluginConfigurationPanel",
 			},
 			shared: {
-				react: { singleton: true, requiredVersion: "^19" },
-				"react-dom": { singleton: true, requiredVersion: "^19" },
+				// React is supplied by Signal K Admin. The shared UI package remains
+				// bundled in this remote and must not be added to the share map.
+				react: {
+					singleton: true,
+					requiredVersion: ">=19.2.0 <20.0.0",
+					import: false,
+				},
 			},
 		}),
 	],

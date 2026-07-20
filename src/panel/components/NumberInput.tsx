@@ -1,5 +1,6 @@
 import type * as React from "react";
 import { useState } from "react";
+import { NumberInput as SharedNumberInput } from "signalk-nearlcrews-ui";
 import { clamp } from "../../utils/validation.js";
 import { S } from "../styles";
 
@@ -42,8 +43,7 @@ export default function NumberInput(props: Props): React.ReactElement {
 	};
 
 	return (
-		<input
-			type="number"
+		<SharedNumberInput
 			min={min}
 			max={max}
 			style={S.input}

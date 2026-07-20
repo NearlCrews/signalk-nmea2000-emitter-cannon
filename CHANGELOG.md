@@ -5,6 +5,11 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- The configuration panel now uses `signalk-nearlcrews-ui` 0.3.0 for its shared theme root, theme and view controls, banners, buttons, and save action bar. Existing `skn-theme` preferences migrate into the shared theme contract, fresh profiles start in Light, and unsupported browsers receive an explicit native CSS `@scope` compatibility message.
+- `markdownlint-cli2` and its resolved Markdown tooling were refreshed to their latest releases. TypeScript remains on the latest 6.0 release required by `typescript-eslint`, and Node types remain on the latest 24.x release matching the repository's supported Node baseline.
+
 <a id="v191"></a>
 
 ## [1.9.1] - 2026-07-15

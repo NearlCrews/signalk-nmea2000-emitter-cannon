@@ -1,14 +1,5 @@
 import type { CSSProperties } from "react";
 
-const errorBadge: CSSProperties = {
-	background: "var(--skn-danger-bg)",
-	color: "var(--skn-danger-fg)",
-	border: "1px solid var(--skn-danger-border)",
-	padding: "2px var(--skn-space-1)",
-	borderRadius: "var(--skn-radius-sm)",
-	fontSize: "var(--skn-font-small)",
-};
-
 const badgeBase: CSSProperties = {
 	display: "inline-block",
 	fontSize: "var(--skn-font-small)",
@@ -29,12 +20,6 @@ const note: CSSProperties = {
 
 /** Badges, notes, loading states, errors, and first-run guidance. */
 export const FEEDBACK_STYLES = {
-	errorBadge,
-	errorBadgeButton: {
-		...errorBadge,
-		cursor: "pointer",
-		font: "inherit",
-	},
 	cardPurpose: {
 		fontSize: "var(--skn-font-small)",
 		color: "var(--skn-text-muted)",
@@ -108,16 +93,6 @@ export const FEEDBACK_STYLES = {
 		flexWrap: "wrap",
 		gap: "var(--skn-space-2)",
 	},
-	btnRetry: {
-		padding: "var(--skn-control-padding)",
-		minHeight: "var(--skn-control-height)",
-		background: "var(--skn-surface)",
-		color: "var(--skn-danger-fg)",
-		border: "1px solid var(--skn-danger-border)",
-		borderRadius: "var(--skn-radius)",
-		fontSize: "var(--skn-font-small)",
-		cursor: "pointer",
-	},
 	visuallyHidden: {
 		position: "absolute",
 		width: 1,
@@ -129,19 +104,4 @@ export const FEEDBACK_STYLES = {
 		whiteSpace: "nowrap",
 		border: 0,
 	},
-	calloutFirstRun: {
-		display: "flex",
-		alignItems: "center",
-		flexWrap: "wrap",
-		gap: "var(--skn-space-2)",
-		background: "var(--skn-info-bg)",
-		border: "1px solid var(--skn-info-border)",
-		color: "var(--skn-info-fg)",
-		borderRadius: "var(--skn-radius)",
-		padding: "var(--skn-space-2) var(--skn-space-3)",
-		margin: "0 0 var(--skn-space-3)",
-		fontSize: "var(--skn-font-body)",
-		lineHeight: 1.45,
-	},
-	calloutText: { flex: 1, minWidth: "var(--skn-input-width)" },
 } satisfies Record<string, CSSProperties>;

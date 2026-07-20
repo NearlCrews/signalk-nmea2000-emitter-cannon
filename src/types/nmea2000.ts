@@ -12,6 +12,7 @@ export type N2KFieldValue =
 	| boolean
 	| null
 	| undefined
+	| Buffer
 	| N2KFieldValue[]
 	| N2KFieldObject;
 

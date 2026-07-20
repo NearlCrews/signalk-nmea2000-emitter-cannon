@@ -7,15 +7,17 @@ import type {
 import { errMessage } from "../utils/errorUtils.js";
 import { isDefined } from "../utils/pathUtils.js";
 import { extractPgnsFromTitle } from "../utils/pgnUtils.js";
-
+import createAcStatusConversion from "./acStatus.js";
 import createAisConversion from "./ais.js";
 import createAisExtendedConversion from "./aisExtended.js";
 import createAttitudeConversion from "./attitude.js";
 import createBatteryConversion from "./battery.js";
 import createBearingDistanceBetweenMarksConversion from "./bearingDistanceBetweenMarks.js";
+import createChargerStatusConversion from "./chargerStatus.js";
 import createCogSogConversion from "./cogSOG.js";
 import createDepthConversion from "./depth.js";
 import createDirectionDataConversion from "./directionData.js";
+import createDistanceLogConversion from "./distanceLog.js";
 import createDscCallsConversion from "./dscCalls.js";
 import createEngineParametersConversion from "./engineParameters.js";
 import createEngineStaticConversion from "./engineStatic.js";
@@ -26,6 +28,7 @@ import createGpsConversion from "./gps.js";
 import createHeadingConversion from "./heading.js";
 import createHeaveConversion from "./heave.js";
 import createHumidityConversion from "./humidity.js";
+import createInverterStatusConversion from "./inverterStatus.js";
 import createLeewayConversion from "./leeway.js";
 import createMagneticVarianceConversion from "./magneticVariance.js";
 import createNavigationDataConversion from "./navigationData.js";
@@ -36,8 +39,6 @@ import createRadioFrequencyConversion from "./radioFrequency.js";
 import createRateOfTurnConversion from "./rateOfTurn.js";
 import createRaymarineAlarmsConversion from "./raymarineAlarms.js";
 import createRaymarineBrightnessConversion from "./raymarineBrightness.js";
-import createRouteWaypointConversion from "./routeWaypoint.js";
-import createRouteWpListConversion from "./routeWpList.js";
 import createRudderConversion from "./rudder.js";
 import createSeaTempConversion from "./seaTemp.js";
 import createSetDriftConversion from "./setdrift.js";
@@ -47,9 +48,11 @@ import createSpeedConversion from "./speed.js";
 import createSystemTimeConversion from "./systemTime.js";
 import createTanksConversion from "./tanks.js";
 import createTemperatureConversion from "./temperature.js";
+import createTimeDateConversion from "./timeDate.js";
 import createTimeToMarkConversion from "./timeToMark.js";
 import createTransmissionParametersConversion from "./transmissionParameters.js";
 import createTrueHeadingConversion from "./trueheading.js";
+import createVesselSpeedComponentsConversion from "./vesselSpeedComponents.js";
 import createWindConversion from "./wind.js";
 import createWindTrueGroundConversion from "./windTrueGround.js";
 import createWindTrueWaterConversion from "./windTrueWater.js";
@@ -84,14 +87,17 @@ export function createConversionModules(
 	// PGN list from these modules to build its 126464 transmit advertisement,
 	// so it must be constructed after the data conversions are loaded.
 	const dataConversionFactories: ConversionModuleFactory[] = [
+		createAcStatusConversion,
 		createAisConversion,
 		createAisExtendedConversion,
 		createAttitudeConversion,
 		createBatteryConversion,
 		createBearingDistanceBetweenMarksConversion,
+		createChargerStatusConversion,
 		createCogSogConversion,
 		createDepthConversion,
 		createDirectionDataConversion,
+		createDistanceLogConversion,
 		createDscCallsConversion,
 		createEngineParametersConversion,
 		createEngineStaticConversion,
@@ -102,6 +108,7 @@ export function createConversionModules(
 		createHeadingConversion,
 		createHeaveConversion,
 		createHumidityConversion,
+		createInverterStatusConversion,
 		createLeewayConversion,
 		createMagneticVarianceConversion,
 		createNavigationDataConversion,
@@ -111,8 +118,6 @@ export function createConversionModules(
 		createRateOfTurnConversion,
 		createRaymarineAlarmsConversion,
 		createRaymarineBrightnessConversion,
-		createRouteWaypointConversion,
-		createRouteWpListConversion,
 		createRudderConversion,
 		createSeaTempConversion,
 		createSetDriftConversion,
@@ -122,9 +127,11 @@ export function createConversionModules(
 		createSystemTimeConversion,
 		createTanksConversion,
 		createTemperatureConversion,
+		createTimeDateConversion,
 		createTimeToMarkConversion,
 		createTransmissionParametersConversion,
 		createTrueHeadingConversion,
+		createVesselSpeedComponentsConversion,
 		createWindConversion,
 		createWindTrueGroundConversion,
 		createWindTrueWaterConversion,
@@ -139,9 +146,9 @@ export function createConversionModules(
 	// Derive the transmit-PGN advertisement from the actual conversion titles
 	// so adding a new conversion auto-updates the 126464 message. ISO transport
 	// PGNs and canboatjs-auto-emit PGNs are unioned in by pgnList itself.
-	// pgnList's own title contributes PGN 126464 (self-advertisement is
-	// correct: the device transmits 126464 in response to ISO Requests and
-	// on its own timer).
+	// pgnList's own title contributes PGN 126464 through its broadcast timer.
+	// Directed ISO Request responses are owned by the Signal K provider and
+	// cannot currently be extended through the plugin API.
 	const dataTransmitPgns: number[] = [];
 	for (const conv of dataConversions) {
 		for (const pgnStr of extractPgnsFromTitle(conv.title)) {

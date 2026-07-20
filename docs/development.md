@@ -83,7 +83,7 @@ src/
 │   ├── conversionStyles.ts # Dense conversion list and editor styles
 │   ├── statusStyles.ts   # Status dashboard style module
 │   ├── tableStyles.ts    # Shared responsive table primitives
-│   ├── theme.ts          # Theme palettes and semantic CSS tokens
+│   ├── theme.ts          # Emitter tokens bridged to signalk-nearlcrews-ui
 │   ├── toolbarStyles.ts  # Catalog toolbar styles
 │   ├── wizardStyles.ts   # First-run dialog styles
 │   ├── components/       # ConversionRow, ConversionDetail, PanelToolbar, CategoryTabs, etc.
@@ -106,13 +106,13 @@ src/
 │   ├── pgnUtils.ts           # extractPgnsFromTitle, splitPgnTitle (shared by conversions and panel)
 │   ├── pgnPriorities.ts      # Canboat priority table and emit-boundary normalization
 │   └── notificationUtils.ts  # isClearState: true for non-alert SK states (normal, nominal)
-├── conversions/          # 46 PGN conversion modules
+├── conversions/          # 50 data conversion factory modules
 │   ├── index.ts          # Module loader / registry
-│   ├── routeTypes.ts     # Shared Position/Waypoint types
+│   ├── routeTypes.ts     # Shared position and route-mark helpers
 │   ├── wind.ts           # Wind data conversion
 │   ├── depth.ts          # Depth conversion
 │   ├── battery.ts        # Battery status conversion
-│   └── ...               # 43 more conversions
+│   └── ...               # 47 more conversion factories
 └── test/                 # Vitest test suites
     ├── index.test.ts          # All conversion-module test cases (round-trip via canboatjs)
     ├── advisor.test.ts        # Config Advisor: recommender, inventory, QuestDB, stale-source, orchestrator
@@ -157,6 +157,7 @@ npm test               # Run all tests
 npm run test:ui        # Run tests with UI
 npm run test:coverage  # Run tests with coverage
 npm run test:panel     # Render the production federation bundle in a VM
+npm run test:panel:browser # Exercise the production panel in Chromium
 ```
 
 ## Adding new conversions

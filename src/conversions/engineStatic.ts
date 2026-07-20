@@ -10,8 +10,12 @@ import type {
 	SignalKApp,
 	SubConversionModule,
 } from "../types/index.js";
-import { clampString, toValidNumber } from "../utils/validation.js";
-import { instanceList } from "./instanceOptions.js";
+import { clampString, isPlainObject, isValidNumber, toValidNumber } from "../utils/validation.js";
+import {
+	instanceList,
+	isValidInstanceSignalKId,
+	normalizedN2kInstance,
+} from "./instanceOptions.js";
 
 // PGN 127498 vin and softwareId are STRING_LAU per canboat (length-prefixed,
 // variable, with no canboat-declared cap). We bound them anyway as a safety
@@ -33,6 +37,23 @@ interface EngineStaticEngineConfig {
 	ratedEngineSpeed?: number;
 	VIN?: string;
 	softwareVersion?: string;
+}
+
+function normalizedEngineStaticConfig(config: unknown): EngineStaticEngineConfig | null {
+	if (!isPlainObject(config) || !isValidInstanceSignalKId(config.signalkId)) return null;
+	const instanceId = normalizedN2kInstance(config.instanceId);
+	if (instanceId === undefined) return null;
+	return {
+		signalkId: config.signalkId,
+		instanceId,
+		...(isValidNumber(config.ratedEngineSpeed)
+			? { ratedEngineSpeed: config.ratedEngineSpeed }
+			: {}),
+		...(typeof config.VIN === "string" ? { VIN: config.VIN } : {}),
+		...(typeof config.softwareVersion === "string"
+			? { softwareVersion: config.softwareVersion }
+			: {}),
+	};
 }
 
 // canboat ENGINE_INSTANCE enum labels, used to derive test expectations from
@@ -103,6 +124,7 @@ export default function createEngineStaticConversion(_app: SignalKApp): Conversi
 		optionKey: "ENGINE_STATIC",
 		category: "engine",
 		presets: ["engine-set"],
+		allowResend: false,
 
 		testOptions: {
 			engines: [
@@ -137,7 +159,9 @@ export default function createEngineStaticConversion(_app: SignalKApp): Conversi
 		},
 
 		conversions: (options): SubConversionModule[] | null => {
-			const engines = instanceList<EngineStaticEngineConfig>(options, "engines");
+			const engines = instanceList<unknown>(options, "engines")
+				.map(normalizedEngineStaticConfig)
+				.filter((engine): engine is EngineStaticEngineConfig => engine !== null);
 			if (engines.length === 0) return null;
 
 			return engines.map((engine): SubConversionModule => {

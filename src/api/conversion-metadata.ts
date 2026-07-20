@@ -1,3 +1,4 @@
+import { SOURCE_TYPE } from "../constants.js";
 import type { ConversionModule } from "../types/index.js";
 import { extractPgnsFromTitle } from "../utils/pgnUtils.js";
 import {
@@ -26,6 +27,10 @@ export function buildConversionMetadata(conversions: ConversionModule[]): Conver
 		const entry: ConversionMetadata = {
 			key: c.optionKey,
 			title: c.title,
+			canResend:
+				c.allowResend !== false &&
+				c.sourceType !== SOURCE_TYPE.TIMER &&
+				c.sourceType !== SOURCE_TYPE.ON_DELTA,
 			pgns: extractPgnsFromTitle(c.title),
 			category: c.category,
 			presets: c.presets ?? [],

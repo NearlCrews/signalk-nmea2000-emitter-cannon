@@ -1,5 +1,6 @@
 import type * as React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Banner, Button, PanelRoot, supportsNativeCssScope } from "signalk-nearlcrews-ui";
 import type { ConversionMetadata, PerConversionStatus } from "../api/types.js";
 import {
 	Categories,
@@ -69,10 +70,23 @@ function matchesQuery(m: ConversionMetadata, needle: string): boolean {
 }
 
 /** @public Module Federation entry point consumed by the Signal K admin UI. */
-export default function PluginConfigurationPanel({
-	configuration,
-	save,
-}: Props): React.ReactElement {
+export default function PluginConfigurationPanel(props: Props): React.ReactElement {
+	if (typeof window === "undefined" || !supportsNativeCssScope(window)) {
+		return (
+			<div data-browser-compatibility-message="" role="alert">
+				<h2>Browser update required</h2>
+				<p>
+					This panel requires native CSS @scope. Update the browser or embedded WebView before
+					reopening Signal K Admin.
+				</p>
+			</div>
+		);
+	}
+
+	return <SupportedPluginConfigurationPanel {...props} />;
+}
+
+function SupportedPluginConfigurationPanel({ configuration, save }: Props): React.ReactElement {
 	const { status, error, lastUpdatedMs, lastAttemptMs } = useStatus();
 	const { state, savedState, dispatch, markSaved } = useConfig(configuration);
 	const { sourcesFor, ensureLoaded } = useSources();
@@ -275,7 +289,13 @@ export default function PluginConfigurationPanel({
 	const showFirstRunCallout = shouldShowFirstRunCallout(meta, state.conversions);
 
 	return (
-		<div className="skn-panel" style={S.root} ref={rootRef}>
+		<PanelRoot
+			className="skn-panel"
+			legacyThemeStorageKeys={["skn-theme"]}
+			style={S.root}
+			width="full"
+			ref={rootRef}
+		>
 			<style>{THEME_STYLE}</style>
 			{/* The toolbar holds the search, status chip, Configure/Status toggle,
 			    theme toggle, and wizard shortcut. It sits above both view containers
@@ -304,17 +324,19 @@ export default function PluginConfigurationPanel({
 			</div>
 			<div hidden={view !== "configure"}>
 				{error ? (
-					<div role="alert" style={S.errorBanner}>
-						<span>Status: {error}. The next poll will retry automatically.</span>
-					</div>
+					<Banner live="polite" title="Status unavailable" tone="danger">
+						{error}. The next poll will retry automatically.
+					</Banner>
 				) : null}
 				{metaError ? (
-					<div role="alert" style={S.errorBanner}>
-						<span>Conversion catalog failed to load: {metaError}.</span>
-						<button type="button" style={S.btnRetry} onClick={reloadMeta}>
-							Retry
-						</button>
-					</div>
+					<Banner
+						actions={<Button onClick={reloadMeta}>Retry</Button>}
+						live="assertive"
+						title="Conversion catalog failed to load"
+						tone="danger"
+					>
+						{metaError}.
+					</Banner>
 				) : null}
 				{metaLoading && meta.length === 0 && !metaError ? (
 					<p role="status" style={S.loadingText}>
@@ -322,15 +344,14 @@ export default function PluginConfigurationPanel({
 					</p>
 				) : null}
 				{showFirstRunCallout ? (
-					<div style={S.calloutFirstRun}>
-						<span style={S.calloutText}>
-							Nothing is emitting yet. Apply a preset below, open the setup wizard, or let the
-							Config Advisor scan your boat's live data.
-						</span>
-						<button type="button" style={S.btnPrimary} onClick={() => setWizardOpen(true)}>
-							Open setup wizard
-						</button>
-					</div>
+					<Banner
+						actions={<Button onClick={() => setWizardOpen(true)}>Open setup wizard</Button>}
+						title="Nothing is emitting yet"
+						tone="info"
+					>
+						Apply a preset below, open the setup wizard, or let the Config Advisor scan your boat's
+						live data.
+					</Banner>
 				) : null}
 				<Disclosure
 					id="skn-panel-presets"
@@ -450,6 +471,6 @@ export default function PluginConfigurationPanel({
 					onClose={closeWizard}
 				/>
 			) : null}
-		</div>
+		</PanelRoot>
 	);
 }

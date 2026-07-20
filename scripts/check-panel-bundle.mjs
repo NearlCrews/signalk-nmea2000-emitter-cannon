@@ -1,7 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs";
 import vm from "node:vm";
 import React from "react";
-import ReactDOM from "react-dom";
 import { renderToStaticMarkup } from "react-dom/server";
 
 const publicDir = new URL("../public/", import.meta.url);
@@ -40,6 +39,7 @@ const context = vm.createContext({
 context.self = context;
 context.window = context;
 context.globalThis = context;
+context.CSSScopeRule = class CSSScopeRule {};
 context.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
 context.confirm = () => false;
 
@@ -65,7 +65,6 @@ const shareEntry = (module, version) => ({
 });
 await container.init({
 	react: shareEntry(React, React.version),
-	"react-dom": shareEntry(ReactDOM, ReactDOM.version),
 });
 
 // Register the already-built chunks after the container runtime exists. The
@@ -76,11 +75,33 @@ for (const { name, source } of bundles.filter(({ name }) => name !== "remoteEntr
 }
 const factory = await container.get("./PluginConfigurationPanel");
 const panelModule = factory();
+Reflect.deleteProperty(context, "CSSScopeRule");
+const unsupportedMarkup = renderToStaticMarkup(
+	React.createElement(panelModule.default, { configuration: null, save: () => {} }),
+);
+if (!unsupportedMarkup.includes("Browser update required")) {
+	throw new Error("panel runtime check did not render the browser compatibility message");
+}
+context.CSSScopeRule = class CSSScopeRule {};
 const markup = renderToStaticMarkup(
 	React.createElement(panelModule.default, { configuration: null, save: () => {} }),
 );
 if (!markup.includes("Loading conversions")) {
 	throw new Error("panel runtime check did not render the configuration panel");
+}
+if (!markup.includes('data-snui-version="0.3.0"')) {
+	throw new Error("panel runtime check did not render signalk-nearlcrews-ui");
+}
+
+const combinedSource = bundles.map(({ source }) => source).join("\n");
+for (const marker of [
+	"__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE",
+	"react.production.min",
+	"react-dom.production.min",
+]) {
+	if (combinedSource.includes(marker)) {
+		throw new Error(`panel bundled a React implementation marker: ${marker}`);
+	}
 }
 
 process.stdout.write(`Panel production runtime rendered across ${bundles.length} bundles.\n`);

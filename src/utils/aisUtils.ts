@@ -21,13 +21,26 @@ export function starboardOffset(
 
 /**
  * Parse a Signal K MMSI string into the numeric User ID expected by
- * canboatjs AIS PGNs. canboat treats 0 as "unknown source", which is
- * a safer default than broadcasting a fixed fake MMSI on the wire.
+ * canboatjs AIS PGNs. Reject partial parses and values outside canboat's
+ * encodable AIS User ID range so malformed contacts are not broadcast.
  */
-export function parseMmsi(mmsi: unknown): number {
-	if (typeof mmsi !== "string") return 0;
-	const n = Number.parseInt(mmsi, 10);
-	return isValidNumber(n) ? n : 0;
+export function parseMmsi(mmsi: unknown): number | undefined {
+	if (typeof mmsi !== "string" || !/^\d{9}$/.test(mmsi)) return undefined;
+	const n = Number(mmsi);
+	return n >= 2_000_000 && n <= 999_999_999 ? n : undefined;
+}
+
+/**
+ * Encode a nine-digit MMSI as the five decimal-symbol bytes carried by DSC.
+ * DSC appends a trailing zero, then stores each decimal pair as one byte.
+ */
+export function encodeDscMmsi(mmsi: unknown): Buffer | undefined {
+	const parsed = parseMmsi(mmsi);
+	if (parsed === undefined) return undefined;
+	const symbols = `${mmsi}0`;
+	return Buffer.from(
+		Array.from({ length: 5 }, (_, index) => Number(symbols.slice(index * 2, index * 2 + 2))),
+	);
 }
 
 /**

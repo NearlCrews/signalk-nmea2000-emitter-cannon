@@ -1,7 +1,7 @@
 {
 	"name": "signalk-nmea2000-emitter-cannon",
 	"version": "1.9.1",
-	"description": "Signal K plugin that converts Signal K deltas to Garmin-aligned NMEA 2000 PGNs",
+	"description": "Signal K plugin that converts Signal K deltas to Canboat-validated NMEA 2000 PGNs",
 	"type": "commonjs",
 	"main": "dist/index.mjs",
 	"exports": "./dist/index.mjs",
@@ -23,6 +23,7 @@
 		"test:ui": "vitest --ui",
 		"test:coverage": "vitest run --coverage",
 		"test:panel": "node scripts/check-panel-bundle.mjs",
+		"test:panel:browser": "node scripts/check-panel-browser.mjs",
 		"check": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.panel.json && tsc --noEmit -p tsconfig.test.json",
 		"typecheck": "npm run check",
 		"lint": "npm run lint:code && npm run lint:docs && npm run spellcheck",
@@ -41,7 +42,7 @@
 		"audit:runtime": "npm audit --omit=dev --audit-level=high",
 		"verify:commit": "npm run ci:biome && npm run lint && npm run cruise && npm run deadcode",
 		"verify:fast": "npm run verify:commit && npm run check",
-		"verify": "npm run verify:fast && npm run test:coverage && npm run build && npm run test:panel && npm run size",
+		"verify": "npm run verify:fast && npm run test:coverage && npm run build && npm run test:panel && npm run test:panel:browser && npm run size",
 		"verify:release": "npm run verify && npm run package:check && npm run audit",
 		"clean": "node scripts/clean.mjs",
 		"hooks": "git config core.hooksPath .githooks && chmod +x .githooks/pre-commit .githooks/pre-push",
@@ -105,6 +106,7 @@
 		"@biomejs/biome": "2.5.4",
 		"@canboat/canboatjs": "^3.20.0",
 		"@canboat/ts-pgns": "^1.11.18",
+		"@playwright/test": "1.61.1",
 		"@signalk/server-api": "^2.30.0",
 		"@sinclair/typebox": "^0.34.52",
 		"@size-limit/file": "12.1.0",
@@ -122,10 +124,11 @@
 		"eslint": "10.7.0",
 		"express": "^5.2.1",
 		"knip": "6.27.0",
-		"markdownlint-cli2": "0.23.0",
+		"markdownlint-cli2": "0.23.1",
 		"publint": "0.3.21",
 		"react": "^19.2.7",
 		"react-dom": "^19.2.7",
+		"signalk-nearlcrews-ui": "0.3.0",
 		"size-limit": "12.1.0",
 		"supertest": "^7.2.2",
 		"typescript": "^6.0.3",
@@ -165,7 +168,7 @@
 		{
 			"name": "Panel component chunks",
 			"path": "public/[0-9]*.js",
-			"limit": "30 kB"
+			"limit": "30.5 kB"
 		},
 		{
 			"name": "Panel federation runtime",

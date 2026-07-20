@@ -1,11 +1,14 @@
 import type * as React from "react";
 import type { ExtrasMeta } from "../../api/types.js";
+import AcMappingEditor from "./extras/AcMappingEditor";
 import BatteryMappingEditor from "./extras/BatteryMappingEditor";
 import BrightnessMappingEditor from "./extras/BrightnessMappingEditor";
+import ChargerMappingEditor from "./extras/ChargerMappingEditor";
 import EngineMappingEditor from "./extras/EngineMappingEditor";
 import EngineStaticMappingEditor from "./extras/EngineStaticMappingEditor";
 import ExhaustMappingEditor from "./extras/ExhaustMappingEditor";
 import FieldEditor from "./extras/FieldEditor";
+import InverterMappingEditor from "./extras/InverterMappingEditor";
 import SolarMappingEditor from "./extras/SolarMappingEditor";
 import TankMappingEditor from "./extras/TankMappingEditor";
 
@@ -19,8 +22,14 @@ export default function ExtrasEditor({ meta, value, onChange }: Props): React.Re
 	switch (meta.type) {
 		case "none":
 			return null;
+		case "acMapping":
+			return <AcMappingEditor value={value} onChange={onChange} />;
 		case "batteryMapping":
 			return <BatteryMappingEditor value={value} onChange={onChange} />;
+		case "chargerMapping":
+			return <ChargerMappingEditor value={value} onChange={onChange} />;
+		case "inverterMapping":
+			return <InverterMappingEditor value={value} onChange={onChange} />;
 		case "engineMapping":
 			return <EngineMappingEditor value={value} onChange={onChange} />;
 		case "engineStaticMapping":

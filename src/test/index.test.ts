@@ -24,6 +24,12 @@ const mockApp: SignalKApp = {
 	selfId: "urn:mrn:imo:mmsi:111222333",
 	getSelfPath: (path: string) => skSelfData[path],
 	getPath: (path: string) => skData[path],
+	getCourse: async () =>
+		(skSelfData.courseInfo ?? {
+			activeRoute: null,
+			nextPoint: null,
+			previousPoint: null,
+		}) as Awaited<ReturnType<SignalKApp["getCourse"]>>,
 	debug: () => {}, // Silent during tests
 	error: (msg: string) => console.error(msg),
 	emit: () => {},
@@ -76,7 +82,7 @@ describe("Conversion modules", () => {
 		// (silently caught in createConversionModules and returning []) is
 		// a test failure rather than a silent drop. Update this constant
 		// intentionally when adding or removing modules.
-		expect(conversions.length).toBe(76);
+		expect(conversions.length).toBe(80);
 	});
 
 	it("has a PGN summary for every emitted PGN", () => {
@@ -158,10 +164,13 @@ describe("Conversion modules", () => {
 									}
 
 									// Execute the conversion callback
-									const result = subConv.callback?.(...test.input);
+									if (!subConv.callback) {
+										throw new Error(`Missing callback for ${conv.title}`);
+									}
+									const result = subConv.callback(...test.input);
 
-									if (!result) {
-										continue;
+									if (result === null || result === undefined) {
+										throw new Error(`Callback for ${conv.title} returned no result`);
 									}
 
 									const results = await Promise.resolve(result);

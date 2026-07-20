@@ -18,10 +18,9 @@ export default function createSystemTimeConversion(_app: SignalKApp): Conversion
 					pgn: 126992,
 					dst: N2K_BROADCAST_DST,
 					fields: {
-						// Declare the time source so a consumer does not see the
-						// SYSTEM_TIME field as "not available". The plugin derives time
-						// from the host clock, which on a marine install is GPS-disciplined.
-						source: "GPS",
+						// The plugin uses the host clock. Do not claim that it is GNSS
+						// disciplined when Signal K does not provide that guarantee.
+						source: "Local Crystal clock",
 						date,
 						time,
 					},
@@ -38,7 +37,7 @@ export default function createSystemTimeConversion(_app: SignalKApp): Conversion
 						pgn: 126992,
 						dst: 255,
 						fields: {
-							source: "GPS",
+							source: "Local Crystal clock",
 							date: "2017.04.15",
 							time: "14:59:53.12300",
 						},

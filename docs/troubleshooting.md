@@ -20,11 +20,12 @@
   Compare the result to the filter value saved in the admin UI for that
   conversion.
 
-## Multiple inside temperatures (cabin, fridge, freezer) don't show on a Raymarine Axiom or i70
+## Multiple inside temperatures do not show on a Raymarine Axiom or i70
 
-Raymarine Axiom and i70 displays render only the `Inside Temperature` source and
-the `Inside` humidity source, and they separate multiple sensors by NMEA 2000
-instance rather than by source type. A `Refrigeration Temperature`,
+Field-tested Axiom and i70 installations render the `Inside Temperature` source
+and the `Inside` humidity source, and separate multiple sensors by NMEA 2000
+instance rather than by source type. Firmware and model behavior can vary. A
+`Refrigeration Temperature`,
 `Freezer Temperature`, `Main Cabin Temperature`, or `Engine Room Temperature`
 frame is on the bus but the display drops it, so only one inside temperature
 ever appears.

@@ -9,8 +9,9 @@
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?logo=buymeacoffee&logoColor=black)](https://www.buymeacoffee.com/nearlcrews)
 
 A [Signal K](https://signalk.org) plugin that converts Signal K deltas into
-NMEA 2000 messages: 46 conversion modules covering 53 data PGNs, aligned with
-Garmin ECHOMAP, GPSMAP, and GMI specifications and the canboatjs encoder.
+NMEA 2000 messages: 79 configurable data conversions covering 59 data PGNs,
+plus the configurable PGN 126464 list broadcast, validated against Canboat definitions and
+reviewed against model-specific chartplotter receive lists.
 
 > Built on the foundation of [`signalk-to-nmea2000`](https://github.com/SignalK/signalk-to-nmea2000)
 > by Scott Bender and the Signal K community.
@@ -48,24 +49,26 @@ NMEA 2000 output, so chartplotters, instrument displays, and autopilots on
 the bus see data that originates in Signal K (a weather plugin, a non-NMEA
 sensor, a computed value) as native bus traffic.
 
-Every conversion is verified round-trip through the canboatjs encoder, and
-PGN priorities, SID fields, and enum values are aligned with Garmin's
-published specifications. It pairs well with sensor-side plugins such as
+Every conversion is verified round-trip through the canboatjs encoder. Fields,
+ranges, and enum values follow its bundled Canboat definitions, while transport
+priorities follow the current stable Canboat 7.1 database. It pairs well with sensor-side plugins such as
 [`signalk-virtual-weather-sensors`](https://github.com/NearlCrews/signalk-virtual-weather-sensors).
 
 ## Features
 
-- **46 conversion modules emitting 53 data PGNs**, plus 5 bus-layer PGNs
-  (59392, 59904, 60928, 126993, 126996) advertised in the 126464 transmit list
-- **Garmin-aligned** PGN priorities, SID fields, temperature-source enum
-  values, and wind and bearing reference enums verified against the Garmin
-  ECHOMAP UHD2 6/7/9 sv Owner's Manual
+- **79 configurable data conversions emitting 59 data PGNs**, plus the plugin's
+  configurable PGN 126464 list broadcast and 5 stack-owned bus-layer PGNs (59392, 59904,
+  60928, 126993, 126996) advertised in that list
+- **Chartplotter-oriented** PGN priorities, SID fields, temperature-source
+  values, and wind and bearing reference enums, with model-specific behavior
+  documented instead of assumed across a vendor's entire product line
 - **Reactive subscriptions** via RxJS 7.8 with debounced multi-key aggregation
   and per-key freshness timeouts
 - **Source filtering** per conversion: pick a specific `$source` label or
   accept any
-- **Resend timers** per conversion plus a global default, so MFDs that expect
-  periodic re-broadcast still see the data when the underlying source is quiet
+- **Resend timers** for conversions whose values remain current, plus a global
+  default. Event-driven targets, course data, timers, and fixed timestamps are
+  never replayed as fresh data
 - **Config Advisor** (optional): reviews the Signal K paths your boat
   publishes, recommends which conversions to enable or disable, and flags
   enabled conversions whose pinned `$source` has gone stale (a renamed weather
@@ -73,10 +76,11 @@ published specifications. It pairs well with sensor-side plugins such as
 - **A React configuration panel** with dense one-line conversion rows, a
   single-open inline editor, a compact sticky toolbar carrying catalog search
   and live status, category tabs with per-category Enable all and Disable all,
-  preset chips, a first-run setup wizard, and a theme toggle with light, dark,
-  and a red-preserving night mode
-- **`$source: 'NMEA2000'` echo guard** on AIS conversions to avoid re-emitting
-  received AIS deltas back onto the bus
+  preset chips, a first-run setup wizard, and shared `signalk-nearlcrews-ui`
+  controls with Light, Auto, Dark, and red-preserving Night themes
+- **Remote AIS source-type echo guard** that drops target deltas whose
+  `updates[].source.type` is `NMEA2000` instead of re-emitting received AIS
+  traffic onto the same bus
 - **Strict TypeScript**, an ESM plugin bundle, and RxJS as the only runtime
   dependency
 - **Embedded canboatjs round-trip tests** on every conversion module, plus
@@ -92,6 +96,8 @@ published specifications. It pairs well with sensor-side plugins such as
 
 - [Signal K server](https://github.com/SignalK/signalk-server) 2.x. The React
   config panel loads on every signalk-server 2.x admin UI.
+- A browser with native CSS `@scope` support: Chromium or Edge 118, Firefox
+  146, or Safari 17.4 and newer.
 - Node.js 22.18 or newer.
 - A supported NMEA 2000 gateway (for example an Actisense NGT-1 or a Yacht
   Devices YDNR-02) connected so emitted messages reach the bus.
@@ -146,21 +152,22 @@ The panel has these areas:
 
 Each conversion row shows an enable checkbox, the title and PGN run, an error
 glyph, and the emit recency, with a left status rail that reads solid when the
-conversion is emitting and dashed when it is enabled but silent. Clicking a row opens its editor inline below it (opening
-another row closes the previous one), exposing a per-conversion **Resend**
-override, a **Source filter** dropdown (populated live from the server's data
-model), and a **Mapping editor** on conversions that need an explicit Signal K
+conversion is emitting and dashed when it is enabled but silent. Clicking a
+row opens its editor inline below it (opening another row closes the previous
+one), exposing a **Resend** override when applicable, a **Source filter**
+dropdown for path-based conversions, and a **Mapping editor** on conversions
+that need an explicit Signal K
 identifier to NMEA 2000 instance mapping (`BATTERY`, `ENGINE_PARAMETERS`,
-`EXHAUST_TEMPERATURE`, `TANKS`, `SOLAR`, `RAYMARINE_BRIGHTNESS`,
-`NOTIFICATIONS`, `TEMPERATURE_*`).
+`EXHAUST_TEMPERATURE`, `TANKS`, `SOLAR`, `AC_STATUS`, `CHARGER_STATUS`,
+`INVERTER_STATUS`, `RAYMARINE_BRIGHTNESS`, `NOTIFICATIONS`, `TEMPERATURE_*`).
 
 The config panel loads on any signalk-server 2.x admin UI. v1.4.x config
 payloads migrate transparently the first time the panel loads them.
 
 ## Documentation
 
-- [PGN reference](docs/pgn-reference.md): all 53 data PGNs, modules, and the
-  Garmin recommendations
+- [PGN reference](docs/pgn-reference.md): all 60 plugin PGNs, conversion
+  modules, bus-layer PGNs, and chartplotter guidance
 - [Troubleshooting](docs/troubleshooting.md)
 - [Development guide](docs/development.md)
 - [Changelog](CHANGELOG.md)
@@ -172,7 +179,8 @@ payloads migrate transparently the first time the panel loads them.
 The published plugin and development toolchain require Node 22.18 or newer.
 The repository pins Node 22.18 and npm 11.18, while CI verifies on Node 24.
 CanboatJS and `@canboat/ts-pgns` are exercised in the test suite and are not
-runtime dependencies.
+runtime dependencies. `signalk-nearlcrews-ui` is bundled into the panel as a
+pinned development dependency, while React remains supplied by Signal K Admin.
 
 ```bash
 git clone https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon.git

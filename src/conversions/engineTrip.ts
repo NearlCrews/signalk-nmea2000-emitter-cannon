@@ -12,8 +12,12 @@ import type {
 	SignalKApp,
 	SubConversionModule,
 } from "../types/index.js";
-import { isValidNumber } from "../utils/validation.js";
-import { instanceList } from "./instanceOptions.js";
+import { isPlainObject, isValidNumber } from "../utils/validation.js";
+import {
+	instanceList,
+	isValidInstanceSignalKId,
+	normalizedN2kInstance,
+} from "./instanceOptions.js";
 
 const TRIP_KEYS = [
 	"trip.fuelUsed",
@@ -25,6 +29,12 @@ const TRIP_KEYS = [
 interface EngineTripConfig {
 	signalkId: string | number;
 	instanceId: number;
+}
+
+function normalizedEngineTripConfig(config: unknown): EngineTripConfig | null {
+	if (!isPlainObject(config) || !isValidInstanceSignalKId(config.signalkId)) return null;
+	const instanceId = normalizedN2kInstance(config.instanceId);
+	return instanceId === undefined ? null : { signalkId: config.signalkId, instanceId };
 }
 
 type TripInputs = [number | null, number | null, number | null, number | null];
@@ -47,7 +57,9 @@ export default function createEngineTripConversion(_app: SignalKApp): Conversion
 		},
 
 		conversions: (options): SubConversionModule[] | null => {
-			const engines = instanceList<EngineTripConfig>(options, "engines");
+			const engines = instanceList<unknown>(options, "engines")
+				.map(normalizedEngineTripConfig)
+				.filter((engine): engine is EngineTripConfig => engine !== null);
 			if (engines.length === 0) return null;
 
 			const timeouts = TRIP_KEYS.map(() => DEFAULT_DATA_TIMEOUT_MS);

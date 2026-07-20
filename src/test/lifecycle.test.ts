@@ -486,6 +486,24 @@ describe("PluginManager lifecycle", () => {
 		expect(mock.emittedMessages.length - initial).toBe(5);
 	});
 
+	it("fixed timestamps do not arm a resend timer", async () => {
+		manager.start({
+			globalResendInterval: 1,
+			TIME_DATE: { enabled: true, resend: 0 },
+		} as unknown as PluginOptions);
+
+		mock.pushStream("navigation.datetime", { value: "2026-07-19T14:59:53.123Z" });
+		await flush();
+
+		expect(mock.emittedMessages).toHaveLength(1);
+		expect(mock.emittedMessages[0]?.pgn).toBe(129033);
+		expect(vi.getTimerCount()).toBe(0);
+
+		vi.advanceTimersByTime(5000);
+		await Promise.resolve();
+		expect(mock.emittedMessages).toHaveLength(1);
+	});
+
 	it("stop() still completes cleanly when a conversion callback threw", async () => {
 		// SystemTime is the only timer-source conversion; we'll use a stream
 		// conversion (DEPTH) and inject a throw via the `value` shape so the

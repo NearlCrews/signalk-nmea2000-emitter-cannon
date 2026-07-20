@@ -11,13 +11,14 @@ export default defineConfig({
 			provider: "v8",
 			reporter: ["text", "json", "html"],
 			exclude: ["node_modules/", "dist/", "**/*.test.ts", "**/*.spec.ts"],
-			// Floor set just under current coverage so PRs can't silently tank it.
-			// Raise these numbers as coverage improves; never lower without intent.
+			// Global floor set just under the verified project baseline. Per-file
+			// thresholds are not used because integration entry points and small
+			// display helpers intentionally have much lower isolated coverage.
 			thresholds: {
-				statements: 70,
-				branches: 55,
-				functions: 80,
-				lines: 70,
+				statements: 85,
+				branches: 72,
+				functions: 90,
+				lines: 87,
 			},
 		},
 	},

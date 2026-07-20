@@ -1,6 +1,6 @@
 import type * as React from "react";
+import { Button } from "signalk-nearlcrews-ui";
 import { plural } from "../recency";
-import { S } from "../styles";
 
 /**
  * Error-count badge rendered as a button that jumps to the first conversion
@@ -16,13 +16,13 @@ export default function ErrorBadgeButton({
 }): React.ReactElement {
 	const label = plural(count, "error");
 	return (
-		<button
-			type="button"
-			style={S.errorBadgeButton}
+		<Button
+			size="compact"
+			variant="danger"
 			onClick={onClick}
 			aria-label={`${label}. Jump to first error.`}
 		>
 			{label}
-		</button>
+		</Button>
 	);
 }

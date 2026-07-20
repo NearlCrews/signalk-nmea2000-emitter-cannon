@@ -10,10 +10,10 @@ import type { ConversionModule, N2KMessage } from "../types/index.js";
 //                          runs, so the title cannot self-advertise via the
 //                          derived list and we add it here.
 //   126993:                Heartbeat (canboatjs N2kDevice >= 2.5 auto-emits at
-//                          ~60 s nominal). Required so Garmin's network panel
-//                          does not age the device out after ~30 s.
+//                          ~60 s nominal). Advertising it keeps the transmit
+//                          list consistent with observed heartbeat traffic.
 //   126996:                Product Information (canboatjs N2kDevice auto-emits
-//                          on address claim and on every ISO request).
+//                          on address claim and on ISO requests for PGN 126996).
 const ALWAYS_TX_PGNS: ReadonlyArray<number> = [59392, 59904, 60928, 126464, 126993, 126996];
 
 // 126464 itself is bidirectional (RX/TX), and we accept ISO Address Claim
@@ -24,11 +24,11 @@ const ALWAYS_TX_PGNS: ReadonlyArray<number> = [59392, 59904, 60928, 126464, 1269
 // path as inbound for the device.
 const RECEIVE_PGNS: ReadonlyArray<number> = [59904, 60928, 126208, 126464];
 
-// 5 minutes. PGN 126464 carries identity metadata that N2K consumers (Garmin,
-// Maretron N2K-View) cache after address claim. Garmin solicits the list via
-// ISO Request (PGN 59904) at startup, which canboatjs auto-answers from its
-// own internal PGN table, so this timer is keepalive insurance for late-
-// joining device-list panels rather than the primary delivery path.
+// 5 minutes. PGN 126464 carries identity metadata that N2K consumers cache
+// after address claim. The current Signal K provider does not expose the
+// active canboatjs N2kDevice to plugins, so its directed ISO Request response
+// uses only the provider's static transmitPGNs table. This broadcast is the
+// plugin-level delivery path until Signal K adds PGN registration support.
 const PGN_LIST_INTERVAL_MS = 300_000;
 
 /**

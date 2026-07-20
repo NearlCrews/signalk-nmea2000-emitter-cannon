@@ -45,7 +45,10 @@ export type ExtrasMeta =
 	| { type: "none" }
 	| {
 			type:
+				| "acMapping"
 				| "batteryMapping"
+				| "chargerMapping"
+				| "inverterMapping"
 				| "engineMapping"
 				| "engineStaticMapping"
 				| "tankMapping"
@@ -69,6 +72,7 @@ export interface ConversionLifecycle {
 export interface ConversionMetadata {
 	key: string;
 	title: string;
+	canResend: boolean;
 	pgns: string[];
 	category: ConversionCategory;
 	presets: PresetTag[];
@@ -84,7 +88,7 @@ export interface ConversionMetadata {
 	purpose?: string;
 	// Optional hint for which major MFD vendors actually consume the PGN.
 	// "consumes": Garmin reads and displays. "ignores": Garmin drops the
-	// PGN (keep enabled for other consumers like Victron or Maretron).
+	// PGN (keep enabled for other receivers when required).
 	// "partial": some Garmin models read, others do not.
 	compatibility?: {
 		garmin: "consumes" | "ignores" | "partial";

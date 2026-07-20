@@ -16,27 +16,25 @@ reviewed against model-specific chartplotter receive lists.
 > Built on the foundation of [`signalk-to-nmea2000`](https://github.com/SignalK/signalk-to-nmea2000)
 > by Scott Bender and the Signal K community.
 
-## What's new in 1.9.1
+## What's new since 1.9.1
 
-- **A current, enforceable development stack.** Node 22.18, npm 11.18, Biome,
-  typed ESLint, spelling and Markdown checks, dependency boundaries, dead-code
-  analysis, coverage, bundle budgets, package validation, and repository-owned
-  Git hooks now share one release gate. Direct dependencies and GitHub Actions
-  are at their latest compatible releases.
-- **Stronger runtime and panel correctness.** The panel TypeScript project now
-  checks the React sources it was intended to cover, periodic resend work keeps
-  rejected promises inside plugin error handling, and plugin routes use the
-  admin protection Signal K applies to registered routers without reaching into
-  server internals.
-- **A leaner, safer production panel.** Babel uses the production React
-  transform, webpack emits only the federation container and on-demand chunks,
-  standalone builds remove obsolete bundles, and package validation rejects
-  unexpected panel entries.
-- **Clearer architecture and theming.** Runtime-neutral recommendation code now
-  has its own boundary, shared styles are split into focused modules, and input,
-  checkbox, status, table, and disclosure dimensions use semantic CSS tokens.
+- **More navigation and range data.** Vessel Trip Parameters (PGN 127496)
+  derives remaining fuel, time to empty, and distance to empty from configured
+  tanks and engines. Distance Log (PGN 128275), Time and Date (PGN 129033), and
+  Vessel Speed Components (PGN 130578) add canonical Signal K mappings without
+  inventing unavailable values.
+- **Expanded electrical coverage.** Configurable AC input, AC output, charger,
+  and inverter mappings emit PGNs 127503, 127504, 127507, and 127509.
+- **Safer protocol behavior.** AIS validation rejects malformed or out-of-range
+  values, active-course conversions follow the current Course Provider deltas,
+  and incomplete route-transfer broadcasts have been removed.
+- **Stronger configuration checks.** Event-driven and fixed-time conversions no
+  longer replay stale values, malformed aggregate mappings fail closed, and the
+  production panel's mapping editors, themes, and narrow layout are exercised
+  in Chromium during release verification.
 
-See the [v1.9.1 changelog entry](CHANGELOG.md#v191) and the
+See the [Unreleased changelog entry](CHANGELOG.md#unreleased), the
+[v1.9.1 changelog entry](CHANGELOG.md#v191), and the
 [full release history](CHANGELOG.md).
 
 ## What it does
@@ -164,6 +162,24 @@ options (`BATTERY`, `ENGINE_PARAMETERS`,
 
 The config panel loads on any signalk-server 2.x admin UI. v1.4.x config
 payloads migrate transparently the first time the panel loads them.
+
+### Vessel Trip estimates
+
+`VESSEL_TRIP` is disabled by default. In its mapping editor, add every fuel
+tank that supplies the selected engines, using its canonical
+`tanks.fuel.<id>` Signal K path, then add every consuming engine by the
+identifier used under `propulsion.<id>`. The plugin emits remaining fuel only
+after every configured tank has a current value. It adds time to empty only
+when every configured engine has a current fuel rate, and adds distance to
+empty when current speed over ground is also available.
+
+For a Raymarine Fuel Manager display, also configure the chartplotter's fuel
+settings and provide PGN 127489 or 127497 for fuel consumption, plus PGN
+129026 with GNSS for distance to empty. Enable `ENGINE_PARAMETERS` or
+`ENGINE_TRIP`, plus `COG_SOG`, when this plugin must provide those supporting
+messages. Other chartplotters have model- and firmware-specific requirements.
+See the [PGN reference](docs/pgn-reference.md#engine-and-propulsion) for the
+calculation, freshness behavior, limitations, and current compatibility notes.
 
 ## Documentation
 

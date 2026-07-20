@@ -1,6 +1,7 @@
 import { SOURCE_TYPE } from "../constants.js";
 import type { ConversionModule } from "../types/index.js";
 import { extractPgnsFromTitle } from "../utils/pgnUtils.js";
+import { resolveRefreshInterval } from "../utils/refreshInterval.js";
 import {
 	compatibilityFor,
 	descriptionFor,
@@ -29,6 +30,7 @@ export function buildConversionMetadata(conversions: ConversionModule[]): Conver
 			title: c.title,
 			canResend:
 				c.allowResend !== false &&
+				resolveRefreshInterval(c) === undefined &&
 				c.sourceType !== SOURCE_TYPE.TIMER &&
 				c.sourceType !== SOURCE_TYPE.ON_DELTA,
 			pgns: extractPgnsFromTitle(c.title),

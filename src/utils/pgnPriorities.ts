@@ -25,6 +25,7 @@ export const CANBOAT_PGN_PRIORITIES: PgnPriorityTable = {
 	127488: 2,
 	127489: 2,
 	127493: 2,
+	127496: 5,
 	127497: 5,
 	127498: 5,
 	127503: 6,

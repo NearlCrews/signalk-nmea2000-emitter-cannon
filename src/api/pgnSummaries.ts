@@ -25,6 +25,7 @@ export const PGN_SUMMARIES: Record<number, string> = {
 	127489:
 		"Detailed engine data: oil pressure and temperature, coolant temperature, fuel rate, engine hours, alerts",
 	127493: "Transmission data: current gear, transmission oil pressure and temperature",
+	127496: "Vessel fuel range: estimated fuel remaining, time to empty, and distance to empty",
 	127497: "Engine trip totals: fuel used, average fuel rate, and fuel economy for the trip",
 	127498: "Fixed engine information: rated RPM, serial/VIN number, and software version",
 	127503: "AC input status by line: voltage, current, frequency, power, and power factor",

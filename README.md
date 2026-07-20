@@ -9,7 +9,7 @@
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?logo=buymeacoffee&logoColor=black)](https://www.buymeacoffee.com/nearlcrews)
 
 A [Signal K](https://signalk.org) plugin that converts Signal K deltas into
-NMEA 2000 messages: 79 configurable data conversions covering 59 data PGNs,
+NMEA 2000 messages: 80 configurable data conversions covering 60 data PGNs,
 plus the configurable PGN 126464 list broadcast, validated against Canboat definitions and
 reviewed against model-specific chartplotter receive lists.
 
@@ -56,7 +56,7 @@ priorities follow the current stable Canboat 7.1 database. It pairs well with se
 
 ## Features
 
-- **79 configurable data conversions emitting 59 data PGNs**, plus the plugin's
+- **80 configurable data conversions emitting 60 data PGNs**, plus the plugin's
   configurable PGN 126464 list broadcast and 5 stack-owned bus-layer PGNs (59392, 59904,
   60928, 126993, 126996) advertised in that list
 - **Chartplotter-oriented** PGN priorities, SID fields, temperature-source
@@ -156,17 +156,18 @@ conversion is emitting and dashed when it is enabled but silent. Clicking a
 row opens its editor inline below it (opening another row closes the previous
 one), exposing a **Resend** override when applicable, a **Source filter**
 dropdown for path-based conversions, and a **Mapping editor** on conversions
-that need an explicit Signal K
-identifier to NMEA 2000 instance mapping (`BATTERY`, `ENGINE_PARAMETERS`,
+that need explicit Signal K paths, identifiers, NMEA 2000 instances, or field
+options (`BATTERY`, `ENGINE_PARAMETERS`,
 `EXHAUST_TEMPERATURE`, `TANKS`, `SOLAR`, `AC_STATUS`, `CHARGER_STATUS`,
-`INVERTER_STATUS`, `RAYMARINE_BRIGHTNESS`, `NOTIFICATIONS`, `TEMPERATURE_*`).
+`INVERTER_STATUS`, `VESSEL_TRIP`, `RAYMARINE_BRIGHTNESS`, `NOTIFICATIONS`,
+`TEMPERATURE_*`).
 
 The config panel loads on any signalk-server 2.x admin UI. v1.4.x config
 payloads migrate transparently the first time the panel loads them.
 
 ## Documentation
 
-- [PGN reference](docs/pgn-reference.md): all 60 plugin PGNs, conversion
+- [PGN reference](docs/pgn-reference.md): all 61 plugin PGNs, conversion
   modules, bus-layer PGNs, and chartplotter guidance
 - [Troubleshooting](docs/troubleshooting.md)
 - [Development guide](docs/development.md)

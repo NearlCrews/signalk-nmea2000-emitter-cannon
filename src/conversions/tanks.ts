@@ -6,14 +6,8 @@ import {
 	VESSELS_SELF_CONTEXT,
 } from "../constants.js";
 import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
-import {
-	clamp,
-	isPlainObject,
-	isValidNumber,
-	isValidSignalKId,
-	toValidNumber,
-} from "../utils/validation.js";
-import { instanceList } from "./instanceOptions.js";
+import { clamp, isPlainObject, isValidNumber, toValidNumber } from "../utils/validation.js";
+import { instanceList, parseSignalKTankPath } from "./instanceOptions.js";
 
 const typeMapping: Record<string, string> = {
 	fuel: "Fuel",
@@ -35,20 +29,18 @@ interface TankConfig {
 
 function normalizedTankConfig(config: unknown): TankConfig | null {
 	if (!isPlainObject(config) || typeof config.signalkPath !== "string") return null;
-	const segments = config.signalkPath.split(".");
+	const tankPath = parseSignalKTankPath(config.signalkPath);
 	if (
-		segments.length !== 3 ||
-		segments[0] !== "tanks" ||
-		typeMapping[segments[1] ?? ""] === undefined ||
-		!isValidSignalKId(segments[2]) ||
+		tankPath === null ||
+		typeMapping[tankPath.type] === undefined ||
 		!isValidNumber(config.instanceId)
 	) {
 		return null;
 	}
 	return {
-		signalkPath: config.signalkPath,
+		signalkPath: tankPath.path,
 		instanceId: clamp(Math.trunc(config.instanceId), 0, MAX_TANK_INSTANCE),
-		type: typeMapping[segments[1] ?? ""] ?? "",
+		type: typeMapping[tankPath.type] ?? "",
 	};
 }
 

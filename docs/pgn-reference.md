@@ -1,7 +1,7 @@
 # PGN Reference
 
-The plugin has 79 configurable data conversions covering 59 data PGNs, plus an
-80th module that broadcasts PGN 126464. Five stack-owned bus-layer PGNs are
+The plugin has 80 configurable data conversions covering 60 data PGNs, plus an
+81st module that broadcasts PGN 126464. Five stack-owned bus-layer PGNs are
 also advertised in the 126464 transmit list. Standard fields, ranges, and enum
 values are validated against the bundled Canboat definitions.
 Display support remains model-specific and should be checked against the
@@ -94,6 +94,7 @@ use the normal per-path source filters available in the configuration panel.
 | 127488 | Engine Parameters Rapid Update | `engineParameters.ts` |
 | 127489 | Engine Parameters Dynamic | `engineParameters.ts` |
 | 127493 | Transmission Parameters | `transmissionParameters.ts` |
+| 127496 | Vessel Trip Parameters (fuel remaining, time to empty, distance to empty) | `vesselTrip.ts` |
 | 127497 | Engine Trip Parameters (fuel used, fuel rate average/economy/instantaneous) | `engineTrip.ts` |
 | 127498 | Engine Configuration (per-engine static identity: rated RPM, VIN, software version) | `engineStatic.ts` |
 | 130576 | Small Craft Status | `smallCraftStatus.ts` |
@@ -102,6 +103,33 @@ PGN 127493 represents `discreteStatus1` as a Canboat bit lookup. With no active
 transmission faults, the conversion supplies an empty flag array. The current
 canboatjs decoder returns that empty byte as numeric zero, which is equivalent
 on the wire.
+
+`VESSEL_TRIP` is an opt-in aggregate. Configure every fuel tank that contributes
+to vessel range and every engine that consumes from those tanks. Remaining fuel
+uses each tank's canonical `currentVolume`, with `currentLevel * capacity` as a
+fallback, and converts Signal K cubic meters to NMEA 2000 liters. Time to empty
+divides aggregate remaining volume by aggregate positive `fuel.rate`; distance
+to empty multiplies that duration by `navigation.speedOverGround`. A missing
+tank suppresses the frame because a partial total understates remaining fuel. A
+missing engine rate suppresses time and distance because partial consumption
+overstates range. Zero consumption emits remaining fuel without a range.
+
+PGN 127496's `tripRunTime` field remains unavailable because neither Canboat nor
+Signal K defines a safe mapping from a navigation trip reset to propulsion
+runtime. The conversion recomputes once per second from freshness-checked tank,
+fuel-rate, and speed values instead of replaying a cached estimate. Static tank
+capacity remains available while dynamic values age out.
+
+Treat every output as advisory. The calculation does not subtract unusable
+reserve, include non-propulsion consumers such as generators or heaters, model
+cross-feed or unequal tank depletion, or account for weather and tide. Raymarine
+Fuel Manager must also be configured, and its displays require fuel data from
+either PGN 127489 (Fuel Flow Rate) or PGN 127497 (Fuel Used), plus PGN 129026
+with GNSS for Distance to Empty. Configure and enable `ENGINE_PARAMETERS` or
+`ENGINE_TRIP`, plus `COG_SOG`, when this plugin must provide those messages.
+
+Current Garmin ECHOMAP UHD2 and GPSMAP documentation omits PGN 127496. Confirm
+support and prerequisites for the chartplotter model and firmware in use.
 
 ## Environmental
 
@@ -269,13 +297,15 @@ may omit plugin-owned PGNs even though the periodic broadcast includes them.
   ECHOMAP UHD2 receive list. Canboat still marks their fields, field lengths,
   resolution, and intervals incomplete, so emitting them would depend on
   unstable wire definitions.
-- **PGNs 127496, 128777, 126987, 126988, and 129801**, covering vessel-trip,
-  windlass, alert-threshold, alert-value, and addressed AIS safety data, are
-  plausible on current Raymarine displays. Signal K lacks the canonical trip,
-  windlass, and addressed-message fields needed to populate them. Canboat also
-  marks the windlass and alert definitions incomplete, while addressed AIS
-  safety transmission needs destination, sequence, and licensed-transmitter
-  controls that this plugin does not provide.
+- **PGN 128777, Windlass Operating Status**, has a complete Canboat field layout,
+  but its priority and interval remain unspecified. Signal K also lacks a
+  canonical windlass schema, so emitting it would require a bespoke data model
+  and uncertain transport behavior.
+- **PGNs 126987 and 126988**, Alert Threshold and Alert Value, remain incomplete
+  in Canboat and lack canonical Signal K inputs for their alert-limit fields.
+- **PGN 129801, AIS Addressed Safety Related Message**, needs a destination,
+  sequence lifecycle, source provenance, and licensed-transmitter controls that
+  this plugin does not provide.
 
 | PGN | Description |
 | -------- | ------------- |

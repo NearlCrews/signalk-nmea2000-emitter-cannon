@@ -30,3 +30,15 @@ export function normalizedN2kInstance(
 ): number | undefined {
 	return isValidNumber(value) ? clamp(Math.trunc(value), 0, max) : undefined;
 }
+
+/** Parse a three-segment Signal K tank path without restricting schema-valid ids. */
+export function parseSignalKTankPath(
+	value: unknown,
+): { type: string; id: string; path: string } | null {
+	if (typeof value !== "string") return null;
+	const segments = value.split(".");
+	const type = segments[1];
+	const id = segments[2];
+	if (segments.length !== 3 || segments[0] !== "tanks" || !type || !id) return null;
+	return { type, id, path: value };
+}

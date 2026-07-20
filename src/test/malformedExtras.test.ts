@@ -8,6 +8,7 @@ import createEngineTripConversion from "../conversions/engineTrip.js";
 import createInverterStatusConversion from "../conversions/inverterStatus.js";
 import createSolarConversion from "../conversions/solar.js";
 import createTanksConversion from "../conversions/tanks.js";
+import createVesselTripConversion from "../conversions/vesselTrip.js";
 import type { ConversionModule, SignalKApp, SignalKPlugin } from "../types/index.js";
 
 const MALFORMED_ROWS = [null, undefined, 42, "shore", [], {}];
@@ -142,6 +143,12 @@ describe("malformed mapped extras", () => {
 		expect(
 			conversions({ enabled: true, tanks: [{ signalkPath: "tanks.unknown.0", instanceId: 1 }] }),
 		).toBeNull();
+		expect(
+			conversions({
+				enabled: true,
+				tanks: [{ signalkPath: "tanks.fuel.day-tank_1", instanceId: 1 }],
+			}),
+		).toHaveLength(1);
 	});
 
 	it("ignores malformed established factory rows", () => {
@@ -160,5 +167,68 @@ describe("malformed mapped extras", () => {
 		for (const [conversion, key] of cases) {
 			expectMalformedRowsIgnored(conversion, key);
 		}
+	});
+
+	it("fails closed on malformed vessel-trip rows and requires a valid fuel tank", async () => {
+		const app = {} as SignalKApp;
+		const conversion = createVesselTripConversion(app);
+		const conversions = conversion.conversions;
+		expect(typeof conversions).toBe("function");
+		if (typeof conversions !== "function") return;
+
+		expect(() =>
+			conversions({ enabled: true, fuelTanks: MALFORMED_ROWS, engines: MALFORMED_ROWS }),
+		).not.toThrow();
+		expect(
+			conversions({ enabled: true, fuelTanks: MALFORMED_ROWS, engines: MALFORMED_ROWS }),
+		).toBeNull();
+		expect(
+			conversions({ enabled: true, fuelTanks: [{ signalkPath: "tanks.water.0" }] }),
+		).toBeNull();
+		expect(
+			conversions({ enabled: true, fuelTanks: [{ signalkPath: "tanks.fuel.port.tank" }] }),
+		).toBeNull();
+
+		expect(
+			conversions({
+				enabled: true,
+				fuelTanks: [{ signalkPath: "tanks.fuel.day tank" }],
+				engines: MALFORMED_ROWS,
+			}),
+		).toBeNull();
+
+		const remainingOnly = conversions({
+			enabled: true,
+			fuelTanks: [{ signalkPath: "tanks.fuel.day tank" }],
+			engines: [null, undefined],
+		});
+		expect(remainingOnly?.[0]?.keys).toEqual([
+			"tanks.fuel.day tank.currentVolume",
+			"tanks.fuel.day tank.currentLevel",
+			"tanks.fuel.day tank.capacity",
+		]);
+		expect(await remainingOnly?.[0]?.callback?.(0.05, null, null)).toEqual([
+			{
+				prio: 2,
+				pgn: 127496,
+				dst: 255,
+				fields: { estimatedFuelRemaining: 50 },
+			},
+		]);
+
+		expect(
+			conversions({
+				enabled: true,
+				fuelTanks: [{ signalkPath: "tanks.fuel.0" }, { signalkPath: "tanks.water.0" }],
+				engines: [{ signalkId: "main" }],
+			}),
+		).toBeNull();
+		expect(
+			conversions({
+				enabled: true,
+				fuelTanks: [{ signalkPath: "tanks.fuel.0" }],
+				engines: [{ signalkId: "main" }, { signalkId: "port-main" }],
+			}),
+		).toBeNull();
 	});
 });

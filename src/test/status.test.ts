@@ -163,6 +163,16 @@ describe("PluginManager.getConversionMetadata", () => {
 			.find((conversion) => conversion.key === "ENGINE_STATIC");
 		expect(engineStatic?.canResend).toBe(false);
 	});
+
+	it("marks freshness-refresh conversions as ineligible for resend", () => {
+		const app = makeMockApp();
+		const pm = new PluginManager(app, mockPlugin);
+		const vesselTrip = pm
+			.getConversionMetadata()
+			.find((conversion) => conversion.key === "VESSEL_TRIP");
+		expect(vesselTrip?.canResend).toBe(false);
+		expect(vesselTrip?.extras).toEqual({ type: "vesselTripMapping", minRows: 0 });
+	});
 });
 
 describe("PluginManager.throttledError window", () => {

@@ -82,7 +82,7 @@ describe("Conversion modules", () => {
 		// (silently caught in createConversionModules and returning []) is
 		// a test failure rather than a silent drop. Update this constant
 		// intentionally when adding or removing modules.
-		expect(conversions.length).toBe(80);
+		expect(conversions.length).toBe(81);
 	});
 
 	it("has a PGN summary for every emitted PGN", () => {

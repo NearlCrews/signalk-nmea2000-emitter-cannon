@@ -11,6 +11,7 @@ const EXTRAS_BY_OPTION_KEY: Record<string, ExtrasMeta> = {
 	// PGN 127497 trip parameters: one row per engine, same shape as
 	// ENGINE_PARAMETERS' mapping (SK engine id to N2K instance).
 	ENGINE_TRIP: { type: "engineMapping", minRows: 0 },
+	VESSEL_TRIP: { type: "vesselTripMapping", minRows: 0 },
 	// PGN 127498 carries static engine identity: rated speed (RPM), VIN, and
 	// software version. There is no canonical SK source for these fields, so
 	// the user enters them per engine in plugin config. As of v1.5.5 this is
@@ -46,6 +47,8 @@ const CONVERSION_DESCRIPTIONS: Record<string, string> = {
 		"Bridges the synthetic apparent wind from signalk-virtual-weather-sensors (forecast wind plus vessel motion) to PGN 130306. Leave disabled if a real masthead anemometer feeds apparent wind: emitting both puts competing values on the bus.",
 	DSC_CALLS:
 		"Source-lock all DSC paths to an off-bus VHF or DSC provider. This mapper cannot inspect the original delta source, so using the same NMEA 2000 input can echo and duplicate distress frames.",
+	VESSEL_TRIP:
+		"Fuel range is an estimate, not a voyage-planning or safety value. Configure every fuel tank and propulsion consumer; other consumers, unusable reserve, cross-feed limits, weather, and tide are not included. Raymarine also requires Fuel Manager setup, fuel data from PGN 127489 or 127497, and PGN 129026 with GNSS for distance. Current Garmin documentation does not list PGN 127496.",
 };
 
 export function descriptionFor(optionKey: string): string | undefined {
@@ -65,6 +68,8 @@ const CONVERSION_PURPOSES: Record<string, string> = {
 		"Static engine identity (rated RPM, VIN, software version). Published once per minute from plugin config: SK has no canonical source for these fields.",
 	ENGINE_TRIP:
 		"Cumulative trip fuel totals and average rates. Streams per delta from propulsion.<id>.trip.* paths.",
+	VESSEL_TRIP:
+		"Aggregate vessel fuel remaining and derived time and distance to empty from configured fuel tanks, engine fuel rates, and speed over ground.",
 	BATTERY:
 		"Basic battery status (voltage, current, temperature) plus detailed status (state-of-charge, time-remaining). Receiver support for the detailed frame is model-specific.",
 	AC_STATUS:

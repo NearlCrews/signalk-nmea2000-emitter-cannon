@@ -29,6 +29,7 @@ import { errMessage } from "./utils/errorUtils.js";
 import { formatN2KMessage, validateN2KMessage } from "./utils/messageUtils.js";
 import { isDefined, pathToPropName, stripSubIndex, subIndexKey } from "./utils/pathUtils.js";
 import { withCanonicalPgnPriority } from "./utils/pgnPriorities.js";
+import { resolveRefreshInterval } from "./utils/refreshInterval.js";
 import { clearAllSmoothers } from "./utils/smoothing.js";
 
 function resolveKeys(
@@ -370,6 +371,7 @@ export class PluginManager {
 			const subConversion = subConversions[idx];
 			if (subConversion === undefined) continue;
 			const allowResend = subConversion.allowResend ?? conv.allowResend;
+			const refreshInterval = subConversion.refreshInterval ?? conv.refreshInterval;
 
 			const sourceType = subConversion.sourceType ?? SOURCE_TYPE.ON_VALUE_CHANGE;
 			const mapper = this.sourceTypes[sourceType];
@@ -394,6 +396,7 @@ export class PluginManager {
 							title: subConversion.title ?? `${conv.title} #${idx}`,
 							category: conv.category,
 							...(allowResend === undefined ? {} : { allowResend }),
+							...(refreshInterval === undefined ? {} : { refreshInterval }),
 							...(conv.presets ? { presets: conv.presets } : {}),
 						};
 
@@ -626,12 +629,13 @@ export class PluginManager {
 			);
 		}
 
-		// Timer-source conversions (e.g. systemTime) provide their own schedule;
-		// arming a resend timer on top would double-emit every global-resend
-		// window. ON_DELTA conversions are event-driven: replaying an old AIS
-		// target or Course API calculation would make stale state look current.
+		// Timer-source and freshness-refresh conversions provide their own
+		// schedules; arming a resend timer on top would double-emit. ON_DELTA
+		// conversions are event-driven: replaying an old AIS target or Course API
+		// calculation would make stale state look current.
 		if (
 			conversion.allowResend === false ||
+			resolveRefreshInterval(conversion) !== undefined ||
 			conversion.sourceType === SOURCE_TYPE.TIMER ||
 			conversion.sourceType === SOURCE_TYPE.ON_DELTA
 		) {
@@ -712,6 +716,7 @@ export class PluginManager {
 	private mapRxJS(conversion: ConversionModule, options: ConversionOptions): void {
 		const keys = resolveKeys(conversion.keys, options);
 		const timeouts = conversion.timeouts || [];
+		const refreshInterval = resolveRefreshInterval(conversion);
 
 		this.app.debug(`Setting up conversion: ${conversion.title} with ${keys.length} keys`);
 
@@ -736,6 +741,14 @@ export class PluginManager {
 		// until a real value arrives. A BehaviorSubject([]) seed would fire
 		// through debounceTime and arm the resend timer before any data.
 		const combinedBus = new Subject<unknown[]>();
+		let hasInput = false;
+		const refreshValues = (now: number): void => {
+			for (let i = 0; i < keys.length; i++) {
+				const timeout = timeouts[i];
+				const ts = timestamps[i] ?? 0;
+				currentValues[i] = !isDefined(timeout) || ts + (timeout || 0) > now ? values[i] : null;
+			}
+		};
 
 		keys.forEach((skKey) => {
 			// Accept both shapes during the legacy-flat to nested-sources transition.
@@ -760,6 +773,7 @@ export class PluginManager {
 			}
 
 			const unsubscribe = bus.onValue((streamData: NormalizedDelta) => {
+				hasInput = true;
 				const value: unknown = streamData.value;
 
 				const now = Date.now();
@@ -769,13 +783,10 @@ export class PluginManager {
 					values[idx] = value;
 				}
 
-				for (let i = 0; i < keys.length; i++) {
-					const timeout = timeouts[i];
-					const ts = timestamps[i] ?? 0;
-					currentValues[i] = !isDefined(timeout) || ts + (timeout || 0) > now ? values[i] : null;
+				if (refreshInterval === undefined) {
+					refreshValues(now);
+					combinedBus.next(currentValues);
 				}
-
-				combinedBus.next(currentValues);
 			});
 
 			if (unsubscribe) {
@@ -798,6 +809,15 @@ export class PluginManager {
 				);
 			},
 		});
+
+		if (refreshInterval !== undefined) {
+			const timer = setInterval(() => {
+				if (this.stopped || !hasInput) return;
+				refreshValues(Date.now());
+				combinedBus.next(currentValues);
+			}, refreshInterval);
+			this.timers.push(timer);
+		}
 
 		this.unsubscribes.push(() => {
 			subscription.unsubscribe();

@@ -6,6 +6,8 @@ import { build } from "esbuild";
 const repositoryDir = new URL("../", import.meta.url);
 const publicDir = new URL("../public/", import.meta.url);
 const pluginPrefix = "/plugins/signalk-nmea2000-emitter-cannon/";
+const vesselTripDescription =
+	"Fuel range is an estimate, not a voyage-planning or safety value. Configure every fuel tank and propulsion consumer; other consumers, unusable reserve, cross-feed limits, weather, and tide are not included. Raymarine also requires Fuel Manager setup, fuel data from PGN 127489 or 127497, and PGN 129026 with GNSS for distance. Current Garmin documentation does not list PGN 127496.";
 
 const meta = [
 	{
@@ -40,6 +42,18 @@ const meta = [
 		paths: [],
 		extras: { type: "inverterMapping", minRows: 0 },
 		purpose: "Inverter operating state and linked AC and DC instances.",
+	},
+	{
+		key: "VESSEL_TRIP",
+		title: "Vessel Trip Parameters (PGN 127496)",
+		canResend: false,
+		pgns: ["127496"],
+		category: "engine",
+		presets: ["engine-set"],
+		paths: [],
+		extras: { type: "vesselTripMapping", minRows: 0 },
+		purpose: "Aggregate vessel fuel remaining and derived range.",
+		description: vesselTripDescription,
 	},
 ];
 
@@ -77,6 +91,15 @@ const configuration = {
 			sources: {},
 			extras: {
 				inverters: [null, { signalkId: "main", instanceId: 2, acInstanceId: 1, dcInstanceId: 3 }],
+			},
+		},
+		VESSEL_TRIP: {
+			enabled: true,
+			resend: 0,
+			sources: {},
+			extras: {
+				fuelTanks: [null],
+				engines: [null],
 			},
 		},
 	},
@@ -164,8 +187,8 @@ const server = createServer((request, response) => {
 		json(response, {
 			pluginRunning: true,
 			nmea2000Ready: true,
-			enabledCount: 3,
-			totalConversions: 3,
+			enabledCount: 4,
+			totalConversions: 4,
 			perConversion: meta.map(({ key, title }) => ({
 				key,
 				title,
@@ -267,6 +290,31 @@ try {
 	await page.getByLabel("NMEA 2000 charger instance").fill("5");
 	await page.locator("#skn-row-toggle-INVERTER_STATUS").click();
 	await page.getByLabel("NMEA 2000 DC instance").fill("7");
+	await page.getByRole("tab", { name: /Engine/ }).click();
+	await page.locator("#skn-row-toggle-VESSEL_TRIP").click();
+	const vesselTripNote = page.getByRole("note");
+	await vesselTripNote.waitFor();
+	if (!(await vesselTripNote.textContent())?.includes(vesselTripDescription)) {
+		throw new Error("vessel trip safety advisory was not rendered");
+	}
+	await page.getByText("Fuel tanks used for vessel range", { exact: true }).waitFor();
+	await page.getByText("Engines used for vessel range", { exact: true }).waitFor();
+	await page.getByRole("button", { name: "Add row to Fuel tanks used for vessel range" }).click();
+	await page.getByRole("button", { name: "Add row to Engines used for vessel range" }).click();
+	await page
+		.getByRole("button", { name: "Remove row 1 from Fuel tanks used for vessel range" })
+		.waitFor();
+	await page
+		.getByRole("button", { name: "Remove row 1 from Engines used for vessel range" })
+		.waitFor();
+	const vesselTripOverflow = await root.evaluate(
+		(element) => element.scrollWidth - element.clientWidth,
+	);
+	if (vesselTripOverflow > 1) {
+		throw new Error(`vessel trip editor overflows a 320px viewport by ${vesselTripOverflow}px`);
+	}
+	await page.getByLabel("Signal K fuel tank path").fill("tanks.fuel.reserve_1");
+	await page.getByLabel("Signal K engine id").fill("port");
 	await page.getByRole("button", { name: "Save", exact: true }).click();
 	const saveResult = await page.evaluate(() => ({
 		count: globalThis.__panelSaveCount,
@@ -285,6 +333,14 @@ try {
 	const savedInverters = saveResult.configuration?.conversions?.INVERTER_STATUS?.extras?.inverters;
 	if (savedInverters?.length !== 1 || savedInverters[0]?.dcInstanceId !== 7) {
 		throw new Error("inverter editor changes were not saved");
+	}
+	const savedFuelTanks = saveResult.configuration?.conversions?.VESSEL_TRIP?.extras?.fuelTanks;
+	if (savedFuelTanks?.length !== 1 || savedFuelTanks[0]?.signalkPath !== "tanks.fuel.reserve_1") {
+		throw new Error("vessel trip fuel-tank changes were not saved");
+	}
+	const savedEngines = saveResult.configuration?.conversions?.VESSEL_TRIP?.extras?.engines;
+	if (savedEngines?.length !== 1 || savedEngines[0]?.signalkId !== "port") {
+		throw new Error("vessel trip engine changes were not saved");
 	}
 	if (errors.length > 0) throw new Error(`browser errors:\n${errors.join("\n")}`);
 	process.stdout.write("Panel passed Chromium interaction, theme, and 320px layout checks.\n");

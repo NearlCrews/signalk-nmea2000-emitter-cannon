@@ -39,8 +39,11 @@ export interface SubConversionModule<T extends unknown[] = unknown[]> {
 	title?: string;
 	keys?: string[] | ((options: ConversionOptions) => string[]);
 	sourceType?: SourceType;
-	timeouts?: number[];
+	/** Per-key maximum age in milliseconds; undefined retains the latest value. */
+	timeouts?: Array<number | undefined>;
 	interval?: number;
+	/** Recompute stream inputs on this millisecond cadence while applying per-key freshness. */
+	refreshInterval?: number;
 	/** Disable replay for this sub-conversion or inherit the parent setting. */
 	allowResend?: boolean;
 	callback?(...values: T): N2KMessage[] | Promise<N2KMessage[]>;
@@ -55,8 +58,11 @@ export interface ConversionModule<T extends unknown[] = unknown[]> {
 	keys?: string[] | ((options: ConversionOptions) => string[]);
 	context?: string;
 	sourceType?: SourceType;
-	timeouts?: number[];
+	/** Per-key maximum age in milliseconds; undefined retains the latest value. */
+	timeouts?: Array<number | undefined>;
 	interval?: number;
+	/** Recompute stream inputs on this millisecond cadence while applying per-key freshness. */
+	refreshInterval?: number;
 	/** Disable replay for fixed, event-driven, or independently scheduled output. */
 	allowResend?: boolean;
 	callback?(...values: T): N2KMessage[] | Promise<N2KMessage[]>;

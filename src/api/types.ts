@@ -51,6 +51,7 @@ export type ExtrasMeta =
 				| "inverterMapping"
 				| "engineMapping"
 				| "engineStaticMapping"
+				| "vesselTripMapping"
 				| "tankMapping"
 				| "solarMapping"
 				| "brightnessMapping"

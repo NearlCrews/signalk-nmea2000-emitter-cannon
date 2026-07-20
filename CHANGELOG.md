@@ -7,6 +7,7 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Configurable Vessel Trip Parameters (PGN 127496) aggregates selected fuel tanks and engine fuel rates to emit fuel remaining, time to empty, and distance to empty without inventing trip runtime.
 - Distance Log (PGN 128275) now emits total and trip distance from the canonical Signal K navigation paths in SI meters.
 - Vessel Speed Components (PGN 130578) now emits canonical longitudinal and transverse water-referenced speeds for compatible chartplotters and instruments.
 - Time and Date (PGN 129033) now emits the canonical UTC Signal K GNSS time without inventing a local offset.

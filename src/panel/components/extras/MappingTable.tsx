@@ -1,5 +1,5 @@
 import type * as React from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { MAX_N2K_INSTANCE } from "../../../constants.js";
 import { S } from "../../styles";
 import { TABLE_STYLES as T } from "../../tableStyles";
@@ -127,6 +127,8 @@ interface Props<T> {
 }
 
 export default function MappingTable<T>(props: Props<T>): React.ReactElement {
+	const titleId = useId();
+	const helpId = useId();
 	// Stable per-row ids so React keys survive a mid-list Remove. Rows are
 	// plain config objects with no natural id, so generated ids live in a
 	// ref aligned by index: an edit replaces the row in place and keeps its
@@ -157,10 +159,20 @@ export default function MappingTable<T>(props: Props<T>): React.ReactElement {
 
 	return (
 		<div style={{ marginTop: "var(--skn-space-1)" }}>
-			<div style={T.title}>{props.title}</div>
-			{props.helpText ? <div style={S.helpHint}>{props.helpText}</div> : null}
+			<div id={titleId} style={T.title}>
+				{props.title}
+			</div>
+			{props.helpText ? (
+				<div id={helpId} style={S.helpHint}>
+					{props.helpText}
+				</div>
+			) : null}
 			<div style={T.wrap}>
-				<table style={T.table}>
+				<table
+					style={T.table}
+					aria-labelledby={titleId}
+					aria-describedby={props.helpText ? helpId : undefined}
+				>
 					<thead>
 						<tr style={T.headRow}>
 							{props.columns.map((c) => (
@@ -204,7 +216,11 @@ export default function MappingTable<T>(props: Props<T>): React.ReactElement {
 											onBlur={() => {
 												if (armed) setConfirmId(null);
 											}}
-											aria-label={armed ? `Confirm removing row ${i + 1}` : `Remove row ${i + 1}`}
+											aria-label={
+												armed
+													? `Confirm removing row ${i + 1} from ${props.title}`
+													: `Remove row ${i + 1} from ${props.title}`
+											}
 										>
 											{armed ? "Confirm remove" : "Remove"}
 										</button>
@@ -219,6 +235,7 @@ export default function MappingTable<T>(props: Props<T>): React.ReactElement {
 				type="button"
 				style={{ ...S.btnSecondary, marginTop: "var(--skn-space-1)" }}
 				onClick={() => props.onChange([...props.rows, props.emptyRow()])}
+				aria-label={`Add row to ${props.title}`}
 			>
 				+ Add row
 			</button>

@@ -53,6 +53,7 @@ import createTimeToMarkConversion from "./timeToMark.js";
 import createTransmissionParametersConversion from "./transmissionParameters.js";
 import createTrueHeadingConversion from "./trueheading.js";
 import createVesselSpeedComponentsConversion from "./vesselSpeedComponents.js";
+import createVesselTripConversion from "./vesselTrip.js";
 import createWindConversion from "./wind.js";
 import createWindTrueGroundConversion from "./windTrueGround.js";
 import createWindTrueWaterConversion from "./windTrueWater.js";
@@ -132,6 +133,7 @@ export function createConversionModules(
 		createTransmissionParametersConversion,
 		createTrueHeadingConversion,
 		createVesselSpeedComponentsConversion,
+		createVesselTripConversion,
 		createWindConversion,
 		createWindTrueGroundConversion,
 		createWindTrueWaterConversion,

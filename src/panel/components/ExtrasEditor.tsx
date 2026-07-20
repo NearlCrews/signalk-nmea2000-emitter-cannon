@@ -11,6 +11,7 @@ import FieldEditor from "./extras/FieldEditor";
 import InverterMappingEditor from "./extras/InverterMappingEditor";
 import SolarMappingEditor from "./extras/SolarMappingEditor";
 import TankMappingEditor from "./extras/TankMappingEditor";
+import VesselTripMappingEditor from "./extras/VesselTripMappingEditor";
 
 interface Props {
 	meta: ExtrasMeta;
@@ -34,6 +35,8 @@ export default function ExtrasEditor({ meta, value, onChange }: Props): React.Re
 			return <EngineMappingEditor value={value} onChange={onChange} />;
 		case "engineStaticMapping":
 			return <EngineStaticMappingEditor value={value} onChange={onChange} />;
+		case "vesselTripMapping":
+			return <VesselTripMappingEditor value={value} onChange={onChange} />;
 		case "tankMapping":
 			return <TankMappingEditor value={value} onChange={onChange} />;
 		case "solarMapping":

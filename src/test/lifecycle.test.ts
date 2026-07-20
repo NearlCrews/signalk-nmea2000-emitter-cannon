@@ -486,6 +486,75 @@ describe("PluginManager lifecycle", () => {
 		expect(mock.emittedMessages.length - initial).toBe(5);
 	});
 
+	it("refreshes vessel trip every second while rechecking input freshness", async () => {
+		manager.start({
+			globalResendInterval: 5,
+			VESSEL_TRIP: {
+				enabled: true,
+				resend: 0,
+				fuelTanks: [{ signalkPath: "tanks.fuel.reserve_1" }],
+				engines: [{ signalkId: "main" }],
+			},
+		} as unknown as PluginOptions);
+		expect(vi.getTimerCount()).toBe(1);
+		vi.advanceTimersByTime(1000);
+		await flush();
+		expect(mock.emittedMessages).toEqual([]);
+		expect((manager as unknown as { lastInputs: Map<unknown, unknown> }).lastInputs.size).toBe(0);
+
+		mock.pushStream("tanks.fuel.reserve_1.currentLevel", { value: 0.5 });
+		mock.pushStream("tanks.fuel.reserve_1.capacity", { value: 0.1 });
+		mock.pushStream("propulsion.main.fuel.rate", { value: 0.00001 });
+		mock.pushStream("navigation.speedOverGround", { value: 2 });
+		await flush();
+		expect(mock.emittedMessages).toEqual([]);
+
+		vi.advanceTimersByTime(1000);
+		await flush();
+		expect((manager as unknown as { lastInputs: Map<unknown, unknown> }).lastInputs.size).toBe(1);
+		expect(mock.emittedMessages.at(-1)).toMatchObject({
+			pgn: 127496,
+			prio: 5,
+			fields: {
+				estimatedFuelRemaining: 50,
+				timeToEmpty: 5000,
+				distanceToEmpty: 10000,
+			},
+		});
+		const afterFirstTick = mock.emittedMessages.length;
+		vi.advanceTimersByTime(1000);
+		await flush();
+		expect(mock.emittedMessages).toHaveLength(afterFirstTick + 1);
+
+		// Fuel rate and SOG are stale after ten seconds. The next scheduled
+		// recomputation retains the safe fuel estimate but removes stale range.
+		vi.setSystemTime(new Date(Date.now() + 11_000));
+		vi.advanceTimersByTime(1000);
+		await flush();
+		expect(mock.emittedMessages.at(-1)?.fields).toEqual({ estimatedFuelRemaining: 50 });
+
+		// Capacity is static and must survive beyond the dynamic 60-second tank
+		// timeout. Refresh the level, rate, and speed without republishing capacity.
+		vi.setSystemTime(new Date(Date.now() + 61_000));
+		mock.pushStream("tanks.fuel.reserve_1.currentLevel", { value: 0.4 });
+		mock.pushStream("propulsion.main.fuel.rate", { value: 0.00001 });
+		mock.pushStream("navigation.speedOverGround", { value: 2 });
+		vi.advanceTimersByTime(1000);
+		await flush();
+		expect(mock.emittedMessages.at(-1)?.fields).toEqual({
+			estimatedFuelRemaining: 40,
+			timeToEmpty: 4000,
+			distanceToEmpty: 8000,
+		});
+
+		const beforeStop = mock.emittedMessages.length;
+		manager.stop();
+		expect(vi.getTimerCount()).toBe(0);
+		vi.advanceTimersByTime(5000);
+		await Promise.resolve();
+		expect(mock.emittedMessages).toHaveLength(beforeStop);
+	});
+
 	it("fixed timestamps do not arm a resend timer", async () => {
 		manager.start({
 			globalResendInterval: 1,

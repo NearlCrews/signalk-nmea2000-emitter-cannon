@@ -16,24 +16,19 @@ reviewed against model-specific chartplotter receive lists.
 > Built on the foundation of [`signalk-to-nmea2000`](https://github.com/SignalK/signalk-to-nmea2000)
 > by Scott Bender and the Signal K community.
 
-## What's new in 1.10.0
+## What's new in 1.10.1
 
-- **More navigation and range data.** Vessel Trip Parameters (PGN 127496)
-  derives remaining fuel, time to empty, and distance to empty from configured
-  tanks and engines. Distance Log (PGN 128275), Time and Date (PGN 129033), and
-  Vessel Speed Components (PGN 130578) add canonical Signal K mappings without
-  inventing unavailable values.
-- **Expanded electrical coverage.** Configurable AC input, AC output, charger,
-  and inverter mappings emit PGNs 127503, 127504, 127507, and 127509.
-- **Safer protocol behavior.** AIS validation rejects malformed or out-of-range
-  values, active-course conversions follow the current Course Provider deltas,
-  and incomplete route-transfer broadcasts have been removed.
-- **Stronger configuration checks.** Event-driven and fixed-time conversions no
-  longer replay stale values, malformed aggregate mappings fail closed, and the
-  production panel's mapping editors, themes, and narrow layout are exercised
-  in Chromium during release verification.
+- **Raymarine i70 and i70s environmental data.** Environmental Parameters (PGN
+  130311) now combines outside temperature, outside relative humidity, and
+  atmospheric pressure in one frame.
+- **Configurable PGN 130311 sources.** The conversion editor now selects the
+  NMEA 2000 temperature and humidity source types required by the receiving
+  instrument.
+- **Tighter legacy and humidity handling.** PGN 130310 uses its standard
+  Environmental Parameters (obsolete) name, and humidity conversions reject
+  Signal K ratios outside the canonical 0 to 1 range.
 
-See the [v1.10.0 changelog entry](CHANGELOG.md#v1100) and the
+See the [v1.10.1 changelog entry](CHANGELOG.md#v1101) and the
 [full release history](CHANGELOG.md).
 
 ## What it does

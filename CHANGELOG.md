@@ -5,6 +5,10 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+<a id="v1101"></a>
+
+## [1.10.1] - 2026-07-21
+
 ### Added
 
 - Environmental Parameters (PGN 130311) now combines outside temperature, outside relative humidity, and atmospheric pressure in one frame, with configurable temperature and humidity source types for Raymarine i70 and i70s compatibility.
@@ -12,6 +16,7 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - PGN 130310 is identified by its standard name, Environmental Parameters (obsolete), instead of the narrower Sea Temperature label.
+- The typed ESLint toolchain is refreshed to `typescript-eslint` 8.65.0, the latest release compatible with the project's TypeScript and Node baselines.
 
 ### Fixed
 

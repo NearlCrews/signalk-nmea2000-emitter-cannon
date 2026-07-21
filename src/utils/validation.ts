@@ -46,6 +46,11 @@ export function toFiniteInRange(value: unknown, min: number, max: number): numbe
 	return isValidNumber(value) && value >= min && value <= max ? value : undefined;
 }
 
+/** Convert a canonical Signal K relative-humidity ratio to NMEA 2000 percent. */
+export function toRelativeHumidityPercent(value: unknown): number | null {
+	return isValidNumber(value) && value >= 0 && value <= 1 ? value * 100 : null;
+}
+
 // Clamps a number into the inclusive [min, max] range. Replaces the hand-rolled
 // Math.max(min, Math.min(max, x)) idiom used across the codebase.
 export function clamp(value: number, min: number, max: number): number {

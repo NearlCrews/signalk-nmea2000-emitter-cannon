@@ -1,6 +1,14 @@
+import { HUMIDITY_SOURCE_VALUES, TEMPERATURE_SOURCE_VALUES } from "../config/environmentSources.js";
 import { MAX_N2K_INSTANCE } from "../constants.js";
 import type { ConversionModule } from "../types/index.js";
 import type { ConversionLifecycle, ExtrasMeta } from "./types.js";
+
+function sourceOptions(
+	values: readonly string[],
+	defaultLabel = "Default (per Signal K path)",
+): { value: string; label: string }[] {
+	return [{ value: "", label: defaultLabel }, ...values.map((value) => ({ value, label: value }))];
+}
 
 const EXTRAS_BY_OPTION_KEY: Record<string, ExtrasMeta> = {
 	AC_STATUS: { type: "acMapping", minRows: 0 },
@@ -29,6 +37,25 @@ const EXTRAS_BY_OPTION_KEY: Record<string, ExtrasMeta> = {
 		label: "Exclude Paths",
 		control: "text",
 		default: "",
+	},
+	ENVIRONMENT_PARAMETERS: {
+		type: "fields",
+		fields: [
+			{
+				key: "temperatureSource",
+				label: "NMEA 2000 Temperature Source",
+				control: "select",
+				default: "",
+				options: sourceOptions(TEMPERATURE_SOURCE_VALUES, "Default (Outside Temperature)"),
+			},
+			{
+				key: "humiditySource",
+				label: "NMEA 2000 Humidity Source",
+				control: "select",
+				default: "",
+				options: sourceOptions(HUMIDITY_SOURCE_VALUES, "Default (Outside)"),
+			},
+		],
 	},
 };
 
@@ -157,8 +184,8 @@ const CONVERSION_LIFECYCLE: Record<string, ConversionLifecycle> = {
 	},
 	// PGN 130311: canboat notes it "should no longer be generated".
 	ENVIRONMENT_PARAMETERS: {
-		supersededBy: "PGN 130314 (Actual Pressure)",
-		note: "PGN 130311 is deprecated in the NMEA 2000 spec in favor of the dedicated PGNs 130312 to 130316. Enable only for older MFDs that read this frame.",
+		supersededBy: "PGNs 130312 to 130316 (dedicated environmental data)",
+		note: "PGN 130311 is deprecated in the NMEA 2000 spec in favor of the dedicated PGNs 130312 to 130316. Raymarine lists it as received by i70 and i70s instruments, and field testing shows it can be required for outside temperature, humidity, and pressure. Enable it only for receivers that need this combined frame.",
 	},
 };
 
@@ -179,47 +206,6 @@ export function lifecycleFor(optionKey: string): ConversionLifecycle | undefined
 	}
 	return CONVERSION_LIFECYCLE[optionKey];
 }
-
-// Build select options from a list of NMEA 2000 source-type strings, with a
-// leading "use the default" entry (empty string clears the override so the
-// conversion follows its per-path default source).
-function sourceOptions(values: string[]): { value: string; label: string }[] {
-	return [
-		{ value: "", label: "Default (per Signal K path)" },
-		...values.map((v) => ({ value: v, label: v })),
-	];
-}
-
-// The full canboat TemperatureSource enum, in enum order. Hand-maintained (not
-// imported) on purpose: @canboat/ts-pgns re-exports the entire PGN database
-// through a CJS barrel that bundlers cannot tree-shake, so a value import would
-// bloat both the runtime and panel bundles. Keep in sync with TemperatureSource
-// in @canboat/ts-pgns/dist/enums.d.ts. Exposing the full set lets a user relabel
-// any temperature so it shows on an MFD that only renders certain sources (e.g.
-// Raymarine Axiom only displays "Inside Temperature", separating sensors by
-// instance).
-const TEMPERATURE_SOURCE_VALUES = [
-	"Sea Temperature",
-	"Outside Temperature",
-	"Inside Temperature",
-	"Engine Room Temperature",
-	"Main Cabin Temperature",
-	"Live Well Temperature",
-	"Bait Well Temperature",
-	"Refrigeration Temperature",
-	"Heating System Temperature",
-	"Dew Point Temperature",
-	"Apparent Wind Chill Temperature",
-	"Theoretical Wind Chill Temperature",
-	"Heat Index Temperature",
-	"Freezer Temperature",
-	"Exhaust Gas Temperature",
-	"Shaft Seal Temperature",
-];
-
-// The two-value canboat HumiditySource enum, hand-maintained for the same
-// bundle-safety reason as TEMPERATURE_SOURCE_VALUES above.
-const HUMIDITY_SOURCE_VALUES = ["Inside", "Outside"];
 
 // The instance field is an 8-bit NMEA 2000 value; bound the editor to the
 // encodable data range so a typo cannot land in the reserved sentinels.

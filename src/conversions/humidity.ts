@@ -6,11 +6,13 @@ import {
 	N2K_SID_ZERO,
 } from "../constants.js";
 import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
-import { isValidNumber, resolveInstanceAndSource } from "../utils/validation.js";
+import { resolveInstanceAndSource, toRelativeHumidityPercent } from "../utils/validation.js";
 
-function createHumidityMessage(humidity: number, source: string, instance: number): N2KMessage {
-	// SK relativeHumidity is a ratio (0..1); PGN 130313 actualHumidity is a
-	// percentage (0..100).
+function createHumidityMessage(
+	humidityPercent: number,
+	source: string,
+	instance: number,
+): N2KMessage {
 	return {
 		prio: N2K_DEFAULT_PRIORITY,
 		pgn: 130313,
@@ -19,7 +21,7 @@ function createHumidityMessage(humidity: number, source: string, instance: numbe
 			sid: N2K_SID_ZERO,
 			instance,
 			source,
-			actualHumidity: humidity * 100,
+			actualHumidity: humidityPercent,
 		},
 	};
 }
@@ -72,11 +74,13 @@ export default function createHumidityConversions(_app: SignalKApp): ConversionM
 					{
 						keys: ["environment.outside.relativeHumidity", "environment.outside.humidity"],
 						callback: (rel: unknown, hum: unknown): N2KMessage[] => {
-							const value = isValidNumber(rel) ? rel : isValidNumber(hum) ? hum : null;
-							if (value === null) {
+							const relative = toRelativeHumidityPercent(rel);
+							const fallback = toRelativeHumidityPercent(hum);
+							const humidityPercent = relative ?? fallback;
+							if (humidityPercent === null) {
 								return [];
 							}
-							return [createHumidityMessage(value, source, instance)];
+							return [createHumidityMessage(humidityPercent, source, instance)];
 						},
 						tests: [
 							{ input: [0.5, null], expected: [expectHumidity(50, "Outside")] },
@@ -90,6 +94,7 @@ export default function createHumidityConversions(_app: SignalKApp): ConversionM
 							{ input: [0.5, 0.9], expected: [expectHumidity(50, "Outside")] },
 							// relativeHumidity = 0 is valid (0% RH); must not fall through
 							{ input: [0, 0.5], expected: [expectHumidity(0, "Outside")] },
+							{ input: [1.01, null], expected: [] },
 						],
 					},
 				];
@@ -112,10 +117,11 @@ export default function createHumidityConversions(_app: SignalKApp): ConversionM
 					{
 						keys: ["environment.inside.relativeHumidity"],
 						callback: (humidity: unknown): N2KMessage[] => {
-							if (!isValidNumber(humidity)) {
+							const humidityPercent = toRelativeHumidityPercent(humidity);
+							if (humidityPercent === null) {
 								return [];
 							}
-							return [createHumidityMessage(humidity, source, instance)];
+							return [createHumidityMessage(humidityPercent, source, instance)];
 						},
 						tests: [
 							{ input: [1.0], expected: [expectHumidity(100, "Inside")] },

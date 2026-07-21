@@ -5,6 +5,18 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Environmental Parameters (PGN 130311) now combines outside temperature, outside relative humidity, and atmospheric pressure in one frame, with configurable temperature and humidity source types for Raymarine i70 and i70s compatibility.
+
+### Changed
+
+- PGN 130310 is identified by its standard name, Environmental Parameters (obsolete), instead of the narrower Sea Temperature label.
+
+### Fixed
+
+- Humidity conversions now reject Signal K relative-humidity ratios outside the canonical 0 to 1 range instead of emitting invalid percentages.
+
 <a id="v1100"></a>
 
 ## [1.10.0] - 2026-07-20

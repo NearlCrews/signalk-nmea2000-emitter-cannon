@@ -4,7 +4,7 @@ import { toValidNumber } from "../utils/validation.js";
 
 export default function createSeaTempConversion(_app: SignalKApp): ConversionModule {
 	return {
-		title: "Sea Temperature (PGN 130310)",
+		title: "Environmental Parameters, obsolete (PGN 130310)",
 		optionKey: "SEA_TEMP",
 		category: "environment",
 		presets: ["environmental"],

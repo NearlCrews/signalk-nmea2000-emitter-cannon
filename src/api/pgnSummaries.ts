@@ -67,7 +67,7 @@ export const PGN_SUMMARIES: Record<number, string> = {
 	129810: "AIS Class B static report Part B: callsign, vessel type, dimensions, and MMSI",
 	130306: "Wind data: wind speed and angle, either apparent or true depending on the reference",
 	130310:
-		"Legacy environmental message (now superseded): water temperature, air temperature, barometric pressure",
+		"Obsolete environmental message: water temperature, air temperature, and barometric pressure",
 	130311:
 		"Environmental data: temperature, humidity, and barometric pressure with their source types",
 	130312:

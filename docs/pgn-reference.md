@@ -136,8 +136,8 @@ support and prerequisites for the chartplotter model and firmware in use.
 | PGN | Description | Module | Status |
 | -------- | ------------- | -------- | -------- |
 | 130306 | Wind Data (apparent, true ground, true water, weather-forecast apparent and boat-referenced true) | `wind.ts`, `windTrueGround.ts`, `windTrueWater.ts`, `windWeatherApparent.ts`, `windWeatherTrue.ts` | Current |
-| 130310 | Environmental Parameters (sea temp legacy) | `seaTemp.ts` | Legacy (still widely supported) |
-| 130311 | Environmental Parameters (atmospheric pressure) | `environmentParameters.ts` | Deprecated, replaced by 130313/130314/130316 |
+| 130310 | Environmental Parameters (obsolete) | `seaTemp.ts` | Obsolete, retained for compatible legacy instruments |
+| 130311 | Environmental Parameters (temperature, humidity, and pressure) | `environmentParameters.ts` | Deprecated, retained for Raymarine i70 and i70s compatibility |
 | 130312 | Temperature (exhaust + general-purpose sources) | `engineParameters.ts`, `temperature.ts` | Deprecated, replaced by 130316 |
 | 130313 | Humidity (inside/outside) | `humidity.ts` | Current |
 | 130314 | Actual Pressure (atmospheric) | `pressure.ts` | Current |
@@ -150,6 +150,18 @@ deprecated `TEMPERATURE_*` (130312) and `ENVIRONMENT_PARAMETERS` (130311)
 disabled. Confirm the exact received-PGN list for the chartplotter model and
 firmware in use. The legacy and deprecated variants remain available for older
 displays that do not read the newer PGNs.
+
+**Raymarine i70 and i70s environmental data**: Raymarine's
+[supported-PGN list](https://docs.raymarine.com/87425/en-US/latest/SupportedNMEA2000PGNlist-AA8295AC.html)
+includes PGNs 130310, 130311, 130312, and 130316 as received messages. Field
+testing reported with i70s found PGN 130311 to be the reliable combined path for
+outside temperature, outside humidity, and atmospheric pressure. Enable
+`ENVIRONMENT_PARAMETERS`, map the desired Signal K sources, and select the
+temperature and humidity source types in its editor. The conversion prefers
+`environment.outside.relativeHumidity` over the legacy
+`environment.outside.humidity` path when both publish. Keep the dedicated modern
+conversions enabled for other receivers, and verify behavior against the exact
+instrument firmware in use.
 
 **Source type and instance**: each temperature and humidity conversion has a
 source-type dropdown and an instance field in its editor. The source type sets

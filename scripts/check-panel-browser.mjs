@@ -11,6 +11,17 @@ const vesselTripDescription =
 
 const meta = [
 	{
+		key: "BATTERY",
+		title: "Battery (PGNs 127506, 127508)",
+		canResend: true,
+		pgns: ["127506", "127508"],
+		category: "electrical",
+		presets: [],
+		paths: [],
+		extras: { type: "batteryMapping", minRows: 0 },
+		purpose: "Basic and detailed battery status.",
+	},
+	{
 		key: "AC_STATUS",
 		title: "AC Input and Output Status (PGNs 127503, 127504)",
 		canResend: true,
@@ -60,6 +71,14 @@ const meta = [
 const configuration = {
 	globalResendInterval: 5,
 	conversions: {
+		BATTERY: {
+			enabled: true,
+			resend: 0,
+			sources: {},
+			extras: {
+				batteries: [null, { signalkId: "house", instanceId: 0 }],
+			},
+		},
 		AC_STATUS: {
 			enabled: true,
 			resend: 0,
@@ -187,8 +206,8 @@ const server = createServer((request, response) => {
 		json(response, {
 			pluginRunning: true,
 			nmea2000Ready: true,
-			enabledCount: 4,
-			totalConversions: 4,
+			enabledCount: 5,
+			totalConversions: 5,
 			perConversion: meta.map(({ key, title }) => ({
 				key,
 				title,
@@ -252,6 +271,14 @@ try {
 	const root = page.locator('[data-snui-version="0.3.0"]');
 	await root.waitFor();
 	await page.getByRole("tab", { name: /Electrical/ }).click();
+	await page.locator("#skn-row-toggle-BATTERY").click();
+	await page.getByText("Battery mapping", { exact: true }).waitFor();
+	const batteryId = page.getByLabel("Signal K battery id");
+	await batteryId.fill("fomleMonitor-second");
+	if (!(await batteryId.evaluate((element) => element.checkValidity()))) {
+		throw new Error("hyphenated Venus battery id was rejected by the panel");
+	}
+	await page.getByText(/For electrical\.batteries\.258-second\.voltage/).waitFor();
 	await page.locator("#skn-row-toggle-AC_STATUS").click();
 	await page.getByText("AC source mapping", { exact: true }).waitFor();
 	await page
@@ -322,6 +349,10 @@ try {
 	}));
 	if (saveResult.count !== 1) throw new Error(`expected one save, got ${saveResult.count ?? 0}`);
 	const savedAc = saveResult.configuration?.conversions?.AC_STATUS?.extras?.acSources;
+	const savedBatteries = saveResult.configuration?.conversions?.BATTERY?.extras?.batteries;
+	if (savedBatteries?.length !== 1 || savedBatteries[0]?.signalkId !== "fomleMonitor-second") {
+		throw new Error("hyphenated Venus battery id was not saved");
+	}
 	if (savedAc?.length !== 1 || savedAc[0]?.signalkId !== "shorePower") {
 		throw new Error("AC editor changes were not saved");
 	}

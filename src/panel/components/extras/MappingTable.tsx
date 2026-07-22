@@ -1,6 +1,7 @@
 import type * as React from "react";
 import { useEffect, useId, useRef, useState } from "react";
 import { MAX_N2K_INSTANCE } from "../../../constants.js";
+import { SIGNALK_ID_SEGMENT_PATTERN } from "../../../utils/validation.js";
 import { S } from "../../styles";
 import { TABLE_STYLES as T } from "../../tableStyles";
 import NumberInput from "../NumberInput";
@@ -80,7 +81,9 @@ export function selectColumn<R>(opts: {
 
 // Standard "Signal K id" text column used by every per-instance mapping
 // editor (engines, batteries, solar chargers, exhaust). The id is the final
-// segment of the SK key (e.g. "main", "house", "0"), not the full path.
+// segment of the SK key (e.g. "main", "house", "258-second"), not the full
+// path. Hyphens and underscores accommodate established provider output while
+// dots, slashes, and whitespace remain invalid.
 // ariaLabel defaults to the header; pass it only when the accessible name
 // needs more context than the visible header.
 export function signalkIdColumn<R extends { signalkId: string }>(opts: {
@@ -88,7 +91,7 @@ export function signalkIdColumn<R extends { signalkId: string }>(opts: {
 	placeholder: string;
 	ariaLabel?: string;
 }): Column<R> {
-	return textColumn<R>({ field: "signalkId", pattern: "[A-Za-z0-9]+", ...opts });
+	return textColumn<R>({ field: "signalkId", pattern: SIGNALK_ID_SEGMENT_PATTERN, ...opts });
 }
 
 // Standard NMEA 2000 instance-id number column. Reused for engine, battery,

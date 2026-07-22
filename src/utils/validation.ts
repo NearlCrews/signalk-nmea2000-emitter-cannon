@@ -25,9 +25,24 @@ export function isPlainObject(value: unknown): value is Record<string, unknown> 
 	return prototype === Object.prototype || prototype === null;
 }
 
-/** True for an identifier segment accepted by the Signal K vessel schema. */
+// Keep this pattern usable by both JavaScript RegExp and the HTML pattern
+// attribute. The escaped hyphen is required by the HTML pattern attribute's
+// Unicode Sets mode.
+export const SIGNALK_ID_SEGMENT_PATTERN = String.raw`[A-Za-z0-9_\-]+`;
+const SIGNALK_ID_SEGMENT_REGEX = new RegExp(`^${SIGNALK_ID_SEGMENT_PATTERN}$`);
+
+/**
+ * True for a safe single-segment identifier used in a Signal K path.
+ *
+ * Signal K schema groups traditionally document alphanumeric instance ids,
+ * but established providers also publish hyphenated and underscored ids. The
+ * Venus plugin, for example, emits secondary battery channels as
+ * `<instance>-second`. Accept those existing paths while continuing to reject
+ * dots, slashes, whitespace, and other characters that could turn an id into
+ * a path or malformed configuration.
+ */
 export function isValidSignalKId(value: unknown): value is string {
-	return typeof value === "string" && /^[A-Za-z0-9]+$/.test(value);
+	return typeof value === "string" && SIGNALK_ID_SEGMENT_REGEX.test(value);
 }
 
 export function toValidNumber(value: unknown): number | null {

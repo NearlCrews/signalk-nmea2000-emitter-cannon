@@ -16,19 +16,18 @@ reviewed against model-specific chartplotter receive lists.
 > Built on the foundation of [`signalk-to-nmea2000`](https://github.com/SignalK/signalk-to-nmea2000)
 > by Scott Bender and the Signal K community.
 
-## What's new in 1.10.1
+## What's new in 1.10.2
 
-- **Raymarine i70 and i70s environmental data.** Environmental Parameters (PGN
-  130311) now combines outside temperature, outside relative humidity, and
-  atmospheric pressure in one frame.
-- **Configurable PGN 130311 sources.** The conversion editor now selects the
-  NMEA 2000 temperature and humidity source types required by the receiving
-  instrument.
-- **Tighter legacy and humidity handling.** PGN 130310 uses its standard
-  Environmental Parameters (obsolete) name, and humidity conversions reject
-  Signal K ratios outside the canonical 0 to 1 range.
+- **Venus secondary-battery compatibility.** Mapped Signal K instance ids now
+  accept safe hyphenated and underscored segments, restoring battery output
+  from established Venus paths such as `electrical.batteries.258-second.voltage`.
+- **Strict path boundaries remain.** Dots, slashes, whitespace, and full paths
+  are still rejected in instance-id fields.
+- **Clearer battery mapping.** The configuration panel and troubleshooting
+  guide now explain that Battery mapping expects only the instance id, without
+  `electrical.batteries` or a measurement suffix such as `.voltage`.
 
-See the [v1.10.1 changelog entry](CHANGELOG.md#v1101) and the
+See the [v1.10.2 changelog entry](CHANGELOG.md#v1102) and the
 [full release history](CHANGELOG.md).
 
 ## What it does

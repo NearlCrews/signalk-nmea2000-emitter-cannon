@@ -5,6 +5,18 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+<a id="v1102"></a>
+
+## [1.10.2] - 2026-07-22
+
+### Fixed
+
+- Mapped Signal K instance ids now accept safe hyphenated and underscored
+  segments, restoring output from established provider paths such as the Venus
+  plugin's `electrical.batteries.258-second.voltage`. Dots, slashes,
+  whitespace, and full paths remain rejected, and the Battery mapping now
+  explains that it expects only the instance id.
+
 <a id="v1101"></a>
 
 ## [1.10.1] - 2026-07-21

@@ -17,8 +17,9 @@ export default function BatteryMappingEditor({ value, onChange }: Props): React.
 			onChange={onChange}
 			storageKey="batteries"
 			title="Battery mapping"
+			helpText="Enter only the instance id between electrical.batteries and the measurement name. For electrical.batteries.258-second.voltage, enter 258-second."
 			idHeader="Signal K battery id"
-			idPlaceholder="house, starter, 0"
+			idPlaceholder="house, starter, 258-second"
 			instanceHeader="NMEA 2000 instance"
 			instanceAriaLabel="NMEA 2000 battery instance"
 		/>

@@ -20,6 +20,22 @@
   Compare the result to the filter value saved in the admin UI for that
   conversion.
 
+## A Venus secondary battery voltage shows no recent output
+
+The Venus plugin publishes a shunt's secondary and third DC channels with
+instance ids such as `258-second` and `258-third`. Although the
+[Signal K electrical schema](https://github.com/SignalK/specification/blob/master/schemas/groups/electrical.json)
+documents alphanumeric instance ids, these hyphenated paths are established
+Venus output and are accepted for compatibility. The upstream naming problem
+is tracked in
+[signalk-venus-plugin issue 26](https://github.com/sbender9/signalk-venus-plugin/issues/26).
+
+In the Battery mapping, enter only the instance id between
+`electrical.batteries` and the measurement name. For example, map
+`electrical.batteries.258-second.voltage` as `258-second`. Do not enter
+`258-second.voltage` or the full path because Emitter Cannon appends
+`.voltage`, `.current`, and the other battery measurement names itself.
+
 ## Multiple inside temperatures do not show on a Raymarine Axiom or i70
 
 Field-tested Axiom and i70 installations render the `Inside Temperature` source

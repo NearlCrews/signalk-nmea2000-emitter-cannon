@@ -22,6 +22,34 @@ function expectMalformedRowsIgnored(conversion: ConversionModule, key: string): 
 }
 
 describe("malformed mapped extras", () => {
+	it("accepts safe provider-generated instance ids without accepting full paths", () => {
+		const app = {} as SignalKApp;
+		const plugin = {} as SignalKPlugin;
+		const conversions = createBatteryConversion(app, plugin).conversions;
+		expect(typeof conversions).toBe("function");
+		if (typeof conversions !== "function") return;
+
+		const compatible = conversions({
+			enabled: true,
+			batteries: [
+				{ signalkId: "fomleMonitor-second", instanceId: 0 },
+				{ signalkId: "house_bank", instanceId: 1 },
+			],
+		});
+		expect(compatible).toHaveLength(2);
+		expect(compatible?.[0]?.keys).toContain("electrical.batteries.fomleMonitor-second.voltage");
+		expect(compatible?.[1]?.keys).toContain("electrical.batteries.house_bank.voltage");
+
+		for (const signalkId of [
+			"fomleMonitor-second.voltage",
+			"electrical/batteries/house",
+			"house bank",
+			"",
+		]) {
+			expect(conversions({ enabled: true, batteries: [{ signalkId, instanceId: 0 }] })).toBeNull();
+		}
+	});
+
 	it("ignores invalid AC source rows", () => {
 		const conversion = createAcStatusConversion();
 		const conversions = conversion.conversions;
@@ -227,7 +255,7 @@ describe("malformed mapped extras", () => {
 			conversions({
 				enabled: true,
 				fuelTanks: [{ signalkPath: "tanks.fuel.0" }],
-				engines: [{ signalkId: "main" }, { signalkId: "port-main" }],
+				engines: [{ signalkId: "main" }, { signalkId: "port.main" }],
 			}),
 		).toBeNull();
 	});

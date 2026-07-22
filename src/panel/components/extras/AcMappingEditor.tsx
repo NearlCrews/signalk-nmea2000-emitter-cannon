@@ -13,15 +13,22 @@ interface Row {
 interface Props {
 	value: Record<string, unknown>;
 	onChange: (next: Record<string, unknown>) => void;
+	availablePaths: string[];
 }
 
-export default function AcMappingEditor({ value, onChange }: Props): React.ReactElement {
+export default function AcMappingEditor({
+	value,
+	onChange,
+	availablePaths,
+}: Props): React.ReactElement {
 	const { rows, setRows } = extraRows<Row>(value, "acSources", onChange);
 	return (
 		<MappingTable<Row>
 			title="AC source mapping"
+			collection="acSources"
 			helpText="Input rows require an explicit acceptability value because PGN 127503 has no unknown state."
 			rows={rows}
+			available={availablePaths}
 			emptyRow={() => ({
 				signalkId: "",
 				instanceId: 0,
@@ -33,10 +40,29 @@ export default function AcMappingEditor({ value, onChange }: Props): React.React
 				signalkIdColumn<Row>({
 					header: "Signal K AC bus id",
 					placeholder: "shore, inverter",
+					pathPrefix: "electrical.ac",
+					requiredInput: (row) => {
+						const phases = row.phaseMode === "three" ? ["A", "B", "C"] : ["single"];
+						const fields = [
+							"lineNeutralVoltage",
+							"current",
+							"frequency",
+							"realPower",
+							"reactivePower",
+							"powerFactor",
+						];
+						return {
+							label: "at least one configured-phase AC measurement",
+							alternatives: phases.flatMap((phase) =>
+								fields.map((field) => [`phase.${phase}.${field}`]),
+							),
+						};
+					},
 				}),
 				instanceIdColumn<Row>({ header: "NMEA 2000 instance" }),
 				selectColumn<Row>({
 					header: "Direction",
+					group: "NMEA 2000 output",
 					field: "direction",
 					options: [
 						{ value: "input", label: "Input" },
@@ -45,6 +71,7 @@ export default function AcMappingEditor({ value, onChange }: Props): React.React
 				}),
 				selectColumn<Row>({
 					header: "Phases",
+					group: "NMEA 2000 output",
 					field: "phaseMode",
 					options: [
 						{ value: "single", label: "Single phase" },
@@ -53,6 +80,7 @@ export default function AcMappingEditor({ value, onChange }: Props): React.React
 				}),
 				selectColumn<Row>({
 					header: "Input acceptability",
+					group: "NMEA 2000 output",
 					field: "acceptability",
 					placeholder: "Select acceptability",
 					disabled: (row) => row.direction === "output",

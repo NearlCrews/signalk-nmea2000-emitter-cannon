@@ -1,6 +1,10 @@
 import type * as React from "react";
 import { extraRows } from "./extraRows";
-import MappingTable, { instanceIdColumn, signalkIdColumn } from "./MappingTable";
+import MappingTable, {
+	instanceIdColumn,
+	type RequiredInput,
+	signalkIdColumn,
+} from "./MappingTable";
 
 interface Row {
 	signalkId: string;
@@ -11,6 +15,7 @@ interface Props {
 	value: Record<string, unknown>;
 	onChange: (next: Record<string, unknown>) => void;
 	storageKey: string;
+	collection: string;
 	title: string;
 	helpText?: string;
 	idHeader: string;
@@ -18,6 +23,9 @@ interface Props {
 	idAriaLabel?: string;
 	instanceHeader: string;
 	instanceAriaLabel?: string;
+	pathPrefix: string;
+	availablePaths: string[];
+	requiredInput?: RequiredInput;
 }
 
 /** Shared two-column Signal K id to NMEA 2000 instance editor. */
@@ -25,6 +33,7 @@ export default function InstanceMappingEditor({
 	value,
 	onChange,
 	storageKey,
+	collection,
 	title,
 	helpText,
 	idHeader,
@@ -32,13 +41,18 @@ export default function InstanceMappingEditor({
 	idAriaLabel,
 	instanceHeader,
 	instanceAriaLabel,
+	pathPrefix,
+	availablePaths,
+	requiredInput,
 }: Props): React.ReactElement {
 	const { rows, setRows } = extraRows<Row>(value, storageKey, onChange);
 	return (
 		<MappingTable<Row>
 			title={title}
+			collection={collection}
 			{...(helpText === undefined ? {} : { helpText })}
 			rows={rows}
+			available={availablePaths}
 			emptyRow={() => ({ signalkId: "", instanceId: 0 })}
 			onChange={setRows}
 			columns={[
@@ -46,6 +60,8 @@ export default function InstanceMappingEditor({
 					header: idHeader,
 					placeholder: idPlaceholder,
 					...(idAriaLabel === undefined ? {} : { ariaLabel: idAriaLabel }),
+					pathPrefix,
+					...(requiredInput === undefined ? {} : { requiredInput: () => requiredInput }),
 				}),
 				instanceIdColumn<Row>({
 					header: instanceHeader,

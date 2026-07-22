@@ -4,6 +4,7 @@ import { stripSubIndex } from "../../utils/pathUtils.js";
 import { extractPgnsFromTitle } from "../../utils/pgnUtils.js";
 import { outputStateFor } from "../outputState";
 import { humanizeAgo } from "../recency";
+import { conversionHealth } from "../rowStatus.js";
 import { STATUS_VIEW_STYLES as V } from "../statusStyles";
 import { S } from "../styles";
 import { TABLE_STYLES as T } from "../tableStyles";
@@ -44,9 +45,23 @@ export default function StatusView({ status, metaByKey, onErrorClick }: Props): 
 		return <StatusLoading />;
 	}
 
-	const enabledRows = status.perConversion.filter((c) => c.enabled);
+	const enabledRows = status.perConversion.filter((c) => c.enabled && c.parentKey === undefined);
 	const errorCount = enabledRows.filter((c) => c.lastErrorMessage).length;
 	const totalEmits = enabledRows.reduce((n, c) => n + c.emitCount, 0);
+	const childrenByParent = new Map<string, PerConversionStatus[]>();
+	for (const row of status.perConversion) {
+		if (!row.enabled || row.parentKey === undefined) continue;
+		const children = childrenByParent.get(row.parentKey) ?? [];
+		children.push(row);
+		childrenByParent.set(row.parentKey, children);
+	}
+	for (const children of childrenByParent.values()) {
+		children.sort((a, b) => (a.mappingIndex ?? 0) - (b.mappingIndex ?? 0));
+	}
+	const displayRows = enabledRows.flatMap((parent) => [
+		parent,
+		...(childrenByParent.get(parent.key) ?? []),
+	]);
 	const outputState = outputStateFor(status);
 	const running = outputState === "waiting" || outputState === "ready";
 	const readyDot =
@@ -85,7 +100,12 @@ export default function StatusView({ status, metaByKey, onErrorClick }: Props): 
 					No conversions enabled. Enable conversions in the Configure view to see live output here.
 				</p>
 			) : (
-				<div style={T.wrap}>
+				<section
+					style={T.wrap}
+					// biome-ignore lint/a11y/noNoninteractiveTabindex: the horizontally scrollable table region must be keyboard focusable.
+					tabIndex={0}
+					aria-label="Conversion runtime status table"
+				>
 					<table style={T.table}>
 						<thead>
 							<tr style={T.headRow}>
@@ -94,6 +114,9 @@ export default function StatusView({ status, metaByKey, onErrorClick }: Props): 
 								</th>
 								<th scope="col" style={V.headCell}>
 									PGNs
+								</th>
+								<th scope="col" style={{ ...V.headCell, textAlign: "right" }}>
+									Inputs
 								</th>
 								<th scope="col" style={{ ...V.headCell, textAlign: "right" }}>
 									Emits
@@ -107,13 +130,21 @@ export default function StatusView({ status, metaByKey, onErrorClick }: Props): 
 							</tr>
 						</thead>
 						<tbody>
-							{enabledRows.map((row) => {
+							{displayRows.map((row) => {
 								const recency =
 									row.emitCount > 0 ? humanizeAgo(row.lastEmitMs) : "no recent output";
+								const health = conversionHealth(row);
+								const isChild = row.parentKey !== undefined;
 								return (
 									<tr key={row.key}>
-										<td style={V.cell}>{row.title}</td>
+										<td style={isChild ? V.childCell : V.cell}>
+											{isChild ? `Mapping row ${(row.mappingIndex ?? 0) + 1}` : row.title}
+											{isChild && (row.inputPaths?.length ?? 0) > 0 ? (
+												<div style={V.inputPaths}>{row.inputPaths?.join(", ")}</div>
+											) : null}
+										</td>
 										<td style={V.pgnCell}>{pgnsFor(row, metaByKey) || "-"}</td>
+										<td style={V.numberCell}>{row.inputCount ?? 0}</td>
 										<td style={V.numberCell}>{row.emitCount}</td>
 										<td style={V.cell}>
 											{row.emitCount > 0 ? recency : <span style={S.textFaint}>{recency}</span>}
@@ -128,7 +159,11 @@ export default function StatusView({ status, metaByKey, onErrorClick }: Props): 
 														: ""}
 												</span>
 											) : (
-												<span style={S.textFaint}>ok</span>
+												<span style={health.state === "emitting" ? S.textFaint : S.textWarning}>
+													{!status.nmea2000Ready && (row.inputCount ?? 0) > 0
+														? "Waiting for NMEA 2000 output"
+														: health.label}
+												</span>
 											)}
 										</td>
 									</tr>
@@ -136,7 +171,7 @@ export default function StatusView({ status, metaByKey, onErrorClick }: Props): 
 							})}
 						</tbody>
 					</table>
-				</div>
+				</section>
 			)}
 		</div>
 	);

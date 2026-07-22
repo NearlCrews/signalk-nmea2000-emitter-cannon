@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { errMessage } from "../../utils/errorUtils.js";
 import { fetchJson } from "../api-base";
 
 const CACHE_TTL_MS = 30_000;
@@ -30,25 +31,28 @@ function sameSources(a: string[], b: string[]): boolean {
 
 export function useSources(): {
 	sourcesFor: (path: string) => string[];
-	ensureLoaded: (path: string) => Promise<void>;
+	sourceErrorFor: (path: string) => string | null;
+	ensureLoaded: (path: string, force?: boolean) => Promise<void>;
 } {
-	const cache = useRef<Map<string, { ts: number; sources: string[] }>>(new Map());
+	const cache = useRef<Map<string, { ts: number; sources: string[]; error: string | null }>>(
+		new Map(),
+	);
 	const pending = useRef<Map<string, Promise<void>>>(new Map());
 	const cancelled = useRef(false);
 	const [, force] = useState(0);
 
 	// Set the cancelled flag on unmount so an in-flight fetch resolving after
 	// the component is gone does not call setState (React would log a warning).
-	useEffect(
-		() => () => {
+	useEffect(() => {
+		cancelled.current = false;
+		return () => {
 			cancelled.current = true;
-		},
-		[],
-	);
+		};
+	}, []);
 
-	const ensureLoaded = useCallback(async (path: string): Promise<void> => {
+	const ensureLoaded = useCallback(async (path: string, forceRefresh = false): Promise<void> => {
 		const hit = cache.current.get(path);
-		if (hit && Date.now() - hit.ts < CACHE_TTL_MS) return;
+		if (!forceRefresh && hit && Date.now() - hit.ts < CACHE_TTL_MS) return;
 		const inflight = pending.current.get(path);
 		if (inflight) return inflight;
 		const p = (async () => {
@@ -56,27 +60,35 @@ export function useSources(): {
 				const body = await fetchJson<{ sources: string[] }>(
 					`/sources?path=${encodeURIComponent(path)}`,
 				);
-				const prev = cache.current.get(path)?.sources;
+				const previous = cache.current.get(path);
+				const prev = previous?.sources;
 				// Delete first so re-inserting `path` lands at the tail of the
 				// insertion order: a refresh of an existing entry should not
 				// evict itself on the next overflow.
 				cache.current.delete(path);
-				cache.current.set(path, { ts: Date.now(), sources: body.sources });
+				cache.current.set(path, { ts: Date.now(), sources: body.sources, error: null });
 				evictOldest(cache.current);
 				// Skip the re-render when the source list is unchanged: TTL-driven
 				// refreshes that return the same content otherwise trigger a
 				// pointless re-render of every SourceField that called us.
-				if (!cancelled.current && (prev === undefined || !sameSources(prev, body.sources))) {
+				if (
+					!cancelled.current &&
+					(previous === undefined ||
+						previous.error !== null ||
+						!sameSources(prev ?? [], body.sources))
+				) {
 					force((n) => n + 1);
 				}
-			} catch {
-				const prev = cache.current.get(path)?.sources;
+			} catch (reason) {
+				const previous = cache.current.get(path);
 				cache.current.delete(path);
-				cache.current.set(path, { ts: Date.now(), sources: [] });
+				cache.current.set(path, {
+					ts: Date.now(),
+					sources: previous?.sources ?? [],
+					error: errMessage(reason),
+				});
 				evictOldest(cache.current);
-				if (!cancelled.current && (prev === undefined || prev.length !== 0)) {
-					force((n) => n + 1);
-				}
+				if (!cancelled.current) force((n) => n + 1);
 			} finally {
 				pending.current.delete(path);
 			}
@@ -86,6 +98,7 @@ export function useSources(): {
 	}, []);
 
 	const sourcesFor = useCallback((path: string) => cache.current.get(path)?.sources ?? [], []);
+	const sourceErrorFor = useCallback((path: string) => cache.current.get(path)?.error ?? null, []);
 
-	return { sourcesFor, ensureLoaded };
+	return { sourcesFor, sourceErrorFor, ensureLoaded };
 }

@@ -6,6 +6,7 @@ import { buildConversionMetadata } from "./api/conversion-metadata.js";
 import { createApiRouter } from "./api/router.js";
 import type { ConversionMetadata } from "./api/types.js";
 import { migrateLegacyConfig } from "./config/migrate.js";
+import { conversionOptionsByKey } from "./config/pluginOptions.js";
 import { RootConfig } from "./config/schema.js";
 import { createConversionModules } from "./conversions/index.js";
 import { PluginManager } from "./plugin-manager.js";
@@ -64,19 +65,24 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 	// but only calls start() (which builds pluginManager) once it is enabled, so
 	// a manager-free catalog is what lets the config panel show and configure
 	// conversions before the first enable. Use the manager's catalog when it is
-	// populated, else build a standalone copy once and reuse it. The fallback also
+	// populated, else reuse standalone modules and rebuild their metadata with the
+	// latest saved mapping options. The fallback also
 	// covers failed starts, where the manager has already cleared its modules.
 	// Shared by the API router and the advisor, which both previously saw an empty
 	// catalog while the plugin was disabled.
 	let conversionCatalog: ConversionMetadata[] | null = null;
+	let standaloneConversions: ReturnType<typeof createConversionModules> | null = null;
 	const getMetadata = (): ConversionMetadata[] => {
 		if (pluginManager) {
 			const managerMetadata = pluginManager.getConversionMetadata();
 			if (managerMetadata.length > 0) return managerMetadata;
 		}
-		if (!conversionCatalog) {
-			conversionCatalog = buildConversionMetadata(createConversionModules(app, plugin));
-		}
+		const config = readConfig();
+		standaloneConversions ??= createConversionModules(app, plugin);
+		conversionCatalog = buildConversionMetadata(
+			standaloneConversions,
+			conversionOptionsByKey(config),
+		);
 		return conversionCatalog;
 	};
 
@@ -91,10 +97,16 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 	// (BATTERY, NOTIFICATIONS, ENGINE_*, TANKS, SOLAR). savePluginOptions
 	// re-wraps the bare config as `.configuration`, so writeConfig passes the
 	// flattened object straight through.
-	const readConfig = () => {
-		const envelope = app.readPluginOptions() as { configuration?: unknown };
-		return migrateLegacyConfig(envelope.configuration ?? {});
-	};
+	function readConfig() {
+		if (typeof app.readPluginOptions !== "function") return migrateLegacyConfig({});
+		try {
+			const envelope = app.readPluginOptions() as { configuration?: unknown };
+			return migrateLegacyConfig(envelope.configuration ?? {});
+		} catch (error) {
+			app.error(`Unable to read plugin configuration: ${errMessage(error)}`);
+			return migrateLegacyConfig({});
+		}
+	}
 
 	// The Config Advisor reviews live Signal K paths and recommends which
 	// conversions to enable. It outlives PluginManager restarts: the shared

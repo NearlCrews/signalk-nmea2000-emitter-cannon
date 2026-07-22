@@ -21,4 +21,9 @@ describe("isSaveDisabled", () => {
 		// User has made edits to an already-configured plugin.
 		expect(isSaveDisabled(true, false)).toBe(false);
 	});
+
+	it("is disabled while the configuration has blocking validation errors", () => {
+		expect(isSaveDisabled(true, false, 1)).toBe(true);
+		expect(isSaveDisabled(false, true, 2)).toBe(true);
+	});
 });

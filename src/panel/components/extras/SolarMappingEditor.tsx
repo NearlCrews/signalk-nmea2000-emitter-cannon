@@ -15,14 +15,21 @@ interface Row {
 interface Props {
 	value: Record<string, unknown>;
 	onChange: (next: Record<string, unknown>) => void;
+	availablePaths: string[];
 }
 
-export default function SolarMappingEditor({ value, onChange }: Props): React.ReactElement {
+export default function SolarMappingEditor({
+	value,
+	onChange,
+	availablePaths,
+}: Props): React.ReactElement {
 	const { rows, setRows } = extraRows<Row>(value, "chargers", onChange);
 	return (
 		<MappingTable<Row>
 			title="Solar charger mapping"
+			collection="chargers"
 			rows={rows}
+			available={availablePaths}
 			emptyRow={() => ({ signalkId: "", instanceId: 0, panelInstanceId: 0 })}
 			onChange={setRows}
 			columns={[
@@ -30,6 +37,11 @@ export default function SolarMappingEditor({ value, onChange }: Props): React.Re
 					header: "Signal K charger id",
 					placeholder: "0, 1, mppt-1",
 					ariaLabel: "Signal K solar charger id",
+					pathPrefix: "electrical.solar",
+					requiredInput: () => ({
+						label: "at least one charger or panel measurement",
+						alternatives: [["voltage"], ["current"], ["panelVoltage"], ["panelCurrent"]],
+					}),
 				}),
 				instanceIdColumn<Row>({
 					header: "NMEA 2000 charger instance",
@@ -37,6 +49,7 @@ export default function SolarMappingEditor({ value, onChange }: Props): React.Re
 				}),
 				{
 					header: "NMEA 2000 panel instance",
+					group: "NMEA 2000 output",
 					render: (r, set) => (
 						<NumberInput
 							value={r.panelInstanceId}

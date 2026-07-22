@@ -1,14 +1,13 @@
+import {
+	TEMPERATURE_DEFINITIONS,
+	type TemperatureDefinition,
+} from "../config/environmentSources.js";
 import { raymarinePresetsFor } from "../config/raymarinePreset.js";
 import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, N2K_DEFAULT_SID } from "../constants.js";
 import type { ConversionModule, N2KMessage } from "../types/index.js";
 import { isValidNumber, resolveInstanceAndSource } from "../utils/validation.js";
 
-export interface TemperatureInfo {
-	n2kSource: string;
-	source: string;
-	instance: number;
-	option: string;
-}
+export type TemperatureInfo = TemperatureDefinition;
 
 function createTemperatureMessage(
 	pgn: number,
@@ -87,78 +86,11 @@ function makeTemperatureConversion(
 	};
 }
 
-export const temperatures: TemperatureInfo[] = [
-	{
-		n2kSource: "Outside Temperature",
-		source: "environment.outside.temperature",
-		instance: 101,
-		option: "OUTSIDE",
-	},
-	{
-		n2kSource: "Inside Temperature",
-		source: "environment.inside.temperature",
-		instance: 102,
-		option: "INSIDE",
-	},
-	{
-		n2kSource: "Engine Room Temperature",
-		source: "environment.inside.engineRoom.temperature",
-		instance: 103,
-		option: "ENGINEROOM",
-	},
-	{
-		n2kSource: "Main Cabin Temperature",
-		source: "environment.inside.mainCabin.temperature",
-		instance: 104,
-		option: "MAINCABIN",
-	},
-	{
-		n2kSource: "Refrigeration Temperature",
-		source: "environment.inside.refrigerator.temperature",
-		instance: 105,
-		option: "REFRIGERATOR",
-	},
-	{
-		n2kSource: "Heating System Temperature",
-		source: "environment.inside.heating.temperature",
-		instance: 106,
-		option: "HEATINGSYSTEM",
-	},
-	{
-		n2kSource: "Dew Point Temperature",
-		source: "environment.outside.dewPointTemperature",
-		instance: 107,
-		option: "DEWPOINT",
-	},
-	{
-		n2kSource: "Apparent Wind Chill Temperature",
-		source: "environment.outside.apparentWindChillTemperature",
-		instance: 108,
-		option: "APPARENTWINDCHILL",
-	},
-	{
-		n2kSource: "Theoretical Wind Chill Temperature",
-		source: "environment.outside.theoreticalWindChillTemperature",
-		instance: 109,
-		option: "THEORETICALWINDCHILL",
-	},
-	{
-		n2kSource: "Heat Index Temperature",
-		source: "environment.outside.heatIndexTemperature",
-		instance: 110,
-		option: "HEATINDEX",
-	},
-	{
-		n2kSource: "Freezer Temperature",
-		source: "environment.inside.freezer.temperature",
-		instance: 111,
-		option: "FREEZER",
-	},
-];
+export const temperatures: readonly TemperatureInfo[] = TEMPERATURE_DEFINITIONS;
 
 export default function createTemperatureConversions(): ConversionModule[] {
-	// Each source intentionally emits BOTH PGN 130312 and 130316: some MFDs
-	// only consume one of the two, so dual emission maximises interop.
+	// Each source has separate modern and legacy conversions so operators can
+	// enable PGN 130312 only when an older receiver requires it.
 	return temperatures.flatMap((info) => [
 		makeTemperatureConversion(130312, "TEMPERATURE", info),
 		makeTemperatureConversion(130316, "TEMPERATURE2", info),

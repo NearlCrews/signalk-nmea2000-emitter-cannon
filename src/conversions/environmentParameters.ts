@@ -76,7 +76,6 @@ export default function createEnvironmentParametersConversion(
 		title: "Environmental Parameters (PGN 130311)",
 		optionKey: "ENVIRONMENT_PARAMETERS",
 		category: "environment",
-		presets: ["environmental"],
 		keys: ENVIRONMENT_PATHS,
 		testOptions: [{}, { temperatureSource: "Dew Point Temperature", humiditySource: "Inside" }],
 		conversions: (options) => {

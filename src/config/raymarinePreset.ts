@@ -38,10 +38,21 @@ export const RAYMARINE_EXTRAS_PATCH: Record<string, RaymarinePatch> = {
 	HUMIDITY_INSIDE: { n2kSource: "Inside", instance: 0 },
 };
 
-// The preset tags for a temperature or humidity conversion: a key the Raymarine
-// remap touches also carries the "raymarine" tag, so the preset enables it and
-// the panel counts it. Shared by temperature.ts and humidity.ts so the tag set
-// stays derived from this one patch table.
+// The preset tags for a temperature or humidity conversion. PGN 130316 is the
+// canonical temperature frame for the general environmental preset. PGN
+// 130312 remains available for receivers that require it, but must be enabled
+// explicitly so a preset does not publish the same sensor through both the
+// modern and legacy temperature frames.
+//
+// A key the Raymarine remap touches also carries the "raymarine" tag, so the
+// preset enables it and the panel counts it. Shared by temperature.ts and
+// humidity.ts so the tag set stays derived from this one patch table.
 export function raymarinePresetsFor(optionKey: string): PresetTag[] {
-	return optionKey in RAYMARINE_EXTRAS_PATCH ? ["environmental", "raymarine"] : ["environmental"];
+	const environmental = optionKey.startsWith("TEMPERATURE2_") || optionKey.startsWith("HUMIDITY_");
+	const raymarine = optionKey in RAYMARINE_EXTRAS_PATCH;
+
+	if (environmental && raymarine) return ["environmental", "raymarine"];
+	if (environmental) return ["environmental"];
+	if (raymarine) return ["raymarine"];
+	return [];
 }

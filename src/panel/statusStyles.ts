@@ -9,6 +9,18 @@ const cell: CSSProperties = {
 
 export const STATUS_VIEW_STYLES = {
 	cell,
+	childCell: {
+		...cell,
+		paddingLeft: "var(--skn-space-4)",
+		color: "var(--skn-text-muted)",
+	},
+	inputPaths: {
+		marginTop: "var(--skn-space-compact)",
+		fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+		fontSize: "var(--skn-font-small)",
+		color: "var(--skn-text-faint)",
+		overflowWrap: "anywhere",
+	},
 	headCell: {
 		padding: "10px",
 		fontWeight: 600,

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { RootConfig } from "../config/schema.js";
+import { SLOW_DATA_TIMEOUT_MS, SOURCE_TYPE } from "../constants.js";
 import { outputStateFor } from "../panel/outputState.js";
 import { PluginManager } from "../plugin-manager.js";
 import type { SignalKApp, SignalKPlugin } from "../types/index.js";
@@ -125,6 +126,213 @@ describe("PluginManager.getStatusSnapshot", () => {
 		const battery = snap.perConversion.find((c) => c.key === "BATTERY");
 		expect(battery?.lastErrorMessage).toBe("subfail");
 	});
+
+	it("reports accepted inputs, empty outputs, and source-safety drops", () => {
+		const pm = new PluginManager(makeMockApp(), mockPlugin);
+		const internal = pm as unknown as {
+			recordInput: (key: string) => void;
+			recordEmptyOutput: (key: string) => void;
+			recordDrop: (key: string, reason: "publisher-filter" | "nmea2000-echo") => void;
+		};
+		internal.recordInput("BATTERY[0]");
+		internal.recordEmptyOutput("BATTERY[0]");
+		internal.recordDrop("BATTERY[1]", "publisher-filter");
+		internal.recordDrop("BATTERY[1]", "nmea2000-echo");
+
+		const battery = pm.getStatusSnapshot().perConversion.find((row) => row.key === "BATTERY");
+		expect(battery).toMatchObject({
+			inputCount: 1,
+			emptyOutputCount: 1,
+			sourceFilterDropCount: 1,
+			nmea2000EchoDropCount: 1,
+			lastDropReason: "nmea2000-echo",
+		});
+		expect(battery?.lastInputMs).toBeGreaterThanOrEqual(0);
+		expect(battery?.lastEmptyOutputMs).toBeGreaterThanOrEqual(0);
+		expect(battery?.lastDropAgeMs).toBeGreaterThanOrEqual(0);
+	});
+
+	it("ignores unrelated synchronous and asynchronous ON_DELTA results", async () => {
+		const pm = new PluginManager(makeMockApp(), mockPlugin);
+		const callbacks = [() => [], async () => []];
+		const internal = pm as unknown as {
+			deltaConversions: Array<{
+				conversion: {
+					title: string;
+					optionKey: string;
+					sourceType: string;
+					callback: () => unknown[] | Promise<unknown[]>;
+				};
+				options: { resend: number };
+			}>;
+			dispatchDelta: (delta: unknown) => void;
+		};
+
+		for (const callback of callbacks) {
+			internal.deltaConversions = [
+				{
+					conversion: {
+						title: "Notifications",
+						optionKey: "NOTIFICATIONS",
+						sourceType: SOURCE_TYPE.ON_DELTA,
+						callback,
+					},
+					options: { resend: 0 },
+				},
+			];
+			internal.dispatchDelta({ updates: [{ values: [{ path: "unrelated", value: true }] }] });
+		}
+		await Promise.resolve();
+		await Promise.resolve();
+
+		const notifications = pm
+			.getStatusSnapshot()
+			.perConversion.find((row) => row.key === "NOTIFICATIONS");
+		expect(notifications).toMatchObject({ inputCount: 0, emptyOutputCount: 0 });
+	});
+
+	it("retains child mapping status while preserving the parent aggregate", () => {
+		const pm = new PluginManager(makeMockApp(), mockPlugin);
+		pm.start({
+			globalResendInterval: 0,
+			conversions: {
+				BATTERY: {
+					enabled: true,
+					resend: 0,
+					sources: {},
+					extras: {
+						batteries: [
+							{ signalkId: "house", instanceId: 0 },
+							{ signalkId: "start", instanceId: 1 },
+						],
+					},
+				},
+			},
+		});
+		const internal = pm as unknown as {
+			recordEmit: (key: string) => void;
+			recordInput: (key: string, path?: string) => void;
+			recordEmptyOutput: (key: string) => void;
+			throttledError: (key: string, message: string) => void;
+		};
+		internal.recordInput("BATTERY[0]", "electrical.batteries.house.voltage");
+		internal.recordEmit("BATTERY[0]");
+		internal.recordEmptyOutput("BATTERY[1]");
+		internal.throttledError("callback:BATTERY[1]:stream", "start battery failed");
+
+		const rows = pm.getStatusSnapshot().perConversion;
+		const parent = rows.find((row) => row.key === "BATTERY");
+		const house = rows.find((row) => row.key === "BATTERY[0]");
+		const start = rows.find((row) => row.key === "BATTERY[1]");
+		expect(parent).toMatchObject({
+			emitCount: 1,
+			inputCount: 1,
+			emptyOutputCount: 1,
+			lastErrorMessage: "start battery failed",
+		});
+		expect(house).toMatchObject({
+			parentKey: "BATTERY",
+			mappingIndex: 0,
+			emitCount: 1,
+			inputCount: 1,
+			emptyOutputCount: 0,
+		});
+		expect(house?.inputPaths).toContain("electrical.batteries.house.voltage");
+		expect(
+			house?.inputPathLastSeenMs?.["electrical.batteries.house.voltage"],
+		).toBeGreaterThanOrEqual(0);
+		expect(start).toMatchObject({
+			parentKey: "BATTERY",
+			mappingIndex: 1,
+			emitCount: 0,
+			inputCount: 0,
+			emptyOutputCount: 1,
+			lastErrorMessage: "start battery failed",
+		});
+		pm.stop();
+	});
+
+	it("flags a previously active child input after its conversion timeout", () => {
+		vi.useFakeTimers();
+		const startedAt = new Date("2026-07-22T12:00:00Z");
+		vi.setSystemTime(startedAt);
+		const pm = new PluginManager(makeMockApp(), mockPlugin);
+		try {
+			pm.start({
+				globalResendInterval: 5,
+				conversions: {
+					BATTERY: {
+						enabled: true,
+						resend: 0,
+						sources: {},
+						extras: { batteries: [{ signalkId: "start", instanceId: 1 }] },
+					},
+				},
+			});
+			const internal = pm as unknown as {
+				recordEmit: (key: string) => void;
+				recordInput: (key: string, path?: string) => void;
+			};
+			const voltagePath = "electrical.batteries.start.voltage";
+			internal.recordInput("BATTERY[0]", voltagePath);
+			vi.setSystemTime(startedAt.getTime() + SLOW_DATA_TIMEOUT_MS + 1);
+			// A cached resend must not make the dead source look healthy.
+			internal.recordEmit("BATTERY[0]");
+
+			const rows = pm.getStatusSnapshot().perConversion;
+			const child = rows.find((row) => row.key === "BATTERY[0]");
+			const parent = rows.find((row) => row.key === "BATTERY");
+			expect(child?.staleInputPaths).toEqual([voltagePath]);
+			expect(child?.activityStale).toBe(true);
+			expect(child?.staleInputPaths).not.toContain("electrical.batteries.start.current");
+			expect(parent).toMatchObject({
+				activityStale: true,
+				staleChildCount: 1,
+				staleInputPaths: [voltagePath],
+			});
+		} finally {
+			pm.stop();
+			vi.useRealTimers();
+		}
+	});
+
+	it("detects an overdue timer child without treating timer ticks as input", () => {
+		vi.useFakeTimers();
+		const startedAt = new Date("2026-07-22T12:00:00Z");
+		vi.setSystemTime(startedAt);
+		const pm = new PluginManager(makeMockApp(), mockPlugin);
+		try {
+			pm.start({
+				globalResendInterval: 0,
+				conversions: {
+					ENGINE_STATIC: {
+						enabled: true,
+						resend: 0,
+						sources: {},
+						extras: {
+							engines: [{ signalkId: "main", instanceId: 0, VIN: "ABC123" }],
+						},
+					},
+				},
+			});
+			let child = pm
+				.getStatusSnapshot()
+				.perConversion.find((row) => row.key === "ENGINE_STATIC[0]");
+			expect(child?.inputCount).toBe(0);
+			const cadence = child?.expectedActivityMs;
+			expect(cadence).toBeGreaterThan(0);
+			vi.setSystemTime(startedAt.getTime() + (cadence ?? 0) * 3 + 1);
+			child = pm.getStatusSnapshot().perConversion.find((row) => row.key === "ENGINE_STATIC[0]");
+			expect(child).toMatchObject({ activityStale: true, inputCount: 0 });
+			const parent = pm
+				.getStatusSnapshot()
+				.perConversion.find((row) => row.key === "ENGINE_STATIC");
+			expect(parent).toMatchObject({ activityStale: true, staleChildCount: 1 });
+		} finally {
+			pm.stop();
+			vi.useRealTimers();
+		}
+	});
 });
 
 describe("PluginManager.getConversionMetadata", () => {
@@ -172,6 +380,25 @@ describe("PluginManager.getConversionMetadata", () => {
 			.find((conversion) => conversion.key === "VESSEL_TRIP");
 		expect(vesselTrip?.canResend).toBe(false);
 		expect(vesselTrip?.extras).toEqual({ type: "vesselTripMapping", minRows: 0 });
+	});
+
+	it("exposes configured factory input paths after start", () => {
+		const pm = new PluginManager(makeMockApp(), mockPlugin);
+		pm.start({
+			globalResendInterval: 0,
+			conversions: {
+				BATTERY: {
+					enabled: true,
+					resend: 0,
+					sources: {},
+					extras: { batteries: [{ signalkId: "258-second", instanceId: 1 }] },
+				},
+			},
+		});
+
+		const battery = pm.getConversionMetadata().find((conversion) => conversion.key === "BATTERY");
+		expect(battery?.paths).toContain("electrical.batteries.258-second.voltage");
+		pm.stop();
 	});
 });
 

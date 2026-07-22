@@ -16,15 +16,22 @@ interface Row {
 interface Props {
 	value: Record<string, unknown>;
 	onChange: (next: Record<string, unknown>) => void;
+	availablePaths: string[];
 }
 
-export default function ExhaustMappingEditor({ value, onChange }: Props): React.ReactElement {
+export default function ExhaustMappingEditor({
+	value,
+	onChange,
+	availablePaths,
+}: Props): React.ReactElement {
 	const { rows, setRows } = extraRows<Row>(value, "engines", onChange);
 	return (
 		<MappingTable<Row>
 			title="Exhaust temperature mapping"
+			collection="engines"
 			helpText="Signal K engine id pairs with Engine Parameters and Engine Trip. The temperature instance is independent of the engine instance: PGN 130316 uses its own numbering."
 			rows={rows}
+			available={availablePaths}
 			emptyRow={() => ({ signalkId: "", tempInstanceId: 0 })}
 			onChange={setRows}
 			columns={[
@@ -32,9 +39,15 @@ export default function ExhaustMappingEditor({ value, onChange }: Props): React.
 					header: "Signal K engine id",
 					placeholder: "main, port, starboard",
 					ariaLabel: "Signal K engine id for exhaust temperature",
+					pathPrefix: "propulsion",
+					requiredInput: () => ({
+						label: "exhaustTemperature",
+						alternatives: [["exhaustTemperature"]],
+					}),
 				}),
 				{
 					header: "NMEA 2000 temperature instance",
+					group: "NMEA 2000 output",
 					render: (r, set) => (
 						<NumberInput
 							value={r.tempInstanceId}

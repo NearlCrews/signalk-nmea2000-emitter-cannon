@@ -5,6 +5,9 @@ import { SIGNALK_ID_SEGMENT_PATTERN } from "../../../utils/validation.js";
 import { S } from "../../styles";
 import { TABLE_STYLES as T } from "../../tableStyles";
 import NumberInput from "../NumberInput";
+import { mappingInputStatus, type RequiredInput } from "./mappingInputStatus";
+
+export type { RequiredInput } from "./mappingInputStatus";
 
 // Module-level sequence so generated row ids stay unique across every
 // MappingTable instance in the panel.
@@ -12,7 +15,17 @@ let rowIdSeq = 0;
 
 export interface Column<T> {
 	header: string;
-	render: (row: T, onChange: (next: T) => void, available: string[]) => React.ReactElement;
+	group?: "Signal K input" | "NMEA 2000 output" | "Configuration";
+	render: (
+		row: T,
+		onChange: (next: T) => void,
+		available: string[],
+		controlId: string,
+	) => React.ReactElement;
+}
+
+function uniqueSorted(values: string[]): string[] {
+	return [...new Set(values)].sort((a, b) => a.localeCompare(b));
 }
 
 // Single-line text column keyed by an arbitrary string field of the row.
@@ -25,20 +38,59 @@ export function textColumn<R>(opts: {
 	placeholder?: string;
 	ariaLabel?: string;
 	pattern?: string;
+	group?: Column<R>["group"];
+	suggestions?: (available: string[]) => string[];
+	assetPrefix?: (value: string) => string;
+	requiredInput?: (row: R) => RequiredInput | undefined;
 }): Column<R> {
 	return {
 		header: opts.header,
-		render: (r, onRow) => (
-			<input
-				type="text"
-				style={S.input}
-				value={(r[opts.field] as string | undefined) ?? ""}
-				placeholder={opts.placeholder}
-				pattern={opts.pattern}
-				onChange={(e) => onRow({ ...r, [opts.field]: e.target.value } as R)}
-				aria-label={opts.ariaLabel ?? opts.header}
-			/>
-		),
+		...(opts.group === undefined ? {} : { group: opts.group }),
+		render: (r, onRow, available, controlId) => {
+			const value = (r[opts.field] as string | undefined) ?? "";
+			const suggestions = uniqueSorted(opts.suggestions?.(available) ?? []);
+			const listId = suggestions.length > 0 ? `${controlId}-choices` : undefined;
+			const assetPath = value && opts.assetPrefix ? opts.assetPrefix(value) : undefined;
+			const requiredInput = opts.requiredInput?.(r);
+			const status = assetPath
+				? mappingInputStatus(assetPath, available, requiredInput)
+				: undefined;
+			return (
+				<div>
+					<input
+						id={controlId}
+						type="text"
+						style={S.input}
+						value={value}
+						placeholder={opts.placeholder}
+						pattern={opts.pattern}
+						list={listId}
+						onChange={(e) => onRow({ ...r, [opts.field]: e.target.value } as R)}
+						aria-label={opts.ariaLabel ?? opts.header}
+					/>
+					{listId ? (
+						<datalist id={listId}>
+							{suggestions.map((suggestion) => (
+								<option key={suggestion} value={suggestion} />
+							))}
+						</datalist>
+					) : null}
+					{status && available.length > 0 ? (
+						<div>
+							<div style={status.assetFound ? S.mappingLive : S.mappingMissing}>
+								{status.assetFound ? "Asset found" : "Asset not found"}
+							</div>
+							{requiredInput && status.assetFound ? (
+								<div style={status.requiredInputFound ? S.mappingLive : S.mappingMissing}>
+									{status.requiredInputFound ? "Required input found" : "Required input missing"}:{" "}
+									{requiredInput.label}
+								</div>
+							) : null}
+						</div>
+					) : null}
+				</div>
+			);
+		},
 	};
 }
 
@@ -50,9 +102,11 @@ export function selectColumn<R>(opts: {
 	ariaLabel?: string;
 	placeholder?: string;
 	disabled?: (row: R) => boolean;
+	group?: Column<R>["group"];
 }): Column<R> {
 	return {
 		header: opts.header,
+		...(opts.group === undefined ? {} : { group: opts.group }),
 		render: (r, onRow) => (
 			<select
 				style={S.input}
@@ -90,8 +144,51 @@ export function signalkIdColumn<R extends { signalkId: string }>(opts: {
 	header: string;
 	placeholder: string;
 	ariaLabel?: string;
+	pathPrefix?: string;
+	requiredInput?: (row: R) => RequiredInput | undefined;
 }): Column<R> {
-	return textColumn<R>({ field: "signalkId", pattern: SIGNALK_ID_SEGMENT_PATTERN, ...opts });
+	const { pathPrefix, ...textOptions } = opts;
+	return textColumn<R>({
+		field: "signalkId",
+		pattern: SIGNALK_ID_SEGMENT_PATTERN,
+		group: "Signal K input",
+		...textOptions,
+		...(pathPrefix
+			? {
+					suggestions: (available: string[]) => {
+						const prefix = `${pathPrefix}.`;
+						return available.flatMap((path) => {
+							if (!path.startsWith(prefix)) return [];
+							const id = path.slice(prefix.length).split(".")[0];
+							return id ? [id] : [];
+						});
+					},
+					assetPrefix: (value: string) => `${pathPrefix}.${value}`,
+				}
+			: {}),
+	});
+}
+
+/** A full Signal K asset path with live-path suggestions and status. */
+export function signalkPathColumn<R>(opts: {
+	header: string;
+	field: keyof R & string;
+	placeholder: string;
+	pathPattern: RegExp;
+	ariaLabel?: string;
+	pattern?: string;
+	requiredInput?: (row: R) => RequiredInput | undefined;
+}): Column<R> {
+	return textColumn<R>({
+		...opts,
+		group: "Signal K input",
+		suggestions: (available) =>
+			available.flatMap((path) => {
+				const match = path.match(opts.pathPattern);
+				return match?.[1] ? [match[1]] : [];
+			}),
+		assetPrefix: (value) => value,
+	});
 }
 
 // Standard NMEA 2000 instance-id number column. Reused for engine, battery,
@@ -104,6 +201,7 @@ export function instanceIdColumn<R extends { instanceId: number }>(opts: {
 }): Column<R> {
 	return {
 		header: opts.header,
+		group: "NMEA 2000 output",
 		render: (r, onRow) => (
 			<NumberInput
 				value={r.instanceId}
@@ -118,6 +216,8 @@ export function instanceIdColumn<R extends { instanceId: number }>(opts: {
 
 interface Props<T> {
 	title: string;
+	/** Config collection used to associate validation issues with this table. */
+	collection: string;
 	rows: T[];
 	emptyRow: () => T;
 	columns: Column<T>[];
@@ -159,6 +259,18 @@ export default function MappingTable<T>(props: Props<T>): React.ReactElement {
 		setConfirmId(null);
 		props.onChange(props.rows.filter((_, j) => j !== i));
 	};
+	const columnGroups = props.columns.reduce<Array<{ label: string; count: number; key: string }>>(
+		(groups, column) => {
+			const label = column.group ?? "Configuration";
+			const last = groups[groups.length - 1];
+			if (last?.label === label) {
+				last.count++;
+				last.key += `:${column.header}`;
+			} else groups.push({ label, count: 1, key: `${label}:${column.header}` });
+			return groups;
+		},
+		[],
+	);
 
 	return (
 		<div style={{ marginTop: "var(--skn-space-1)" }}>
@@ -170,22 +282,36 @@ export default function MappingTable<T>(props: Props<T>): React.ReactElement {
 					{props.helpText}
 				</div>
 			) : null}
-			<div style={T.wrap}>
+			<section
+				style={T.wrap}
+				data-mapping-collection={props.collection}
+				// biome-ignore lint/a11y/noNoninteractiveTabindex: the horizontally scrollable table region must be keyboard focusable.
+				tabIndex={0}
+				aria-labelledby={titleId}
+				aria-describedby={props.helpText ? helpId : undefined}
+			>
 				<table
 					style={T.table}
 					aria-labelledby={titleId}
 					aria-describedby={props.helpText ? helpId : undefined}
 				>
 					<thead>
+						<tr style={T.groupRow}>
+							{columnGroups.map((group) => (
+								<th key={group.key} colSpan={group.count} scope="colgroup" style={T.groupCell}>
+									{group.label}
+								</th>
+							))}
+							<th rowSpan={2} scope="col" style={T.actionCell}>
+								<span style={S.visuallyHidden}>Actions</span>
+							</th>
+						</tr>
 						<tr style={T.headRow}>
 							{props.columns.map((c) => (
 								<th key={c.header} scope="col" style={T.headCell}>
 									{c.header}
 								</th>
 							))}
-							<th scope="col" style={T.actionCell}>
-								<span style={S.visuallyHidden}>Actions</span>
-							</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -195,7 +321,7 @@ export default function MappingTable<T>(props: Props<T>): React.ReactElement {
 							const armed = confirmId === rowId;
 							return (
 								<tr key={rowId}>
-									{props.columns.map((c) => (
+									{props.columns.map((c, columnIndex) => (
 										<td key={c.header} style={T.cell}>
 											{c.render(
 												row,
@@ -205,6 +331,7 @@ export default function MappingTable<T>(props: Props<T>): React.ReactElement {
 													props.onChange(out);
 												},
 												props.available ?? [],
+												`${rowId}-${columnIndex}`,
 											)}
 										</td>
 									))}
@@ -233,7 +360,7 @@ export default function MappingTable<T>(props: Props<T>): React.ReactElement {
 						})}
 					</tbody>
 				</table>
-			</div>
+			</section>
 			<button
 				type="button"
 				style={{ ...S.btnSecondary, marginTop: "var(--skn-space-1)" }}

@@ -191,10 +191,11 @@ const CONVERSION_LIFECYCLE: Record<string, ConversionLifecycle> = {
 
 // PGN 130312 is a softer legacy case than 130310/130311: canboat does not
 // flag it obsolete, but PGN 130316 (Temperature, Extended Range) supersedes
-// it with wider range and resolution. Both are emitted by default.
+// it with wider range and resolution. The environmental preset enables only
+// the modern PGN 130316; PGN 130312 remains a manual compatibility option.
 const TEMPERATURE_LEGACY: ConversionLifecycle = {
 	supersededBy: "PGN 130316 (the TEMPERATURE2_* conversions)",
-	note: "PGN 130312 is superseded by the extended-range PGN 130316. Both are emitted by default; disable this only if every MFD on the bus reads 130316.",
+	note: "PGN 130312 is superseded by the extended-range PGN 130316. Enable it only when an older receiver does not read PGN 130316.",
 };
 
 export function lifecycleFor(optionKey: string): ConversionLifecycle | undefined {

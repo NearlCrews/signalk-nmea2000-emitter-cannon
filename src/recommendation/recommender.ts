@@ -2,13 +2,27 @@
 import type { ConversionMetadata } from "../api/types.js";
 import type { ConversionMap } from "../config/schema.js";
 import { isDefined } from "../utils/pathUtils.js";
-import { isN2KSource } from "./busSource.js";
+import {
+	classifySourceOrigin,
+	SOURCE_ORIGIN,
+	type SourceOrigin,
+	sourceMatchesFilter,
+} from "./busSource.js";
 import type { PathInventory, Recommendation, StaleSourcePin } from "./types.js";
 
 export interface RecommendInput {
-	inventory: PathInventory;
+	inventory: Array<PathInventory[number] & SourceAwareInventoryEntry>;
 	metadata: ConversionMetadata[];
 	currentConfig: ConversionMap;
+}
+
+interface SourceAwareInventoryEntry {
+	liveSources: string[];
+	sourceOrigins?: Record<string, SourceOrigin>;
+}
+
+function sourceOrigin(entry: SourceAwareInventoryEntry, source: string): SourceOrigin {
+	return entry.sourceOrigins?.[source] ?? classifySourceOrigin(source);
 }
 
 /**
@@ -41,8 +55,16 @@ export function recommend(input: RecommendInput): Recommendation[] {
 		// device. A path with one native source makes the data native.
 		const allBusOrigin = matched.every((e) => {
 			const sources = e.liveSources ?? [];
-			return sources.length > 0 && sources.every(isN2KSource);
+			return (
+				sources.length > 0 &&
+				sources.every((source) => sourceOrigin(e, source) === SOURCE_ORIGIN.NMEA2000)
+			);
 		});
+		const anyNonBusOrigin = matched.some((e) =>
+			(e.liveSources ?? []).some(
+				(source) => sourceOrigin(e, source) === SOURCE_ORIGIN.NON_NMEA2000,
+			),
+		);
 
 		if (allBusOrigin) {
 			out.push({
@@ -81,7 +103,7 @@ export function recommend(input: RecommendInput): Recommendation[] {
 				if (!pinned) continue;
 				const live = e.liveSources ?? [];
 				if (live.length > 0) {
-					if (!live.includes(pinned)) {
+					if (!live.some((source) => sourceMatchesFilter(source, pinned))) {
 						staleSources.push({ path: e.path, pinned, liveSources: live });
 						reasonParts.push(`'${pinned}' for ${e.path} (now ${live.join(", ")})`);
 					}
@@ -111,6 +133,38 @@ export function recommend(input: RecommendInput): Recommendation[] {
 				});
 				continue;
 			}
+		}
+
+		// Superseded PGNs remain available for older receivers, but enabling
+		// them is an explicit compatibility choice. Advisor must not silently
+		// add a legacy frame when the modern conversion already covers the path.
+		if (conv.legacy && !enabled) {
+			out.push({
+				optionKey: conv.key,
+				action: "keep",
+				currentlyEnabled: false,
+				matchedPaths,
+				confidence: "low",
+				origin,
+				reason: `${conv.title}: legacy compatibility output is left disabled. Enable this legacy PGN manually only when a receiver requires it; prefer ${conv.legacy.supersededBy} otherwise.`,
+			});
+			continue;
+		}
+
+		// Do not auto-enable or disable a conversion when every observed source
+		// has unknown origin. This preserves the echo-safe posture without
+		// mistaking plugin publishers whose labels end in digits for NMEA 2000.
+		if (!anyNonBusOrigin) {
+			out.push({
+				optionKey: conv.key,
+				action: "keep",
+				currentlyEnabled: enabled,
+				matchedPaths,
+				confidence: "low",
+				origin,
+				reason: `${conv.title}: source origin is unknown, left ${enabled ? "enabled" : "disabled"} to avoid an unsafe automatic change.`,
+			});
+			continue;
 		}
 
 		out.push({

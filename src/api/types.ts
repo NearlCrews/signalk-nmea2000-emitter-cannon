@@ -14,10 +14,36 @@ export interface PerConversionStatus {
 	key: string;
 	title: string;
 	enabled: boolean;
+	/** Parent catalog key for a factory-produced runtime mapping row. */
+	parentKey?: string;
+	/** Zero-based index of this runtime mapping within its parent conversion. */
+	mappingIndex?: number;
+	/** Signal K paths required by this runtime conversion or mapping row. */
+	inputPaths?: string[];
+	/** Milliseconds since each required stream input path was last observed. */
+	inputPathLastSeenMs?: Record<string, number>;
+	/** Previously observed finite-timeout inputs that have now exceeded their freshness limit. */
+	staleInputPaths?: string[];
 	lastEmitMs?: number;
 	emitCount: number;
 	lastErrorMessage?: string;
 	lastErrorAgeMs?: number;
+	inputCount?: number;
+	lastInputMs?: number;
+	emptyOutputCount?: number;
+	lastEmptyOutputMs?: number;
+	sourceFilterDropCount?: number;
+	nmea2000EchoDropCount?: number;
+	lastDropReason?: "publisher-filter" | "nmea2000-echo";
+	lastDropAgeMs?: number;
+	/** Expected timer, refresh, or resend cadence in milliseconds. */
+	expectedActivityMs?: number;
+	/** Milliseconds since the last observed input, output, or scheduled tick. */
+	lastActivityMs?: number;
+	/** True once expected activity is overdue by three configured intervals. */
+	activityStale?: boolean;
+	/** Number of stale child mappings represented by a parent aggregate row. */
+	staleChildCount?: number;
 }
 
 interface ExtrasFieldBase {
@@ -77,6 +103,11 @@ export interface ConversionMetadata {
 	pgns: string[];
 	category: ConversionCategory;
 	presets: PresetTag[];
+	/**
+	 * Signal K input paths declared by the conversion. Dynamic factory paths are
+	 * included when the metadata builder receives that conversion's current
+	 * options; otherwise only paths that can be resolved without config appear.
+	 */
 	paths: string[];
 	extras: ExtrasMeta;
 	// Optional warning surfaced above the conversion card in the admin UI.

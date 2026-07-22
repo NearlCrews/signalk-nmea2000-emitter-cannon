@@ -39,7 +39,9 @@ interface Props {
 export default function PanelToolbar(props: Props): React.ReactElement {
 	const s = props.status;
 	const outputState = outputStateFor(s);
-	const errors = s ? s.perConversion.filter((c) => c.lastErrorMessage).length : 0;
+	const errors = s
+		? s.perConversion.filter((c) => c.parentKey === undefined && c.lastErrorMessage).length
+		: 0;
 	const staleAgeMs =
 		props.lastUpdatedMs !== undefined
 			? (props.lastAttemptMs ?? Date.now()) - props.lastUpdatedMs

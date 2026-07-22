@@ -2,8 +2,8 @@ import type { Context, NormalizedDelta, Path } from "@signalk/server-api";
 import { debounceTime, Subject } from "rxjs";
 import { buildConversionMetadata } from "./api/conversion-metadata.js";
 import { findOrphanExtrasMetaKeys } from "./api/extras-meta.js";
-import type { ConversionMetadata } from "./api/types.js";
-import { migrateLegacyConfig } from "./config/migrate.js";
+import type { ConversionMetadata, PerConversionStatus, StatusSnapshot } from "./api/types.js";
+import { buildPluginOptions } from "./config/pluginOptions.js";
 import {
 	DEFAULT_GLOBAL_RESEND_SECONDS,
 	SOURCE_TYPE,
@@ -12,11 +12,15 @@ import {
 } from "./constants.js";
 import { resetCourseValueCache } from "./conversions/courseData.js";
 import { createConversionModules } from "./conversions/index.js";
+import {
+	classifySourceOrigin,
+	SOURCE_ORIGIN,
+	sourceMatchesFilter,
+} from "./recommendation/busSource.js";
 import type {
 	ConversionModule,
 	ConversionOptions,
 	N2KMessage,
-	PluginOptions,
 	ProcessingOptions,
 	SignalKApp,
 	SignalKPlugin,
@@ -57,15 +61,37 @@ const BUCKET_PREFIX = {
 
 /**
  * Per-conversion runtime state assembled in getStatusSnapshot() and tracked
- * incrementally as emits and errors happen. Indexed by parent optionKey:
- * sub-conversions (BATTERY[0], BATTERY[1], ...) aggregate under the bare
- * parent key (BATTERY), which is exactly what the panel renders per card.
+ * incrementally as inputs, emits, drops, and errors happen. Factory children
+ * retain their indexed key while each event is also folded into the parent
+ * record used by the catalog card.
  */
 interface PerConversionState {
 	enabled: boolean;
 	emitCount: number;
+	inputCount: number;
+	emptyOutputCount: number;
+	sourceFilterDropCount: number;
+	nmea2000EchoDropCount: number;
 	lastEmitAt?: number;
+	lastInputAt?: number;
+	lastActivityAt?: number;
+	lastScheduledActivityAt?: number;
+	inputPathLastSeenAt?: Map<string, number>;
+	lastEmptyOutputAt?: number;
+	lastDrop?: { reason: "publisher-filter" | "nmea2000-echo"; at: number };
 	latestError?: { message: string; emittedAt: number };
+}
+
+/** Runtime identity and activity expectations for one wired conversion. */
+interface RuntimeStatusDescriptor {
+	key: string;
+	title: string;
+	parentKey?: string;
+	mappingIndex?: number;
+	inputPaths: string[];
+	inputTimeoutMs: Map<string, number>;
+	expectedActivityMs?: number;
+	waitsForInput: boolean;
 }
 
 /**
@@ -101,6 +127,7 @@ export class PluginManager {
 	}> = [];
 	private nmea2000Ready = false;
 	private globalResendInterval = DEFAULT_GLOBAL_RESEND_SECONDS;
+	private configuredOptions: Record<string, ConversionOptions> = {};
 	/**
 	 * Flipped by stop(). registerDeltaInputHandler in @signalk/server-api 2.x
 	 * exposes no unregister API, so handlers from prior start()/stop() cycles
@@ -145,13 +172,14 @@ export class PluginManager {
 	private static readonly ERROR_THROTTLE_S = 60;
 	private static readonly ERROR_THROTTLE_MS = PluginManager.ERROR_THROTTLE_S * 1000;
 	/**
-	 * Single per-conversion state record indexed by parent optionKey. Replaces
+	 * Per-conversion state records indexed by both runtime child and parent key.
+	 * Replaces
 	 * four earlier Maps (emitCounts, lastEmitAt, lastEnabledKeys, and the
 	 * latestErrorByParent secondary index) that all walked the same key space.
 	 *
-	 * Sub-conversion buckets like `BATTERY[0]` and per-source error keys like
-	 * `callback:BATTERY[0]:stream` aggregate under the bare parent optionKey
-	 * (BATTERY), which is what the panel displays per card. Entries are
+	 * Sub-conversion buckets like `BATTERY[0]` retain their own record and also
+	 * update the bare parent optionKey (BATTERY), which is what the panel
+	 * displays per card. Entries are
 	 * lazily created by recordEmit() and throttledError() and pre-seeded for
 	 * every enabled conversion in start() so the snapshot's `enabled` flag is
 	 * O(1).
@@ -159,15 +187,34 @@ export class PluginManager {
 	 * Cleared at start() and stop() boundaries alongside errorBuckets.
 	 */
 	private perConversion: Map<string, PerConversionState> = new Map();
+	private runtimeStatusDescriptors: Map<string, RuntimeStatusDescriptor> = new Map();
 	private startTime = Date.now();
 
 	private getPerConversionState(key: string): PerConversionState {
 		let entry = this.perConversion.get(key);
 		if (entry === undefined) {
-			entry = { enabled: false, emitCount: 0 };
+			entry = {
+				enabled: false,
+				emitCount: 0,
+				inputCount: 0,
+				emptyOutputCount: 0,
+				sourceFilterDropCount: 0,
+				nmea2000EchoDropCount: 0,
+			};
 			this.perConversion.set(key, entry);
 		}
 		return entry;
+	}
+
+	/** Update a runtime child and its parent aggregate with one timestamp. */
+	private updatePerConversionStates(
+		key: string,
+		update: (entry: PerConversionState, now: number) => void,
+	): void {
+		const now = Date.now();
+		update(this.getPerConversionState(key), now);
+		const parent = stripSubIndex(key);
+		if (parent !== key) update(this.getPerConversionState(parent), now);
 	}
 
 	constructor(
@@ -242,19 +289,18 @@ export class PluginManager {
 	}
 
 	/**
-	 * Extract the parent optionKey from a throttle-bucket key. Bucket keys
+	 * Extract the runtime optionKey from a throttle-bucket key. Bucket keys
 	 * are `<prefix>:<id>[:<source>]` where id is either `OPTION_KEY` or
-	 * `OPTION_KEY[N]` for sub-conversions. Returns the bare option key so
-	 * status snapshots can index by parent regardless of which sub-conversion
-	 * (or which source: stream/delta/timer/etc) raised the error.
+	 * `OPTION_KEY[N]` for sub-conversions. The indexed identity is preserved so
+	 * the panel can identify the failing mapping row; the write path also folds
+	 * it into the parent aggregate.
 	 */
-	private parentKeyFromBucketKey(bucketKey: string): string | undefined {
+	private conversionKeyFromBucketKey(bucketKey: string): string | undefined {
 		const firstColon = bucketKey.indexOf(":");
 		if (firstColon === -1) return undefined;
 		const afterPrefix = bucketKey.substring(firstColon + 1);
 		const secondColon = afterPrefix.indexOf(":");
-		const id = secondColon === -1 ? afterPrefix : afterPrefix.substring(0, secondColon);
-		return stripSubIndex(id);
+		return secondColon === -1 ? afterPrefix : afterPrefix.substring(0, secondColon);
 	}
 
 	/**
@@ -264,8 +310,8 @@ export class PluginManager {
 	 * error appends a suppressed-count summary. Keeps a misbehaving callback
 	 * from flooding the server log on every delta.
 	 *
-	 * Also updates perConversion[parent].latestError so getStatusSnapshot()
-	 * can surface the most recent error per parent optionKey in O(1).
+	 * Also updates the exact runtime conversion and its parent aggregate so the
+	 * panel can surface both the failing mapping and the card-level warning.
 	 */
 	private throttledError(key: string, message: string): void {
 		const now = Date.now();
@@ -281,12 +327,11 @@ export class PluginManager {
 				suppressed: 0,
 				nextEmit: now + PluginManager.ERROR_THROTTLE_MS,
 			});
-			const parent = this.parentKeyFromBucketKey(key);
-			if (parent !== undefined) {
-				this.getPerConversionState(parent).latestError = {
-					message,
-					emittedAt: now,
-				};
+			const conversionKey = this.conversionKeyFromBucketKey(key);
+			if (conversionKey !== undefined) {
+				this.updatePerConversionStates(conversionKey, (entry) => {
+					entry.latestError = { message, emittedAt: now };
+				});
 			}
 			return;
 		}
@@ -317,30 +362,72 @@ export class PluginManager {
 		}
 	}
 
-	/**
-	 * Migrate the raw options (legacy flat shape or the typed new shape), then
-	 * flatten each conversion's sources+extras back into the wide
-	 * ConversionOptions surface the downstream mappers read.
-	 */
-	private buildPluginOptions(rawOptions: unknown): PluginOptions {
-		const migrated = migrateLegacyConfig(rawOptions);
-		const conversions: Record<string, ConversionOptions> = {};
-		for (const [key, value] of Object.entries(migrated.conversions)) {
-			// value.sources / value.extras can be undefined: the nested
-			// early-return branch in migrateLegacyConfig passes a config through
-			// without backfilling them. Spreading undefined is a no-op, so the
-			// spread stays safe without `?? {}` guards.
-			conversions[key] = {
-				enabled: value.enabled,
-				resend: value.resend,
-				...value.sources,
-				...value.extras,
-			};
+	private expectedActivityFor(
+		conversion: ConversionModule,
+		options: ConversionOptions,
+	): { intervalMs?: number; waitsForInput: boolean } {
+		const sourceType = conversion.sourceType ?? SOURCE_TYPE.ON_VALUE_CHANGE;
+		if (
+			sourceType === SOURCE_TYPE.TIMER &&
+			typeof conversion.interval === "number" &&
+			Number.isFinite(conversion.interval) &&
+			conversion.interval > 0
+		) {
+			return { intervalMs: conversion.interval, waitsForInput: false };
 		}
-		return {
-			globalResendInterval: migrated.globalResendInterval,
-			conversions,
-		};
+
+		const refreshInterval = resolveRefreshInterval(conversion);
+		if (refreshInterval !== undefined) {
+			return { intervalMs: refreshInterval, waitsForInput: true };
+		}
+
+		if (
+			conversion.allowResend !== false &&
+			sourceType !== SOURCE_TYPE.ON_DELTA &&
+			sourceType !== SOURCE_TYPE.TIMER
+		) {
+			const resendSeconds =
+				typeof options.resend === "number" && options.resend > 0
+					? options.resend
+					: this.globalResendInterval;
+			if (Number.isFinite(resendSeconds) && resendSeconds > 0) {
+				return { intervalMs: resendSeconds * 1000, waitsForInput: true };
+			}
+		}
+
+		return { waitsForInput: sourceType !== SOURCE_TYPE.TIMER };
+	}
+
+	private registerRuntimeStatus(
+		conversion: ConversionModule,
+		options: ConversionOptions,
+		parentKey?: string,
+		mappingIndex?: number,
+	): void {
+		const key = conversion.optionKey;
+		if (!key) return;
+		const activity = this.expectedActivityFor(conversion, options);
+		const resolvedInputPaths = resolveKeys(conversion.keys, options);
+		const inputPaths = [...new Set(resolvedInputPaths)];
+		const inputTimeoutMs = new Map<string, number>();
+		for (let index = 0; index < resolvedInputPaths.length; index++) {
+			const timeout = conversion.timeouts?.[index];
+			if (typeof timeout === "number" && Number.isFinite(timeout) && timeout > 0) {
+				const path = resolvedInputPaths[index];
+				if (path !== undefined) inputTimeoutMs.set(path, timeout);
+			}
+		}
+		this.runtimeStatusDescriptors.set(key, {
+			key,
+			title: conversion.title,
+			...(parentKey === undefined ? {} : { parentKey }),
+			...(mappingIndex === undefined ? {} : { mappingIndex }),
+			inputPaths,
+			inputTimeoutMs,
+			...(activity.intervalMs === undefined ? {} : { expectedActivityMs: activity.intervalMs }),
+			waitsForInput: activity.waitsForInput,
+		});
+		this.getPerConversionState(key).enabled = true;
 	}
 
 	/**
@@ -393,13 +480,19 @@ export class PluginManager {
 					: {
 							...subConversion,
 							optionKey: subIndexKey(conv.optionKey, idx),
-							title: subConversion.title ?? `${conv.title} #${idx}`,
+							title: subConversion.title ?? `${conv.title}, mapping row ${idx + 1}`,
 							category: conv.category,
 							...(allowResend === undefined ? {} : { allowResend }),
 							...(refreshInterval === undefined ? {} : { refreshInterval }),
 							...(conv.presets ? { presets: conv.presets } : {}),
 						};
 
+			this.registerRuntimeStatus(
+				labeled,
+				convOptions,
+				subConversion === conv ? undefined : conv.optionKey,
+				subConversion === conv ? undefined : idx,
+			);
 			mapper(labeled, convOptions);
 		}
 	}
@@ -414,6 +507,8 @@ export class PluginManager {
 			activeManager = this;
 			this.errorBuckets.clear();
 			this.perConversion.clear();
+			this.runtimeStatusDescriptors.clear();
+			this.startTime = Date.now();
 			// Re-attach the nmea2000OutAvailable listener every start: stop()
 			// removes it, and start() may run multiple times across a single
 			// plugin instance (disable -> enable from the admin UI). Removing
@@ -430,7 +525,8 @@ export class PluginManager {
 				this.nmea2000Ready = true;
 				this.app.debug("NMEA 2000 output already available at start (factory-latched flag)");
 			}
-			const options = this.buildPluginOptions(rawOptions);
+			const options = buildPluginOptions(rawOptions);
+			this.configuredOptions = options.conversions;
 			// Nullish-coalesce, not `||`: a configured 0 is a meaningful value
 			// (disable global resend) and must survive. `migrateLegacyConfig`
 			// already guarantees a number here, so `??` only fills a genuinely
@@ -543,6 +639,7 @@ export class PluginManager {
 		// routing slot if it still points at this instance, so the retired
 		// manager becomes collectable.
 		this.deltaConversions = [];
+		this.configuredOptions = {};
 		if (activeManager === this) {
 			activeManager = null;
 		}
@@ -565,6 +662,7 @@ export class PluginManager {
 		// errors from the prior cycle.
 		this.lastEnabledCount = 0;
 		safe("clear perConversion", () => this.perConversion.clear());
+		safe("clear runtimeStatusDescriptors", () => this.runtimeStatusDescriptors.clear());
 		safe("clear errorBuckets", () => this.errorBuckets.clear());
 
 		// Wipe ExponentialSmoother state across plugin restarts.
@@ -595,6 +693,9 @@ export class PluginManager {
 			const lastInput = this.lastInputs.get(conversion);
 			// No input ever observed: skip; do not emit stale defaults.
 			if (lastInput === undefined) return;
+			if (conversion.optionKey !== undefined) {
+				this.recordScheduledActivity(conversion.optionKey);
+			}
 
 			const raw = this.invokeCallback(conversion, lastInput, BUCKET_PREFIX.RESEND);
 			if (raw === undefined) return;
@@ -619,6 +720,22 @@ export class PluginManager {
 		try {
 			if (output !== undefined) {
 				const values = await Promise.resolve(output);
+				if (values.length === 0) {
+					// ON_DELTA callbacks use [] to reject unrelated process-wide
+					// deltas. That is not accepted input or an empty conversion result.
+					if (conversion.sourceType === SOURCE_TYPE.ON_DELTA) return;
+					if (conversion.optionKey !== undefined) {
+						this.recordEmptyOutput(conversion.optionKey);
+					}
+				} else if (
+					conversion.sourceType === SOURCE_TYPE.ON_DELTA &&
+					conversion.optionKey !== undefined
+				) {
+					// A non-empty resolved result is the first reliable indication that
+					// an ON_DELTA callback accepted this server-wide delta. Record here
+					// so async callbacks are handled correctly too.
+					this.recordInput(conversion.optionKey);
+				}
 				await this.processToN2K(values, conversion.optionKey);
 			}
 		} catch (err) {
@@ -701,14 +818,11 @@ export class PluginManager {
 		const args: unknown[] = [delta];
 		for (const { conversion, options } of this.deltaConversions) {
 			const result = this.invokeCallback(conversion, args, BUCKET_PREFIX.DELTA);
-			// The process-wide delta handler fires on every server-wide delta;
-			// delta conversions return [] for unrelated updates. Skip the
-			// processOutput promise chain for that no-op.
-			// Array.isArray screens out a Promise result (a Promise is not an
-			// array), so an async callback still falls through to processOutput.
-			if (result === undefined || (Array.isArray(result) && result.length === 0)) {
-				continue;
-			}
+			// The process-wide delta handler fires on every server-wide delta.
+			// Synchronous callbacks commonly return [] for unrelated updates, so
+			// skip the promise chain immediately. Async callbacks are classified
+			// after resolution in processOutput.
+			if (result === undefined || (Array.isArray(result) && result.length === 0)) continue;
 			void this.processOutput(conversion, options, result);
 		}
 	}
@@ -759,21 +873,37 @@ export class PluginManager {
 
 			let bus = this.app.streambundle.getSelfBus(skKey as Path);
 
-			if (sourceRef) {
-				// SK `$source` values are composites like `gps1.0`. Accept an
-				// exact match or a label prefix (`gps1` matches `gps1.0`,
-				// `gps1.1`, ...) so the UI description "enter a source label"
-				// matches real stream values.
-				const sourceRefWithDot = `${sourceRef}.`;
-				bus = bus.filter((x: NormalizedDelta) => {
-					const src = x.$source;
-					if (!src) return false;
-					return src === sourceRef || src.startsWith(sourceRefWithDot);
-				});
-			}
+			// Apply the optional publisher pin and the default echo guard in one
+			// pass. Structured delta metadata is authoritative when present; the
+			// server's sources tree covers stream producers that omit it. Unknown
+			// origins remain accepted for compatibility, but known NMEA 2000 input
+			// is never re-emitted onto the same bus.
+			bus = bus.filter((x: NormalizedDelta) => {
+				const src = String(x.$source ?? "");
+				if (sourceRef && !sourceMatchesFilter(src, sourceRef)) {
+					if (conversion.optionKey !== undefined) {
+						this.recordDrop(conversion.optionKey, "publisher-filter");
+					}
+					return false;
+				}
+				let origin = classifySourceOrigin(src, x.source);
+				if (origin === SOURCE_ORIGIN.UNKNOWN) {
+					origin = classifySourceOrigin(src, undefined, this.app.getPath?.("sources"));
+				}
+				if (origin === SOURCE_ORIGIN.NMEA2000) {
+					if (conversion.optionKey !== undefined) {
+						this.recordDrop(conversion.optionKey, "nmea2000-echo");
+					}
+					return false;
+				}
+				return true;
+			});
 
 			const unsubscribe = bus.onValue((streamData: NormalizedDelta) => {
 				hasInput = true;
+				if (conversion.optionKey !== undefined) {
+					this.recordInput(conversion.optionKey, skKey);
+				}
 				const value: unknown = streamData.value;
 
 				const now = Date.now();
@@ -813,6 +943,9 @@ export class PluginManager {
 		if (refreshInterval !== undefined) {
 			const timer = setInterval(() => {
 				if (this.stopped || !hasInput) return;
+				if (conversion.optionKey !== undefined) {
+					this.recordScheduledActivity(conversion.optionKey);
+				}
 				refreshValues(Date.now());
 				combinedBus.next(currentValues);
 			}, refreshInterval);
@@ -850,6 +983,7 @@ export class PluginManager {
 				),
 			(delta) => {
 				if (this.stopped) return;
+				if (conversion.optionKey !== undefined) this.recordInput(conversion.optionKey);
 				const args: unknown[] = [delta];
 				this.lastInputs.set(conversion, args);
 				const result = this.invokeCallback(conversion, args, BUCKET_PREFIX.SUBSCRIPTION);
@@ -872,6 +1006,9 @@ export class PluginManager {
 
 		const timer = setInterval(() => {
 			if (this.stopped) return;
+			if (conversion.optionKey !== undefined) {
+				this.recordScheduledActivity(conversion.optionKey);
+			}
 			const args: unknown[] = [this.app];
 			this.lastInputs.set(conversion, args);
 			const result = this.invokeCallback(conversion, args, BUCKET_PREFIX.TIMER);
@@ -935,22 +1072,115 @@ export class PluginManager {
 	 * One Map.get+set per emit; the state object is mutated in place so the
 	 * counter/timestamp update is two field writes, no additional allocation.
 	 *
-	 * Sub-conversion keys arrive here as `PARENT[idx]` (e.g. `BATTERY[0]`,
-	 * `BATTERY[1]`); the bracket suffix is stripped so all sub-conversions of
-	 * a module aggregate under the parent optionKey. Without this aggregation,
-	 * getStatusSnapshot() would look up the parent key and find nothing for
-	 * every factory-bearing module (BATTERY, ENGINE_PARAMETERS, TANKS, SOLAR,
-	 * EXHAUST_TEMPERATURE, RAYMARINE_BRIGHTNESS, TEMPERATURE_*).
-	 *
-	 * stripSubIndex does no allocation on the single-PGN path; the
-	 * sub-conversion path allocates one substring per emit, amortized across
-	 * the conversion's full traffic.
+	 * Sub-conversion keys arrive here as `PARENT[idx]`. Each update is retained
+	 * on that exact key and folded into the parent card's aggregate.
 	 */
 	private recordEmit(key: string): void {
-		const parent = stripSubIndex(key);
-		const entry = this.getPerConversionState(parent);
-		entry.emitCount++;
-		entry.lastEmitAt = Date.now();
+		this.updatePerConversionStates(key, (entry, now) => {
+			entry.emitCount++;
+			entry.lastEmitAt = now;
+			entry.lastActivityAt = now;
+		});
+	}
+
+	private recordInput(key: string, inputPath?: string): void {
+		this.updatePerConversionStates(key, (entry, now) => {
+			entry.inputCount++;
+			entry.lastInputAt = now;
+			entry.lastActivityAt = now;
+			if (inputPath !== undefined) {
+				entry.inputPathLastSeenAt ??= new Map();
+				entry.inputPathLastSeenAt.set(inputPath, now);
+			}
+		});
+	}
+
+	private recordEmptyOutput(key: string): void {
+		this.updatePerConversionStates(key, (entry, now) => {
+			entry.emptyOutputCount++;
+			entry.lastEmptyOutputAt = now;
+			entry.lastActivityAt = now;
+		});
+	}
+
+	private recordScheduledActivity(key: string): void {
+		this.updatePerConversionStates(key, (entry, now) => {
+			entry.lastActivityAt = now;
+			entry.lastScheduledActivityAt = now;
+		});
+	}
+
+	private recordDrop(key: string, reason: "publisher-filter" | "nmea2000-echo"): void {
+		this.updatePerConversionStates(key, (entry, now) => {
+			if (reason === "publisher-filter") entry.sourceFilterDropCount++;
+			else entry.nmea2000EchoDropCount++;
+			entry.lastDrop = { reason, at: now };
+		});
+	}
+
+	private isActivityStale(
+		descriptor: RuntimeStatusDescriptor,
+		state: PerConversionState | undefined,
+		now: number,
+	): boolean {
+		const cadence = descriptor.expectedActivityMs;
+		if (cadence === undefined) return false;
+		const baseline =
+			state?.lastScheduledActivityAt ??
+			(descriptor.waitsForInput ? state?.lastInputAt : this.startTime);
+		return baseline !== undefined && now - baseline > cadence * 3;
+	}
+
+	private statusEntry(
+		descriptor: RuntimeStatusDescriptor,
+		state: PerConversionState | undefined,
+		now: number,
+	): PerConversionStatus {
+		const entry: PerConversionStatus = {
+			key: descriptor.key,
+			title: descriptor.title,
+			enabled: state?.enabled ?? false,
+			emitCount: state?.emitCount ?? 0,
+			inputCount: state?.inputCount ?? 0,
+			emptyOutputCount: state?.emptyOutputCount ?? 0,
+			sourceFilterDropCount: state?.sourceFilterDropCount ?? 0,
+			nmea2000EchoDropCount: state?.nmea2000EchoDropCount ?? 0,
+			...(descriptor.parentKey === undefined ? {} : { parentKey: descriptor.parentKey }),
+			...(descriptor.mappingIndex === undefined ? {} : { mappingIndex: descriptor.mappingIndex }),
+			...(descriptor.inputPaths.length === 0 ? {} : { inputPaths: descriptor.inputPaths }),
+			...(descriptor.expectedActivityMs === undefined
+				? {}
+				: { expectedActivityMs: descriptor.expectedActivityMs }),
+		};
+		if (state?.lastEmitAt !== undefined) entry.lastEmitMs = now - state.lastEmitAt;
+		if (state?.latestError !== undefined) {
+			entry.lastErrorMessage = state.latestError.message;
+			entry.lastErrorAgeMs = now - state.latestError.emittedAt;
+		}
+		if (state?.lastInputAt !== undefined) entry.lastInputMs = now - state.lastInputAt;
+		if (state?.lastActivityAt !== undefined) entry.lastActivityMs = now - state.lastActivityAt;
+		if (state?.lastEmptyOutputAt !== undefined) {
+			entry.lastEmptyOutputMs = now - state.lastEmptyOutputAt;
+		}
+		if (state?.lastDrop !== undefined) {
+			entry.lastDropReason = state.lastDrop.reason;
+			entry.lastDropAgeMs = now - state.lastDrop.at;
+		}
+		if (state?.inputPathLastSeenAt && state.inputPathLastSeenAt.size > 0) {
+			entry.inputPathLastSeenMs = Object.fromEntries(
+				[...state.inputPathLastSeenAt].map(([path, at]) => [path, now - at]),
+			);
+		}
+		const staleInputPaths = descriptor.inputPaths.filter((path) => {
+			const timeout = descriptor.inputTimeoutMs.get(path);
+			const lastSeenAt = state?.inputPathLastSeenAt?.get(path);
+			return timeout !== undefined && lastSeenAt !== undefined && now - lastSeenAt > timeout;
+		});
+		if (staleInputPaths.length > 0) entry.staleInputPaths = staleInputPaths;
+		if (this.isActivityStale(descriptor, state, now) || staleInputPaths.length > 0) {
+			entry.activityStale = true;
+		}
+		return entry;
 	}
 
 	/**
@@ -958,33 +1188,57 @@ export class PluginManager {
 	 * Read-only; callers must not retain references to the returned arrays
 	 * across event-loop turns since this PluginManager may stop and clear them.
 	 */
-	public getStatusSnapshot(): import("./api/types.js").StatusSnapshot {
+	public getStatusSnapshot(): StatusSnapshot {
 		const now = Date.now();
-		const perConversion: import("./api/types.js").PerConversionStatus[] = this.conversions.map(
-			(c) => {
-				// All four pieces of per-conversion state (enabled, emit counter,
-				// last-emit timestamp, latest error) live in one record indexed
-				// by parent optionKey. Sub-conversions (BATTERY[0], BATTERY[1],
-				// ...) and per-source error keys (stream/delta/subscription/
-				// timer/resend) aggregate under the bare parent key, which is
-				// exactly what the panel displays per card.
-				const state = this.perConversion.get(c.optionKey);
-				const entry: import("./api/types.js").PerConversionStatus = {
-					key: c.optionKey,
-					title: c.title,
-					enabled: state?.enabled ?? false,
-					emitCount: state?.emitCount ?? 0,
-				};
-				if (state?.lastEmitAt !== undefined) {
-					entry.lastEmitMs = now - state.lastEmitAt;
-				}
-				if (state?.latestError !== undefined) {
-					entry.lastErrorMessage = state.latestError.message;
-					entry.lastErrorAgeMs = now - state.latestError.emittedAt;
-				}
-				return entry;
-			},
-		);
+		const childDescriptorsByParent = new Map<string, RuntimeStatusDescriptor[]>();
+		for (const descriptor of this.runtimeStatusDescriptors.values()) {
+			if (descriptor.parentKey === undefined) continue;
+			const children = childDescriptorsByParent.get(descriptor.parentKey) ?? [];
+			children.push(descriptor);
+			childDescriptorsByParent.set(descriptor.parentKey, children);
+		}
+
+		const perConversion: PerConversionStatus[] = this.conversions.map((conversion) => {
+			const ownDescriptor = this.runtimeStatusDescriptors.get(conversion.optionKey);
+			const children = childDescriptorsByParent.get(conversion.optionKey) ?? [];
+			const childPaths = children.flatMap((child) => child.inputPaths);
+			const expectedCadences = children
+				.map((child) => child.expectedActivityMs)
+				.filter((cadence): cadence is number => cadence !== undefined);
+			const descriptor: RuntimeStatusDescriptor = ownDescriptor ?? {
+				key: conversion.optionKey,
+				title: conversion.title,
+				inputPaths: [...new Set(childPaths)],
+				inputTimeoutMs: new Map(),
+				...(expectedCadences.length === 0
+					? {}
+					: { expectedActivityMs: Math.min(...expectedCadences) }),
+				waitsForInput: children.every((child) => child.waitsForInput),
+			};
+			const entry = this.statusEntry(
+				{ ...descriptor, key: conversion.optionKey, title: conversion.title },
+				this.perConversion.get(conversion.optionKey),
+				now,
+			);
+			if (children.length > 0) {
+				const childStatuses = children.map((child) =>
+					this.statusEntry(child, this.perConversion.get(child.key), now),
+				);
+				const staleChildCount = childStatuses.filter((child) => child.activityStale).length;
+				const staleInputPaths = [
+					...new Set(childStatuses.flatMap((child) => child.staleInputPaths ?? [])),
+				];
+				entry.staleChildCount = staleChildCount;
+				entry.activityStale = staleChildCount > 0;
+				if (staleInputPaths.length > 0) entry.staleInputPaths = staleInputPaths;
+			}
+			return entry;
+		});
+
+		for (const descriptor of this.runtimeStatusDescriptors.values()) {
+			if (descriptor.parentKey === undefined) continue;
+			perConversion.push(this.statusEntry(descriptor, this.perConversion.get(descriptor.key), now));
+		}
 
 		return {
 			pluginRunning: this.running,
@@ -998,13 +1252,11 @@ export class PluginManager {
 
 	/**
 	 * Catalog of loaded conversion modules for the panel's `/api/conversions`
-	 * endpoint. One entry per module loaded at construction. `paths` is empty
-	 * for modules whose keys are a function of runtime config (e.g. per-engine
-	 * factories): the panel falls back to free-text in that case. The mapping is
-	 * pure module metadata, so it lives in buildConversionMetadata and is shared
-	 * with the disabled-plugin catalog path in index.ts.
+	 * endpoint. One entry per module loaded at construction. Factory modules
+	 * receive the same flattened options used at runtime so configured engine,
+	 * battery, tank, and other mapped paths are visible to the panel and Advisor.
 	 */
 	public getConversionMetadata(): ConversionMetadata[] {
-		return buildConversionMetadata(this.conversions);
+		return buildConversionMetadata(this.conversions, this.configuredOptions);
 	}
 }

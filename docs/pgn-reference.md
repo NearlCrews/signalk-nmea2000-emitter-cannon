@@ -1,7 +1,7 @@
 # PGN Reference
 
-The plugin has 80 configurable data conversions covering 60 data PGNs, plus an
-81st module that broadcasts PGN 126464. Five stack-owned bus-layer PGNs are
+The plugin has 82 configurable data conversions covering 60 data PGNs, plus an
+83rd module that broadcasts PGN 126464. Five stack-owned bus-layer PGNs are
 also advertised in the 126464 transmit list. Standard fields, ranges, and enum
 values are validated against the bundled Canboat definitions.
 Display support remains model-specific and should be checked against the
@@ -150,6 +150,13 @@ deprecated `TEMPERATURE_*` (130312) and `ENVIRONMENT_PARAMETERS` (130311)
 disabled. Confirm the exact received-PGN list for the chartplotter model and
 firmware in use. The legacy and deprecated variants remain available for older
 displays that do not read the newer PGNs.
+
+Water temperature uses the canonical Signal K path
+`environment.water.temperature`. Select `TEMPERATURE2_SEA` for PGN 130316 on a
+modern receiver. `TEMPERATURE_SEA` emits the same path on the superseded PGN
+130312 for a receiver that still requires it, and obsolete `SEA_TEMP` emits PGN
+130310 only when enabled manually. The Environmental preset selects the modern
+PGN 130316 conversion and does not automatically enable either legacy frame.
 
 **Raymarine i70 and i70s environmental data**: Raymarine's
 [supported-PGN list](https://docs.raymarine.com/87425/en-US/latest/SupportedNMEA2000PGNlist-AA8295AC.html)

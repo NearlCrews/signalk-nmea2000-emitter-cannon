@@ -20,15 +20,22 @@ interface Row {
 interface Props {
 	value: Record<string, unknown>;
 	onChange: (next: Record<string, unknown>) => void;
+	availablePaths: string[];
 }
 
-export default function EngineStaticMappingEditor({ value, onChange }: Props): React.ReactElement {
+export default function EngineStaticMappingEditor({
+	value,
+	onChange,
+	availablePaths,
+}: Props): React.ReactElement {
 	const { rows, setRows } = extraRows<Row>(value, "engines", onChange);
 	return (
 		<MappingTable<Row>
 			title="Engine static mapping (PGN 127498)"
+			collection="engines"
 			helpText="Set Signal K engine id to the same value used in Engine Parameters and Engine Trip rows (e.g. main, port, 0). MFDs pair PGNs by instance: all engine tables must agree. Instance 0 is Single Engine or Dual Engine Port, 1 is Dual Engine Starboard."
 			rows={rows}
+			available={availablePaths}
 			emptyRow={() => ({
 				signalkId: "",
 				instanceId: 0,
@@ -38,12 +45,14 @@ export default function EngineStaticMappingEditor({ value, onChange }: Props): R
 				signalkIdColumn<Row>({
 					header: "Signal K engine id",
 					placeholder: "main, port, starboard",
+					pathPrefix: "propulsion",
 				}),
 				instanceIdColumn<Row>({
 					header: "NMEA 2000 engine instance",
 				}),
 				{
 					header: "Rated engine speed (RPM)",
+					group: "NMEA 2000 output",
 					render: (r, set) => (
 						<NumberInput
 							value={r.ratedEngineSpeed}
@@ -63,11 +72,13 @@ export default function EngineStaticMappingEditor({ value, onChange }: Props): R
 				textColumn<Row>({
 					header: "Vehicle identification number",
 					field: "VIN",
+					group: "NMEA 2000 output",
 				}),
 				textColumn<Row>({
 					header: "Software version",
 					field: "softwareVersion",
 					ariaLabel: "Engine software version",
+					group: "NMEA 2000 output",
 				}),
 			]}
 		/>

@@ -22,6 +22,98 @@ export const TEMPERATURE_SOURCE_VALUES = [
 
 export const HUMIDITY_SOURCE_VALUES = ["Inside", "Outside"] as const;
 
+export interface TemperatureDefinition {
+	n2kSource: string;
+	source: string;
+	instance: number;
+	option: string;
+}
+
+/**
+ * Canonical Signal K input and default NMEA 2000 identity for each temperature
+ * conversion. Runtime emission and configuration validation share this table so
+ * source-plus-instance collision checks cannot drift from the wire defaults.
+ */
+export const TEMPERATURE_DEFINITIONS: readonly TemperatureDefinition[] = [
+	{
+		n2kSource: "Sea Temperature",
+		source: "environment.water.temperature",
+		instance: 100,
+		option: "SEA",
+	},
+	{
+		n2kSource: "Outside Temperature",
+		source: "environment.outside.temperature",
+		instance: 101,
+		option: "OUTSIDE",
+	},
+	{
+		n2kSource: "Inside Temperature",
+		source: "environment.inside.temperature",
+		instance: 102,
+		option: "INSIDE",
+	},
+	{
+		n2kSource: "Engine Room Temperature",
+		source: "environment.inside.engineRoom.temperature",
+		instance: 103,
+		option: "ENGINEROOM",
+	},
+	{
+		n2kSource: "Main Cabin Temperature",
+		source: "environment.inside.mainCabin.temperature",
+		instance: 104,
+		option: "MAINCABIN",
+	},
+	{
+		n2kSource: "Refrigeration Temperature",
+		source: "environment.inside.refrigerator.temperature",
+		instance: 105,
+		option: "REFRIGERATOR",
+	},
+	{
+		n2kSource: "Heating System Temperature",
+		source: "environment.inside.heating.temperature",
+		instance: 106,
+		option: "HEATINGSYSTEM",
+	},
+	{
+		n2kSource: "Dew Point Temperature",
+		source: "environment.outside.dewPointTemperature",
+		instance: 107,
+		option: "DEWPOINT",
+	},
+	{
+		n2kSource: "Apparent Wind Chill Temperature",
+		source: "environment.outside.apparentWindChillTemperature",
+		instance: 108,
+		option: "APPARENTWINDCHILL",
+	},
+	{
+		n2kSource: "Theoretical Wind Chill Temperature",
+		source: "environment.outside.theoreticalWindChillTemperature",
+		instance: 109,
+		option: "THEORETICALWINDCHILL",
+	},
+	{
+		n2kSource: "Heat Index Temperature",
+		source: "environment.outside.heatIndexTemperature",
+		instance: 110,
+		option: "HEATINDEX",
+	},
+	{
+		n2kSource: "Freezer Temperature",
+		source: "environment.inside.freezer.temperature",
+		instance: 111,
+		option: "FREEZER",
+	},
+];
+
+export const HUMIDITY_DEFAULT_IDENTITIES = {
+	HUMIDITY_OUTSIDE: { source: "Outside", instance: 0 },
+	HUMIDITY_INSIDE: { source: "Inside", instance: 0 },
+} as const;
+
 export function resolveSourceOption<T extends string>(
 	value: unknown,
 	allowed: readonly T[],

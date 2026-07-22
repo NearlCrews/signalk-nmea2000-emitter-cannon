@@ -6,10 +6,10 @@ import type { N2KMessage } from "../types/index.js";
 // shape the plugin-manager produces (extras spread directly onto the options
 // object), so these assertions exercise the real production read path.
 type SubFactory = (o: unknown) => Array<{
-	callback?: (v: number) => N2KMessage[];
+	callback?: (v: unknown) => N2KMessage[];
 }> | null;
 
-function emit(optionKey: string, options: unknown): N2KMessage {
+function callbackFor(optionKey: string, options: unknown): (value: unknown) => N2KMessage[] {
 	const mod = createTemperatureConversions().find((m) => m.optionKey === optionKey);
 	if (!mod || typeof mod.conversions !== "function") {
 		throw new Error(`no factory conversion for ${optionKey}`);
@@ -17,7 +17,14 @@ function emit(optionKey: string, options: unknown): N2KMessage {
 	// The factory's option param is typed ConversionOptions; the test drives it
 	// with raw shapes (including the legacy nested form) to prove the read path.
 	const sub = (mod.conversions as unknown as SubFactory)(options)?.[0];
-	const out = sub?.callback?.(290.15) ?? [];
+	if (!sub?.callback) {
+		throw new Error(`no callback for ${optionKey}`);
+	}
+	return sub.callback;
+}
+
+function emit(optionKey: string, options: unknown, value = 290.15): N2KMessage {
+	const out = callbackFor(optionKey, options)(value);
 	expect(out).toHaveLength(1);
 	return out[0] as N2KMessage;
 }
@@ -33,6 +40,48 @@ describe("Temperature sources", () => {
 		const msg = emit("TEMPERATURE2_INSIDE", {});
 		expect(msg.fields.instance).toBe(102);
 		expect(msg.fields.source).toBe("Inside Temperature");
+	});
+
+	it("emits canonical water temperature as Sea Temperature on both modern PGNs", () => {
+		const legacy = emit("TEMPERATURE_SEA", {}, 281.2);
+		expect(legacy).toMatchObject({
+			pgn: 130312,
+			fields: {
+				instance: 100,
+				source: "Sea Temperature",
+				actualTemperature: 281.2,
+			},
+		});
+		expect(legacy.fields).not.toHaveProperty("temperature");
+
+		const extended = emit("TEMPERATURE2_SEA", {}, 281.2);
+		expect(extended).toMatchObject({
+			pgn: 130316,
+			fields: {
+				instance: 100,
+				source: "Sea Temperature",
+				temperature: 281.2,
+			},
+		});
+		expect(extended.fields).not.toHaveProperty("actualTemperature");
+	});
+
+	it("uses the canonical water path and honors a sea-temperature instance override", () => {
+		const conversions = createTemperatureConversions();
+		for (const optionKey of ["TEMPERATURE_SEA", "TEMPERATURE2_SEA"]) {
+			const conversion = conversions.find((candidate) => candidate.optionKey === optionKey);
+			expect(conversion?.keys).toEqual(["environment.water.temperature"]);
+			expect(emit(optionKey, { instance: 7 }).fields.instance).toBe(7);
+		}
+	});
+
+	it("rejects non-numeric and non-finite sea temperatures", () => {
+		for (const optionKey of ["TEMPERATURE_SEA", "TEMPERATURE2_SEA"]) {
+			const callback = callbackFor(optionKey, {});
+			for (const invalid of [null, undefined, "281.2", Number.NaN, Infinity, -Infinity]) {
+				expect(callback(invalid)).toEqual([]);
+			}
+		}
 	});
 
 	it("reads the instance override from the flattened (production) option shape", () => {

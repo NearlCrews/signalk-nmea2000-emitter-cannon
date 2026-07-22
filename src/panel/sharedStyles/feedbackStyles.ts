@@ -47,6 +47,16 @@ export const FEEDBACK_STYLES = {
 		lineHeight: 1.45,
 		margin: "2px 0 var(--skn-space-compact)",
 	},
+	mappingLive: {
+		color: "var(--skn-success-fg)",
+		fontSize: "var(--skn-font-small)",
+		marginTop: "var(--skn-space-half)",
+	},
+	mappingMissing: {
+		color: "var(--skn-warn-fg)",
+		fontSize: "var(--skn-font-small)",
+		marginTop: "var(--skn-space-half)",
+	},
 	notePrefix: {
 		fontWeight: 600,
 		marginRight: "var(--skn-space-half)",

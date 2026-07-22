@@ -9,25 +9,39 @@
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?logo=buymeacoffee&logoColor=black)](https://www.buymeacoffee.com/nearlcrews)
 
 A [Signal K](https://signalk.org) plugin that converts Signal K deltas into
-NMEA 2000 messages: 80 configurable data conversions covering 60 data PGNs,
+NMEA 2000 messages: 82 configurable data conversions covering 60 data PGNs,
 plus the configurable PGN 126464 list broadcast, validated against Canboat definitions and
 reviewed against model-specific chartplotter receive lists.
 
 > Built on the foundation of [`signalk-to-nmea2000`](https://github.com/SignalK/signalk-to-nmea2000)
 > by Scott Bender and the Signal K community.
 
-## What's new in 1.10.2
+## What's new in 1.10.3
 
-- **Venus secondary-battery compatibility.** Mapped Signal K instance ids now
-  accept safe hyphenated and underscored segments, restoring battery output
-  from established Venus paths such as `electrical.batteries.258-second.voltage`.
-- **Strict path boundaries remain.** Dots, slashes, whitespace, and full paths
-  are still rejected in instance-id fields.
-- **Clearer battery mapping.** The configuration panel and troubleshooting
-  guide now explain that Battery mapping expects only the instance id, without
-  `electrical.batteries` or a measurement suffix such as `.voltage`.
+- **Canonical water temperature.** `environment.water.temperature` now has
+  dedicated Sea Temperature conversions for PGN 130316 and PGN 130312. The
+  Environmental preset selects the modern PGN 130316 conversion and leaves
+  obsolete and superseded temperature PGNs as manual compatibility choices.
+- **Clear Signal K semantics.** Fixed input paths are read-only, and the
+  optional publisher control is explicitly labeled as a `$source` filter.
+  Entering the input path itself in that control is rejected before Save.
+  Publisher lookup failures remain distinct from verified mismatches and offer
+  a Retry action.
+- **Safer, discoverable mappings.** Mapping tables suggest Signal K assets from
+  the server path inventory, distinguish asset presence from required
+  measurement availability,
+  separate Signal K input columns from NMEA 2000 output columns, validate
+  identifiers and instances before Save, and expose configured paths to the
+  Config Advisor.
+- **Actionable live status.** Each conversion distinguishes waiting for input,
+  publisher-filter mismatch, a blocked NMEA 2000 echo, input with no encodable
+  output, stale input, overdue scheduled activity, and active emission. Mapped
+  conversions identify each row and report last-seen input paths separately.
+- **Accurate validation and diagnostics.** Multi-table mapping issues focus the
+  correct row, and unrelated process-wide deltas no longer inflate input or
+  empty-output counters.
 
-See the [v1.10.2 changelog entry](CHANGELOG.md#v1102) and the
+See the [v1.10.3 changelog entry](CHANGELOG.md#v1103) and the
 [full release history](CHANGELOG.md).
 
 ## What it does
@@ -47,7 +61,7 @@ priorities follow the current stable Canboat 7.1 database. It pairs well with se
 
 ## Features
 
-- **80 configurable data conversions emitting 60 data PGNs**, plus the plugin's
+- **82 configurable data conversions emitting 60 data PGNs**, plus the plugin's
   configurable PGN 126464 list broadcast and 5 stack-owned bus-layer PGNs (59392, 59904,
   60928, 126993, 126996) advertised in that list
 - **Chartplotter-oriented** PGN priorities, SID fields, temperature-source
@@ -55,8 +69,9 @@ priorities follow the current stable Canboat 7.1 database. It pairs well with se
   documented instead of assumed across a vendor's entire product line
 - **Reactive subscriptions** via RxJS 7.8 with debounced multi-key aggregation
   and per-key freshness timeouts
-- **Source filtering** per conversion: pick a specific `$source` label or
-  accept any
+- **Source filtering** per conversion: keep the fixed Signal K schema path and
+  optionally choose a specific `$source` publisher, using consistent exact or
+  dot-prefix matching
 - **Resend timers** for conversions whose values remain current, plus a global
   default. Event-driven targets, course data, timers, and fixed timestamps are
   never replayed as fresh data
@@ -69,9 +84,10 @@ priorities follow the current stable Canboat 7.1 database. It pairs well with se
   and live status, category tabs with per-category Enable all and Disable all,
   preset chips, a first-run setup wizard, and shared `signalk-nearlcrews-ui`
   controls with Light, Auto, Dark, and red-preserving Night themes
-- **Remote AIS source-type echo guard** that drops target deltas whose
-  `updates[].source.type` is `NMEA2000` instead of re-emitting received AIS
-  traffic onto the same bus
+- **NMEA 2000 echo guards** that use authoritative source metadata to reject
+  known bus-origin input instead of re-emitting it onto the same bus. Unknown
+  origins remain compatible, and a numeric publisher suffix alone is not
+  treated as proof of NMEA 2000 origin
 - **Strict TypeScript**, an ESM plugin bundle, and RxJS as the only runtime
   dependency
 - **Embedded canboatjs round-trip tests** on every conversion module, plus
@@ -142,16 +158,31 @@ The panel has these areas:
    categories.
 
 Each conversion row shows an enable checkbox, the title and PGN run, an error
-glyph, and the emit recency, with a left status rail that reads solid when the
-conversion is emitting and dashed when it is enabled but silent. Clicking a
-row opens its editor inline below it (opening another row closes the previous
-one), exposing a **Resend** override when applicable, a **Source filter**
-dropdown for path-based conversions, and a **Mapping editor** on conversions
+glyph, and a specific live state such as waiting for Signal K input, publisher
+filter mismatch, input with no encodable output, or active emission. Clicking
+a row opens its editor inline below it (opening another row closes the previous
+one). Fixed-path conversions show the read-only **Signal K input path**, an
+optional **Signal K publisher (`$source`)** filter, and separate **NMEA 2000
+output** controls. Mapping tables group their Signal K input and NMEA 2000
+output columns, suggest asset ids found in the server path inventory, check
+for the measurements each conversion needs, and block Save when an enabled
+mapping is invalid. The inventory refreshes automatically and also provides
+visible Refresh and Retry controls. Optional per-path publisher pins follow the
+mapping in a collapsed **Advanced publisher filters** section. Mapping editors
+cover conversions
 that need explicit Signal K paths, identifiers, NMEA 2000 instances, or field
 options (`BATTERY`, `ENGINE_PARAMETERS`,
 `EXHAUST_TEMPERATURE`, `TANKS`, `SOLAR`, `AC_STATUS`, `CHARGER_STATUS`,
 `INVERTER_STATUS`, `VESSEL_TRIP`, `RAYMARINE_BRIGHTNESS`, `NOTIFICATIONS`,
 `TEMPERATURE_*`).
+
+Signal K paths are schema-defined data identities, not user-facing labels. For
+example, `environment.outside.temperature` is outside air temperature, while
+`environment.water.temperature` is water temperature. The publisher field is
+only a filter on the update's `$source`; it cannot redirect one path to the
+other. The panel blocks a publisher filter that repeats its own input path. Use
+`TEMPERATURE2_SEA` for modern PGN 130316 water temperature, or the manual
+`TEMPERATURE_SEA` compatibility conversion for PGN 130312.
 
 The config panel loads on any signalk-server 2.x admin UI. v1.4.x config
 payloads migrate transparently the first time the panel loads them.

@@ -53,6 +53,7 @@ export const FOUNDATION_STYLES = {
 	// Color-only utilities are for cells that already set their font size.
 	textFaint: { color: "var(--skn-text-faint)" },
 	textDanger: { color: "var(--skn-danger-fg)" },
+	textWarning: { color: "var(--skn-warn-fg)" },
 	sectionErrorCount: {
 		...textSmallDanger,
 		marginLeft: "var(--skn-space-compact)",

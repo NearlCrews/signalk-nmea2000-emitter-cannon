@@ -8,20 +8,41 @@ import InstanceMappingEditor from "./InstanceMappingEditor";
 interface Props {
 	value: Record<string, unknown>;
 	onChange: (next: Record<string, unknown>) => void;
+	availablePaths: string[];
 }
 
-export default function BatteryMappingEditor({ value, onChange }: Props): React.ReactElement {
+export default function BatteryMappingEditor({
+	value,
+	onChange,
+	availablePaths,
+}: Props): React.ReactElement {
 	return (
 		<InstanceMappingEditor
 			value={value}
 			onChange={onChange}
+			availablePaths={availablePaths}
+			pathPrefix="electrical.batteries"
 			storageKey="batteries"
+			collection="batteries"
 			title="Battery mapping"
 			helpText="Enter only the instance id between electrical.batteries and the measurement name. For electrical.batteries.258-second.voltage, enter 258-second."
 			idHeader="Signal K battery id"
 			idPlaceholder="house, starter, 258-second"
 			instanceHeader="NMEA 2000 instance"
 			instanceAriaLabel="NMEA 2000 battery instance"
+			requiredInput={{
+				label: "at least one battery measurement",
+				alternatives: [
+					["voltage"],
+					["current"],
+					["temperature"],
+					["capacity.stateOfCharge"],
+					["capacity.timeRemaining"],
+					["capacity.remaining"],
+					["capacity.actual"],
+					["capacity.stateOfHealth"],
+				],
+			}}
 		/>
 	);
 }

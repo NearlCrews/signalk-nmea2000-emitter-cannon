@@ -1,6 +1,19 @@
 import { enumerateActivePaths, enumerateSourcesForPath } from "../api/discovery.js";
+import { classifySourceOrigin, type SourceOrigin } from "../recommendation/busSource.js";
 import type { HistoricPaths, PathInventory } from "../recommendation/types.js";
 import type { SignalKApp } from "../types/index.js";
+
+/**
+ * Internal inventory enrichment consumed by recommender.ts. It intentionally
+ * stays structural so the public recommendation types and HTTP payloads do not
+ * gain a new compatibility surface.
+ */
+interface SourceAwareInventoryEntry {
+	path: string;
+	live: boolean;
+	liveSources: string[];
+	sourceOrigins: Record<string, SourceOrigin>;
+}
 
 /**
  * Snapshot of every Signal K path the local server currently publishes,
@@ -8,11 +21,21 @@ import type { SignalKApp } from "../types/index.js";
  * discovery helpers, so it is sync and cheap.
  */
 export function buildLiveInventory(app: SignalKApp): PathInventory {
-	return enumerateActivePaths(app).map((path) => ({
-		path,
-		live: true,
-		liveSources: enumerateSourcesForPath(app, path),
-	}));
+	const sourceMetadata = app.getPath?.("sources");
+	return enumerateActivePaths(app).map((path): SourceAwareInventoryEntry => {
+		const liveSources = enumerateSourcesForPath(app, path);
+		return {
+			path,
+			live: true,
+			liveSources,
+			sourceOrigins: Object.fromEntries(
+				liveSources.map((source) => [
+					source,
+					classifySourceOrigin(source, undefined, sourceMetadata),
+				]),
+			),
+		};
+	});
 }
 
 /**

@@ -20,6 +20,65 @@
   Compare the result to the filter value saved in the admin UI for that
   conversion.
 
+The conversion row and Status view narrow this down further:
+
+- **Waiting for Signal K input** means none of the required paths has delivered
+  a value since the plugin started.
+- **Publisher filter does not match** means values reached the path, but the
+  configured `$source` rejected them. Select the correct publisher id or use
+  **All publishers**.
+- **Publisher lookup unavailable** means the panel could not verify the saved
+  filter against the server model. It does not mean the publisher is wrong.
+  Use Retry after checking the server connection.
+- **NMEA 2000 echo blocked** means the input was authoritatively identified as
+  received NMEA 2000 traffic. Use an off-bus Signal K producer if the value must
+  be sent to the bus.
+- **Input received; no encodable output** means values arrived, but the current
+  combination was incomplete, stale, out of range, or did not map to a valid
+  PGN payload.
+- **Previously active input is stale** names a path that delivered values during
+  this plugin run but exceeded the conversion's freshness timeout. Cached resend
+  output does not hide this warning.
+- **Expected activity overdue** means a configured timer, refresh, or resend
+  schedule has missed three expected intervals.
+- **Emitting** means output activity is current. Factory conversions also show
+  each mapping row and each path's last-seen age. The NMEA 2000 readiness
+  indicator must be ready for output to reach the bus.
+
+## A Signal K path was entered as the publisher, and the conversion is silent
+
+The input path and publisher are different Signal K concepts. The conversion's
+input path is fixed by the Signal K data model. The optional publisher field
+filters the update's `$source` value and does not replace or redirect the path.
+Its default, **All publishers**, is correct unless two producers publish the
+same path and one must be selected.
+
+The panel blocks Save when a publisher filter repeats its own Signal K input
+path. A different path in the publisher field is also incorrect, but cannot be
+identified statically because publisher ids are operator- and provider-defined.
+The live mismatch warning identifies that case once the server publisher list
+loads.
+
+For example, the Outside Temperature conversion subscribes to
+`environment.outside.temperature`. Entering `environment.water.temperature` in
+its publisher field rejects the actual publisher because that string is a path,
+not a `$source` id. Clear the filter, then enable the conversion whose fixed
+input path matches the data you intend to send.
+
+## Water temperature is visible in Signal K but does not emit
+
+The [Signal K environment schema](https://github.com/SignalK/specification/blob/master/schemas/groups/environment.json)
+defines water temperature and outside air temperature as different paths. Use
+`environment.water.temperature` for water and
+`environment.outside.temperature` for outside air. A publisher filter cannot
+remap between them.
+
+For a modern receiver, enable **Sea Temperature (PGN 130316)**
+(`TEMPERATURE2_SEA`). The Environmental preset enables this conversion. If an
+older instrument does not receive PGN 130316, manually enable **Sea Temperature
+(PGN 130312)** (`TEMPERATURE_SEA`). Enable obsolete PGN 130310 (`SEA_TEMP`) only
+for a receiver that specifically requires that combined legacy frame.
+
 ## A Venus secondary battery voltage shows no recent output
 
 The Venus plugin publishes a shunt's secondary and third DC channels with
@@ -35,6 +94,20 @@ In the Battery mapping, enter only the instance id between
 `electrical.batteries.258-second.voltage` as `258-second`. Do not enter
 `258-second.voltage` or the full path because Emitter Cannon appends
 `.voltage`, `.current`, and the other battery measurement names itself.
+
+## A mapped asset is found, but the conversion is still silent
+
+**Asset found** means the Signal K server path inventory contains at least one
+path below the configured asset id. It does not by itself prove that the exact
+measurement needed by the conversion is present. The next line in the mapping
+row reports whether a required input, such as battery voltage, inverter mode,
+or engine fuel rate, was found.
+
+Use **Refresh path inventory** after starting or reconfiguring a sensor. The inventory
+also refreshes automatically. If discovery fails, the existing suggestions are
+retained and **Retry path inventory** appears with the error. Publisher filters for
+mapped paths are under **Advanced publisher filters** and should normally stay
+on **All publishers**.
 
 ## Multiple inside temperatures do not show on a Raymarine Axiom or i70
 
@@ -58,8 +131,10 @@ inside temperatures.
 
 ## The Environmental preset enables temperature, pressure, and humidity but not wind
 
-The **Environmental** preset chip enables the temperature, pressure, humidity,
-and sea-temperature conversions, but not `WIND_TRUE_GROUND` (PGN 130306). A
+The **Environmental** preset chip enables the modern PGN 130316 temperature
+conversions, including sea temperature, plus current pressure and humidity. It
+does not enable superseded PGN 130312, obsolete PGN 130310, or
+`WIND_TRUE_GROUND` (PGN 130306). A
 weather source such as `signalk-virtual-weather-sensors` publishes its wind on
 `environment.wind.speedOverGround` and `environment.wind.directionTrue`, which
 only `WIND_TRUE_GROUND` converts. After applying the Environmental preset,
@@ -116,10 +191,11 @@ enabled and actively injecting alerts back into Signal K.
 
 ## Configuration hygiene
 
-Source filters bind to a literal `$source` value. If you decommission or rename
-a Signal K plugin, filters pointing at it become silent gates: the conversion
-looks enabled but drops every delta. Audit periodically by comparing the saved
-filter value to what's currently on the bus:
+Source filters use an exact or dot-prefix match. A filter of `gps1` accepts both
+`gps1` and child publishers such as `gps1.0`, but does not accept `gps10`. If you
+decommission or rename a Signal K plugin, filters pointing at it become silent
+gates: the conversion looks enabled but drops every delta. Audit periodically
+by comparing the saved filter value to what's currently on the bus:
 
 ```bash
 TOKEN=$(curl -s -X POST http://localhost:3000/signalk/v1/auth/login \

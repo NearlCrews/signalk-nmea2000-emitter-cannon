@@ -43,18 +43,18 @@ function FieldRow({
 			/>
 		);
 	} else if (spec.control === "select") {
-		// Fall back to the "Default" sentinel ("") when the saved value is no
-		// longer one of the options (e.g. after a canboat enum rename), so the
-		// control never shows the first option while holding a stale string.
 		const current = String(v);
-		const selected = spec.options.some((o) => o.value === current) ? current : "";
+		const hasKnownValue = spec.options.some((option) => option.value === current);
 		control = (
 			<select
 				style={S.input}
-				value={selected}
+				value={current}
 				onChange={(e) => update(e.target.value)}
 				aria-label={spec.label}
 			>
+				{!hasKnownValue ? (
+					<option value={current}>{current || "Empty value"} (not a known option)</option>
+				) : null}
 				{spec.options.map((opt) => (
 					<option key={opt.value} value={opt.value}>
 						{opt.label}

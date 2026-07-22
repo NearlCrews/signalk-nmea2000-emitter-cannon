@@ -6,6 +6,10 @@
  * prop is null or undefined on first install) so the user can save defaults
  * and allow the plugin to start.
  */
-export function isSaveDisabled(dirty: boolean, unconfigured: boolean): boolean {
-	return !dirty && !unconfigured;
+export function isSaveDisabled(
+	dirty: boolean,
+	unconfigured: boolean,
+	validationErrorCount = 0,
+): boolean {
+	return validationErrorCount > 0 || (!dirty && !unconfigured);
 }

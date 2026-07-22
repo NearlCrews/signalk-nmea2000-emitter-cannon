@@ -17,14 +17,21 @@ interface Row {
 interface Props {
 	value: Record<string, unknown>;
 	onChange: (next: Record<string, unknown>) => void;
+	availablePaths: string[];
 }
 
-export default function BrightnessMappingEditor({ value, onChange }: Props): React.ReactElement {
+export default function BrightnessMappingEditor({
+	value,
+	onChange,
+	availablePaths,
+}: Props): React.ReactElement {
 	const { rows, setRows } = extraRows<Row>(value, "groups", onChange);
 	return (
 		<MappingTable<Row>
 			title="Brightness group mapping"
+			collection="groups"
 			rows={rows}
+			available={availablePaths}
 			emptyRow={() => ({ signalkId: "", groupLabel: "" })}
 			onChange={setRows}
 			columns={[
@@ -32,9 +39,15 @@ export default function BrightnessMappingEditor({ value, onChange }: Props): Rea
 					header: "Signal K group id",
 					placeholder: "helm, nav, cabin",
 					ariaLabel: "Signal K Raymarine brightness group id",
+					pathPrefix: "electrical.displays.raymarine",
+					requiredInput: () => ({
+						label: "brightness",
+						alternatives: [["brightness"]],
+					}),
 				}),
 				{
 					header: "NMEA 2000 group label",
+					group: "NMEA 2000 output",
 					// A select over the canboat SEATALK_NETWORK_GROUP labels: the
 					// runtime silently falls back on an unknown label, so free text
 					// invited typos that quietly mapped to the default group. A

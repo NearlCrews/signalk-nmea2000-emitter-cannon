@@ -4,6 +4,7 @@ import { pgnSummaryFor } from "../../api/pgnSummaries.js";
 import type { ConversionMetadata, PerConversionStatus } from "../../api/types.js";
 import { emptyConversionConfig } from "../../config/defaults.js";
 import type { ConversionConfig } from "../../config/schema.js";
+import type { ConfigIssue } from "../../config/validation.js";
 import { splitPgnTitle } from "../../utils/pgnUtils.js";
 import { CONVERSION_STYLES as C } from "../conversionStyles";
 import type { Action } from "../hooks/useConfig";
@@ -50,12 +51,19 @@ interface Props {
 	meta: ConversionMetadata;
 	config: ConversionConfig | undefined;
 	status: PerConversionStatus | undefined;
+	childStatuses: PerConversionStatus[];
+	validationIssues: ConfigIssue[];
 	expanded: boolean;
 	dispatch: React.Dispatch<Action>;
 	setExpanded: (key: string) => void;
 	sourcesFor: (p: string) => string[];
-	ensureLoaded: (p: string) => Promise<void>;
+	sourceErrorFor: (p: string) => string | null;
+	ensureLoaded: (p: string, force?: boolean) => Promise<void>;
 	globalResendSeconds: number;
+	availablePaths: string[];
+	pathsLoading: boolean;
+	pathsError: string | null;
+	reloadPaths: () => void;
 }
 
 function ConversionRow(props: Props): React.ReactElement {
@@ -166,13 +174,20 @@ function ConversionRow(props: Props): React.ReactElement {
 					meta={props.meta}
 					cfg={cfg}
 					status={props.status}
+					childStatuses={props.childStatuses}
+					validationIssues={props.validationIssues}
 					bodyId={bodyId}
 					onSetResend={onSetResend}
 					onSetSource={onSetSource}
 					onSetExtras={onSetExtras}
 					sourcesFor={props.sourcesFor}
+					sourceErrorFor={props.sourceErrorFor}
 					ensureLoaded={props.ensureLoaded}
 					globalResendSeconds={props.globalResendSeconds}
+					availablePaths={props.availablePaths}
+					pathsLoading={props.pathsLoading}
+					pathsError={props.pathsError}
+					reloadPaths={props.reloadPaths}
 				/>
 			) : (
 				<div id={bodyId} hidden />

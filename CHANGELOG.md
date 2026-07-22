@@ -5,6 +5,77 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+<a id="v1103"></a>
+
+## [1.10.3] - 2026-07-22
+
+### Added
+
+- Canonical `environment.water.temperature` conversions now emit Sea
+  Temperature on modern PGN 130316 and superseded PGN 130312, using NMEA 2000
+  temperature instance 100 by default. Obsolete PGN 130310 remains available
+  as a manual compatibility conversion.
+- Dynamic engine, electrical, tank, and display mappings now expose their
+  resolved Signal K paths to the panel and Config Advisor. Mapping controls
+  suggest asset ids and paths from the server path inventory, visually separate
+  Signal K input from NMEA 2000 output, distinguish asset discovery from
+  required measurement availability, and provide automatic polling plus manual
+  Refresh and Retry controls.
+- Per-conversion status now distinguishes waiting for Signal K input,
+  publisher-filter mismatch, blocked NMEA 2000 echo input, input that produced
+  no encodable output, stale previously active input, overdue scheduled
+  activity, and active emission. Factory conversions expose separate mapping
+  rows with each input path and its last-seen age.
+
+### Changed
+
+- The Environmental preset now selects current PGN 130316 temperature
+  conversions. PGN 130312 and obsolete PGN 130310 remain manually selectable
+  for receivers that require them.
+- Fixed-path editors now display the Signal K path as read-only and label the
+  optional publisher selector as a `$source` filter. Publishers found in the
+  server model, manual entry, filter mismatch warnings, and exact or dot-prefix
+  matching use one consistent model across the panel, Config Advisor, and
+  runtime. A publisher filter that repeats its own Signal K path is rejected
+  before Save.
+- The panel component budget is 40 kB Brotli to cover path discovery, shared
+  mapping validation, per-row runtime health, and accessible issue navigation
+  while retaining an enforced production size ceiling.
+- Enabled mapping rows are validated before Save. Invalid identifiers,
+  instances, tank paths, enum values, duplicate rows, and inconsistent engine
+  instances are surfaced instead of being saved and silently ignored. Shared
+  PGN identities and linked battery, solar, AC, charger, and inverter instances
+  are checked across conversions.
+- Config Advisor never auto-enables superseded or obsolete conversions. Legacy
+  frames remain explicit compatibility choices.
+- Publisher filters for mapped conversions now follow the mapping in a
+  collapsed Advanced section, and horizontally scrollable mapping tables are
+  labeled keyboard-focusable regions.
+
+### Fixed
+
+- Publisher ids ending in a numeric device segment, including
+  `venus.com.victronenergy.temperature.24`, are no longer misclassified as
+  NMEA 2000 sources. Origin classification now relies on authoritative source
+  metadata when available, and unknown origins are handled conservatively.
+- Stream conversions now reject input authoritatively identified as NMEA 2000,
+  preventing off-bus-to-bus conversions from echoing received bus traffic.
+- Timer ticks no longer count as Signal K input, unrelated synchronous and
+  asynchronous empty delta output no longer counts as accepted input, and one
+  healthy mapped asset no longer hides a failed sibling row.
+- Publisher inventory failures are reported as unverified lookups with a Retry
+  action instead of falsely claiming that the configured publisher does not
+  exist.
+- Validation messages now identify their mapping collection, so issue
+  navigation and `aria-invalid` target the correct table in conversions with
+  more than one mapping table.
+- Config Advisor now tells operators to enable a legacy PGN only when the
+  receiver requires that legacy frame, while naming the modern replacement as
+  the preferred choice.
+- App store screenshots now reflect the current 83-module panel catalog,
+  including the dedicated Sea Temperature conversion. Screenshot generation is
+  reproducible through `npm run screenshots`.
+
 <a id="v1102"></a>
 
 ## [1.10.2] - 2026-07-22

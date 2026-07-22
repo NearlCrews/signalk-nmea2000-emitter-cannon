@@ -8,6 +8,7 @@ import {
 	type ConversionCategory,
 	groupByCategory,
 } from "../config/enums";
+import { type ConfigIssue, validateConfig } from "../config/validation.js";
 import { stripSubIndex } from "../utils/pathUtils.js";
 import AdvisorPanel from "./components/advisor/AdvisorPanel";
 import CategoryTabs from "./components/CategoryTabs";
@@ -20,10 +21,12 @@ import GlobalSettings from "./components/GlobalSettings";
 import PanelToolbar from "./components/PanelToolbar";
 import PresetChips from "./components/PresetChips";
 import StatusView from "./components/StatusView";
+import { configIssueControls, configIssueRow } from "./configIssueTarget";
 import { CONVERSION_STYLES as C } from "./conversionStyles";
 import { shouldShowFirstRunCallout } from "./firstRunState";
 import { useConfig } from "./hooks/useConfig";
 import { useMeta } from "./hooks/useMeta";
+import { usePaths } from "./hooks/usePaths";
 import { useSources } from "./hooks/useSources";
 import { useStatus } from "./hooks/useStatus";
 import { plural } from "./recency";
@@ -34,6 +37,29 @@ interface Props {
 	configuration: unknown;
 	/** Fire-and-forget; returns void. Do not await. The next `configuration` prop reflects the saved state. */
 	save: (configuration: unknown) => void;
+}
+
+const NO_CONFIG_ISSUES: ConfigIssue[] = [];
+
+function ConfigIssueList({
+	issues,
+	metaByKey,
+}: {
+	issues: ConfigIssue[];
+	metaByKey: Map<string, ConversionMetadata>;
+}): React.ReactElement {
+	return (
+		<ul>
+			{issues.slice(0, 5).map((issue) => (
+				<li
+					key={`${issue.conversionKey}:${issue.collection ?? "fixed"}:${issue.field}:${issue.rowIndex ?? "all"}:${issue.message}`}
+				>
+					{metaByKey.get(issue.conversionKey)?.title ?? issue.conversionKey}
+					{issue.rowIndex === undefined ? "" : `, row ${issue.rowIndex + 1}`}: {issue.message}
+				</li>
+			))}
+		</ul>
+	);
 }
 
 type PanelView = "configure" | "status";
@@ -89,8 +115,14 @@ export default function PluginConfigurationPanel(props: Props): React.ReactEleme
 function SupportedPluginConfigurationPanel({ configuration, save }: Props): React.ReactElement {
 	const { status, error, lastUpdatedMs, lastAttemptMs } = useStatus();
 	const { state, savedState, dispatch, markSaved } = useConfig(configuration);
-	const { sourcesFor, ensureLoaded } = useSources();
+	const { sourcesFor, sourceErrorFor, ensureLoaded } = useSources();
 	const { meta, metaError, metaLoading, reload: reloadMeta } = useMeta();
+	const {
+		paths: availablePaths,
+		loading: pathsLoading,
+		error: pathsError,
+		reload: reloadPaths,
+	} = usePaths();
 	const [tab, setTab] = useState<ConversionCategory>("navigation");
 	const [view, setView] = useState<PanelView>("configure");
 	const rootRef = useRef<HTMLDivElement>(null);
@@ -158,12 +190,6 @@ function SupportedPluginConfigurationPanel({ configuration, save }: Props): Reac
 		return () => window.removeEventListener("beforeunload", onBeforeUnload);
 	}, [dirty]);
 
-	const handleSave = (): void => {
-		save(state);
-		markSaved();
-		setJustSavedAt(Date.now());
-	};
-
 	const setEnabledForKeys = useCallback(
 		(keys: string[], enabled: boolean): void => {
 			for (const k of keys) dispatch({ type: "setEnabled", key: k, enabled });
@@ -186,11 +212,81 @@ function SupportedPluginConfigurationPanel({ configuration, save }: Props): Reac
 		if (status) for (const r of status.perConversion) m.set(r.key, r);
 		return m;
 	}, [status]);
+	const childStatusesByParent = useMemo(() => {
+		const grouped = new Map<string, PerConversionStatus[]>();
+		if (status) {
+			for (const row of status.perConversion) {
+				if (row.parentKey === undefined) continue;
+				const children = grouped.get(row.parentKey) ?? [];
+				children.push(row);
+				grouped.set(row.parentKey, children);
+			}
+		}
+		for (const children of grouped.values()) {
+			children.sort((a, b) => (a.mappingIndex ?? 0) - (b.mappingIndex ?? 0));
+		}
+		return grouped;
+	}, [status]);
 	const metaByKey = useMemo(() => {
 		const m = new Map<string, ConversionMetadata>();
 		for (const x of meta) m.set(x.key, x);
 		return m;
 	}, [meta]);
+	const configIssues = useMemo(() => validateConfig(state), [state]);
+	const validationErrors = useMemo(
+		() => configIssues.filter((issue) => issue.severity === "error"),
+		[configIssues],
+	);
+	const validationWarnings = useMemo(
+		() => configIssues.filter((issue) => issue.severity === "warning"),
+		[configIssues],
+	);
+	const configIssuesByKey = useMemo(() => {
+		const grouped = new Map<string, ConfigIssue[]>();
+		for (const issue of configIssues) {
+			const issues = grouped.get(issue.conversionKey) ?? [];
+			issues.push(issue);
+			grouped.set(issue.conversionKey, issues);
+		}
+		return grouped;
+	}, [configIssues]);
+
+	const jumpToConfigIssue = useCallback(
+		(issue: ConfigIssue): void => {
+			const m = metaByKey.get(issue.conversionKey);
+			if (!m) return;
+			clearSearch();
+			setView("configure");
+			setTab(m.category);
+			const group = m.legacy ? "legacy" : "modern";
+			setOpenSections((prev) => ({ ...prev, [`${m.category}:${group}`]: true }));
+			setExpandedKey(m.key);
+			requestAnimationFrame(() => {
+				requestAnimationFrame(() => {
+					const conversionRow = document.getElementById(`skn-row-${m.key}`);
+					const mappingRow = conversionRow ? configIssueRow(conversionRow, issue) : undefined;
+					const target =
+						(conversionRow ? configIssueControls(conversionRow, issue)[0] : undefined) ??
+						mappingRow?.querySelector<HTMLElement>("button") ??
+						document.getElementById(`skn-row-toggle-${m.key}`);
+					(mappingRow ?? conversionRow)?.scrollIntoView({ behavior: "smooth", block: "center" });
+					target?.focus();
+				});
+			});
+		},
+		[metaByKey, clearSearch],
+	);
+
+	const handleSave = (): void => {
+		const firstError = validationErrors[0];
+		if (firstError) {
+			jumpToConfigIssue(firstError);
+			return;
+		}
+		save(state);
+		markSaved();
+		setJustSavedAt(Date.now());
+	};
 
 	// Parent catalog keys currently reporting an error, with sub-conversion
 	// `[N]` suffixes folded onto the parent so a flaky sub-conversion surfaces
@@ -277,12 +373,19 @@ function SupportedPluginConfigurationPanel({ configuration, save }: Props): Reac
 			meta={m}
 			config={state.conversions[m.key]}
 			status={statusByKey.get(m.key)}
+			childStatuses={childStatusesByParent.get(m.key) ?? []}
+			validationIssues={configIssuesByKey.get(m.key) ?? NO_CONFIG_ISSUES}
 			expanded={expandedKey === m.key}
 			dispatch={dispatch}
 			setExpanded={toggleExpand}
 			sourcesFor={sourcesFor}
+			sourceErrorFor={sourceErrorFor}
 			ensureLoaded={ensureLoaded}
 			globalResendSeconds={state.globalResendInterval}
+			availablePaths={availablePaths}
+			pathsLoading={pathsLoading}
+			pathsError={pathsError}
+			reloadPaths={reloadPaths}
 		/>
 	);
 
@@ -323,6 +426,36 @@ function SupportedPluginConfigurationPanel({ configuration, save }: Props): Reac
 				<StatusView status={status} metaByKey={metaByKey} onErrorClick={jumpToFirstError} />
 			</div>
 			<div hidden={view !== "configure"}>
+				{validationErrors.length > 0 ? (
+					<Banner
+						actions={
+							<Button onClick={() => validationErrors[0] && jumpToConfigIssue(validationErrors[0])}>
+								Review first error
+							</Button>
+						}
+						live="assertive"
+						title={`${plural(validationErrors.length, "configuration error")} must be fixed`}
+						tone="danger"
+					>
+						<ConfigIssueList issues={validationErrors} metaByKey={metaByKey} />
+					</Banner>
+				) : validationWarnings.length > 0 ? (
+					<Banner
+						actions={
+							<Button
+								onClick={() => validationWarnings[0] && jumpToConfigIssue(validationWarnings[0])}
+							>
+								Review first warning
+							</Button>
+						}
+						title={`${plural(validationWarnings.length, "configuration warning")}`}
+						tone="warning"
+					>
+						Warnings do not block Save. They identify disabled draft errors or linked NMEA 2000
+						instances that should be verified.
+						<ConfigIssueList issues={validationWarnings} metaByKey={metaByKey} />
+					</Banner>
+				) : null}
 				{error ? (
 					<Banner live="polite" title="Status unavailable" tone="danger">
 						{error}. The next poll will retry automatically.
@@ -458,6 +591,7 @@ function SupportedPluginConfigurationPanel({ configuration, save }: Props): Reac
 			<FooterBar
 				dirty={dirty}
 				unconfigured={unconfigured}
+				validationErrorCount={validationErrors.length}
 				justSavedAt={justSavedAt}
 				onSave={handleSave}
 				onDiscard={() => dispatch({ type: "discard", config: savedState })}

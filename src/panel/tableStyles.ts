@@ -10,6 +10,17 @@ export const TABLE_STYLES = {
 		color: "var(--skn-text)",
 	},
 	headRow: { textAlign: "left", color: "var(--skn-text-muted)" },
+	groupRow: {
+		textAlign: "left",
+		color: "var(--skn-text)",
+		background: "var(--skn-surface-raised)",
+	},
+	groupCell: {
+		padding: "var(--skn-table-cell-padding)",
+		borderBottom: "1px solid var(--skn-border)",
+		fontSize: "var(--skn-font-small)",
+		fontWeight: 650,
+	},
 	title: {
 		fontSize: "var(--skn-font-body)",
 		fontWeight: 600,

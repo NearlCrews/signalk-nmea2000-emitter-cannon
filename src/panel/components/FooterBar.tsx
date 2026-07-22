@@ -13,6 +13,7 @@ interface Props {
 	unconfigured: boolean;
 	onSave: () => void;
 	onDiscard: () => void;
+	validationErrorCount?: number;
 	// Epoch ms of the last successful save, or null. The pill auto-clears
 	// from the parent ~2.5s after a save, so this is a simple render flag.
 	justSavedAt?: number | null;
@@ -23,6 +24,7 @@ export default function FooterBar({
 	unconfigured,
 	onSave,
 	onDiscard,
+	validationErrorCount = 0,
 	justSavedAt,
 }: Props): React.ReactElement {
 	// Save and Discard disable themselves the instant they fire (dirty flips to
@@ -41,7 +43,7 @@ export default function FooterBar({
 		focusStatus();
 	};
 
-	const saveDisabled = isSaveDisabled(dirty, unconfigured);
+	const saveDisabled = isSaveDisabled(dirty, unconfigured, validationErrorCount);
 
 	return (
 		<ActionBar
@@ -59,6 +61,13 @@ export default function FooterBar({
 			status={
 				<>
 					<SaveStatus dirty={dirty} justSavedAt={justSavedAt ?? null} />
+					{validationErrorCount > 0 ? (
+						<span role="status" style={S.textFaint}>
+							Fix {validationErrorCount} configuration{" "}
+							{validationErrorCount === 1 ? "error" : "errors"}
+							before saving.
+						</span>
+					) : null}
 					{unconfigured && !dirty ? (
 						<span style={S.textFaint}>Save to enable the plugin.</span>
 					) : null}

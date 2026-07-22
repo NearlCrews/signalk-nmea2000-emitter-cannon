@@ -14,37 +14,82 @@ import TankMappingEditor from "./extras/TankMappingEditor";
 import VesselTripMappingEditor from "./extras/VesselTripMappingEditor";
 
 interface Props {
+	conversionKey: string;
 	meta: ExtrasMeta;
 	value: Record<string, unknown>;
 	onChange: (next: Record<string, unknown>) => void;
+	availablePaths: string[];
 }
 
-export default function ExtrasEditor({ meta, value, onChange }: Props): React.ReactElement | null {
+export default function ExtrasEditor({
+	conversionKey,
+	meta,
+	value,
+	onChange,
+	availablePaths,
+}: Props): React.ReactElement | null {
 	switch (meta.type) {
 		case "none":
 			return null;
 		case "acMapping":
-			return <AcMappingEditor value={value} onChange={onChange} />;
+			return <AcMappingEditor value={value} onChange={onChange} availablePaths={availablePaths} />;
 		case "batteryMapping":
-			return <BatteryMappingEditor value={value} onChange={onChange} />;
+			return (
+				<BatteryMappingEditor value={value} onChange={onChange} availablePaths={availablePaths} />
+			);
 		case "chargerMapping":
-			return <ChargerMappingEditor value={value} onChange={onChange} />;
+			return (
+				<ChargerMappingEditor value={value} onChange={onChange} availablePaths={availablePaths} />
+			);
 		case "inverterMapping":
-			return <InverterMappingEditor value={value} onChange={onChange} />;
+			return (
+				<InverterMappingEditor value={value} onChange={onChange} availablePaths={availablePaths} />
+			);
 		case "engineMapping":
-			return <EngineMappingEditor value={value} onChange={onChange} />;
+			return (
+				<EngineMappingEditor
+					conversionKey={conversionKey}
+					value={value}
+					onChange={onChange}
+					availablePaths={availablePaths}
+				/>
+			);
 		case "engineStaticMapping":
-			return <EngineStaticMappingEditor value={value} onChange={onChange} />;
+			return (
+				<EngineStaticMappingEditor
+					value={value}
+					onChange={onChange}
+					availablePaths={availablePaths}
+				/>
+			);
 		case "vesselTripMapping":
-			return <VesselTripMappingEditor value={value} onChange={onChange} />;
+			return (
+				<VesselTripMappingEditor
+					value={value}
+					onChange={onChange}
+					availablePaths={availablePaths}
+				/>
+			);
 		case "tankMapping":
-			return <TankMappingEditor value={value} onChange={onChange} />;
+			return (
+				<TankMappingEditor value={value} onChange={onChange} availablePaths={availablePaths} />
+			);
 		case "solarMapping":
-			return <SolarMappingEditor value={value} onChange={onChange} />;
+			return (
+				<SolarMappingEditor value={value} onChange={onChange} availablePaths={availablePaths} />
+			);
 		case "brightnessMapping":
-			return <BrightnessMappingEditor value={value} onChange={onChange} />;
+			return (
+				<BrightnessMappingEditor
+					value={value}
+					onChange={onChange}
+					availablePaths={availablePaths}
+				/>
+			);
 		case "exhaustMapping":
-			return <ExhaustMappingEditor value={value} onChange={onChange} />;
+			return (
+				<ExhaustMappingEditor value={value} onChange={onChange} availablePaths={availablePaths} />
+			);
 		case "field":
 		case "fields":
 			return <FieldEditor meta={meta} value={value} onChange={onChange} />;

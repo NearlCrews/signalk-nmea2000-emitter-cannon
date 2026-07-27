@@ -5,6 +5,12 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Repository CI and npm publishing now invoke the pinned npm 12 CLI without
+  replacing setup-node's bundled npm installation, which prevents incomplete
+  in-place npm upgrades on Node 22 runners.
+
 <a id="v1104"></a>
 
 ## [1.10.4] - 2026-07-27

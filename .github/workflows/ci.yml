@@ -28,7 +28,6 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: npm
-      - run: npm install --global npm@12.0.1
-      - run: npm ci
+      - run: npx --yes npm@12.0.1 ci
       - run: npx playwright install --with-deps chromium
-      - run: npm run verify:release
+      - run: npx --yes npm@12.0.1 run verify:release

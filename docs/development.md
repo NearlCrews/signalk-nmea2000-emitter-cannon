@@ -8,10 +8,10 @@
 
 The `devEngines` compatibility floor admits npm 10.9.7 because setup-node and
 the official Signal K Plugin CI begin with the npm bundled by their selected
-Node release. Repository-owned CI upgrades to npm 12.0.1 before installing
-dependencies and runs the complete release gate on Node 22.22.2 and the current
-Node 24 release. Signal K Plugin CI separately verifies its supported
-installation matrix.
+Node release. Repository-owned CI invokes npm 12.0.1 directly without replacing
+the runner's bundled npm installation, and it runs the complete release gate on
+Node 22.22.2 and the current Node 24 release. Signal K Plugin CI separately
+verifies its supported installation matrix.
 
 ## Setup
 

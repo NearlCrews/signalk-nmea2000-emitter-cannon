@@ -35,7 +35,9 @@ GitHub release, and npm publication. Then:
 5. Run `npm run verify:release`. This covers formatting, linting, spelling,
    module boundaries, dead code, strict types, coverage, production builds,
    the panel runtime smoke test, bundle budgets, package contents, publint, and
-   full and runtime security audits.
+   security audits. Runtime dependencies must have zero findings. The full
+   dependency audit permits only the documented canboatjs development chain for
+   `GHSA-mh99-v99m-4gvg` and fails closed for any other advisory.
 6. Run `npm outdated --long` and resolve unexpected output. A newer TypeScript
    or `@types/node` major is expected only when it is outside the typed-lint or
    supported-Node compatibility range. Also ask npm's resolver whether the

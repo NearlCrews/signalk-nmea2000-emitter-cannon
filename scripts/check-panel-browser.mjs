@@ -7,6 +7,12 @@ const repositoryDir = new URL("../", import.meta.url);
 const publicDir = new URL("../public/", import.meta.url);
 const pluginPrefix = "/plugins/signalk-nmea2000-emitter-cannon/";
 const updateScreenshots = process.argv.includes("--update-screenshots");
+const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+const sharedUiVersion = packageJson.devDependencies?.["signalk-nearlcrews-ui"];
+if (typeof sharedUiVersion !== "string" || !/^\d+\.\d+\.\d+$/.test(sharedUiVersion)) {
+	throw new Error("signalk-nearlcrews-ui must be pinned to an exact version");
+}
+const sharedUiRootSelector = `[data-snui-version="${sharedUiVersion}"]`;
 const vesselTripDescription =
 	"Fuel range is an estimate, not a voyage-planning or safety value. Configure every fuel tank and propulsion consumer; other consumers, unusable reserve, cross-feed limits, weather, and tide are not included. Raymarine also requires Fuel Manager setup, fuel data from PGN 127489 or 127497, and PGN 129026 with GNSS for distance. Current Garmin documentation does not list PGN 127496.";
 
@@ -425,8 +431,16 @@ try {
 	});
 
 	await page.goto(`http://127.0.0.1:${address.port}/`, { waitUntil: "networkidle" });
-	const root = page.locator('[data-snui-version="0.3.0"]');
+	const root = page.locator(sharedUiRootSelector);
 	await root.waitFor();
+	const setupButton = page.getByRole("button", { name: "Setup wizard" });
+	await setupButton.evaluate((element) => element.setAttribute("aria-disabled", "true"));
+	await setupButton.hover();
+	const busyFilter = await setupButton.evaluate((element) => getComputedStyle(element).filter);
+	if (busyFilter !== "none") {
+		throw new Error(`aria-disabled shared button received the local hover filter: ${busyFilter}`);
+	}
+	await setupButton.evaluate((element) => element.removeAttribute("aria-disabled"));
 	await page.getByRole("tab", { name: /Electrical/ }).click();
 	await page.locator("#skn-row-toggle-BATTERY").click();
 	await page.getByText("Battery mapping", { exact: true }).waitFor();
@@ -662,7 +676,7 @@ try {
 			await screenshotPage.goto(`http://127.0.0.1:${address.port}/?screenshots=1`, {
 				waitUntil: "networkidle",
 			});
-			await screenshotPage.locator('[data-snui-version="0.3.0"]').waitFor();
+			await screenshotPage.locator(sharedUiRootSelector).waitFor();
 			await prepare(screenshotPage);
 			await screenshotPage.evaluate(
 				() =>

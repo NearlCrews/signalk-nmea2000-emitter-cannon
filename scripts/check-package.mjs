@@ -1,8 +1,13 @@
 import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
+import { normalizePackReport } from "./package-report.mjs";
 
-const npm = process.platform === "win32" ? "npm.cmd" : "npm";
-const result = spawnSync(npm, ["pack", "--dry-run", "--ignore-scripts", "--json"], {
+const npm = process.env.npm_execpath ?? (process.platform === "win32" ? "npm.cmd" : "npm");
+const command = npm.endsWith(".js") ? process.execPath : npm;
+const commandArgs = npm.endsWith(".js")
+	? [npm, "pack", "--dry-run", "--ignore-scripts", "--json"]
+	: ["pack", "--dry-run", "--ignore-scripts", "--json"];
+const result = spawnSync(command, commandArgs, {
 	encoding: "utf8",
 });
 
@@ -11,10 +16,8 @@ if (result.status !== 0) {
 	process.exit(result.status ?? 1);
 }
 
-const [report] = JSON.parse(result.stdout);
-if (!report) {
-	throw new Error("npm pack returned no package report");
-}
+const parsedReport = JSON.parse(result.stdout);
+const report = normalizePackReport(parsedReport);
 
 const paths = new Set(report.files.map((file) => file.path));
 const required = [
@@ -56,8 +59,9 @@ const packageJson = JSON.parse(await readFile(new URL("../package.json", import.
 if (packageJson.dependencies?.["signalk-nearlcrews-ui"]) {
 	throw new Error("signalk-nearlcrews-ui must be a bundled development dependency");
 }
-if (packageJson.devDependencies?.["signalk-nearlcrews-ui"] !== "0.3.0") {
-	throw new Error("signalk-nearlcrews-ui must be pinned to exact version 0.3.0");
+const sharedUiVersion = packageJson.devDependencies?.["signalk-nearlcrews-ui"];
+if (typeof sharedUiVersion !== "string" || !/^\d+\.\d+\.\d+$/.test(sharedUiVersion)) {
+	throw new Error("signalk-nearlcrews-ui must be pinned to an exact version");
 }
 
 if (

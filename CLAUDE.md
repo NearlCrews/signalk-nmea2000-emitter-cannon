@@ -109,7 +109,7 @@ Tests live in `src/test/`. The conversion-module test cases live embedded in eac
 
 ## Key Technical Details
 
-- **Runtime**: Node.js 22.18+, with an ESM plugin bundle
+- **Runtime**: Node.js 22.22.2+, with an ESM plugin bundle
 - **Build**: esbuild bundles to single `dist/index.mjs` (currently ~364 KB)
 - **Externals**: rxjs is the only runtime dependency (esbuild `--external:rxjs`). `@signalk/server-api` is a devDependency used for types only and MUST stay a type-only import: a value import (e.g. its `hasValues`) bundles the whole package, whose dynamic `require("events")` throws at load ("Dynamic require of events is not supported"), so the plugin keeps local copies of any such guards (see `notifications.ts`).
 - **Reactivity**: RxJS for Signal K data subscriptions (Signal K server uses BaconJS internally)

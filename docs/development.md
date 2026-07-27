@@ -2,13 +2,13 @@
 
 ## Prerequisites
 
-- Node.js 22.18 or newer (`.node-version` pins 22.18 for local development)
-- npm 11.6 or newer for local development (`packageManager` pins npm 11.18)
+- Node.js 22.22.2 or newer (`.node-version` pins 22.22.2 for local development)
+- npm 12.0.1 or newer (`packageManager` pins npm 12.0.1)
 - TypeScript 6, installed by the repository
 
-The `devEngines` compatibility floor also admits npm 10.9.8 because the
-official Signal K plugin-CI Node 22 lanes use that bundled npm release. Local
-development and repository-owned CI stay pinned to npm 11.18.
+Repository-owned CI runs the complete release gate on Node 22.22.2 and the
+current Node 24 release. Signal K plugin CI separately verifies its supported
+installation matrix.
 
 ## Setup
 
@@ -41,6 +41,13 @@ npm run format:check   # Formatting check without writes
 npm run verify         # Coverage, build, panel smoke, and size gates
 npm run verify:release # Verify plus package contents and security audits
 ```
+
+The release audit requires zero runtime findings. The latest canboatjs test
+dependency still inherits `GHSA-mh99-v99m-4gvg` through its legacy MQTT
+toolchain, so `scripts/check-audit.mjs` permits only that exact development-only
+chain. Any additional package, advisory, severity change, or runtime finding
+fails closed. Remove the exception when canboatjs publishes a clean dependency
+tree.
 
 ## Architecture
 
@@ -136,7 +143,7 @@ tsconfig.panel.json       # Panel-specific TypeScript config (jsx: react-jsx)
 tsconfig.test.json        # TypeScript config for the src/test/ suite
 .github/
 └── workflows/
-    ├── ci.yml            # Complete release verification on Node 24
+    ├── ci.yml            # Complete release verification on Node 22.22.2 and 24
     ├── plugin-ci.yml     # Official SignalK reusable plugin-ci workflow (cross-platform)
     └── publish.yml       # Auto-publish to npm on GitHub release (with provenance)
 ```

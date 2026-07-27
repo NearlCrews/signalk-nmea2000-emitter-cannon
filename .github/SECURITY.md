@@ -79,14 +79,15 @@ When using this plugin:
 
 This project uses:
 
-- `npm audit` for vulnerability scanning
+- `npm run audit` for runtime and development dependency scanning
 - Automated dependency updates for security patches
-- Override mechanisms for transitive dependency vulnerabilities
+- A fail-closed exception for the documented development-only canboatjs
+  advisory chain
 
 Run security audit:
 
 ```bash
-npm audit
+npm run audit
 ```
 
 ## Signal K Security

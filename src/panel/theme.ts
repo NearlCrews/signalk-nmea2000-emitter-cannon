@@ -114,10 +114,10 @@ ${SCALE_TOKENS}${SHARED_THEME_BRIDGE}}
 		border-color var(--skn-transition-fast) ease,
 		filter var(--skn-transition-fast) ease;
 }
-.skn-panel button:hover:not(:disabled) {
+.skn-panel button:hover:not(:disabled):not([aria-disabled="true"]) {
 	filter: brightness(0.96);
 }
-.skn-panel button:active:not(:disabled) {
+.skn-panel button:active:not(:disabled):not([aria-disabled="true"]) {
 	filter: brightness(0.9);
 }
 /* Inputs and selects inside mapping-table cells flex with the column instead

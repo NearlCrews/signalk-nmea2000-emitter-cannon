@@ -1,6 +1,6 @@
 {
 	"name": "signalk-nmea2000-emitter-cannon",
-	"version": "1.10.3",
+	"version": "1.10.4",
 	"description": "Signal K plugin that converts Signal K deltas to Canboat-validated NMEA 2000 PGNs",
 	"type": "commonjs",
 	"main": "dist/index.mjs",
@@ -38,8 +38,10 @@
 		"format": "biome format --write .",
 		"format:check": "biome format .",
 		"size": "size-limit",
-		"package:check": "publint --pack npm --strict && node scripts/check-package.mjs",
-		"audit": "npm audit --audit-level=high && npm run audit:runtime",
+		"package:check": "node scripts/test-package-report.mjs && publint --pack=false --strict && node scripts/check-package.mjs",
+		"audit": "npm run audit:runtime && npm run audit:policy && npm run audit:dependencies",
+		"audit:dependencies": "node scripts/check-audit.mjs",
+		"audit:policy": "node scripts/test-audit-policy.mjs",
 		"audit:runtime": "npm audit --omit=dev --audit-level=high",
 		"verify:commit": "npm run ci:biome && npm run lint && npm run cruise && npm run deadcode",
 		"verify:fast": "npm run verify:commit && npm run check",
@@ -104,15 +106,15 @@
 		"@babel/core": "^8.0.1",
 		"@babel/preset-react": "^8.0.1",
 		"@babel/preset-typescript": "^8.0.1",
-		"@biomejs/biome": "2.5.4",
+		"@biomejs/biome": "2.5.5",
 		"@canboat/canboatjs": "^3.20.0",
 		"@canboat/ts-pgns": "^1.11.18",
-		"@playwright/test": "1.61.1",
+		"@playwright/test": "1.62.0",
 		"@signalk/server-api": "^2.30.0",
 		"@sinclair/typebox": "^0.34.52",
-		"@size-limit/file": "12.1.0",
+		"@size-limit/file": "13.0.1",
 		"@types/express": "^5.0.6",
-		"@types/node": "24.13.3",
+		"@types/node": "22.20.1",
 		"@types/react": "^19.2.17",
 		"@types/react-dom": "^19.2.3",
 		"@types/supertest": "^7.2.1",
@@ -122,34 +124,34 @@
 		"cspell": "10.0.1",
 		"dependency-cruiser": "^18.1.0",
 		"esbuild": "^0.28.1",
-		"eslint": "10.7.0",
+		"eslint": "10.8.0",
 		"express": "^5.2.1",
-		"knip": "6.27.0",
-		"markdownlint-cli2": "0.23.1",
-		"publint": "0.3.21",
-		"react": "^19.2.7",
-		"react-dom": "^19.2.7",
-		"signalk-nearlcrews-ui": "0.3.0",
-		"size-limit": "12.1.0",
+		"knip": "6.29.0",
+		"markdownlint-cli2": "0.23.2",
+		"publint": "0.3.22",
+		"react": "^19.2.8",
+		"react-dom": "^19.2.8",
+		"signalk-nearlcrews-ui": "0.4.1",
+		"size-limit": "13.0.1",
 		"supertest": "^7.2.2",
 		"typescript": "^6.0.3",
 		"typescript-eslint": "8.65.0",
 		"vitest": "4.1.10",
-		"webpack": "^5.108.4",
+		"webpack": "^5.109.0",
 		"webpack-cli": "^7.2.1"
 	},
 	"engines": {
-		"node": ">=22.18"
+		"node": ">=22.22.2"
 	},
 	"devEngines": {
 		"runtime": {
 			"name": "node",
-			"version": ">=22.18",
+			"version": ">=22.22.2",
 			"onFail": "error"
 		},
 		"packageManager": {
 			"name": "npm",
-			"version": ">=10.9.8",
+			"version": ">=12.0.1",
 			"onFail": "error"
 		}
 	},
@@ -159,7 +161,7 @@
 		"es5-ext": false,
 		"esbuild@0.28.1": true
 	},
-	"packageManager": "npm@11.18.0",
+	"packageManager": "npm@12.0.1",
 	"size-limit": [
 		{
 			"name": "Plugin bundle",

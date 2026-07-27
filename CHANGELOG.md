@@ -5,6 +5,38 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+<a id="v1104"></a>
+
+## [1.10.4] - 2026-07-27
+
+### Changed
+
+- The configuration panel now bundles `signalk-nearlcrews-ui` 0.4.1, including
+  improved Night-theme contrast, loading-button contrast, responsive action
+  overflow handling, and current shared-control behavior. Panel checks derive
+  the exact bundled version from package metadata instead of duplicating it.
+- The development baseline is Node 22.22.2 with npm 12.0.1. Repository CI now
+  runs the complete release gate on both the minimum Node release and current
+  Node 24.
+- Compatible development libraries are refreshed to current releases,
+  including Biome 2.5.5, Playwright 1.62.0, ESLint 10.8.0, Knip 6.29.0,
+  React 19.2.8, Webpack 5.109.0, Size Limit 13.0.1, and updated package and
+  Markdown validation tools. TypeScript remains on 6.0.3 because the current
+  typed-lint toolchain does not support TypeScript 7.
+
+### Fixed
+
+- Shared buttons using `aria-disabled` no longer receive Emitter Cannon's local
+  hover or active brightness filters.
+- Package validation now accepts the npm 11 and npm 12 JSON report shapes, and
+  Publint checks the built package metadata without launching a mismatched
+  nested package manager. The separate npm 12 pack check remains authoritative
+  for shipped file contents.
+- Release auditing now accepts only the identified development-only
+  `GHSA-mh99-v99m-4gvg` chain inherited from the latest canboatjs while
+  continuing to require a clean runtime audit and rejecting every unknown
+  package or advisory.
+
 <a id="v1103"></a>
 
 ## [1.10.3] - 2026-07-22

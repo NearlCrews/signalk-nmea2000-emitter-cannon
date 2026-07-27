@@ -3,6 +3,12 @@ import vm from "node:vm";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
+const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+const sharedUiVersion = packageJson.devDependencies?.["signalk-nearlcrews-ui"];
+if (typeof sharedUiVersion !== "string" || !/^\d+\.\d+\.\d+$/.test(sharedUiVersion)) {
+	throw new Error("signalk-nearlcrews-ui must be pinned to an exact version");
+}
+
 const publicDir = new URL("../public/", import.meta.url);
 const bundles = readdirSync(publicDir)
 	.filter((name) => name.endsWith(".js"))
@@ -89,7 +95,7 @@ const markup = renderToStaticMarkup(
 if (!markup.includes("Loading conversions")) {
 	throw new Error("panel runtime check did not render the configuration panel");
 }
-if (!markup.includes('data-snui-version="0.3.0"')) {
+if (!markup.includes(`data-snui-version="${sharedUiVersion}"`)) {
 	throw new Error("panel runtime check did not render signalk-nearlcrews-ui");
 }
 

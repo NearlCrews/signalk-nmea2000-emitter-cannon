@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   plugin-ci:
-    uses: SignalK/signalk-server/.github/workflows/plugin-ci.yml@5d9639abc03bc3387d4b1469c8b0c7fda8aa7130 # master 2026-07-19
+    uses: SignalK/signalk-server/.github/workflows/plugin-ci.yml@ac368c548fba923db0acf8a314cbdc6552b2b8cf # master 2026-07-19
     with:
       build-command: npm run build
       # Formatting/lint is already enforced on Linux by ci.yml; skipping it

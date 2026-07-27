@@ -3,11 +3,14 @@
 ## Prerequisites
 
 - Node.js 22.22.2 or newer (`.node-version` pins 22.22.2 for local development)
-- npm 12.0.1 or newer (`packageManager` pins npm 12.0.1)
+- npm 12.0.1 for local development (`packageManager` pins npm 12.0.1)
 - TypeScript 6, installed by the repository
 
-Repository-owned CI runs the complete release gate on Node 22.22.2 and the
-current Node 24 release. Signal K plugin CI separately verifies its supported
+The `devEngines` compatibility floor admits npm 10.9.7 because setup-node and
+the official Signal K Plugin CI begin with the npm bundled by their selected
+Node release. Repository-owned CI upgrades to npm 12.0.1 before installing
+dependencies and runs the complete release gate on Node 22.22.2 and the current
+Node 24 release. Signal K Plugin CI separately verifies its supported
 installation matrix.
 
 ## Setup

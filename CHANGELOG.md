@@ -32,6 +32,9 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Publint checks the built package metadata without launching a mismatched
   nested package manager. The separate npm 12 pack check remains authoritative
   for shipped file contents.
+- The npm compatibility floor admits the npm 10.9.7 bootstrap used by
+  setup-node and the official Signal K Plugin CI while repository-owned
+  development and release jobs remain pinned to npm 12.0.1.
 - Release auditing now accepts only the identified development-only
   `GHSA-mh99-v99m-4gvg` chain inherited from the latest canboatjs while
   continuing to require a clean runtime audit and rejecting every unknown

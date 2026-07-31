@@ -7,6 +7,11 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `WIND_WEATHER_TRUE` now accepts `navigation.headingTrue` from an NMEA 2000
+  sensor, including a Garmin GPS24xd, as a supporting input when deriving
+  boat-referenced true wind. The echo guard remains active for received wind
+  inputs, so the conversion can emit PGN 130306 without retransmitting bus
+  wind data.
 - Repository CI and npm publishing now invoke the pinned npm 12 CLI without
   replacing setup-node's bundled npm installation, which prevents incomplete
   in-place npm upgrades on Node 22 runners.

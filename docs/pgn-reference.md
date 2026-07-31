@@ -196,7 +196,11 @@ fields, also enable `WIND_WEATHER_TRUE`: it computes the boat-referenced true wi
 angle (TWA = `environment.wind.directionTrue` minus `navigation.headingTrue`) and
 emits PGN 130306 with reference `True (boat referenced)`. It needs a true heading
 to produce an angle, and like `WIND_WEATHER_APPARENT` it is opt-in (disabled by
-default) and meant only for a boat without a real masthead anemometer.
+default) and meant only for a boat without a real masthead anemometer. The
+heading may come from an NMEA 2000 sensor such as a Garmin GPS24xd. Emitter
+Cannon treats that PGN 127250 heading as a supporting input for this conversion
+only; it still blocks NMEA 2000 wind inputs that could be echoed back as PGN
+130306.
 
 ## Electrical Systems
 

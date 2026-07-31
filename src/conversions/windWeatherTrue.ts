@@ -39,6 +39,9 @@ export default function createWindWeatherTrueConversion(
 			"navigation.headingTrue",
 			"environment.wind.speedOverGround",
 		],
+		// Heading is a supporting input. This conversion emits wind PGN 130306,
+		// so consuming heading PGN 127250 cannot echo the heading back to NMEA 2000.
+		allowNmea2000InputPaths: ["navigation.headingTrue"],
 		callback: ((
 			directionTrue: number | null,
 			headingTrue: number | null,

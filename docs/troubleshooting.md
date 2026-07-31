@@ -154,7 +154,11 @@ Enable `WIND_WEATHER_TRUE`. It computes the boat-referenced true wind angle
 130306 with reference `True (boat referenced)`, which populates the Garmin's True
 Wind Speed/Angle directly. It needs a true heading on the bus to produce an angle;
 if only magnetic heading is available, make sure the server derives
-`navigation.headingTrue` (heading plus magnetic variation) first.
+`navigation.headingTrue` (heading plus magnetic variation) first. A true heading
+from an NMEA 2000 sensor such as a Garmin GPS24xd is a safe supporting input:
+Emitter Cannon consumes its PGN 127250 heading to derive the relative wind angle
+but emits PGN 130306, so the path-aware echo guard permits the heading without
+allowing received wind data to loop back onto the bus.
 
 ## Configuration changes don't take effect
 

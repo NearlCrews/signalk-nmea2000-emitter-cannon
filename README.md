@@ -76,8 +76,9 @@ priorities follow the current stable Canboat 7.1 database. It pairs well with se
   controls with Light, Auto, Dark, and red-preserving Night themes
 - **NMEA 2000 echo guards** that use authoritative source metadata to reject
   known bus-origin input instead of re-emitting it onto the same bus. Unknown
-  origins remain compatible, and a numeric publisher suffix alone is not
-  treated as proof of NMEA 2000 origin
+  origins remain compatible, a numeric publisher suffix alone is not treated
+  as proof of NMEA 2000 origin, and conversions can narrowly declare a
+  different-PGN supporting input that is safe to consume from the bus
 - **Strict TypeScript**, an ESM plugin bundle, and RxJS as the only runtime
   dependency
 - **Embedded canboatjs round-trip tests** on every conversion module, plus

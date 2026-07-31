@@ -33,9 +33,18 @@ function createBus(): TestBus {
 }
 
 function normalizedDepth(value: number, $source: string, type?: string): NormalizedDelta {
+	return normalizedValue("environment.depth.belowTransducer", value, $source, type);
+}
+
+function normalizedValue(
+	path: string,
+	value: number,
+	$source: string,
+	type?: string,
+): NormalizedDelta {
 	return {
 		context: "vessels.self",
-		path: "environment.depth.belowTransducer",
+		path,
 		value,
 		$source,
 		source: type === undefined ? undefined : { label: $source, type },
@@ -60,11 +69,17 @@ async function flushStream(): Promise<void> {
 describe("PluginManager stream source safety", () => {
 	let manager: PluginManager;
 	let depthBus: TestBus;
+	let windDirectionBus: TestBus;
+	let headingBus: TestBus;
+	let windSpeedBus: TestBus;
 	let emitted: N2KMessage[];
 
 	beforeEach(() => {
 		vi.useFakeTimers();
 		depthBus = createBus();
+		windDirectionBus = createBus();
+		headingBus = createBus();
+		windSpeedBus = createBus();
 		emitted = [];
 		const debug = Object.assign(() => {}, { enabled: false });
 		const app = {
@@ -82,8 +97,11 @@ describe("PluginManager stream source safety", () => {
 					: undefined,
 			streambundle: {
 				getSelfBus: (path: string) => {
-					if (path !== "environment.depth.belowTransducer") return createBus();
-					return depthBus;
+					if (path === "environment.depth.belowTransducer") return depthBus;
+					if (path === "environment.wind.directionTrue") return windDirectionBus;
+					if (path === "navigation.headingTrue") return headingBus;
+					if (path === "environment.wind.speedOverGround") return windSpeedBus;
+					return createBus();
 				},
 			},
 			subscriptionmanager: { subscribe: () => {} },
@@ -108,6 +126,7 @@ describe("PluginManager stream source safety", () => {
 		manager.start({
 			globalResendInterval: 0,
 			DEPTH: { enabled: true, resend: 0 },
+			WIND_WEATHER_TRUE: { enabled: true, resend: 0 },
 		} as unknown as PluginOptions);
 	});
 
@@ -137,5 +156,28 @@ describe("PluginManager stream source safety", () => {
 		depthBus.push(structuredN2kDepth(5.1));
 		await flushStream();
 		expect(emitted).toEqual([]);
+	});
+
+	it("allows NMEA 2000 heading as a declared supporting input for derived true wind", async () => {
+		windDirectionBus.push(
+			normalizedValue("environment.wind.directionTrue", 2.1, "vws-merged", "plugin"),
+		);
+		windSpeedBus.push(
+			normalizedValue("environment.wind.speedOverGround", 3.2, "vws-merged", "plugin"),
+		);
+		headingBus.push(
+			normalizedValue("navigation.headingTrue", 0.4, "nmea2000_feed.c07891031cb845c6", "NMEA2000"),
+		);
+		await flushStream();
+
+		expect(emitted).toHaveLength(1);
+		expect(emitted[0]).toMatchObject({
+			pgn: 130306,
+			fields: {
+				windSpeed: 3.2,
+				reference: "True (boat referenced)",
+			},
+		});
+		expect(emitted[0]?.fields.windAngle).toBeCloseTo(1.7);
 	});
 });

@@ -841,6 +841,7 @@ export class PluginManager {
 		const timestamps = new Array<number>(keys.length).fill(now0);
 		const values = new Array<unknown>(keys.length).fill(null);
 		const keyIndex = new Map<string, number>();
+		const allowedNmea2000Inputs = new Set(conversion.allowNmea2000InputPaths ?? []);
 		for (let i = 0; i < keys.length; i++) {
 			const k = keys[i];
 			if (k !== undefined) keyIndex.set(k, i);
@@ -876,8 +877,9 @@ export class PluginManager {
 			// Apply the optional publisher pin and the default echo guard in one
 			// pass. Structured delta metadata is authoritative when present; the
 			// server's sources tree covers stream producers that omit it. Unknown
-			// origins remain accepted for compatibility, but known NMEA 2000 input
-			// is never re-emitted onto the same bus.
+			// origins remain accepted for compatibility. Known NMEA 2000 input is
+			// blocked unless the conversion explicitly declares that path as a
+			// supporting input that cannot be echoed by its output.
 			bus = bus.filter((x: NormalizedDelta) => {
 				const src = String(x.$source ?? "");
 				if (sourceRef && !sourceMatchesFilter(src, sourceRef)) {
@@ -890,7 +892,7 @@ export class PluginManager {
 				if (origin === SOURCE_ORIGIN.UNKNOWN) {
 					origin = classifySourceOrigin(src, undefined, this.app.getPath?.("sources"));
 				}
-				if (origin === SOURCE_ORIGIN.NMEA2000) {
+				if (origin === SOURCE_ORIGIN.NMEA2000 && !allowedNmea2000Inputs.has(skKey)) {
 					if (conversion.optionKey !== undefined) {
 						this.recordDrop(conversion.optionKey, "nmea2000-echo");
 					}

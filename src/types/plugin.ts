@@ -63,6 +63,12 @@ export interface ConversionModule<T extends unknown[] = unknown[]> {
 	interval?: number;
 	/** Recompute stream inputs on this millisecond cadence while applying per-key freshness. */
 	refreshInterval?: number;
+	/**
+	 * NMEA 2000-backed paths that are safe to consume as supporting inputs.
+	 * Keep this narrow: ordinary NMEA 2000 inputs remain blocked from being
+	 * re-emitted onto the same bus.
+	 */
+	allowNmea2000InputPaths?: string[];
 	/** Disable replay for fixed, event-driven, or independently scheduled output. */
 	allowResend?: boolean;
 	callback?(...values: T): N2KMessage[] | Promise<N2KMessage[]>;

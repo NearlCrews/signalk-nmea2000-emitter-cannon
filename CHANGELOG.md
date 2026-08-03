@@ -28,8 +28,8 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Workflow validation now enforces full action commit pins and release
   invariants locally. GitHub Actions also runs actionlint and zizmor, release
   jobs disable package-manager caching, checkout credentials are not persisted,
-  Dependabot updates observe a seven-day cooldown, and CodeQL scans every
-  change to `main`, pull request, and weekly scheduled run.
+  Dependabot updates observe a seven-day cooldown, and the repository's
+  GitHub-managed CodeQL default setup scans JavaScript, TypeScript, and Actions.
 - The dependency audit now exposes separate runtime and policy-aware full-audit
   commands. The combined `audit` command runs both gates, and portfolio tooling
   can verify their coverage directly.

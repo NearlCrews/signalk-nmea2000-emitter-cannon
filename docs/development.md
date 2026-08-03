@@ -154,11 +154,14 @@ tsconfig.test.json        # TypeScript config for the src/test/ suite
 .github/
 └── workflows/
     ├── ci.yml            # Complete release verification on Node 22.22.2 and 24
-    ├── codeql.yml        # Extended JavaScript and TypeScript security scanning
     ├── plugin-ci.yml     # Official SignalK reusable plugin-ci workflow (cross-platform)
     ├── publish.yml       # Auto-publish to npm on GitHub release (with provenance)
     └── workflow-security.yml # Pinned actionlint and zizmor checks
 ```
+
+GitHub's repository-managed CodeQL default setup scans JavaScript, TypeScript,
+and Actions. Do not add an advanced CodeQL workflow while default setup remains
+enabled because GitHub rejects uploads from the competing configuration.
 
 ## Testing
 

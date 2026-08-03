@@ -26,13 +26,6 @@ if (!pluginCi.includes("SignalK/signalk-server/.github/workflows/plugin-ci.yml@"
 	failures.push("plugin-ci.yml must retain the official Signal K reusable workflow.");
 }
 
-const codeql = await readFile(".github/workflows/codeql.yml", "utf8");
-for (const expected of ["github/codeql-action/init@", "github/codeql-action/analyze@"]) {
-	if (!codeql.includes(expected)) {
-		failures.push(`codeql.yml must include ${expected}.`);
-	}
-}
-
 const publish = await readFile(".github/workflows/publish.yml", "utf8");
 for (const expected of ["--provenance --access public", "name: npm-package", "needs: build"]) {
 	if (!publish.includes(expected)) {

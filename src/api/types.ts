@@ -1,5 +1,5 @@
 import type { ConversionCategory, PresetTag } from "../config/enums.js";
-import type { ApplyDecision, ReviewResult } from "../recommendation/types.js";
+import type { ApplyDecision, PendingReviewResult, ReviewResult } from "../recommendation/types.js";
 
 export interface StatusSnapshot {
 	pluginRunning: boolean;
@@ -153,12 +153,7 @@ export interface AdvisorReviewResponse {
  * an empty string as a date.
  */
 export interface AdvisorPendingResponse {
-	result: {
-		ranAt?: string;
-		autoApplied: ReviewResult["autoApplied"];
-		pending: ReviewResult["pending"];
-		notes: ReviewResult["notes"];
-	};
+	result: PendingReviewResult;
 }
 
 /** Request body of `POST /api/advisor/apply`. */

@@ -6,6 +6,7 @@ import type { PresetTag } from "../../config/enums.js";
 import { migrateLegacyConfig } from "../../config/migrate.js";
 import { RAYMARINE_EXTRAS_PATCH } from "../../config/raymarinePreset.js";
 import type { Config, ConversionConfig } from "../../config/schema.js";
+import { pathToPropName } from "../../utils/pathUtils.js";
 
 // The patch table never changes at runtime, so derive its entries once.
 const RAYMARINE_PATCH_ENTRIES = Object.entries(RAYMARINE_EXTRAS_PATCH);
@@ -87,13 +88,16 @@ function reducer(state: Config, action: Action): Config {
 			};
 		}
 		case "setSource": {
-			if ((state.conversions[action.key]?.sources[action.path] ?? "") === action.source) {
-				return state;
-			}
+			const existingSources = state.conversions[action.key]?.sources;
+			const legacyPath = pathToPropName(action.path);
+			const current = existingSources?.[action.path] ?? existingSources?.[legacyPath] ?? "";
+			const hasLegacy = existingSources?.[legacyPath] !== undefined;
+			if (current === action.source && !hasLegacy) return state;
 			const { state: s, entry } = withEntry(state, action.key);
 			// schema.ts now declares sources as required `{}` default, so the
 			// spread does not need a defensive `?? {}` guard.
 			const sources = { ...entry.sources };
+			delete sources[legacyPath];
 			if (action.source) sources[action.path] = action.source;
 			else delete sources[action.path];
 			return {

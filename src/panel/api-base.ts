@@ -67,9 +67,10 @@ async function readErrorBody(res: Response): Promise<string | undefined> {
  * Maps a thrown value to plain-language text with a next step. For 403 the
  * server's own message is preferred when present (the router explains an
  * unsupported server build), falling back to the admin-session next step. 503
- * always uses the friendly `serviceUnavailable` text because the router's 503
- * bodies ("advisor unavailable", "request failed") carry no next step;
- * feature-specific call sites (the advisor) pass their own wording.
+ * always uses the friendly `serviceUnavailable` text because a 503 means the
+ * feature is not currently wired; feature-specific call sites pass their own
+ * wording. Operation failures use other status codes and preserve the router's
+ * safe, actionable message.
  */
 export function friendlyApiError(err: unknown, options?: { serviceUnavailable?: string }): string {
 	if (err instanceof ApiError) {

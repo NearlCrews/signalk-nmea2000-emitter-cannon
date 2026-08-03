@@ -1,5 +1,5 @@
 import type { IRouter, Request, Response } from "express";
-import type { Advisor } from "../advisor/advisor.js";
+import { type Advisor, AdvisorOperationError } from "../advisor/advisor.js";
 import type { PluginManager } from "../plugin-manager.js";
 import type { SignalKApp } from "../types/index.js";
 import { errMessage } from "../utils/errorUtils.js";
@@ -19,8 +19,56 @@ import type {
 
 const HTTP_STATUS = {
 	BAD_REQUEST: 400,
+	INTERNAL_SERVER_ERROR: 500,
 	SERVICE_UNAVAILABLE: 503,
 } as const;
+
+function isAdvisorApplyDecision(value: unknown): boolean {
+	if (
+		!isPlainObject(value) ||
+		typeof value.optionKey !== "string" ||
+		value.optionKey.trim().length === 0 ||
+		value.optionKey !== value.optionKey.trim() ||
+		typeof value.approved !== "boolean"
+	) {
+		return false;
+	}
+	const action = value.action;
+	if (
+		action !== undefined &&
+		action !== "enable" &&
+		action !== "disable" &&
+		action !== "clear-source"
+	) {
+		return false;
+	}
+	if (action !== "clear-source") {
+		return value.clearSources === undefined && value.clearSourcePaths === undefined;
+	}
+	if (
+		value.clearSourcePaths !== undefined ||
+		!Array.isArray(value.clearSources) ||
+		value.clearSources.length === 0
+	) {
+		return false;
+	}
+	const paths = new Set<string>();
+	return value.clearSources.every((source) => {
+		if (
+			!isPlainObject(source) ||
+			typeof source.path !== "string" ||
+			source.path.length === 0 ||
+			source.path !== source.path.trim() ||
+			typeof source.pinned !== "string" ||
+			source.pinned.trim().length === 0 ||
+			paths.has(source.path)
+		) {
+			return false;
+		}
+		paths.add(source.path);
+		return true;
+	});
+}
 
 /**
  * Factory for the panel's HTTP API router. Returns the function that
@@ -100,9 +148,9 @@ export function createApiRouter(
 			res.json(body);
 		});
 
-		// Every advisor route shares the same envelope: 503 when no advisor is
-		// wired, and any thrown error coerced to a 503. advisorRoute factors
-		// that out so each handler is just its happy path.
+		// Every advisor route shares the same envelope: 503 only when no Advisor
+		// is wired, and 500 for a failed operation. A typed operation error may
+		// carry a safe, actionable panel message; internal details stay in logs.
 		const advisorRoute =
 			(handler: (advisor: Advisor, req: Request, res: Response) => Promise<void> | void) =>
 			async (req: Request, res: Response): Promise<void> => {
@@ -115,7 +163,12 @@ export function createApiRouter(
 					await handler(advisor, req, res);
 				} catch (err) {
 					app.error(`advisor request failed: ${errMessage(err)}`);
-					res.status(HTTP_STATUS.SERVICE_UNAVAILABLE).json({ error: "request failed" });
+					res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+						error:
+							err instanceof AdvisorOperationError
+								? err.publicMessage
+								: "The Advisor operation failed. Check the Signal K server log, then try again.",
+					});
 				}
 			};
 
@@ -132,15 +185,8 @@ export function createApiRouter(
 		router.get(
 			"/api/advisor/pending",
 			advisorRoute((advisor, _req, res) => {
-				// Synthetic envelope: no run yet, so `ranAt` is omitted rather
-				// than set to an empty string the panel would mis-parse as a
-				// date.
 				const body: AdvisorPendingResponse = {
-					result: {
-						autoApplied: [],
-						pending: advisor.getPending(),
-						notes: [],
-					},
+					result: advisor.getPendingResult(),
 				};
 				res.json(body);
 			}),
@@ -151,30 +197,24 @@ export function createApiRouter(
 			advisorRoute(async (advisor, req, res) => {
 				// Validate the request shape before touching the advisor: a
 				// malformed body must not reach applyReview, which writes config.
-				// Reject anything that is not an array of plain objects each
-				// carrying a non-empty string optionKey. This also turns the
-				// `[null]` case into a clean 400 instead of a thrown 503, and
-				// blocks a missing-optionKey decision from injecting a
-				// `conversions["undefined"]` entry. (The advisor additionally
-				// allow-lists optionKey against known conversions.)
+				// Advisor additionally validates conversion keys and clear paths
+				// against the loaded conversion metadata.
 				const rawDecisions: unknown = isPlainObject(req.body) ? req.body.decisions : undefined;
 				if (!Array.isArray(rawDecisions)) {
 					res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "decisions must be an array" });
 					return;
 				}
-				const allValid = rawDecisions.every(
-					(d) => isPlainObject(d) && typeof d.optionKey === "string" && d.optionKey.length > 0,
-				);
+				const allValid = rawDecisions.every(isAdvisorApplyDecision);
 				if (!allValid) {
 					res.status(HTTP_STATUS.BAD_REQUEST).json({
-						error: "each decision must be an object with a non-empty optionKey",
+						error: "each decision must have a valid optionKey, approved flag, action, and paths",
 					});
 					return;
 				}
 				const decisions = rawDecisions as AdvisorApplyRequest["decisions"];
-				await advisor.applyReview(decisions);
+				const applied = await advisor.applyReview(decisions);
 				const response: AdvisorApplyResponse = {
-					applied: decisions.filter((d) => d.approved).length,
+					applied,
 				};
 				res.json(response);
 			}),

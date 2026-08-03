@@ -1,4 +1,5 @@
 const path = require("node:path");
+const MinimizerPlugin = require("minimizer-webpack-plugin");
 const webpack = require("webpack");
 const pkg = require("./package.json");
 
@@ -10,6 +11,20 @@ module.exports = {
 	// initializes the shared React scope.
 	entry: {},
 	mode: "production",
+	optimization: {
+		// Favor the shortest internal export names. The panel's public Module
+		// Federation contract remains unchanged. Function declaration hoisting is
+		// semantics-preserving for these strict production chunks and gives the size
+		// budget enough margin to catch future growth instead of build variance.
+		mangleExports: "size",
+		minimizer: [
+			new MinimizerPlugin({
+				terserOptions: {
+					compress: { passes: 2, hoist_funs: true },
+				},
+			}),
+		],
+	},
 	output: {
 		path: path.resolve(__dirname, "public"),
 		filename: "[name].js",

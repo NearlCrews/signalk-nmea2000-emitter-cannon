@@ -1,9 +1,9 @@
 # PGN Reference
 
 The plugin has 82 configurable data conversions covering 60 data PGNs, plus an
-83rd module that broadcasts PGN 126464. Five stack-owned bus-layer PGNs are
-also advertised in the 126464 transmit list. Standard fields, ranges, and enum
-values are validated against the bundled Canboat definitions.
+83rd module that broadcasts PGN 126464. Its transmit list advertises only PGNs
+owned by this plugin. Standard fields, ranges, and enum values are validated
+against the bundled Canboat definitions.
 Display support remains model-specific and should be checked against the
 receiving device's PGN list.
 
@@ -41,6 +41,16 @@ silently drifting away from the current PGN definitions.
 | 130577 | Direction Data | `directionData.ts` |
 | 130578 | Vessel Speed Components | `vesselSpeedComponents.ts` |
 
+`GNSS_DOPS` emits HDOP and derives VDOP when both Signal K HDOP and PDOP are
+valid. PDOP alone has no direct PGN 129539 field and does not produce an empty
+frame. `GNSS_SATELLITES` subscribes to the composite satellites-in-view list;
+the scalar satellite count cannot replay previously cached satellite details.
+
+`DIRECTION_DATA` accepts bus-origin COG only from PGN 129026 and bus-origin
+heading only from PGN 127250. Received PGN 130577 and unknown source PGNs remain
+blocked, which permits native instruments without feeding the aggregate output
+back into itself. Its four live inputs expire after ten seconds.
+
 Route broadcasts and Route and WP Service PGNs such as 129285, 130067, and
 130074 require a complete, versioned route transaction or a directed complex
 request exchange. The removed implementations could not provide that lifecycle
@@ -55,9 +65,9 @@ firmware-specific.
 
 `DISTANCE_LOG` emits the total and trip values from `navigation.log` and
 `navigation.trip.log`. Some instruments reset a trip log by sending a directed
-PGN 126208 command for field 4 of PGN 128275. Signal K does not expose that
-inbound group-function exchange to this plugin, so reset the trip path at its
-upstream source instead.
+PGN 126208 command for field 4 of PGN 128275. Signal K's NMEA 2000 stack receives
+the Group Function message but returns `PGN Not Supported`; it does not expose
+that command to this plugin. Reset the trip path at its upstream source instead.
 
 ## AIS
 
@@ -73,10 +83,12 @@ upstream source instead.
 | 129809 | Class B Static Data, Part A | `ais.ts` |
 | 129810 | Class B Static Data, Part B | `ais.ts` |
 
-The remote-target relay in `ais.ts` drops any delta whose
-`updates[].source.type` is `NMEA2000`, preventing received AIS targets from
-being echoed onto the same bus. The own-vessel conversions in `aisExtended.ts`
-use the normal per-path source filters available in the configuration panel.
+The remote-target relay in `ais.ts` recognizes canonical `updates[].$source`,
+structured source data, and the server sources tree. It removes only NMEA
+2000-origin updates, preventing received AIS targets from being echoed while
+retaining safe plugin updates carried in the same delta. The own-vessel
+conversions in `aisExtended.ts` use the normal per-path source filters available
+in the configuration panel.
 
 > **Note on PGN 129802 (AIS Safety Related Broadcast).** ITU-R M.1371 limits AIS
 > safety broadcasts to vessels with a licensed AIS transceiver whose MMSI
@@ -120,6 +132,11 @@ runtime. The conversion recomputes once per second from freshness-checked tank,
 fuel-rate, and speed values instead of replaying a cached estimate. Static tank
 capacity remains available while dynamic values age out.
 
+Tank status, engine fuel rate, and GNSS speed may legitimately originate on the
+NMEA 2000 bus. They are safe inputs because PGN 127496 does not decode back to
+those Signal K paths, so the conversion permits them without weakening the echo
+guard for conversions that could feed themselves.
+
 Treat every output as advisory. The calculation does not subtract unusable
 reserve, include non-propulsion consumers such as generators or heaters, model
 cross-feed or unequal tank depletion, or account for weather and tide. Raymarine
@@ -135,7 +152,7 @@ support and prerequisites for the chartplotter model and firmware in use.
 
 | PGN | Description | Module | Status |
 | -------- | ------------- | -------- | -------- |
-| 130306 | Wind Data (apparent, true ground, true water, weather-forecast apparent and boat-referenced true) | `wind.ts`, `windTrueGround.ts`, `windTrueWater.ts`, `windWeatherApparent.ts`, `windWeatherTrue.ts` | Current |
+| 130306 | Wind Data (apparent, true ground, true water, weather-forecast apparent, and model-specific Garmin forecast compatibility) | `wind.ts`, `windTrueGround.ts`, `windTrueWater.ts`, `windWeatherApparent.ts`, `windWeatherTrue.ts` | Current |
 | 130310 | Environmental Parameters (obsolete) | `seaTemp.ts` | Obsolete, retained for compatible legacy instruments |
 | 130311 | Environmental Parameters (temperature, humidity, and pressure) | `environmentParameters.ts` | Deprecated, retained for Raymarine i70 and i70s compatibility |
 | 130312 | Temperature (exhaust + general-purpose sources) | `engineParameters.ts`, `temperature.ts` | Deprecated, replaced by 130316 |
@@ -190,17 +207,38 @@ are unaffected.
 
 **Forecast wind on a vessel with no anemometer**: the weather plugin's wind is a
 ground-true wind (speed over ground plus a compass direction). `WIND_TRUE_GROUND`
-emits it on PGN 130306 with reference `True (ground referenced to North)`, which a
-Garmin shows as Ground Wind, not True Wind. To populate the True Wind Speed/Angle
-fields, also enable `WIND_WEATHER_TRUE`: it computes the boat-referenced true wind
-angle (TWA = `environment.wind.directionTrue` minus `navigation.headingTrue`) and
-emits PGN 130306 with reference `True (boat referenced)`. It needs a true heading
-to produce an angle, and like `WIND_WEATHER_APPARENT` it is opt-in (disabled by
-default) and meant only for a boat without a real masthead anemometer. The
-heading may come from an NMEA 2000 sensor such as a Garmin GPS24xd. Emitter
-Cannon treats that PGN 127250 heading as a supporting input for this conversion
-only; it still blocks NMEA 2000 wind inputs that could be echoed back as PGN
-130306.
+emits it on PGN 130306 with reference `True (ground referenced to North)`. On the
+tested ECHOMAP UHD2 model and firmware, that reference appeared as Ground Wind,
+while `True (water referenced)` populated True Wind Speed, True Wind Direction,
+and Wind VMG. Garmin's published PGN list does not document behavior for each
+wind-reference enum, so verify this compatibility mode against the receiving
+model and firmware. `WIND_WEATHER_TRUE` computes the relative angle (TWA =
+`environment.wind.directionTrue` minus `navigation.headingTrue`) and emits the
+forecast using that water-reference value. This is a display approximation
+because the forecast remains ground referenced; do not enable it alongside real
+wind or water-speed sensors. It needs a true heading and, like
+`WIND_WEATHER_APPARENT`, is opt-in and disabled by default. The heading may come
+from an NMEA 2000 sensor such as a Garmin GPS24xd. Emitter Cannon treats that PGN
+127250 heading as a supporting input for this conversion only; it still blocks
+NMEA 2000 wind inputs that could be echoed back as PGN 130306.
+
+The normal `WIND_TRUE` conversion retains Signal K's established NMEA decoder
+mapping: canonical `environment.wind.angleTrueWater` and
+`environment.wind.speedTrue` use the Canboat label `True (boat referenced)`.
+The forecast compatibility conversion intentionally uses the distinct
+`True (water referenced)` enum value used by the tested Garmin setup. The two
+remain mutually exclusive because they would supply different producers to the
+same true-wind display fields.
+
+Live PGN 130306 angle and speed inputs expire after ten seconds. Forecast angle,
+direction, and speed inputs expire after 125 seconds to accommodate a 60-second
+weather rebroadcast cadence plus scheduler jitter. The live true heading used
+by `WIND_WEATHER_TRUE` still expires after ten seconds. Resend ticks reapply each
+input's freshness window. The configuration panel blocks `WIND` together with
+either forecast compatibility producer, and it does the same for `WIND_TRUE`.
+The two real-wind producers may run together, as may the two forecast
+compatibility producers. Runtime startup keeps real-data producers and rejects
+conflicting forecast producers if a manually edited configuration mixes them.
 
 ## Electrical Systems
 
@@ -240,13 +278,18 @@ unavailable instead of guessing at an NMEA 2000 state.
 
 | PGN | Description | Module |
 | -------- | ------------- | -------- |
-| 126464 | PGN List (transmit/receive) | `pgnList.ts` |
+| 126464 | Transmit PGN List | `pgnList.ts` |
 | 126983 | Alert | `notifications.ts` |
 | 126985 | Alert Text | `notifications.ts` |
 | 126992 | System Time | `systemTime.ts` |
 | 129033 | Time and Date from GNSS data, local offset unavailable | `timeDate.ts` |
 | 129799 | Radio Frequency/Mode/Power | `radioFrequency.ts` |
 | 129808 | DSC Distress Call Information (re-emits decoded inbound distress traffic) | `dscCalls.ts` |
+
+The standard alert and Raymarine alarm conversions process every value in a
+batched Signal K delta. A `value: null` removal clears the cached alarm by path,
+and publisher pins plus the NMEA 2000 echo guard are applied before the batch
+reaches either conversion.
 
 `TIME_DATE` reads the canonical UTC `navigation.datetime` path and leaves the
 PGN 129033 local-offset field unavailable because Signal K does not publish
@@ -267,35 +310,36 @@ unavailable. Canboatjs 3.20 cannot write that 40-bit decimal field correctly
 from a JavaScript number, so the conversion supplies the five decimal-pair
 bytes directly and a raw-wire regression test verifies their positions.
 
-The DSC mapper receives subscribed path values, not the original delta's
-`source.type`, so it cannot automatically reject an echo from the NMEA 2000
-provider. Before enabling `DSC_CALLS`, source-lock all three DSC paths to a
-DSC-aware provider that is not reading the same NMEA 2000 bus, such as an
-off-bus VHF integration. Leave the conversion disabled if the only source is
-the same NMEA 2000 provider, or it can duplicate the distress frame.
+The runtime uses canonical `$source` values, optional structured source
+metadata, and the server sources tree to identify known NMEA 2000-origin DSC
+values before they reach the mapper. This prevents a recognized PGN 129808
+input from being emitted back onto the same bus. An optional publisher pin can
+further restrict the input to an off-bus VHF integration. Leave `DSC_CALLS`
+disabled when no DSC-aware non-NMEA 2000 provider publishes the three required
+paths.
 
 ## Vendor-Specific
 
 | PGN | Description | Module |
 | -------- | ------------- | -------- |
-| 65288 | Raymarine (Seatalk) Alarms | `raymarineAlarms.ts` |
+| 65288 | Raymarine SeaTalk Alarms | `raymarineAlarms.ts` |
 | 126720 | Raymarine Display Brightness | `raymarineBrightness.ts` |
 
-## Bus-layer (announced in the transmit PGN list, not emitted by this plugin)
+## Provider capability boundary
 
-These appear in PGN 126464's transmit list, but the plugin itself does not
-generate them. The ISO entries are handled by Signal K's NMEA 2000 stack at the
-bus layer. PGN 126993 (Heartbeat, ~60 s nominal) and PGN 126996 (Product
-Information, on address claim and on ISO requests for PGN 126996) are
-auto-emitted by canboatjs's `N2kDevice`. Advertising PGN 126993 keeps the
-transmit list consistent with the heartbeat traffic consumers observe.
+The PGN 126464 broadcast does not advertise transport-layer PGNs such as ISO
+Acknowledgement, ISO Request, Address Claim, Group Function, Heartbeat, Product
+Information, or Configuration Information. A Signal K provider may emit some
+of those PGNs independently, but the server's output-ready event does not
+identify the provider or expose its capabilities. Advertising them here would
+therefore make an unverified device capability claim.
 
-When PGN_LIST is enabled, the plugin broadcasts its complete PGN 126464 list
-every five minutes. A
-directed ISO Request for 126464 is answered by the Signal K provider's internal
-Canboat device, whose static transmit list cannot currently be extended through
-the plugin API. Until Signal K exposes PGN registration, that directed response
-may omit plugin-owned PGNs even though the periodic broadcast includes them.
+When PGN_LIST is enabled, the plugin broadcasts its complete PGN 126464 list at
+startup and every five minutes afterward. If the selected Signal K output uses
+Canboat's N2kDevice, that provider may answer a directed ISO Request for 126464
+from its own static transmit list. The plugin API cannot extend that provider
+list, so a directed response may omit plugin-owned PGNs even though the periodic
+broadcast includes them. Other output providers may not answer the request.
 
 ## Evaluated but Deferred
 
@@ -329,14 +373,6 @@ may omit plugin-owned PGNs even though the periodic broadcast includes them.
 - **PGN 129801, AIS Addressed Safety Related Message**, needs a destination,
   sequence lifecycle, source provenance, and licensed-transmitter controls that
   this plugin does not provide.
-
-| PGN | Description |
-| -------- | ------------- |
-| 59392 | ISO Acknowledgement |
-| 59904 | ISO Request |
-| 60928 | ISO Address Claim |
-| 126993 | Heartbeat (canboatjs auto-emit) |
-| 126996 | Product Information (canboatjs auto-emit) |
 
 ## Data Flow
 

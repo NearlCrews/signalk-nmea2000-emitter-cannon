@@ -1,4 +1,5 @@
 import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, SOURCE_TYPE } from "../constants.js";
+import { classifySourceOrigin, SOURCE_ORIGIN } from "../recommendation/busSource.js";
 import type {
 	ConversionCallback,
 	ConversionModule,
@@ -34,49 +35,34 @@ const MIN_AIS_ROT_RADIANS_PER_SECOND = -1.02396875;
 const MAX_AIS_ROT_RADIANS_PER_SECOND = 1.023875;
 const MAX_AIS_DIMENSION_METERS = 6553.2;
 const MAX_AIS_DRAFT_METERS = 655.32;
+const MAX_AIS_CONTEXTS = 2048;
+// Class A vessels at anchor, slow Class B vessels, and AIS AtoNs normally
+// report at intervals up to three minutes. Allow fifteen seconds of transport
+// jitter without combining a new position with indefinitely old kinematics.
+export const AIS_DYNAMIC_FRESHNESS_MS = 195_000;
+const MAX_AIS_TIMESTAMP_FUTURE_SKEW_MS = 60_000;
+const SIGNAL_K_UTC_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/;
 
-interface Design {
-	length?: { overall?: number };
-	beam?: number;
-	draft?: { maximum?: number };
-	aisShipType?: AisShipType;
+interface CachedAisValue {
+	value: unknown;
+	updatedAtMs: number;
+	sourceTimestampMs?: number;
 }
 
-interface Vessel {
-	name?: string;
-	mmsi?: string;
-	design?: Design;
-	navigation?: {
-		position?: Position;
-		courseOverGroundTrue?: number;
-		speedOverGround?: number;
-		headingTrue?: number;
-		rateOfTurn?: number;
-		state?: string;
-		destination?: { commonName?: string };
-	};
-	sensors?: {
-		ais?: {
-			class?: string;
-			fromCenter?: number;
-			fromBow?: number;
-		};
-	};
-	communication?: {
-		callsignVhf?: string;
-	};
-	registrations?: {
-		imo?: string;
-	};
-	atonType?: {
-		id?: number;
-		name?: string;
-	};
-}
+type AisStateIndex = Map<string, CachedAisValue>;
 
 interface AisDelta {
 	context: string;
 	updates: Array<{
+		$source?: string;
+		timestamp?: string;
+		source?: {
+			label?: string;
+			type?: string;
+			src?: string | number;
+			pgn?: number;
+			canName?: string;
+		};
 		values: Array<{
 			path: string;
 			value: unknown;
@@ -98,35 +84,115 @@ const staticKeys = [
 ];
 
 const positionKeys = ["navigation.position"];
+const atonTriggerKeys = [...staticKeys, ...positionKeys, "mmsi", "atonType"];
+const dynamicKeys = [
+	"navigation.courseOverGroundTrue",
+	"navigation.speedOverGround",
+	"navigation.headingTrue",
+	"navigation.rateOfTurn",
+	"navigation.state",
+];
+const AIS_RELEVANT_VALUE_PATHS = new Set([
+	"mmsi",
+	"sensors.ais.class",
+	...staticKeys,
+	...positionKeys,
+	...dynamicKeys,
+	"atonType",
+]);
+const AIS_RELEVANT_PARENT_PATHS = new Set<string>();
+for (const path of AIS_RELEVANT_VALUE_PATHS) {
+	const segments = path.split(".");
+	for (let length = 1; length < segments.length; length++) {
+		AIS_RELEVANT_PARENT_PATHS.add(segments.slice(0, length).join("."));
+	}
+}
 
-// SK navigation.state strings to canboat NAV_STATUS numeric values.
-// Numeric is passed straight to canboatjs: feeding the SK string would silently
-// encode as 0 ("Under way using engine") since SK labels do not match the
-// NAV_STATUS LOOKUP enum exactly.
-const navStatusMapping: Record<string, number> = {
+const AIS_COMPOSITE_CHILDREN: Readonly<Record<string, ReadonlySet<string>>> = {
+	"navigation.position": new Set(["longitude", "latitude"]),
+	"design.length": new Set(["overall"]),
+	"design.draft": new Set(["maximum"]),
+	"design.aisShipType": new Set(["id"]),
+	atonType: new Set(["id"]),
+};
+const AIS_COMPOSITE_PARENT_BY_CHILD = new Map<string, string>();
+for (const [parentPath, childNames] of Object.entries(AIS_COMPOSITE_CHILDREN)) {
+	for (const childName of childNames) {
+		AIS_COMPOSITE_PARENT_BY_CHILD.set(`${parentPath}.${childName}`, parentPath);
+	}
+}
+
+const AIS_RELEVANT_DIRECT_CHILDREN = new Map<string, Set<string>>();
+for (const path of AIS_RELEVANT_VALUE_PATHS) {
+	const segments = path.split(".");
+	for (let index = 0; index < segments.length; index++) {
+		const parentPath = segments.slice(0, index).join(".");
+		const children = AIS_RELEVANT_DIRECT_CHILDREN.get(parentPath) ?? new Set<string>();
+		children.add(segments[index] as string);
+		AIS_RELEVANT_DIRECT_CHILDREN.set(parentPath, children);
+	}
+}
+
+const AIS_NUMBER_VALUE_PATHS = new Set([
+	"design.beam",
+	"sensors.ais.fromCenter",
+	"sensors.ais.fromBow",
+	"navigation.courseOverGroundTrue",
+	"navigation.speedOverGround",
+	"navigation.headingTrue",
+	"navigation.rateOfTurn",
+]);
+
+export interface AisRelevantValueUpdate {
+	path: string;
+	value: unknown;
+}
+
+// Every navigation.state value in the current Signal K schema is listed here.
+// Values with an exact AIS NAV_STATUS meaning map to Canboat's current numeric
+// lookup. Signal K states that describe lights or operations without a direct
+// navigational-status equivalent map to 15 (not defined), as do the schema's
+// obsolete reserved labels. The final aliases are values emitted by older
+// @signalk/n2k-signalk releases and remain accepted for round-trip compatibility.
+// Numeric values avoid Canboat silently encoding an unmatched Signal K label as
+// 0 ("Under way using engine").
+export const AIS_NAV_STATUS_BY_SIGNAL_K_STATE: Readonly<Record<string, number>> = {
 	"not under command": 2,
 	anchored: 1,
 	moored: 5,
 	sailing: 8,
 	motoring: 0,
-	"towing < 200m": 3,
-	"towing > 200m": 3,
-	pushing: 3,
+	"towing < 200m": 11,
+	"towing > 200m": 11,
+	pushing: 12,
 	fishing: 7,
 	"fishing-hampered": 7,
 	trawling: 7,
 	"trawling-shooting": 7,
 	"trawling-hauling": 7,
-	"not-under-way": 2,
+	pilotage: NAV_STATUS_NOT_DEFINED,
+	"not-under-way": NAV_STATUS_NOT_DEFINED,
 	aground: 6,
 	"restricted manouverability": 3,
 	"restricted manouverability towing < 200m": 3,
 	"restricted manouverability towing > 200m": 3,
 	"restricted manouverability underwater operations": 3,
 	"constrained by draft": 4,
+	"mine clearance": NAV_STATUS_NOT_DEFINED,
+	"Reserved for future amendment of Navigational Status for HSC": 9,
+	"Reserved for future amendment of Navigational Status for WIG": 10,
+	"Reserved for future use-11": NAV_STATUS_NOT_DEFINED,
+	"Reserved for future use-12": NAV_STATUS_NOT_DEFINED,
+	"Reserved for future use-13": NAV_STATUS_NOT_DEFINED,
+	"Reserved for future use-14": NAV_STATUS_NOT_DEFINED,
+	"not defined (example)": NAV_STATUS_NOT_DEFINED,
+
+	// Legacy @signalk/n2k-signalk output aliases and a corrected spelling seen
+	// from third-party Signal K producers.
 	"ais-sart": 14,
 	"hazardous material high speed": 9,
 	"hazardous material wing in ground": 10,
+	"restricted maneuverability": 3,
 };
 
 export default function createAisConversion(
@@ -137,6 +203,11 @@ export default function createAisConversion(
 	// server boot and stable for the run, but the factory may load before
 	// it is populated, so memoize lazily rather than at module-init.
 	let cachedSelfContext: string | null = null;
+	// AIS output may need identity and static fields from earlier deltas. Keep
+	// only values observed from publishers that passed the echo guard. Reading
+	// app.getPath(ctx) here would mix rejected NMEA 2000 values back into a safe
+	// partial update after Signal K has applied the original delta.
+	const safeStateByContext = new Map<string, AisStateIndex>();
 
 	return {
 		title: "AIS (PGNs 129038, 129039, 129041, 129794, 129809, 129810)",
@@ -145,6 +216,9 @@ export default function createAisConversion(
 		category: "ais",
 		presets: ["full-ais"],
 		callback: ((delta: AisDelta) => {
+			if (!delta || typeof delta !== "object" || typeof delta.context !== "string") {
+				return [];
+			}
 			// registerDeltaInputHandler fires on every delta server-wide.
 			// Cheap prefix checks first, before allocating the delta index.
 			const ctx = delta.context;
@@ -162,23 +236,33 @@ export default function createAisConversion(
 				cachedSelfContext = `vessels.${app.selfId}`;
 			}
 
-			if (ctx === cachedSelfContext || isN2K(delta)) {
+			if (ctx === cachedSelfContext) {
 				return [];
 			}
 
-			const index = buildDeltaIndex(delta);
+			// A Signal K delta may contain updates from more than one publisher.
+			// Remove only the NMEA 2000-origin updates so one bus update cannot
+			// either be echoed or suppress safe data supplied in the same delta.
+			// `$source` is the current Signal K contract; the structured legacy
+			// source and the server sources tree remain supported fallbacks.
+			const safeDelta = withoutNmea2000Updates(delta, () => app.getPath?.("sources"));
+			if (safeDelta === null) return [];
+			const nowMs = Date.now();
+			const currentIndex = buildDeltaIndex(safeDelta);
+			const index = stateForContext(safeStateByContext, ctx);
+			applyDeltaToState(index, safeDelta, nowMs);
+			if (index.size === 0) safeStateByContext.delete(ctx);
 
 			if (isVessel) {
-				const hasStatic = indexHasAnyKeys(index, staticKeys);
-				const hasPosition = indexHasAnyKeys(index, positionKeys);
+				const hasStatic = indexHasAnyKeys(currentIndex, staticKeys);
+				const hasPosition = indexHasAnyKeys(currentIndex, positionKeys);
 
 				if (!hasStatic && !hasPosition) {
 					return [];
 				}
 
-				const vessel = app.getPath(ctx) as Vessel;
-				const mmsiValue = indexedFindValue<string>(index, vessel, "mmsi");
-				const aisClass = indexedFindValue<string>(index, vessel, "sensors.ais.class");
+				const mmsiValue = indexedFindValue<string>(index, "mmsi");
+				const aisClass = indexedFindValue<string>(index, "sensors.ais.class");
 
 				if (!mmsiValue || typeof mmsiValue !== "string") {
 					return [];
@@ -187,33 +271,38 @@ export default function createAisConversion(
 				const res: N2KMessage[] = [];
 				if (aisClass === "B") {
 					if (hasPosition) {
-						const positionMessage = generateClassBPosition(vessel, mmsiValue, index);
+						const positionMessage = generateClassBPosition(mmsiValue, index, nowMs);
 						if (positionMessage) res.push(positionMessage);
 					}
-					if (hasStatic) res.push(...generateClassBStatic(vessel, mmsiValue, index));
+					if (hasStatic) res.push(...generateClassBStatic(mmsiValue, index));
 					return res;
 				}
 				if (aisClass !== "A") return [];
 				if (hasPosition) {
-					const posMsg = generatePosition(vessel, mmsiValue, index);
+					const posMsg = generatePosition(mmsiValue, index, nowMs);
 					if (posMsg) res.push(posMsg);
 				}
 
 				if (hasStatic) {
-					const staticMsg = generateStatic(vessel, mmsiValue, index);
+					const staticMsg = generateStatic(mmsiValue, index);
 					if (staticMsg) res.push(staticMsg);
 				}
 				return res;
 			}
 
-			const vessel = app.getPath(ctx) as Vessel;
-			const mmsiValue = indexedFindValue(index, vessel, "mmsi");
+			if (!indexHasAnyKeys(currentIndex, atonTriggerKeys)) return [];
+			const mmsiValue = indexedFindValue(index, "mmsi");
 
 			if (!mmsiValue || typeof mmsiValue !== "string") {
 				return [];
 			}
 
-			const atonMsg = generateAtoN(vessel, mmsiValue, index);
+			const atonMsg = generateAtoN(
+				mmsiValue,
+				index,
+				nowMs,
+				indexHasAnyKeys(currentIndex, positionKeys),
+			);
 			return atonMsg ? [atonMsg] : [];
 		}) as ConversionCallback<[AisDelta]>,
 		tests: [
@@ -268,7 +357,7 @@ export default function createAisConversion(
 							latitude: 39.1296167,
 							positionAccuracy: "Low",
 							raim: "not in use",
-							timeStamp: "0",
+							timeStamp: "Not available",
 							cog: 1.501,
 							sog: 0.05,
 							aisTransceiverInformation: "Channel A VDL reception",
@@ -306,7 +395,7 @@ export default function createAisConversion(
 			{
 				input: [
 					{
-						context: "atons.urn:mrn:imo:mmsi:993672085",
+						context: "atons.urn:mrn:imo:mmsi:993672086",
 						updates: [
 							{
 								values: [
@@ -353,7 +442,7 @@ export default function createAisConversion(
 							latitude: 38.5783333,
 							positionAccuracy: "Low",
 							raim: "not in use",
-							timeStamp: "0",
+							timeStamp: "Not available",
 							atonType: "Fixed beacon: starboard hand",
 							offPositionIndicator: "No",
 							virtualAtonFlag: "No",
@@ -372,7 +461,7 @@ export default function createAisConversion(
 				// trip will decode something else and this test will catch it.
 				input: [
 					{
-						context: "atons.urn:mrn:imo:mmsi:993672085",
+						context: "atons.urn:mrn:imo:mmsi:993672087",
 						updates: [
 							{
 								values: [
@@ -411,7 +500,7 @@ export default function createAisConversion(
 							latitude: 38.6,
 							positionAccuracy: "Low",
 							raim: "not in use",
-							timeStamp: "0",
+							timeStamp: "Not available",
 							atonType: "Floating AtoN: port hand mark",
 							offPositionIndicator: "No",
 							virtualAtonFlag: "No",
@@ -432,7 +521,7 @@ export default function createAisConversion(
 				// or removes its cap, the wire output stays bounded.
 				input: [
 					{
-						context: "atons.urn:mrn:imo:mmsi:993672085",
+						context: "atons.urn:mrn:imo:mmsi:993672088",
 						updates: [
 							{
 								values: [
@@ -468,7 +557,7 @@ export default function createAisConversion(
 							latitude: 38.6,
 							positionAccuracy: "Low",
 							raim: "not in use",
-							timeStamp: "0",
+							timeStamp: "Not available",
 							atonType: "Fixed beacon: starboard hand",
 							offPositionIndicator: "No",
 							virtualAtonFlag: "No",
@@ -528,7 +617,7 @@ export default function createAisConversion(
 							latitude: 38.6,
 							positionAccuracy: "Low",
 							raim: "not in use",
-							timeStamp: "0",
+							timeStamp: "Not available",
 							lengthDiameter: 12,
 							beamDiameter: 4,
 							positionReferenceFromStarboardEdge: 3,
@@ -551,7 +640,7 @@ export default function createAisConversion(
 				// ("Under way using engine") instead.
 				input: [
 					{
-						context: "vessels.urn:mrn:imo:mmsi:367301250",
+						context: "vessels.urn:mrn:imo:mmsi:367301251",
 						updates: [
 							{
 								values: [
@@ -580,7 +669,7 @@ export default function createAisConversion(
 							latitude: 39.0,
 							positionAccuracy: "Low",
 							raim: "not in use",
-							timeStamp: "0",
+							timeStamp: "Not available",
 							aisTransceiverInformation: "Channel A VDL reception",
 							navStatus: "At anchor",
 							specialManeuverIndicator: "Not available",
@@ -630,7 +719,7 @@ export default function createAisConversion(
 							latitude: 39.1,
 							positionAccuracy: "Low",
 							raim: "not in use",
-							timeStamp: "0",
+							timeStamp: "Not available",
 							cog: 1.2,
 							sog: 3.4,
 							aisTransceiverInformation: "Channel A VDL reception",
@@ -713,7 +802,7 @@ export default function createAisConversion(
 							latitude: 39.1,
 							positionAccuracy: "Low",
 							raim: "not in use",
-							timeStamp: "0",
+							timeStamp: "Not available",
 							aisTransceiverInformation: "Channel A VDL reception",
 							specialManeuverIndicator: "Not available",
 						},
@@ -747,7 +836,7 @@ export default function createAisConversion(
 				// weren't enforced, making this a genuine regression test.
 				input: [
 					{
-						context: "vessels.urn:mrn:imo:mmsi:367301250",
+						context: "vessels.urn:mrn:imo:mmsi:367301252",
 						updates: [
 							{
 								source: { label: "canbus0", type: "NMEA2000" },
@@ -774,7 +863,7 @@ export default function createAisConversion(
 				// the encode buffer). Clamp to the AIS spec widths.
 				input: [
 					{
-						context: "vessels.urn:mrn:imo:mmsi:367301250",
+						context: "vessels.urn:mrn:imo:mmsi:367301253",
 						updates: [
 							{
 								values: [
@@ -822,11 +911,11 @@ export default function createAisConversion(
 }
 
 function generateClassBPosition(
-	vessel: Vessel,
 	mmsi: string,
-	index: Map<string, unknown>,
+	index: AisStateIndex,
+	nowMs: number,
 ): N2KMessage | null {
-	const position = indexedFindValue<Position>(index, vessel, "navigation.position");
+	const position = indexedFindValue<Position>(index, "navigation.position");
 	const userId = parseMmsi(mmsi);
 	if (
 		userId === undefined ||
@@ -836,9 +925,9 @@ function generateClassBPosition(
 	) {
 		return null;
 	}
-	const cog = indexedFindValue<number>(index, vessel, "navigation.courseOverGroundTrue");
-	const sog = indexedFindValue<number>(index, vessel, "navigation.speedOverGround");
-	const heading = indexedFindValue<number>(index, vessel, "navigation.headingTrue");
+	const cog = indexedFindFreshValue<number>(index, "navigation.courseOverGroundTrue", nowMs);
+	const sog = indexedFindFreshValue<number>(index, "navigation.speedOverGround", nowMs);
+	const heading = indexedFindFreshValue<number>(index, "navigation.headingTrue", nowMs);
 	return {
 		prio: N2K_DEFAULT_PRIORITY,
 		pgn: 129039,
@@ -851,7 +940,7 @@ function generateClassBPosition(
 			latitude: position.latitude,
 			positionAccuracy: "Low",
 			raim: "not in use",
-			timeStamp: "0",
+			timeStamp: aisTimestampForPath(index, "navigation.position"),
 			cog: toFiniteInRange(cog, 0, MAX_AIS_ANGLE_RADIANS),
 			sog: toFiniteInRange(sog, 0, MAX_AIS_SOG_METERS_PER_SECOND),
 			aisTransceiverInformation: "Channel A VDL reception",
@@ -871,26 +960,18 @@ function generateClassBPosition(
 	};
 }
 
-function generateClassBStatic(
-	vessel: Vessel,
-	mmsi: string,
-	index: Map<string, unknown>,
-): N2KMessage[] {
+function generateClassBStatic(mmsi: string, index: AisStateIndex): N2KMessage[] {
 	const userId = parseMmsi(mmsi);
 	if (userId === undefined) return [];
-	const name = indexedFindValue<string>(index, vessel, "name");
-	const callsign = indexedFindValue<string>(index, vessel, "communication.callsignVhf");
-	const typeObj = indexedFindValue<AisShipType>(index, vessel, "design.aisShipType");
-	const lengthValue = indexedFindValue<{ overall?: number }>(
-		index,
-		vessel,
-		"design.length",
-	)?.overall;
+	const name = indexedFindValue<string>(index, "name");
+	const callsign = indexedFindValue<string>(index, "communication.callsignVhf");
+	const typeObj = indexedFindValue<AisShipType>(index, "design.aisShipType");
+	const lengthValue = indexedFindValue<{ overall?: number }>(index, "design.length")?.overall;
 	const length = toFiniteInRange(lengthValue, 0, MAX_AIS_DIMENSION_METERS);
-	const beamValue = indexedFindValue<number>(index, vessel, "design.beam");
+	const beamValue = indexedFindValue<number>(index, "design.beam");
 	const beam = toFiniteInRange(beamValue, 0, MAX_AIS_DIMENSION_METERS);
-	const fromCenter = indexedFindValue<number>(index, vessel, "sensors.ais.fromCenter");
-	const fromBowValue = indexedFindValue<number>(index, vessel, "sensors.ais.fromBow");
+	const fromCenter = indexedFindValue<number>(index, "sensors.ais.fromCenter");
+	const fromBowValue = indexedFindValue<number>(index, "sensors.ais.fromBow");
 	const fromBow = toFiniteInRange(fromBowValue, 0, MAX_AIS_DIMENSION_METERS);
 	const starboardValue = starboardOffset(beam, fromCenter);
 	const fromStarboard = toFiniteInRange(starboardValue, 0, MAX_AIS_DIMENSION_METERS);
@@ -939,28 +1020,24 @@ function generateClassBStatic(
 	return messages;
 }
 
-function generateStatic(
-	vessel: Vessel,
-	mmsi: string,
-	index: Map<string, unknown>,
-): N2KMessage | null {
-	const name = indexedFindValue<string>(index, vessel, "name");
-	const typeObj = indexedFindValue<AisShipType>(index, vessel, "design.aisShipType");
+function generateStatic(mmsi: string, index: AisStateIndex): N2KMessage | null {
+	const name = indexedFindValue<string>(index, "name");
+	const typeObj = indexedFindValue<AisShipType>(index, "design.aisShipType");
 	const type = typeObj?.id;
-	const callsign = indexedFindValue<string>(index, vessel, "communication.callsignVhf");
-	const lengthObj = indexedFindValue<{ overall?: number }>(index, vessel, "design.length");
+	const callsign = indexedFindValue<string>(index, "communication.callsignVhf");
+	const lengthObj = indexedFindValue<{ overall?: number }>(index, "design.length");
 	const length = lengthObj?.overall;
 	const validLength = toFiniteInRange(length, 0, MAX_AIS_DIMENSION_METERS);
-	const beam = indexedFindValue<number>(index, vessel, "design.beam");
+	const beam = indexedFindValue<number>(index, "design.beam");
 	const validBeam = toFiniteInRange(beam, 0, MAX_AIS_DIMENSION_METERS);
-	const fromCenter = indexedFindValue<number>(index, vessel, "sensors.ais.fromCenter");
-	const fromBow = indexedFindValue<number>(index, vessel, "sensors.ais.fromBow");
+	const fromCenter = indexedFindValue<number>(index, "sensors.ais.fromCenter");
+	const fromBow = indexedFindValue<number>(index, "sensors.ais.fromBow");
 	const validFromBow = toFiniteInRange(fromBow, 0, MAX_AIS_DIMENSION_METERS);
-	const draftObj = indexedFindValue<{ maximum?: number }>(index, vessel, "design.draft");
+	const draftObj = indexedFindValue<{ maximum?: number }>(index, "design.draft");
 	const draft = draftObj?.maximum;
 	const validDraft = toFiniteInRange(draft, 0, MAX_AIS_DRAFT_METERS);
-	const dest = indexedFindValue<string>(index, vessel, "navigation.destination.commonName");
-	const imoNumber = parseImo(indexedFindValue<string>(index, vessel, "registrations.imo"));
+	const dest = indexedFindValue<string>(index, "navigation.destination.commonName");
+	const imoNumber = parseImo(indexedFindValue<string>(index, "registrations.imo"));
 
 	const fromStarboard = toFiniteInRange(
 		starboardOffset(validBeam, fromCenter),
@@ -996,24 +1073,20 @@ function generateStatic(
 	};
 }
 
-function generatePosition(
-	vessel: Vessel,
-	mmsi: string,
-	index: Map<string, unknown>,
-): N2KMessage | null {
-	const position = indexedFindValue<Position>(index, vessel, "navigation.position");
+function generatePosition(mmsi: string, index: AisStateIndex, nowMs: number): N2KMessage | null {
+	const position = indexedFindValue<Position>(index, "navigation.position");
 
 	if (!position || !isValidLatitude(position.latitude) || !isValidLongitude(position.longitude)) {
 		return null;
 	}
 
-	const cog = indexedFindValue<number>(index, vessel, "navigation.courseOverGroundTrue");
-	const sog = indexedFindValue<number>(index, vessel, "navigation.speedOverGround");
-	const heading = indexedFindValue<number>(index, vessel, "navigation.headingTrue");
-	const rot = indexedFindValue<number>(index, vessel, "navigation.rateOfTurn");
-	const state = indexedFindValue<string>(index, vessel, "navigation.state");
+	const cog = indexedFindFreshValue<number>(index, "navigation.courseOverGroundTrue", nowMs);
+	const sog = indexedFindFreshValue<number>(index, "navigation.speedOverGround", nowMs);
+	const heading = indexedFindFreshValue<number>(index, "navigation.headingTrue", nowMs);
+	const rot = indexedFindFreshValue<number>(index, "navigation.rateOfTurn", nowMs);
+	const state = indexedFindFreshValue<string>(index, "navigation.state", nowMs);
 
-	const mappedStatus = state ? navStatusMapping[state] : undefined;
+	const mappedStatus = state ? AIS_NAV_STATUS_BY_SIGNAL_K_STATE[state] : undefined;
 	const status = mappedStatus ?? NAV_STATUS_NOT_DEFINED;
 
 	// Received AIS COG/heading: drop an out-of-range value rather than wrap it
@@ -1047,7 +1120,7 @@ function generatePosition(
 			latitude: position.latitude,
 			positionAccuracy: "Low",
 			raim: "not in use",
-			timeStamp: "0",
+			timeStamp: aisTimestampForPath(index, "navigation.position"),
 			cog: validCog,
 			sog: validSog,
 			aisTransceiverInformation: "Channel A VDL reception",
@@ -1060,22 +1133,28 @@ function generatePosition(
 }
 
 function generateAtoN(
-	vessel: Vessel,
 	mmsi: string,
-	index: Map<string, unknown>,
+	index: AisStateIndex,
+	nowMs: number,
+	positionIsCurrent: boolean,
 ): N2KMessage | null {
-	const position = indexedFindValue<Position>(index, vessel, "navigation.position");
+	const position = indexedFindFreshValue<Position>(
+		index,
+		"navigation.position",
+		nowMs,
+		positionIsCurrent,
+	);
 
 	if (!position || !isValidLatitude(position.latitude) || !isValidLongitude(position.longitude)) {
 		return null;
 	}
 
-	const name = vessel?.name || indexedFindValue<string>(index, vessel, "name");
-	const lengthObj = indexedFindValue<{ overall?: number }>(index, vessel, "design.length");
+	const name = indexedFindValue<string>(index, "name");
+	const lengthObj = indexedFindValue<{ overall?: number }>(index, "design.length");
 	const length = lengthObj?.overall;
-	const beam = indexedFindValue<number>(index, vessel, "design.beam");
-	const fromCenter = indexedFindValue<number>(index, vessel, "sensors.ais.fromCenter");
-	const fromBow = indexedFindValue<number>(index, vessel, "sensors.ais.fromBow");
+	const beam = indexedFindValue<number>(index, "design.beam");
+	const fromCenter = indexedFindValue<number>(index, "sensors.ais.fromCenter");
+	const fromBow = indexedFindValue<number>(index, "sensors.ais.fromBow");
 
 	const validLength = toFiniteInRange(length, 0, MAX_AIS_DIMENSION_METERS);
 	const validBeam = toFiniteInRange(beam, 0, MAX_AIS_DIMENSION_METERS);
@@ -1097,7 +1176,7 @@ function generateAtoN(
 	// 21 type code (0..31), aligned with canboat's ATON_TYPE lookup. atonType
 	// is a 5-bit field. Invalid values become 0 ("not specified") rather than
 	// being clamped to a different, real aid type.
-	const atonTypeObj = indexedFindValue<{ id?: number }>(index, vessel, "atonType");
+	const atonTypeObj = indexedFindValue<{ id?: number }>(index, "atonType");
 	const atonTypeId = atonTypeObj?.id;
 	const atonType = Number.isInteger(atonTypeId) ? (toFiniteInRange(atonTypeId, 0, 31) ?? 0) : 0;
 
@@ -1113,7 +1192,7 @@ function generateAtoN(
 			latitude: position.latitude,
 			positionAccuracy: "Low",
 			raim: "not in use",
-			timeStamp: "0",
+			timeStamp: aisTimestampForPath(index, "navigation.position"),
 			aisTransceiverInformation: "Channel A VDL reception",
 			lengthDiameter: validLength,
 			beamDiameter: validBeam,
@@ -1129,73 +1208,303 @@ function generateAtoN(
 	};
 }
 
-/**
- * Build a key→value index from delta updates for O(1) lookups.
- * Handles both path-keyed values and root-object values (path === "").
- */
-function buildDeltaIndex(delta: AisDelta): Map<string, unknown> {
-	const index = new Map<string, unknown>();
-	if (!delta.updates) return index;
+function deletePathAndChildren<T>(index: Map<string, T>, path: string): void {
+	index.delete(path);
+	const prefix = `${path}.`;
+	for (const key of index.keys()) {
+		if (key.startsWith(prefix)) index.delete(key);
+	}
+}
 
-	for (const update of delta.updates) {
-		if (!Array.isArray(update.values)) continue;
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
-		for (const valueUpdate of update.values) {
-			const valuePath = valueUpdate.path;
-			const value = valueUpdate.value;
+function hasOwn(record: Record<string, unknown>, key: string): boolean {
+	return Object.hasOwn(record, key);
+}
 
-			if (valuePath === "" && typeof value === "object" && value != null) {
-				for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-					index.set(k, v);
-				}
-			} else if (valuePath !== "") {
-				index.set(valuePath, value);
+function boundedString(value: unknown, maximumLength: number): string | undefined {
+	if (typeof value !== "string") return undefined;
+	if (value.length <= maximumLength) return value;
+	// split/join forces a bounded copy instead of retaining a potentially huge
+	// source string through an engine-dependent sliced-string representation.
+	return value.slice(0, maximumLength).split("").join("");
+}
+
+function normalizeAisRelevantValue(path: string, value: unknown): unknown | undefined {
+	if (AIS_NUMBER_VALUE_PATHS.has(path)) {
+		return typeof value === "number" ? value : undefined;
+	}
+
+	switch (path) {
+		case "mmsi":
+			return typeof value === "string" && value.length <= 9 ? value : undefined;
+		case "sensors.ais.class":
+			return value === "A" || value === "B" ? value : undefined;
+		case "name":
+			return boundedString(value, AIS_NAME_CHARS);
+		case "communication.callsignVhf":
+			return boundedString(value, AIS_CALLSIGN_CHARS);
+		case "navigation.destination.commonName":
+			return boundedString(value, AIS_DESTINATION_CHARS);
+		case "registrations.imo":
+			return typeof value === "string" && value.length <= 32 ? value : undefined;
+		case "navigation.state":
+			return typeof value === "string" && value.length <= 128 ? value : undefined;
+	}
+
+	const childNames = AIS_COMPOSITE_CHILDREN[path];
+	if (!childNames || !isRecord(value)) return undefined;
+	const normalized: Record<string, number> = {};
+	for (const childName of childNames) {
+		const childValue = value[childName];
+		if (typeof childValue === "number") normalized[childName] = childValue;
+	}
+	return normalized;
+}
+
+function setCompositeChild<T>(
+	index: Map<string, T>,
+	parentPath: string,
+	childPath: string,
+	value: unknown,
+	createEntry: (path: string, value: unknown) => T,
+	readEntry: (entry: T) => unknown,
+): void {
+	const childName = childPath.slice(parentPath.length + 1);
+	const existing = index.get(parentPath);
+	const existingValue = existing === undefined ? undefined : readEntry(existing);
+	const normalized = normalizeAisRelevantValue(parentPath, existingValue);
+	const nextValue = isRecord(normalized) ? { ...normalized } : {};
+
+	if (typeof value === "number") nextValue[childName] = value;
+	else delete nextValue[childName];
+
+	if (Object.keys(nextValue).length === 0) {
+		index.delete(parentPath);
+		return;
+	}
+	index.set(parentPath, createEntry(parentPath, nextValue));
+}
+
+function setRelevantIndexedValue<T>(
+	index: Map<string, T>,
+	path: string,
+	value: unknown,
+	createEntry: (path: string, value: unknown) => T,
+	readEntry: (entry: T) => unknown,
+): void {
+	if (path === "") {
+		if (value === null || value === undefined) {
+			index.clear();
+			return;
+		}
+		if (!isRecord(value)) return;
+		for (const childName of AIS_RELEVANT_DIRECT_CHILDREN.get("") ?? []) {
+			if (hasOwn(value, childName)) {
+				setRelevantIndexedValue(index, childName, value[childName], createEntry, readEntry);
 			}
+		}
+		return;
+	}
+
+	const compositeParent = AIS_COMPOSITE_PARENT_BY_CHILD.get(path);
+	if (compositeParent !== undefined) {
+		setCompositeChild(index, compositeParent, path, value, createEntry, readEntry);
+		return;
+	}
+
+	if (AIS_RELEVANT_VALUE_PATHS.has(path)) {
+		deletePathAndChildren(index, path);
+		if (value === null || value === undefined) return;
+		const normalized = normalizeAisRelevantValue(path, value);
+		if (normalized !== undefined) index.set(path, createEntry(path, normalized));
+		return;
+	}
+
+	if (!AIS_RELEVANT_PARENT_PATHS.has(path)) return;
+	deletePathAndChildren(index, path);
+	if (!isRecord(value)) return;
+	for (const childName of AIS_RELEVANT_DIRECT_CHILDREN.get(path) ?? []) {
+		if (hasOwn(value, childName)) {
+			const childPath = `${path}.${childName}`;
+			setRelevantIndexedValue(index, childPath, value[childName], createEntry, readEntry);
+		}
+	}
+}
+
+function applyRelevantValueUpdates<T>(
+	index: Map<string, T>,
+	values: ReadonlyArray<AisRelevantValueUpdate>,
+	createEntry: (path: string, value: unknown) => T,
+	readEntry: (entry: T) => unknown,
+): void {
+	for (const valueUpdate of values) {
+		if (!valueUpdate || typeof valueUpdate !== "object" || typeof valueUpdate.path !== "string") {
+			continue;
+		}
+		setRelevantIndexedValue(index, valueUpdate.path, valueUpdate.value, createEntry, readEntry);
+	}
+}
+
+/** Build the bounded AIS state that can be retained from an ordered value batch. */
+export function buildAisRelevantValueIndex(
+	values: ReadonlyArray<AisRelevantValueUpdate>,
+): ReadonlyMap<string, unknown> {
+	const index = new Map<string, unknown>();
+	applyRelevantValueUpdates(
+		index,
+		values,
+		(_path, value) => value,
+		(value) => value,
+	);
+	return index;
+}
+
+function parseUpdateTimestamp(
+	timestamp: unknown,
+	nowMs: number,
+): { updatedAtMs: number; sourceTimestampMs?: number } {
+	if (typeof timestamp !== "string" || !SIGNAL_K_UTC_TIMESTAMP.test(timestamp)) {
+		return { updatedAtMs: nowMs };
+	}
+	const parsedMs = Date.parse(timestamp);
+	if (
+		!Number.isFinite(parsedMs) ||
+		parsedMs < 0 ||
+		new Date(parsedMs).toISOString().slice(0, 19) !== timestamp.slice(0, 19) ||
+		parsedMs > nowMs + MAX_AIS_TIMESTAMP_FUTURE_SKEW_MS
+	) {
+		return { updatedAtMs: nowMs };
+	}
+	return { updatedAtMs: parsedMs, sourceTimestampMs: parsedMs };
+}
+
+/** Apply one safe delta to a source-aware per-context state index. */
+function applyDeltaToState(index: AisStateIndex, delta: AisDelta, nowMs: number): void {
+	for (const update of delta.updates ?? []) {
+		if (!Array.isArray(update.values)) continue;
+		const timing = parseUpdateTimestamp(update.timestamp, nowMs);
+		applyRelevantValueUpdates(
+			index,
+			update.values,
+			(_path, value) => ({ value, ...timing }),
+			(entry) => entry.value,
+		);
+	}
+}
+
+function stateForContext(states: Map<string, AisStateIndex>, context: string): AisStateIndex {
+	const existing = states.get(context);
+	if (existing !== undefined) {
+		// Refresh insertion order so the hard cap behaves as a small LRU cache.
+		states.delete(context);
+		states.set(context, existing);
+		return existing;
+	}
+	if (states.size >= MAX_AIS_CONTEXTS) {
+		const oldestContext = states.keys().next().value;
+		if (typeof oldestContext === "string") states.delete(oldestContext);
+	}
+	const created: AisStateIndex = new Map();
+	states.set(context, created);
+	return created;
+}
+
+function collectRelevantTouchedPaths(index: Set<string>, path: string, value: unknown): void {
+	if (path === "") {
+		if (!isRecord(value)) return;
+		for (const childName of AIS_RELEVANT_DIRECT_CHILDREN.get("") ?? []) {
+			if (hasOwn(value, childName)) {
+				collectRelevantTouchedPaths(index, childName, value[childName]);
+			}
+		}
+		return;
+	}
+
+	const compositeParent = AIS_COMPOSITE_PARENT_BY_CHILD.get(path);
+	if (compositeParent !== undefined) {
+		index.add(compositeParent);
+		return;
+	}
+
+	if (AIS_RELEVANT_VALUE_PATHS.has(path)) {
+		index.add(path);
+		return;
+	}
+
+	if (!AIS_RELEVANT_PARENT_PATHS.has(path) || !isRecord(value)) return;
+	for (const childName of AIS_RELEVANT_DIRECT_CHILDREN.get(path) ?? []) {
+		if (hasOwn(value, childName)) {
+			collectRelevantTouchedPaths(index, `${path}.${childName}`, value[childName]);
+		}
+	}
+}
+
+/** Build an allowlisted index for deciding which fields the current delta touched. */
+function buildDeltaIndex(delta: AisDelta): Set<string> {
+	const index = new Set<string>();
+	for (const update of delta.updates ?? []) {
+		if (!Array.isArray(update.values)) continue;
+		for (const valueUpdate of update.values) {
+			if (!valueUpdate || typeof valueUpdate !== "object" || typeof valueUpdate.path !== "string") {
+				continue;
+			}
+			collectRelevantTouchedPaths(index, valueUpdate.path, valueUpdate.value);
 		}
 	}
 	return index;
 }
 
-function indexHasAnyKeys(index: Map<string, unknown>, keys: string[]): boolean {
+function indexHasAnyKeys(index: ReadonlySet<string>, keys: string[]): boolean {
 	return keys.some((key) => index.has(key));
 }
 
-function indexedFindValue<T = unknown>(
-	index: Map<string, unknown>,
-	vessel: Vessel,
-	path: string,
-): T | undefined {
-	if (index.has(path)) return index.get(path) as T | undefined;
-
-	// Fallback: traverse the vessel object
-	const pathParts = path.split(".");
-	let val: unknown = vessel;
-	for (const part of pathParts) {
-		if (val && typeof val === "object" && val != null) {
-			val = (val as Record<string, unknown>)[part];
-		} else {
-			val = undefined;
-			break;
-		}
-	}
-
-	const out =
-		val && typeof val === "object" && val != null && "value" in val
-			? (val as { value: unknown }).value
-			: val;
-	return out as T | undefined;
+function indexedFindValue<T = unknown>(index: AisStateIndex, path: string): T | undefined {
+	return index.get(path)?.value as T | undefined;
 }
 
-/**
- * Detect deltas that originated from the vessel's own NMEA 2000 bus so we
- * don't rebroadcast them: that would duplicate every AIS frame on the wire.
- * Signal K server's N2K inbound decoder labels sources with
- * `updates[].source.type === "NMEA2000"`.
- */
-function isN2K(delta: AisDelta): boolean {
-	if (!Array.isArray(delta.updates)) return false;
-	return delta.updates.some((u) => {
-		const src = (u as { source?: { type?: string } }).source;
-		return typeof src?.type === "string" && src.type === "NMEA2000";
+function indexedFindFreshValue<T = unknown>(
+	index: AisStateIndex,
+	path: string,
+	nowMs: number,
+	currentDeltaValue = false,
+): T | undefined {
+	const entry = index.get(path);
+	if (!entry) return undefined;
+	if (!currentDeltaValue && nowMs - entry.updatedAtMs > AIS_DYNAMIC_FRESHNESS_MS) {
+		return undefined;
+	}
+	return entry.value as T;
+}
+
+function aisTimestampForPath(index: AisStateIndex, path: string): number {
+	const sourceTimestampMs = index.get(path)?.sourceTimestampMs;
+	return sourceTimestampMs === undefined ? 60 : new Date(sourceTimestampMs).getUTCSeconds();
+}
+
+/** Keep safe publishers in a mixed delta while removing bus-origin updates. */
+function withoutNmea2000Updates(
+	delta: AisDelta,
+	getSourceMetadata: () => unknown,
+): AisDelta | null {
+	if (!Array.isArray(delta.updates)) return null;
+	let sourceMetadataLoaded = false;
+	let sourceMetadata: unknown;
+	const updates = delta.updates.filter((update) => {
+		if (!update || typeof update !== "object") return false;
+		const sourceRef = typeof update.$source === "string" ? update.$source : "";
+		let origin = classifySourceOrigin(sourceRef, update.source);
+		if (origin === SOURCE_ORIGIN.UNKNOWN) {
+			if (!sourceMetadataLoaded) {
+				sourceMetadata = getSourceMetadata();
+				sourceMetadataLoaded = true;
+			}
+			origin = classifySourceOrigin(sourceRef, undefined, sourceMetadata);
+		}
+		return origin !== SOURCE_ORIGIN.NMEA2000;
 	});
+	if (updates.length === 0) return null;
+	return updates.length === delta.updates.length ? delta : { ...delta, updates };
 }

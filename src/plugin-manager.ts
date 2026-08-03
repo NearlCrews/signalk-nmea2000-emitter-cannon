@@ -4,6 +4,7 @@ import { buildConversionMetadata } from "./api/conversion-metadata.js";
 import { findOrphanExtrasMetaKeys } from "./api/extras-meta.js";
 import type { ConversionMetadata, PerConversionStatus, StatusSnapshot } from "./api/types.js";
 import { buildPluginOptions } from "./config/pluginOptions.js";
+import { COMPETING_WIND_PRODUCERS } from "./config/windConflicts.js";
 import {
 	DEFAULT_GLOBAL_RESEND_SECONDS,
 	SOURCE_TYPE,
@@ -43,6 +44,88 @@ function resolveKeys(
 	if (keys === undefined) return [];
 	if (typeof keys === "function") return keys(options);
 	return keys;
+}
+
+interface DeltaSource {
+	type?: unknown;
+	src?: unknown;
+	pgn?: unknown;
+	canName?: unknown;
+	label?: unknown;
+	talker?: unknown;
+}
+
+interface DeltaValueLike {
+	path?: unknown;
+	value?: unknown;
+}
+
+interface DeltaUpdateLike {
+	$source?: unknown;
+	source?: DeltaSource;
+	values?: DeltaValueLike[];
+}
+
+interface WireResult {
+	wiredCount: number;
+	hadFailure: boolean;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function sourcePgn(source: DeltaSource | null | undefined): number | undefined {
+	const value = source?.pgn;
+	if (typeof value === "number" && Number.isInteger(value)) return value;
+	if (typeof value === "string" && /^\d+$/.test(value)) return Number(value);
+	return undefined;
+}
+
+function deltaSourceRef(update: DeltaUpdateLike): string {
+	if (typeof update.$source === "string" && update.$source.length > 0) return update.$source;
+	const source = update.source;
+	if (!source) return "no_source";
+	const label =
+		typeof source.label === "string" && source.label.length > 0 ? source.label : undefined;
+	const canName =
+		typeof source.canName === "string" && source.canName.length > 0 ? source.canName : undefined;
+	const src =
+		typeof source.src === "string" || typeof source.src === "number"
+			? String(source.src)
+			: undefined;
+	if (canName !== undefined) return `${label ?? src ?? "unknown_source"}.${canName}`;
+	if (src !== undefined) return `${label ?? canName ?? "unknown_source"}.${src}`;
+	if (source.type === "plugin") return label ?? "unknown_source";
+	const talker =
+		typeof source.talker === "string" && source.talker.length > 0 ? source.talker : undefined;
+	return `${label ?? "unknown_source"}.${talker ?? "XX"}`;
+}
+
+function pathMatchesSubscriptionKey(path: string, key: string): boolean {
+	if (path === key) return true;
+	if (key.endsWith("*")) return path.startsWith(key.slice(0, -1));
+	return path.startsWith(`${key}.`);
+}
+
+function mergeAllowedPaths(
+	parent: string[] | undefined,
+	child: string[] | undefined,
+): string[] | undefined {
+	if (!parent && !child) return undefined;
+	return [...new Set([...(parent ?? []), ...(child ?? [])])];
+}
+
+function mergeAllowedPgns(
+	parent: Record<string, readonly number[]> | undefined,
+	child: Record<string, readonly number[]> | undefined,
+): Record<string, readonly number[]> | undefined {
+	if (!parent && !child) return undefined;
+	const out: Record<string, readonly number[]> = { ...(parent ?? {}) };
+	for (const [path, pgns] of Object.entries(child ?? {})) {
+		out[path] = [...new Set([...(out[path] ?? []), ...pgns])];
+	}
+	return out;
 }
 
 // Throttle-bucket prefixes used by bucketKey() and the per-source label
@@ -94,22 +177,9 @@ interface RuntimeStatusDescriptor {
 	waitsForInput: boolean;
 }
 
-/**
- * Process-wide singleton wiring for the delta input handler. signalk-server's
- * registerDeltaInputHandler (server-api 2.x) exposes no unregister API, so a
- * handler installed on every start()/stop() cycle would leak forever, pinning
- * each retired PluginManager in memory. Instead one handler is installed for
- * the process lifetime and routes every delta to whichever PluginManager is
- * currently active; retired instances drop out of the active slot and become
- * collectable.
- */
-let activeManager: PluginManager | null = null;
-let deltaHandlerRegistered = false;
-
-// Not idempotent on a reused instance: stop() clears this.conversions and
-// removes the constructor-installed listener, so a subsequent start() on the
-// same instance is a no-op. index.ts always discards the instance after stop()
-// and constructs a fresh PluginManager on restart.
+// Not idempotent on a reused instance: stop() clears this.conversions, so a
+// subsequent start() on the same instance is a no-op. index.ts always discards
+// the instance after stop() and constructs a fresh PluginManager on restart.
 export class PluginManager {
 	private app: SignalKApp;
 	private conversions: ConversionModule[] = [];
@@ -117,31 +187,28 @@ export class PluginManager {
 	private timers: NodeJS.Timeout[] = [];
 	/**
 	 * Delta-source conversions wired by mapOnDelta in the current start().
-	 * The single process-wide delta input handler iterates this list on the
-	 * active manager, so each restart reuses one handler instead of leaking a
-	 * new one. Reset by stop().
+	 * A factory-owned delta input handler iterates this list. Manager-only
+	 * Advisor restarts reuse that handler, while Signal K host restarts register
+	 * a fresh handler after the server removes the prior lifecycle's handler.
 	 */
 	private deltaConversions: Array<{
 		conversion: ConversionModule;
-		options: ProcessingOptions;
+		options: ConversionOptions;
 	}> = [];
 	private nmea2000Ready = false;
 	private globalResendInterval = DEFAULT_GLOBAL_RESEND_SECONDS;
 	private configuredOptions: Record<string, ConversionOptions> = {};
-	/**
-	 * Flipped by stop(). registerDeltaInputHandler in @signalk/server-api 2.x
-	 * exposes no unregister API, so handlers from prior start()/stop() cycles
-	 * remain installed forever. The handler closure checks this flag first and
-	 * bails out, neutralising zombie handlers without changing wire behaviour.
-	 */
+	/** Flipped by stop() so callbacks already in flight leave this manager idle. */
 	private stopped = false;
 	private running = false;
 	/**
-	 * Stored so stop() can removeListener the exact same reference. Without
-	 * this, every plugin restart leaks a listener (and the PluginManager it
-	 * closes over), eventually tripping MaxListenersExceeded.
+	 * Immediate timer callbacks parked until the factory-level Signal K
+	 * readiness listener calls notifyNmea2000Ready(). Keeping these callbacks
+	 * inside the manager avoids registering plugin-bound app.on listeners that
+	 * Signal K's wrapped-emitter bookkeeping retains across manager-only
+	 * Advisor restarts.
 	 */
-	private readonly onNmea2000Ready: () => void;
+	private deferredImmediateRuns: Array<() => void> = [];
 	/**
 	 * Last input arguments observed for each conversion. Used by the resend
 	 * timer to re-invoke the conversion callback with the most recent input
@@ -149,6 +216,8 @@ export class PluginManager {
 	 * of re-emitting a stale cached N2KMessage[].
 	 */
 	private lastInputs: Map<ConversionModule, unknown[]> = new Map();
+	/** Rebuild current stream inputs so resend ticks reapply per-key freshness. */
+	private freshInputProviders: Map<ConversionModule, () => unknown[] | undefined> = new Map();
 	/**
 	 * Number of conversions that start() reported as enabled. Captured so a
 	 * late nmea2000OutAvailable event can refresh the plugin status from
@@ -156,6 +225,7 @@ export class PluginManager {
 	 * the full enablement sweep.
 	 */
 	private lastEnabledCount = 0;
+	private lastConfigurationErrorCount = 0;
 	/**
 	 * Throttle state for repeated error log lines. Keyed by an error-site
 	 * identifier (e.g. `callback:<optionKey>:<source>`). A conversion bug that
@@ -189,6 +259,8 @@ export class PluginManager {
 	private perConversion: Map<string, PerConversionState> = new Map();
 	private runtimeStatusDescriptors: Map<string, RuntimeStatusDescriptor> = new Map();
 	private startTime = Date.now();
+	private localDeltaHandlerRegistered = false;
+	private readonly ensureDeltaInputHandler: () => void;
 
 	private getPerConversionState(key: string): PerConversionState {
 		let entry = this.perConversion.get(key);
@@ -229,8 +301,28 @@ export class PluginManager {
 		// `app.isNmea2000OutAvailable` directly would only see the frozen
 		// snapshot.
 		private readonly factoryNmea2000Ready: () => boolean = () => false,
+		ensureDeltaInputHandler?: () => void,
 	) {
 		this.app = app;
+		this.ensureDeltaInputHandler =
+			ensureDeltaInputHandler ??
+			(() => {
+				if (this.localDeltaHandlerRegistered) return;
+				this.app.registerDeltaInputHandler((delta, next) => {
+					try {
+						next(delta);
+					} catch (error) {
+						this.app.error(`Unable to forward delta input: ${errMessage(error)}`);
+						return;
+					}
+					try {
+						this.handleDeltaInput(delta);
+					} catch (error) {
+						this.app.error(`Unable to process delta input: ${errMessage(error)}`);
+					}
+				});
+				this.localDeltaHandlerRegistered = true;
+			});
 
 		// Load conversions at initialization
 		this.conversions = createConversionModules(app, plugin);
@@ -242,27 +334,35 @@ export class PluginManager {
 		for (const orphan of findOrphanExtrasMetaKeys(this.conversions)) {
 			this.app.debug(`extras-meta has entry for unknown optionKey '${orphan}'`);
 		}
+	}
 
-		// Wait for NMEA 2000 output to be available before emitting. start()
-		// owns the add/remove of this listener (the constructor only captures
-		// the callback so removeListener can pass the same reference). Adding
-		// here would leave a leaked listener on any constructed-but-never-
-		// started instance.
-		this.onNmea2000Ready = () => {
-			// Stopped-check first: a stray post-stop event (if removeListener
-			// in stop() threw and safe() swallowed it) leaves a dead instance
-			// fully quiescent rather than re-flipping its readiness flag.
-			if (this.stopped) return;
-			this.nmea2000Ready = true;
-			this.app.debug("NMEA 2000 output is now available");
-			// If start() has already completed with conversions enabled, the
-			// status currently reads "Waiting for NMEA 2000 output...". Refresh
-			// it to the running form so the admin UI reflects that emission
-			// has begun.
-			if (this.lastEnabledCount > 0) {
-				this.app.setPluginStatus(this.runningStatus(this.lastEnabledCount));
+	/**
+	 * Receive the one host-level NMEA 2000 readiness notification. The plugin
+	 * factory owns the only app.on listener and routes it to the current manager,
+	 * so replacing a manager never adds another wrapped-emitter callback.
+	 */
+	public notifyNmea2000Ready(): void {
+		if (this.stopped || this.nmea2000Ready) return;
+		this.nmea2000Ready = true;
+		this.app.debug("NMEA 2000 output is now available");
+
+		const deferredRuns = this.deferredImmediateRuns;
+		this.deferredImmediateRuns = [];
+		for (const run of deferredRuns) {
+			try {
+				run();
+			} catch (error) {
+				this.app.error(`Unable to run deferred NMEA 2000 output: ${errMessage(error)}`);
 			}
-		};
+		}
+
+		// If start() completed while output was unavailable, refresh the status
+		// now that emission and any deferred identity messages are active.
+		if (this.lastConfigurationErrorCount > 0) {
+			this.setConfigurationErrorStatus();
+		} else if (this.lastEnabledCount > 0) {
+			this.app.setPluginStatus(this.runningStatus(this.lastEnabledCount));
+		}
 	}
 
 	private moduleLabel(conversion: ConversionModule): string {
@@ -286,6 +386,14 @@ export class PluginManager {
 
 	private runningStatus(count: number): string {
 		return `Running with ${count} conversions enabled`;
+	}
+
+	private setConfigurationErrorStatus(): void {
+		const errorNoun = this.lastConfigurationErrorCount === 1 ? "conversion" : "conversions";
+		const wiredNoun = this.lastEnabledCount === 1 ? "conversion is" : "conversions are";
+		this.app.setPluginError(
+			`Configuration error: ${this.lastConfigurationErrorCount} enabled ${errorNoun} could not be safely wired. ${this.lastEnabledCount} ${wiredNoun} wired.`,
+		);
 	}
 
 	/**
@@ -359,6 +467,20 @@ export class PluginManager {
 				`Error in ${source} callback for ${this.moduleLabel(conversion)}: ${message}`,
 			);
 			return undefined;
+		}
+	}
+
+	private acceptsInput(conversion: ConversionModule, args: unknown[], source: string): boolean {
+		if (!conversion.acceptsInput) return true;
+		try {
+			return conversion.acceptsInput(...args);
+		} catch (err) {
+			const message = errMessage(err);
+			this.throttledError(
+				this.bucketKey(BUCKET_PREFIX.CALLBACK, conversion, `${source}-accepts-input`),
+				`Error in ${source} input acceptance for ${this.moduleLabel(conversion)}: ${message}`,
+			);
+			return false;
 		}
 	}
 
@@ -438,7 +560,7 @@ export class PluginManager {
 	 * and a useful log label so per-instance errors do not collapse into one
 	 * throttle bucket.
 	 */
-	private wireConversion(conv: ConversionModule, convOptions: ConversionOptions): void {
+	private wireConversion(conv: ConversionModule, convOptions: ConversionOptions): WireResult {
 		const rawConversions = conv.conversions;
 		let subConversions: SubConversionModule[] | null;
 		if (rawConversions === undefined) {
@@ -451,20 +573,41 @@ export class PluginManager {
 
 		if (!subConversions) {
 			this.app.debug(`No subconversions for ${conv.title}`);
-			return;
+			return { wiredCount: 0, hadFailure: false };
 		}
 
+		let wiredCount = 0;
+		let hadFailure = false;
 		for (let idx = 0; idx < subConversions.length; idx++) {
 			const subConversion = subConversions[idx];
-			if (subConversion === undefined) continue;
+			if (subConversion === undefined) {
+				hadFailure = true;
+				this.app.error(`${this.moduleLabel(conv)} produced an undefined mapping at row ${idx + 1}`);
+				continue;
+			}
 			const allowResend = subConversion.allowResend ?? conv.allowResend;
 			const refreshInterval = subConversion.refreshInterval ?? conv.refreshInterval;
+			const immediate = subConversion.immediate ?? conv.immediate;
+			const keys = subConversion.keys ?? conv.keys;
+			const timeouts = subConversion.timeouts ?? conv.timeouts;
+			const interval = subConversion.interval ?? conv.interval;
+			const context = subConversion.context ?? conv.context;
+			const callback = subConversion.callback ?? conv.callback;
+			const allowNmea2000InputPaths = mergeAllowedPaths(
+				conv.allowNmea2000InputPaths,
+				subConversion.allowNmea2000InputPaths,
+			);
+			const allowNmea2000InputPgns = mergeAllowedPgns(
+				conv.allowNmea2000InputPgns,
+				subConversion.allowNmea2000InputPgns,
+			);
 
-			const sourceType = subConversion.sourceType ?? SOURCE_TYPE.ON_VALUE_CHANGE;
+			const sourceType = subConversion.sourceType ?? conv.sourceType ?? SOURCE_TYPE.ON_VALUE_CHANGE;
 			const mapper = this.sourceTypes[sourceType];
 
 			if (!mapper) {
 				this.app.error(`Unknown conversion type: ${sourceType}`);
+				hadFailure = true;
 				continue;
 			}
 
@@ -474,18 +617,47 @@ export class PluginManager {
 			// merging into one). Spread into a fresh ConversionModule per
 			// sub-conversion; mutating the source would persist annotations
 			// across start/stop cycles.
-			const labeled: ConversionModule =
-				subConversion === conv
-					? conv
-					: {
-							...subConversion,
-							optionKey: subIndexKey(conv.optionKey, idx),
-							title: subConversion.title ?? `${conv.title}, mapping row ${idx + 1}`,
-							category: conv.category,
-							...(allowResend === undefined ? {} : { allowResend }),
-							...(refreshInterval === undefined ? {} : { refreshInterval }),
-							...(conv.presets ? { presets: conv.presets } : {}),
-						};
+			const labeled: ConversionModule = {
+				...conv,
+				...subConversion,
+				optionKey: subConversion === conv ? conv.optionKey : subIndexKey(conv.optionKey, idx),
+				title:
+					subConversion === conv
+						? conv.title
+						: (subConversion.title ?? `${conv.title}, mapping row ${idx + 1}`),
+				category: conv.category,
+				sourceType,
+				...(keys === undefined ? {} : { keys }),
+				...(timeouts === undefined ? {} : { timeouts }),
+				...(interval === undefined ? {} : { interval }),
+				...(context === undefined ? {} : { context }),
+				...(callback === undefined ? {} : { callback }),
+				...(allowResend === undefined ? {} : { allowResend }),
+				...(refreshInterval === undefined ? {} : { refreshInterval }),
+				...(immediate === undefined ? {} : { immediate }),
+				...(allowNmea2000InputPaths === undefined ? {} : { allowNmea2000InputPaths }),
+				...(allowNmea2000InputPgns === undefined ? {} : { allowNmea2000InputPgns }),
+				...(conv.presets ? { presets: conv.presets } : {}),
+			};
+
+			if (!labeled.callback) {
+				this.app.error(`Conversion ${this.moduleLabel(labeled)} has no callback`);
+				hadFailure = true;
+				continue;
+			}
+			if (sourceType === SOURCE_TYPE.TIMER && !labeled.interval) {
+				this.app.error(`Timer conversion ${this.moduleLabel(labeled)} has no interval`);
+				hadFailure = true;
+				continue;
+			}
+			if (
+				(sourceType === SOURCE_TYPE.ON_VALUE_CHANGE || sourceType === SOURCE_TYPE.SUBSCRIPTION) &&
+				resolveKeys(labeled.keys, convOptions).length === 0
+			) {
+				this.app.error(`Input conversion ${this.moduleLabel(labeled)} has no input paths`);
+				hadFailure = true;
+				continue;
+			}
 
 			this.registerRuntimeStatus(
 				labeled,
@@ -494,7 +666,9 @@ export class PluginManager {
 				subConversion === conv ? undefined : idx,
 			);
 			mapper(labeled, convOptions);
+			wiredCount++;
 		}
+		return { wiredCount, hadFailure };
 	}
 
 	start(rawOptions: unknown): void {
@@ -502,20 +676,11 @@ export class PluginManager {
 			this.stopped = false;
 			this.running = false;
 			resetCourseValueCache(this.app);
-			// Claim the process-wide delta-handler routing slot so the single
-			// registered handler dispatches deltas to this instance.
-			activeManager = this;
 			this.errorBuckets.clear();
 			this.perConversion.clear();
 			this.runtimeStatusDescriptors.clear();
+			this.deferredImmediateRuns = [];
 			this.startTime = Date.now();
-			// Re-attach the nmea2000OutAvailable listener every start: stop()
-			// removes it, and start() may run multiple times across a single
-			// plugin instance (disable -> enable from the admin UI). Removing
-			// before adding keeps the call idempotent even on the first start
-			// where the listener is already attached from the constructor.
-			this.app.removeListener("nmea2000OutAvailable", this.onNmea2000Ready);
-			this.app.on("nmea2000OutAvailable", this.onNmea2000Ready);
 			// Sync readiness check via the factory flag (see index.ts): it folds
 			// the registration-time `app.isNmea2000OutAvailable` snapshot together
 			// with the latched one-shot event, so a plugin enabled after output
@@ -540,28 +705,55 @@ export class PluginManager {
 			);
 
 			let enabledCount = 0;
+			const blockedByConflict = new Map<string, string[]>();
+			for (const [primaryKey, alternateKey] of COMPETING_WIND_PRODUCERS) {
+				const primary = options.conversions[primaryKey];
+				const alternate = options.conversions[alternateKey];
+				if (primary?.enabled !== true || alternate?.enabled !== true) continue;
+				const blockers = blockedByConflict.get(alternateKey) ?? [];
+				blockers.push(primaryKey);
+				blockedByConflict.set(alternateKey, blockers);
+			}
+			for (const [alternateKey, blockers] of blockedByConflict) {
+				this.app.error(
+					`Not enabling ${alternateKey}: enabled ${blockers.join(" and ")} wind data conflicts on PGN 130306`,
+				);
+			}
+			let configurationErrorCount = blockedByConflict.size;
 			for (const conv of this.conversions) {
 				const convOptions = options.conversions[conv.optionKey];
 				const isEnabled = isConversionOptions(convOptions) && convOptions.enabled === true;
 				if (!isEnabled) continue;
-				enabledCount++;
-				this.getPerConversionState(conv.optionKey).enabled = true;
-
+				if (blockedByConflict.has(conv.optionKey)) continue;
 				this.app.debug(`Enabling: ${this.moduleLabel(conv)}`);
 
 				if (conv.onOptionsLoaded) {
 					conv.onOptionsLoaded(convOptions);
 				}
 
-				this.wireConversion(conv, convOptions);
+				const { wiredCount, hadFailure } = this.wireConversion(conv, convOptions);
+				if (hadFailure || wiredCount === 0) {
+					configurationErrorCount++;
+				}
+				if (wiredCount === 0) {
+					this.app.error(
+						`Enabled conversion ${this.moduleLabel(conv)} produced no runnable mappings`,
+					);
+					continue;
+				}
+				enabledCount++;
+				this.getPerConversionState(conv.optionKey).enabled = true;
 			}
 
 			this.lastEnabledCount = enabledCount;
-			if (enabledCount === 0) {
+			this.lastConfigurationErrorCount = configurationErrorCount;
+			if (configurationErrorCount > 0) {
+				this.setConfigurationErrorStatus();
+			} else if (enabledCount === 0) {
 				this.app.setPluginStatus("No conversions enabled. Enable at least one in plugin settings.");
 			} else if (!this.nmea2000Ready) {
 				// Plugin is wired up but signalk-server has not announced
-				// nmea2000OutAvailable yet. onNmea2000Ready will refresh to the
+				// nmea2000OutAvailable yet. notifyNmea2000Ready will refresh to the
 				// running form once emission becomes possible; if the event
 				// never fires (no N2K provider configured), this status is the
 				// accurate final state.
@@ -586,6 +778,7 @@ export class PluginManager {
 			} catch (stopErr) {
 				this.app.error(`stop() during start() failure also failed: ${errMessage(stopErr)}`);
 			}
+			throw error instanceof Error ? error : new Error(errorMsg);
 		}
 	}
 
@@ -597,8 +790,8 @@ export class PluginManager {
 	 * `suppressStatus` is set when stop() is called from the start() catch
 	 * block: setPluginError() has just announced the startup failure, and
 	 * overwriting it here with "Stopped" would hide the cause from the admin
-	 * UI. All other callers (Signal K disable, index.ts normal restart) leave
-	 * it false so the UI reflects the stopped state.
+	 * UI. Signal K host stops leave it false so the UI reflects the stopped
+	 * state; manager-only replacements suppress that transient status.
 	 */
 	stop(suppressStatus = false): void {
 		this.stopped = true;
@@ -635,32 +828,26 @@ export class PluginManager {
 		}
 		this.conversions = [];
 
-		// Drop delta-conversion wiring and release the process-wide delta
-		// routing slot if it still points at this instance, so the retired
-		// manager becomes collectable.
+		// Drop delta-conversion wiring. Signal K owns registered input-handler
+		// cleanup at the host lifecycle boundary; manager-only Advisor restarts
+		// reuse the factory-level handler without retaining this instance.
 		this.deltaConversions = [];
 		this.configuredOptions = {};
-		if (activeManager === this) {
-			activeManager = null;
-		}
 
-		// Remove the nmea2000OutAvailable listener the constructor registered.
-		// Without this, every restart leaks a listener plus the closure over
-		// this PluginManager instance.
-		safe("removeListener(nmea2000OutAvailable)", () =>
-			this.app.removeListener("nmea2000OutAvailable", this.onNmea2000Ready),
-		);
-		// Reset readiness so a subsequent start() waits for the event again
-		// instead of inheriting the previous run's state.
+		// Drop deferred immediate callbacks before resetting readiness so this
+		// discarded manager retains no conversion closures.
+		this.deferredImmediateRuns = [];
 		this.nmea2000Ready = false;
 
 		// Drop cached inputs so a subsequent start() begins from a clean slate.
 		safe("clear lastInputs", () => this.lastInputs.clear());
+		safe("clear freshInputProviders", () => this.freshInputProviders.clear());
 
 		// Reset status-bookkeeping and error-throttle state so a fresh start()
 		// reports an accurate enabled count and does not inherit suppressed
 		// errors from the prior cycle.
 		this.lastEnabledCount = 0;
+		this.lastConfigurationErrorCount = 0;
 		safe("clear perConversion", () => this.perConversion.clear());
 		safe("clear runtimeStatusDescriptors", () => this.runtimeStatusDescriptors.clear());
 		safe("clear errorBuckets", () => this.errorBuckets.clear());
@@ -690,7 +877,8 @@ export class PluginManager {
 	private async resendConversion(conversion: ConversionModule): Promise<void> {
 		try {
 			if (this.stopped) return;
-			const lastInput = this.lastInputs.get(conversion);
+			const currentInput = this.freshInputProviders.get(conversion)?.();
+			const lastInput = currentInput ?? this.lastInputs.get(conversion);
 			// No input ever observed: skip; do not emit stale defaults.
 			if (lastInput === undefined) return;
 			if (conversion.optionKey !== undefined) {
@@ -712,6 +900,82 @@ export class PluginManager {
 		}
 	}
 
+	private allowsNmea2000Input(
+		conversion: ConversionModule,
+		path: string,
+		source: DeltaSource | null | undefined,
+	): boolean {
+		if (conversion.allowNmea2000InputPaths?.includes(path)) return true;
+		const allowedPgns = conversion.allowNmea2000InputPgns?.[path];
+		if (!allowedPgns || allowedPgns.length === 0) return false;
+		const pgn = sourcePgn(source);
+		return pgn !== undefined && allowedPgns.includes(pgn);
+	}
+
+	/**
+	 * Apply publisher pins and echo protection to every values update in a raw
+	 * Signal K delta. Mixed-source deltas retain their safe updates instead of
+	 * being accepted or rejected as one indivisible message.
+	 */
+	private filterDeltaForConversion(
+		conversion: ConversionModule,
+		options: ConversionOptions,
+		delta: unknown,
+		getSourceMetadata: () => unknown = () => this.app.getPath?.("sources"),
+	): unknown | undefined {
+		if (!isRecord(delta) || !Array.isArray(delta.updates)) return delta;
+		const subscriptionKeys = [...resolveKeys(conversion.keys, options)].sort(
+			(a, b) => b.length - a.length,
+		);
+		const updates: DeltaUpdateLike[] = [];
+		let changed = false;
+
+		for (const rawUpdate of delta.updates) {
+			if (!isRecord(rawUpdate) || !Array.isArray(rawUpdate.values)) {
+				changed = true;
+				continue;
+			}
+			const update = rawUpdate as DeltaUpdateLike;
+			const rawValues = rawUpdate.values as DeltaValueLike[];
+			const sourceRef = deltaSourceRef(update);
+			let origin = classifySourceOrigin(sourceRef, update.source);
+			if (origin === SOURCE_ORIGIN.UNKNOWN) {
+				origin = classifySourceOrigin(sourceRef, undefined, getSourceMetadata());
+			}
+			const values = rawValues.filter((rawValue) => {
+				if (!isRecord(rawValue) || typeof rawValue.path !== "string") return false;
+				const path = rawValue.path;
+				const subscriptionKey = subscriptionKeys.find((key) =>
+					pathMatchesSubscriptionKey(path, key),
+				);
+				const pin =
+					options[path] ??
+					options[pathToPropName(path)] ??
+					(subscriptionKey === undefined
+						? undefined
+						: (options[subscriptionKey] ?? options[pathToPropName(subscriptionKey)]));
+				if (typeof pin === "string" && pin.length > 0 && !sourceMatchesFilter(sourceRef, pin)) {
+					this.recordDrop(conversion.optionKey, "publisher-filter");
+					return false;
+				}
+				if (
+					origin === SOURCE_ORIGIN.NMEA2000 &&
+					!this.allowsNmea2000Input(conversion, path, update.source)
+				) {
+					this.recordDrop(conversion.optionKey, "nmea2000-echo");
+					return false;
+				}
+				return true;
+			});
+			const updateChanged = values.length !== rawValues.length;
+			if (updateChanged) changed = true;
+			if (values.length > 0) updates.push(updateChanged ? { ...update, values } : update);
+		}
+
+		if (updates.length === 0) return undefined;
+		return changed || updates.length !== delta.updates.length ? { ...delta, updates } : delta;
+	}
+
 	private async processOutput(
 		conversion: ConversionModule,
 		options: ProcessingOptions | null,
@@ -720,6 +984,10 @@ export class PluginManager {
 		try {
 			if (output !== undefined) {
 				const values = await Promise.resolve(output);
+				// A callback Promise can resolve after this manager was stopped or
+				// replaced. Leave before recording activity, emitting, or arming a
+				// resend timer so the retired manager remains fully quiescent.
+				if (this.stopped) return;
 				if (values.length === 0) {
 					// ON_DELTA callbacks use [] to reject unrelated process-wide
 					// deltas. That is not accepted input or an empty conversion result.
@@ -739,6 +1007,7 @@ export class PluginManager {
 				await this.processToN2K(values, conversion.optionKey);
 			}
 		} catch (err) {
+			if (this.stopped) return;
 			const message = errMessage(err);
 			this.throttledError(
 				this.bucketKey(BUCKET_PREFIX.PROCESS, conversion),
@@ -787,36 +1056,40 @@ export class PluginManager {
 		// `resend` is read downstream), so it stores without a cast.
 		this.deltaConversions.push({ conversion, options });
 
-		// Install the process-wide delta input handler exactly once.
-		// registerDeltaInputHandler has no unregister API, so registering one
-		// per start()/stop() cycle would leak a handler (and the PluginManager
-		// it closes over) on every restart. The single handler routes each
-		// delta to whichever manager is currently active.
-		if (!deltaHandlerRegistered) {
-			deltaHandlerRegistered = true;
-			// next(delta) first so app.getPath() reflects the just-applied state.
-			this.app.registerDeltaInputHandler((delta, next) => {
-				next(delta);
-				activeManager?.dispatchDelta(delta);
-			});
-		}
+		// The factory coordinates handler ownership across two different
+		// lifecycles: Advisor restarts keep the host handler, while a Signal K
+		// stop removes it and the next host start registers a fresh one.
+		this.ensureDeltaInputHandler();
 	}
 
 	/**
-	 * Fan a delta out to every delta-source conversion wired in the current
-	 * start(). Invoked only by the process-wide delta input handler, via the
-	 * active manager. The stopped check neutralises a delta that arrives after
-	 * stop() but before a new manager claims the active slot.
+	 * Fan a delta out to every delta-source conversion wired in this manager.
+	 * Invoked by the factory-owned process-wide delta input handler. The stopped
+	 * check neutralizes a delta already in flight during manager replacement.
 	 */
-	private dispatchDelta(delta: unknown): void {
+	handleDeltaInput(delta: unknown): void {
 		if (this.stopped) return;
+		let sourceMetadataLoaded = false;
+		let sourceMetadata: unknown;
+		const getSourceMetadata = (): unknown => {
+			if (!sourceMetadataLoaded) {
+				sourceMetadata = this.app.getPath?.("sources");
+				sourceMetadataLoaded = true;
+			}
+			return sourceMetadata;
+		};
 		// ON_DELTA conversions are purely event-driven, so we neither record
 		// lastInputs nor arm a resend timer for them (see processOutput). A replay
 		// would re-broadcast one stale target or course calculation every interval.
-		// The arg array is identical for every
-		// delta-conversion this tick, so allocate it once.
-		const args: unknown[] = [delta];
 		for (const { conversion, options } of this.deltaConversions) {
+			const filteredDelta = this.filterDeltaForConversion(
+				conversion,
+				options,
+				delta,
+				getSourceMetadata,
+			);
+			if (filteredDelta === undefined) continue;
+			const args: unknown[] = [filteredDelta];
 			const result = this.invokeCallback(conversion, args, BUCKET_PREFIX.DELTA);
 			// The process-wide delta handler fires on every server-wide delta.
 			// Synchronous callbacks commonly return [] for unrelated updates, so
@@ -841,7 +1114,6 @@ export class PluginManager {
 		const timestamps = new Array<number>(keys.length).fill(now0);
 		const values = new Array<unknown>(keys.length).fill(null);
 		const keyIndex = new Map<string, number>();
-		const allowedNmea2000Inputs = new Set(conversion.allowNmea2000InputPaths ?? []);
 		for (let i = 0; i < keys.length; i++) {
 			const k = keys[i];
 			if (k !== undefined) keyIndex.set(k, i);
@@ -864,6 +1136,11 @@ export class PluginManager {
 				currentValues[i] = !isDefined(timeout) || ts + (timeout || 0) > now ? values[i] : null;
 			}
 		};
+		this.freshInputProviders.set(conversion, () => {
+			if (!hasInput) return undefined;
+			refreshValues(Date.now());
+			return currentValues.slice();
+		});
 
 		keys.forEach((skKey) => {
 			// Accept both shapes during the legacy-flat to nested-sources transition.
@@ -892,7 +1169,10 @@ export class PluginManager {
 				if (origin === SOURCE_ORIGIN.UNKNOWN) {
 					origin = classifySourceOrigin(src, undefined, this.app.getPath?.("sources"));
 				}
-				if (origin === SOURCE_ORIGIN.NMEA2000 && !allowedNmea2000Inputs.has(skKey)) {
+				if (
+					origin === SOURCE_ORIGIN.NMEA2000 &&
+					!this.allowsNmea2000Input(conversion, skKey, x.source)
+				) {
 					if (conversion.optionKey !== undefined) {
 						this.recordDrop(conversion.optionKey, "nmea2000-echo");
 					}
@@ -967,6 +1247,7 @@ export class PluginManager {
 		// Signal K's "fixed" 1000ms period doesn't drop rapid-fire alerts.
 		const subscription = {
 			context: (conversion.context || VESSELS_SELF_CONTEXT) as Context,
+			sourcePolicy: "all" as const,
 			subscribe: keys.map((key) => ({
 				path: key as Path,
 				policy: "instant" as const,
@@ -985,8 +1266,22 @@ export class PluginManager {
 				),
 			(delta) => {
 				if (this.stopped) return;
+				let sourceMetadataLoaded = false;
+				let sourceMetadata: unknown;
+				const filteredDelta = this.filterDeltaForConversion(conversion, options, delta, () => {
+					if (!sourceMetadataLoaded) {
+						sourceMetadata = this.app.getPath?.("sources");
+						sourceMetadataLoaded = true;
+					}
+					return sourceMetadata;
+				});
+				if (filteredDelta === undefined) return;
+				const args: unknown[] = [filteredDelta];
+				// Rejected input is invisible to replay state. This lets event-style
+				// conversions ignore feedback deltas without poisoning their last
+				// accepted input or resetting runtime activity.
+				if (!this.acceptsInput(conversion, args, BUCKET_PREFIX.SUBSCRIPTION)) return;
 				if (conversion.optionKey !== undefined) this.recordInput(conversion.optionKey);
-				const args: unknown[] = [delta];
 				this.lastInputs.set(conversion, args);
 				const result = this.invokeCallback(conversion, args, BUCKET_PREFIX.SUBSCRIPTION);
 				if (result === undefined) return;
@@ -1006,7 +1301,7 @@ export class PluginManager {
 			return;
 		}
 
-		const timer = setInterval(() => {
+		const run = (): void => {
 			if (this.stopped) return;
 			if (conversion.optionKey !== undefined) {
 				this.recordScheduledActivity(conversion.optionKey);
@@ -1016,7 +1311,19 @@ export class PluginManager {
 			const result = this.invokeCallback(conversion, args, BUCKET_PREFIX.TIMER);
 			if (result === undefined) return;
 			void this.processOutput(conversion, options, result);
-		}, conversion.interval);
+		};
+
+		if (conversion.immediate === true) {
+			if (this.nmea2000Ready) {
+				run();
+			} else {
+				// Startup can precede the provider's one-shot ready event. Park the
+				// initial identity broadcast inside this manager; the factory's one
+				// readiness listener flushes it through notifyNmea2000Ready().
+				this.deferredImmediateRuns.push(run);
+			}
+		}
+		const timer = setInterval(run, conversion.interval);
 
 		this.timers.push(timer);
 	}
@@ -1029,7 +1336,9 @@ export class PluginManager {
 	};
 
 	private async processToN2K(values: N2KMessage[] | null, optionKey?: string): Promise<void> {
-		if (!values) return;
+		// Defense at the final emission boundary for callers other than
+		// processOutput and for a stop triggered synchronously by an emit listener.
+		if (!values || this.stopped) return;
 
 		if (!this.nmea2000Ready) {
 			this.app.debug("NMEA 2000 output not yet available, dropping message");
@@ -1042,6 +1351,7 @@ export class PluginManager {
 			let emitted = 0;
 
 			for (const pgn of validPgns) {
+				if (this.stopped) break;
 				try {
 					const validatedPgn = withCanonicalPgnPriority(validateN2KMessage(pgn));
 					if (debugEnabled) {
@@ -1049,7 +1359,10 @@ export class PluginManager {
 					}
 					this.app.emit("nmea2000JsonOut", validatedPgn);
 					emitted++;
-					if (optionKey !== undefined) {
+					// An emit listener can synchronously stop this manager. Count the
+					// frame that physically emitted, but do not recreate runtime status
+					// state that stop() just cleared.
+					if (!this.stopped && optionKey !== undefined) {
 						this.recordEmit(optionKey);
 					}
 				} catch (err) {

@@ -43,6 +43,7 @@ npm run format         # Biome auto-format with --write
 npm run format:check   # Formatting check without writes
 npm run verify         # Coverage, build, panel smoke, and size gates
 npm run verify:release # Verify plus package contents and security audits
+npm run audit          # Separate runtime and policy-aware full dependency audits
 ```
 
 The release audit requires zero runtime findings. The latest canboatjs test
@@ -76,7 +77,9 @@ src/
 ├── config/
 │   ├── schema.ts         # TypeBox RootConfig (single source of truth)
 │   ├── defaults.ts       # Lightweight runtime conversion defaults
-│   └── migrate.ts        # Load-time migration from v1.4.x legacy config
+│   ├── migrate.ts        # Load-time migration from v1.4.x legacy config
+│   ├── validation.ts     # Cross-field and mapping validation
+│   └── windConflicts.ts  # Shared competing wind-producer rules
 ├── api/
 │   ├── router.ts         # Express router (status, conversions, paths, sources)
 │   ├── discovery.ts      # Path / source enumeration helpers
@@ -127,9 +130,12 @@ src/
     ├── index.test.ts          # All conversion-module test cases (round-trip via canboatjs)
     ├── advisor.test.ts        # Config Advisor: recommender, inventory, QuestDB, stale-source, orchestrator
     ├── advisor-config.test.ts # Advisor config defaults vs schema
+    ├── aisFreshness.test.ts   # AIS per-field freshness, cache bounds, and malformed input
     ├── api.test.ts            # /api/* routing, validation, and error responses
+    ├── deltaBatchSafety.test.ts  # AIS and alert mixed-source, batch, and removal handling
     ├── discovery.test.ts      # Path / source enumeration
     ├── lifecycle.test.ts      # Plugin start/stop/resend lifecycle
+    ├── marineConversions.test.ts # GNSS, wind, alert, and PGN-list protocol boundaries
     ├── migrate.test.ts        # v1.4.x legacy config migration
     ├── pathUtils.test.ts      # pathToPropName collision regressions
     ├── rowStatus.test.ts      # Panel row status derivation (rail, recency)
@@ -137,6 +143,7 @@ src/
     ├── smoothing.test.ts      # ExponentialSmoother registry behavior
     ├── status.test.ts         # PluginManager.getStatusSnapshot + getConversionMetadata
     ├── temperature.test.ts    # Temperature default-instance uniqueness
+    ├── useAdvisor.test.ts     # Advisor panel state and async apply lifecycle
     └── useConfig.test.ts      # Panel useConfig reducer (setAdvisor, preset apply)
 public/                   # Webpack module federation output (shipped via "files" array)
 ├── remoteEntry.js        # Federation entry script (classic var-type container)
@@ -147,8 +154,10 @@ tsconfig.test.json        # TypeScript config for the src/test/ suite
 .github/
 └── workflows/
     ├── ci.yml            # Complete release verification on Node 22.22.2 and 24
+    ├── codeql.yml        # Extended JavaScript and TypeScript security scanning
     ├── plugin-ci.yml     # Official SignalK reusable plugin-ci workflow (cross-platform)
-    └── publish.yml       # Auto-publish to npm on GitHub release (with provenance)
+    ├── publish.yml       # Auto-publish to npm on GitHub release (with provenance)
+    └── workflow-security.yml # Pinned actionlint and zizmor checks
 ```
 
 ## Testing
@@ -167,7 +176,8 @@ npm test               # Run all tests
 npm run test:ui        # Run tests with UI
 npm run test:coverage  # Run tests with coverage
 npm run test:panel     # Render the production federation bundle in a VM
-npm run test:panel:browser # Exercise the production panel in Chromium
+npm run test:panel:browser # Chromium interactions, layouts, themes, and Axe
+npm run ci:workflows      # Action pins and release-workflow invariants
 ```
 
 ## Adding new conversions

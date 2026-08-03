@@ -101,6 +101,48 @@ describe("applyPreset reducer action", () => {
 	});
 });
 
+describe("setSource reducer action", () => {
+	it("clears a legacy dotless source pin", () => {
+		const start: Config = {
+			globalResendInterval: 0,
+			conversions: {
+				PRESSURE: entry({
+					sources: { environmentoutsidepressure: "retired-provider" },
+				}),
+			},
+		};
+
+		const next = __configReducerForTest(start, {
+			type: "setSource",
+			key: "PRESSURE",
+			path: "environment.outside.pressure",
+			source: "",
+		});
+		expect(next.conversions.PRESSURE?.sources).toEqual({});
+	});
+
+	it("replaces a legacy dotless pin with one canonical entry", () => {
+		const start: Config = {
+			globalResendInterval: 0,
+			conversions: {
+				PRESSURE: entry({
+					sources: { environmentoutsidepressure: "old-provider" },
+				}),
+			},
+		};
+
+		const next = __configReducerForTest(start, {
+			type: "setSource",
+			key: "PRESSURE",
+			path: "environment.outside.pressure",
+			source: "vws-merged",
+		});
+		expect(next.conversions.PRESSURE?.sources).toEqual({
+			"environment.outside.pressure": "vws-merged",
+		});
+	});
+});
+
 describe("no-op reducer actions", () => {
 	const start: Config = {
 		globalResendInterval: 5,

@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { createServer } from "node:http";
+import AxeBuilder from "@axe-core/playwright";
 import { chromium } from "@playwright/test";
 import { build } from "esbuild";
 
@@ -15,6 +16,21 @@ if (typeof sharedUiVersion !== "string" || !/^\d+\.\d+\.\d+$/.test(sharedUiVersi
 const sharedUiRootSelector = `[data-snui-version="${sharedUiVersion}"]`;
 const vesselTripDescription =
 	"Fuel range is an estimate, not a voyage-planning or safety value. Configure every fuel tank and propulsion consumer; other consumers, unusable reserve, cross-feed limits, weather, and tide are not included. Raymarine also requires Fuel Manager setup, fuel data from PGN 127489 or 127497, and PGN 129026 with GNSS for distance. Current Garmin documentation does not list PGN 127496.";
+
+async function assertAccessible(page, label) {
+	const { violations } = await new AxeBuilder({ page }).analyze();
+	if (violations.length === 0) return;
+
+	const details = violations
+		.map(
+			(violation) =>
+				`${violation.id}: ${violation.help}\n${violation.nodes
+					.map((node) => `  ${node.target.join(" ")}`)
+					.join("\n")}`,
+		)
+		.join("\n");
+	throw new Error(`${label} has accessibility violations:\n${details}`);
+}
 
 async function loadConversionCatalog() {
 	const source = `
@@ -281,10 +297,15 @@ const hostJs = hostBuild.outputFiles[0]?.contents;
 if (!hostJs) throw new Error("browser host bundle was not produced");
 
 const html = `<!doctype html>
-<html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
-<body><div id="root"></div>
-<script src="${pluginPrefix}remoteEntry.js"></script>
+	<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>NMEA 2000 Emitter Cannon configuration</title>
+		<style>.test-host-heading { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }</style>
+	</head>
+	<body><main><h1 class="test-host-heading">NMEA 2000 Emitter Cannon configuration</h1><div id="root"></div></main>
+	<script src="${pluginPrefix}remoteEntry.js"></script>
 <script type="module" src="/host.js"></script>
 </body></html>`;
 
@@ -295,6 +316,17 @@ function json(response, body) {
 
 let pathRequestCount = 0;
 let seaSourceRequestCount = 0;
+let advisorRacePendingResponse;
+let advisorRaceApplyCount = 0;
+const advisorRaceRecommendation = {
+	optionKey: "DEPTH",
+	action: "disable",
+	currentlyEnabled: true,
+	matchedPaths: ["environment.depth.belowTransducer"],
+	confidence: "high",
+	origin: "live",
+	reason: "Deferred response race regression",
+};
 
 const server = createServer((request, response) => {
 	const url = new URL(request.url ?? "/", "http://127.0.0.1");
@@ -365,7 +397,40 @@ const server = createServer((request, response) => {
 		return;
 	}
 	if (url.pathname === `${pluginPrefix}api/advisor/pending`) {
+		if (request.headers.referer?.includes("advisor-race=1")) {
+			advisorRacePendingResponse = response;
+			return;
+		}
 		json(response, { result: { autoApplied: [], pending: [], notes: [] } });
+		return;
+	}
+	if (url.pathname === `${pluginPrefix}api/advisor/review`) {
+		json(response, {
+			result: {
+				ranAt: "2026-07-31T12:00:00.000Z",
+				autoApplied: [],
+				pending: [advisorRaceRecommendation],
+				notes: [],
+			},
+		});
+		return;
+	}
+	if (url.pathname === `${pluginPrefix}api/advisor/apply`) {
+		advisorRaceApplyCount++;
+		json(response, { applied: 1 });
+		setTimeout(() => {
+			if (advisorRacePendingResponse !== undefined) {
+				json(advisorRacePendingResponse, {
+					result: {
+						ranAt: "2026-07-31T11:00:00.000Z",
+						autoApplied: [],
+						pending: [advisorRaceRecommendation],
+						notes: [],
+					},
+				});
+				advisorRacePendingResponse = undefined;
+			}
+		}, 100);
 		return;
 	}
 	if (url.pathname === `${pluginPrefix}api/sources`) {
@@ -404,6 +469,7 @@ const server = createServer((request, response) => {
 
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 let browser;
+let browserContext;
 try {
 	const address = server.address();
 	if (address === null || typeof address === "string") {
@@ -418,7 +484,9 @@ try {
 		headless: true,
 		...(executablePath === undefined ? {} : { executablePath }),
 	});
-	const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+	browserContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+	const page = await browserContext.newPage();
+	await page.addInitScript(() => window.localStorage.setItem("skn-theme", "dark"));
 	const errors = [];
 	page.on("pageerror", (error) => errors.push(error.message));
 	page.on("console", (message) => {
@@ -433,6 +501,13 @@ try {
 	await page.goto(`http://127.0.0.1:${address.port}/`, { waitUntil: "networkidle" });
 	const root = page.locator(sharedUiRootSelector);
 	await root.waitFor();
+	if ((await root.getAttribute("data-snui-theme")) !== null) {
+		throw new Error("fresh shared UI theme was pinned instead of following Auto");
+	}
+	if (!(await page.getByRole("radio", { name: "Auto", exact: true }).isChecked())) {
+		throw new Error("fresh shared UI theme did not select Auto");
+	}
+	await assertAccessible(page, "initial configuration panel");
 	const setupButton = page.getByRole("button", { name: "Setup wizard" });
 	await setupButton.evaluate((element) => element.setAttribute("aria-disabled", "true"));
 	await setupButton.hover();
@@ -667,27 +742,68 @@ try {
 	if (savedEngines?.length !== 1 || savedEngines[0]?.signalkId !== "port") {
 		throw new Error("vessel trip engine changes were not saved");
 	}
+	await assertAccessible(page, "edited mobile configuration panel");
+
+	const advisorRaceContext = await browser.newContext({ viewport: { width: 1000, height: 800 } });
+	const advisorRacePage = await advisorRaceContext.newPage();
+	try {
+		const pendingRequest = advisorRacePage.waitForRequest(
+			(request) => new URL(request.url()).pathname === `${pluginPrefix}api/advisor/pending`,
+		);
+		await advisorRacePage.goto(`http://127.0.0.1:${address.port}/?advisor-race=1`, {
+			waitUntil: "domcontentloaded",
+		});
+		await pendingRequest;
+		await advisorRacePage.locator(sharedUiRootSelector).waitFor();
+		await advisorRacePage.getByRole("button", { name: "Config Advisor" }).click();
+		await advisorRacePage.getByRole("button", { name: "Review now" }).click();
+		await advisorRacePage.getByText("Needs your approval (1)", { exact: true }).waitFor();
+		const applyResponse = advisorRacePage.waitForResponse(
+			(response) => new URL(response.url()).pathname === `${pluginPrefix}api/advisor/apply`,
+		);
+		await advisorRacePage.getByRole("button", { name: "Approve" }).click();
+		await applyResponse;
+		await advisorRacePage.waitForTimeout(250);
+		if (
+			(await advisorRacePage.getByText("Needs your approval (1)", { exact: true }).count()) !== 0
+		) {
+			throw new Error("a stale Advisor pending response restored an applied recommendation");
+		}
+		if (advisorRaceApplyCount !== 1) {
+			throw new Error(`expected one Advisor apply request, got ${advisorRaceApplyCount}`);
+		}
+	} finally {
+		await advisorRaceContext.close();
+		if (advisorRacePendingResponse !== undefined) {
+			advisorRacePendingResponse.destroy();
+			advisorRacePendingResponse = undefined;
+		}
+	}
 	if (errors.length > 0) throw new Error(`browser errors:\n${errors.join("\n")}`);
 
 	if (updateScreenshots) {
 		const capture = async (name, viewport, prepare = async () => {}) => {
-			const screenshotPage = await browser.newPage({ viewport });
-			await screenshotPage.emulateMedia({ reducedMotion: "reduce", colorScheme: "light" });
-			await screenshotPage.goto(`http://127.0.0.1:${address.port}/?screenshots=1`, {
-				waitUntil: "networkidle",
-			});
-			await screenshotPage.locator(sharedUiRootSelector).waitFor();
-			await prepare(screenshotPage);
-			await screenshotPage.evaluate(
-				() =>
-					new Promise((resolve) =>
-						requestAnimationFrame(() => requestAnimationFrame(() => resolve(undefined))),
-					),
-			);
-			await screenshotPage.screenshot({
-				path: new URL(`../assets/screenshots/${name}`, import.meta.url).pathname,
-			});
-			await screenshotPage.close();
+			const screenshotContext = await browser.newContext({ viewport });
+			try {
+				const screenshotPage = await screenshotContext.newPage();
+				await screenshotPage.emulateMedia({ reducedMotion: "reduce", colorScheme: "light" });
+				await screenshotPage.goto(`http://127.0.0.1:${address.port}/?screenshots=1`, {
+					waitUntil: "networkidle",
+				});
+				await screenshotPage.locator(sharedUiRootSelector).waitFor();
+				await prepare(screenshotPage);
+				await screenshotPage.evaluate(
+					() =>
+						new Promise((resolve) =>
+							requestAnimationFrame(() => requestAnimationFrame(() => resolve(undefined))),
+						),
+				);
+				await screenshotPage.screenshot({
+					path: new URL(`../assets/screenshots/${name}`, import.meta.url).pathname,
+				});
+			} finally {
+				await screenshotContext.close();
+			}
 		};
 
 		await capture("config-panel.png", { width: 1405, height: 1279 });
@@ -706,6 +822,7 @@ try {
 	}
 	process.stdout.write("Panel passed Chromium interaction, theme, and 320px layout checks.\n");
 } finally {
+	await browserContext?.close();
 	await browser?.close();
 	await new Promise((resolve) => server.close(resolve));
 }

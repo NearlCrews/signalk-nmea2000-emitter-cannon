@@ -38,14 +38,23 @@ export function isConversionOptions(v: ConversionOptions | undefined): v is Conv
 export interface SubConversionModule<T extends unknown[] = unknown[]> {
 	title?: string;
 	keys?: string[] | ((options: ConversionOptions) => string[]);
+	context?: string;
 	sourceType?: SourceType;
 	/** Per-key maximum age in milliseconds; undefined retains the latest value. */
 	timeouts?: Array<number | undefined>;
 	interval?: number;
+	/** Run a timer conversion once when NMEA output is ready, before its first interval. */
+	immediate?: boolean;
 	/** Recompute stream inputs on this millisecond cadence while applying per-key freshness. */
 	refreshInterval?: number;
 	/** Disable replay for this sub-conversion or inherit the parent setting. */
 	allowResend?: boolean;
+	/** NMEA 2000-backed paths that cannot be echoed by this conversion's output. */
+	allowNmea2000InputPaths?: string[];
+	/** Per-path NMEA 2000 PGNs accepted when only specific source PGNs are safe. */
+	allowNmea2000InputPgns?: Record<string, readonly number[]>;
+	/** Return false to ignore input without replacing the prior accepted resend input. */
+	acceptsInput?(...values: T): boolean;
 	callback?(...values: T): N2KMessage[] | Promise<N2KMessage[]>;
 	tests?: ConversionTest[];
 }
@@ -61,6 +70,8 @@ export interface ConversionModule<T extends unknown[] = unknown[]> {
 	/** Per-key maximum age in milliseconds; undefined retains the latest value. */
 	timeouts?: Array<number | undefined>;
 	interval?: number;
+	/** Run a timer conversion once when NMEA output is ready, before its first interval. */
+	immediate?: boolean;
 	/** Recompute stream inputs on this millisecond cadence while applying per-key freshness. */
 	refreshInterval?: number;
 	/**
@@ -69,8 +80,15 @@ export interface ConversionModule<T extends unknown[] = unknown[]> {
 	 * re-emitted onto the same bus.
 	 */
 	allowNmea2000InputPaths?: string[];
+	/**
+	 * Per-path source-PGN allowlist for inputs whose path can also be produced by
+	 * this conversion's own output PGN. Unknown source PGNs remain blocked.
+	 */
+	allowNmea2000InputPgns?: Record<string, readonly number[]>;
 	/** Disable replay for fixed, event-driven, or independently scheduled output. */
 	allowResend?: boolean;
+	/** Return false to ignore input without replacing the prior accepted resend input. */
+	acceptsInput?(...values: T): boolean;
 	callback?(...values: T): N2KMessage[] | Promise<N2KMessage[]>;
 	conversions?:
 		| SubConversionModule<T>[]

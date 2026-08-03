@@ -146,11 +146,10 @@ export function createConversionModules(
 	);
 
 	// Derive the transmit-PGN advertisement from the actual conversion titles
-	// so adding a new conversion auto-updates the 126464 message. ISO transport
-	// PGNs and canboatjs-auto-emit PGNs are unioned in by pgnList itself.
-	// pgnList's own title contributes PGN 126464 through its broadcast timer.
+	// so adding a new conversion auto-updates the 126464 message. pgnList adds
+	// its own PGN because this title walk completes before that module exists.
 	// Directed ISO Request responses are owned by the Signal K provider and
-	// cannot currently be extended through the plugin API.
+	// cannot currently be advertised or extended through the plugin API.
 	const dataTransmitPgns: number[] = [];
 	for (const conv of dataConversions) {
 		for (const pgnStr of extractPgnsFromTitle(conv.title)) {

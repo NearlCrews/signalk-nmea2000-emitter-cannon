@@ -220,6 +220,10 @@ export default function createVesselTripConversion(_app: SignalKApp): Conversion
 				{
 					keys,
 					timeouts,
+					// These inputs may legitimately originate on NMEA 2000. PGN
+					// 127496 does not decode back to any of them, so permitting the
+					// configured paths cannot create an emitter feedback loop.
+					allowNmea2000InputPaths: keys,
 					callback,
 					tests: [
 						{

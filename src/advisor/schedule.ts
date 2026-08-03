@@ -38,7 +38,7 @@ export class AdvisorScheduler {
 			void this.run().catch((err) => {
 				// A failing review must not stop the schedule. runReview surfaces
 				// QuestDB sub-failures through ReviewResult notes, but a
-				// throw from buildInventory, getMetadata, or writeConfig on a
+				// throw from buildInventory, getMetadata, or updateConfig on a
 				// periodic (non-user-triggered) run would otherwise be invisible.
 				this.onError?.(err);
 			});

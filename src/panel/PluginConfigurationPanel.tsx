@@ -392,13 +392,7 @@ function SupportedPluginConfigurationPanel({ configuration, save }: Props): Reac
 	const showFirstRunCallout = shouldShowFirstRunCallout(meta, state.conversions);
 
 	return (
-		<PanelRoot
-			className="skn-panel"
-			legacyThemeStorageKeys={["skn-theme"]}
-			style={S.root}
-			width="full"
-			ref={rootRef}
-		>
+		<PanelRoot className="skn-panel" style={S.root} width="full" ref={rootRef}>
 			<style>{THEME_STYLE}</style>
 			{/* The toolbar holds the search, status chip, Configure/Status toggle,
 			    theme toggle, and wizard shortcut. It sits above both view containers

@@ -1,11 +1,14 @@
 import {
 	DEFAULT_DATA_TIMEOUT_MS,
+	MAX_N2K_DOP,
 	N2K_BROADCAST_DST,
 	N2K_DEFAULT_PRIORITY,
 	N2K_SID_ZERO,
 } from "../constants.js";
 import type { ConversionCallback, ConversionModule, SignalKApp } from "../types/index.js";
-import { isValidNumber } from "../utils/validation.js";
+import { isValidNumber, toFiniteInRange } from "../utils/validation.js";
+
+const MAX_SATELLITES_PER_FAST_PACKET = 18;
 
 interface SatelliteData {
 	id?: number;
@@ -23,27 +26,23 @@ export default function createGnssDataConversions(_app: SignalKApp): ConversionM
 			title: "GNSS DOPs (PGN 129539)",
 			optionKey: "GNSS_DOPS",
 			category: "navigation",
-			// v1 SK only publishes horizontalDilution and positionDilution.
-			// verticalDilution, timeDilution, and mode are not in the v1 schema
-			// and signalk-server does not push them into the streambundle, so
-			// the matching PGN fields (vdop, tdop) are left undefined: canboatjs
-			// encodes that as the spec's "data not available" sentinel.
+			// Signal K publishes HDOP and PDOP. When both are valid, derive VDOP
+			// from PDOP squared = HDOP squared + VDOP squared. TDOP and mode are
+			// not present in the v1 schema and remain unavailable.
 			keys: ["navigation.gnss.horizontalDilution", "navigation.gnss.positionDilution"],
 			timeouts: [DEFAULT_DATA_TIMEOUT_MS, DEFAULT_DATA_TIMEOUT_MS],
 			callback: ((hdop: number | null, pdop: number | null) => {
-				const hdopValue = isValidNumber(hdop) ? hdop : undefined;
-				// PDOP has no direct field in PGN 129539; we still subscribe so a
-				// PDOP-only publisher triggers the conversion, but the wire payload
-				// carries only hdop (when available); vdop/tdop stay undefined and
-				// canboatjs encodes them as the spec's "data not available" sentinel.
-				const pdopValid = isValidNumber(pdop);
-
-				// Skip emission when neither DOP is usable. Single guard replaces
-				// an earlier double-check; the prior "both null" early-return was
-				// redundant with this combined hdopValue/pdopValid test.
-				if (hdopValue === undefined && !pdopValid) {
-					return [];
-				}
+				const hdopValue = toFiniteInRange(hdop, 0, MAX_N2K_DOP);
+				const pdopValue = toFiniteInRange(pdop, 0, MAX_N2K_DOP);
+				if (hdopValue === undefined) return [];
+				const vdop =
+					pdopValue !== undefined && pdopValue >= hdopValue
+						? toFiniteInRange(
+								Math.round(Math.sqrt(pdopValue ** 2 - hdopValue ** 2) * 100) / 100,
+								0,
+								MAX_N2K_DOP,
+							)
+						: undefined;
 
 				return [
 					{
@@ -52,11 +51,8 @@ export default function createGnssDataConversions(_app: SignalKApp): ConversionM
 						dst: N2K_BROADCAST_DST,
 						fields: {
 							sid: N2K_SID_ZERO,
-							desiredMode: "Auto",
-							actualMode: "Auto",
 							hdop: hdopValue,
-							// vdop/tdop omitted: an absent field encodes identically
-							// to an explicit undefined ("not available").
+							...(vdop === undefined ? {} : { vdop }),
 						},
 					},
 				];
@@ -71,9 +67,8 @@ export default function createGnssDataConversions(_app: SignalKApp): ConversionM
 							dst: 255,
 							fields: {
 								sid: N2K_SID_ZERO,
-								desiredMode: "Auto",
-								actualMode: "Auto",
 								hdop: 1.2,
+								vdop: 2.08,
 							},
 						},
 					],
@@ -89,17 +84,26 @@ export default function createGnssDataConversions(_app: SignalKApp): ConversionM
 							dst: 255,
 							fields: {
 								sid: N2K_SID_ZERO,
-								desiredMode: "Auto",
-								actualMode: "Auto",
 								hdop: 1.5,
 							},
 						},
 					],
 				},
 				{
-					// PDOP-only: the conversion fires (the subscription matched
-					// positionDilution) and emits a frame with hdop omitted.
+					// PDOP has no direct PGN 129539 field and cannot produce a
+					// standards-correct frame without HDOP.
 					input: [null, 2.5],
+					expected: [],
+				},
+				{
+					// Negative and out-of-range HDOP cannot be represented as
+					// physical DOP values.
+					input: [-0.01, 2.5],
+					expected: [],
+				},
+				{
+					// PDOP below HDOP cannot produce a real VDOP. HDOP remains useful.
+					input: [2.5, 1.5],
 					expected: [
 						{
 							prio: 2,
@@ -107,8 +111,7 @@ export default function createGnssDataConversions(_app: SignalKApp): ConversionM
 							dst: 255,
 							fields: {
 								sid: N2K_SID_ZERO,
-								desiredMode: "Auto",
-								actualMode: "Auto",
+								hdop: 2.5,
 							},
 						},
 					],
@@ -124,38 +127,43 @@ export default function createGnssDataConversions(_app: SignalKApp): ConversionM
 			// satellitesInView is a composite published as a single value at
 			// the parent path: { count, satellites: [...] }. signalk-server
 			// does not push child sub-paths into the streambundle, so we
-			// subscribe to the composite. The scalar satellites count is
-			// subscribed too so a count update re-triggers emission from the
-			// cached composite; on its own it carries no satellite detail.
-			keys: ["navigation.gnss.satellitesInView", "navigation.gnss.satellites"],
-			timeouts: [DEFAULT_DATA_TIMEOUT_MS, DEFAULT_DATA_TIMEOUT_MS],
+			// subscribe only to the composite. The scalar count carries no
+			// repeating-group detail and must not re-emit a cached satellite list.
+			keys: ["navigation.gnss.satellitesInView"],
+			timeouts: [DEFAULT_DATA_TIMEOUT_MS],
 			callback: ((
 				satellitesInView: {
 					count?: number;
 					satellites?: SatelliteData[];
 				} | null,
-				_satelliteCount: number | null,
 			) => {
 				const list = satellitesInView?.satellites;
 				if (!Array.isArray(list) || list.length === 0) {
 					return [];
 				}
 
-				// Conservative fast-packet cap for PGN 129540: 12 satellites keep
-				// the multi-frame payload well under the 223-byte canboat limit.
-				const maxSatellites = Math.min(list.length, 12);
-				const satelliteData = new Array(maxSatellites);
-				for (let i = 0; i < maxSatellites; i++) {
-					const sat = list[i] as SatelliteData;
-					satelliteData[i] = {
-						prn: sat.id ?? i + 1,
-						elevation: sat.elevation ?? 0,
-						azimuth: sat.azimuth ?? 0,
-						snr: sat.SNR ?? sat.signalToNoiseRatio ?? 0,
-						rangeResiduals: 0,
-						status: sat.used ? "Used" : "Not tracked",
-					};
+				// Each Canboat repeating group is 12 bytes after a 3-byte header, so
+				// 18 satellites produce 219 bytes and fit the 223-byte fast packet.
+				const satelliteData = [];
+				for (const sat of list) {
+					if (satelliteData.length >= MAX_SATELLITES_PER_FAST_PACKET) break;
+					if (!isValidNumber(sat.id) || !Number.isInteger(sat.id) || sat.id < 0 || sat.id > 252) {
+						continue;
+					}
+					const elevation = toFiniteInRange(sat.elevation, -Math.PI, Math.PI);
+					const azimuth = toFiniteInRange(sat.azimuth, 0, Math.PI * 2);
+					const snr = toFiniteInRange(sat.SNR ?? sat.signalToNoiseRatio, -327.67, 327.64);
+					satelliteData.push({
+						prn: sat.id,
+						...(elevation === undefined ? {} : { elevation }),
+						...(azimuth === undefined ? {} : { azimuth }),
+						...(snr === undefined ? {} : { snr }),
+						// Signal K supplies neither range residuals nor tracking state.
+						// Only a positive `used` flag proves the NMEA status value.
+						...(sat.used === true ? { status: "Used" } : {}),
+					});
 				}
+				if (satelliteData.length === 0) return [];
 
 				return [
 					{
@@ -164,19 +172,16 @@ export default function createGnssDataConversions(_app: SignalKApp): ConversionM
 						dst: N2K_BROADCAST_DST,
 						fields: {
 							sid: N2K_SID_ZERO,
-							rangeResidualMode: "Range residuals were used to calculate data",
 							// satsInView is the count of emitted repeating-group
 							// entries. A provider's reported count can exceed the
 							// actual satellites array, so the encoded list length is
 							// authoritative and the field always matches it.
-							satsInView: maxSatellites,
+							satsInView: satelliteData.length,
 							list: satelliteData,
 						},
 					},
 				];
-			}) as ConversionCallback<
-				[{ count?: number; satellites?: SatelliteData[] } | null, number | null]
-			>,
+			}) as ConversionCallback<[{ count?: number; satellites?: SatelliteData[] } | null]>,
 			tests: [
 				{
 					input: [
@@ -206,7 +211,6 @@ export default function createGnssDataConversions(_app: SignalKApp): ConversionM
 								},
 							],
 						},
-						null,
 					],
 					expected: [
 						{
@@ -215,7 +219,6 @@ export default function createGnssDataConversions(_app: SignalKApp): ConversionM
 							dst: 255,
 							fields: {
 								sid: N2K_SID_ZERO,
-								rangeResidualMode: "Range residuals were used to calculate data",
 								// satsInView tracks the emitted list length, not
 								// the provider's reported count.
 								satsInView: 3,
@@ -225,7 +228,6 @@ export default function createGnssDataConversions(_app: SignalKApp): ConversionM
 										elevation: 0.7854,
 										azimuth: 1.5708,
 										snr: 40,
-										rangeResiduals: 0,
 										status: "Used",
 									},
 									{
@@ -234,7 +236,6 @@ export default function createGnssDataConversions(_app: SignalKApp): ConversionM
 										// biome-ignore lint/suspicious/noApproximativeNumericConstant: encoded wire value. Input Math.PI is rounded by the N2K encoder to this literal; substituting Math.PI would falsely pass.
 										azimuth: 3.1416,
 										snr: 35,
-										rangeResiduals: 0,
 										status: "Used",
 									},
 									{
@@ -242,8 +243,6 @@ export default function createGnssDataConversions(_app: SignalKApp): ConversionM
 										elevation: 1.0472,
 										azimuth: 4.7124,
 										snr: 42,
-										rangeResiduals: 0,
-										status: "Not tracked",
 									},
 								],
 							},

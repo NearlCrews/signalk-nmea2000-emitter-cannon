@@ -338,6 +338,38 @@ describe("recommend", () => {
 		expect(recs.find((x) => x.optionKey === "PRESSURE")?.action).toBe("clear-source");
 	});
 
+	it("detects a stale source pin stored under the legacy dotless path", () => {
+		const recs = recommend({
+			inventory: [
+				{
+					path: "environment.outside.pressure",
+					live: true,
+					liveSources: ["vws-merged"],
+				},
+			],
+			metadata: [meta("PRESSURE", ["environment.outside.pressure"])],
+			currentConfig: {
+				PRESSURE: {
+					enabled: true,
+					resend: 0,
+					sources: { environmentoutsidepressure: "retired-provider" },
+					extras: {},
+				},
+			},
+		});
+
+		expect(recs.find((x) => x.optionKey === "PRESSURE"))?.toMatchObject({
+			action: "clear-source",
+			staleSources: [
+				{
+					path: "environment.outside.pressure",
+					pinned: "retired-provider",
+					liveSources: ["vws-merged"],
+				},
+			],
+		});
+	});
+
 	it("flags a dead-but-historic source pin as a low-confidence stale-source fix", () => {
 		const recs = recommend({
 			inventory: [
@@ -401,7 +433,9 @@ interface TestDeps extends AdvisorDeps {
 
 function advisorDeps(overrides: Partial<AdvisorDeps> = {}): TestDeps {
 	let saved: Record<string, unknown> | null = null;
-	const base: AdvisorDeps = {
+	let persisted: Record<string, unknown> = { conversions: {} };
+	let base: AdvisorDeps;
+	base = {
 		buildInventory: () => [
 			{
 				path: "navigation.depth.belowTransducer",
@@ -411,9 +445,13 @@ function advisorDeps(overrides: Partial<AdvisorDeps> = {}): TestDeps {
 			},
 		],
 		getMetadata: () => [meta("DEPTH", ["navigation.depth.belowTransducer"])],
-		readConfig: () => ({ conversions: {} }),
-		writeConfig: (cfg) => {
-			saved = cfg;
+		readConfig: () => persisted,
+		updateConfig: async (updater) => {
+			const current = base.readConfig();
+			const next = updater(current);
+			if (next === current) return;
+			saved = next;
+			persisted = next;
 		},
 		now: () => new Date("2026-05-16T10:00:00Z"),
 		...overrides,
@@ -431,6 +469,118 @@ describe("Advisor.runReview", () => {
 			conversions: Record<string, { enabled: boolean }>;
 		};
 		expect(saved.conversions.DEPTH?.enabled).toBe(true);
+	});
+
+	it("auto-applies only the preferred producer when both wind sources are live", async () => {
+		const deps = advisorDeps({
+			buildInventory: () => [
+				{
+					path: "environment.wind.speedApparent",
+					live: true,
+					liveSources: ["mast-sensor"],
+					sourceOrigins: { "mast-sensor": SOURCE_ORIGIN.NON_NMEA2000 },
+				},
+				{
+					path: "environment.weather.windSpeedApparent",
+					live: true,
+					liveSources: ["forecast-provider"],
+					sourceOrigins: { "forecast-provider": SOURCE_ORIGIN.NON_NMEA2000 },
+				},
+			],
+			getMetadata: () => [
+				meta("WIND", ["environment.wind.speedApparent"]),
+				meta("WIND_WEATHER_APPARENT", ["environment.weather.windSpeedApparent"]),
+			],
+		});
+
+		const result = await new Advisor(deps).runReview();
+
+		expect(result.autoApplied.map((recommendation) => recommendation.optionKey)).toEqual(["WIND"]);
+		expect(result.notes).toEqual([
+			expect.stringContaining("Skipped enabling WIND_WEATHER_APPARENT"),
+		]);
+		const saved = deps.getSaved() as {
+			conversions: Record<string, { enabled: boolean } | undefined>;
+		};
+		expect(saved.conversions.WIND?.enabled).toBe(true);
+		expect(saved.conversions.WIND_WEATHER_APPARENT).toBeUndefined();
+	});
+
+	it("recommends disabling a configured duplicate even when neither input is currently live", async () => {
+		const deps = advisorDeps({
+			buildInventory: () => [],
+			getMetadata: () => [
+				meta("WIND", ["environment.wind.speedApparent"]),
+				meta("WIND_WEATHER_APPARENT", ["environment.weather.windSpeedApparent"]),
+			],
+			readConfig: () => ({
+				conversions: {
+					WIND: { enabled: true, resend: 0, sources: {}, extras: {} },
+					WIND_WEATHER_APPARENT: {
+						enabled: true,
+						resend: 0,
+						sources: {},
+						extras: {},
+					},
+				},
+			}),
+		});
+
+		const result = await new Advisor(deps).runReview();
+
+		expect(result.pending).toEqual([
+			expect.objectContaining({
+				optionKey: "WIND_WEATHER_APPARENT",
+				action: "disable",
+				origin: "configuration",
+			}),
+		]);
+		expect(result.notes).toEqual([
+			expect.stringContaining("WIND and WIND_WEATHER_APPARENT are both enabled"),
+		]);
+		expect(deps.getSaved()).toBeNull();
+	});
+
+	it("does not recommend enabling real wind over an enabled weather producer", async () => {
+		const deps = advisorDeps({
+			buildInventory: () => [
+				{
+					path: "environment.wind.speedApparent",
+					live: true,
+					liveSources: ["mast-sensor"],
+					sourceOrigins: { "mast-sensor": SOURCE_ORIGIN.NON_NMEA2000 },
+				},
+				{
+					path: "environment.weather.windSpeedApparent",
+					live: true,
+					liveSources: ["forecast-provider"],
+					sourceOrigins: { "forecast-provider": SOURCE_ORIGIN.NON_NMEA2000 },
+				},
+			],
+			getMetadata: () => [
+				meta("WIND", ["environment.wind.speedApparent"]),
+				meta("WIND_WEATHER_APPARENT", ["environment.weather.windSpeedApparent"]),
+			],
+			readConfig: () => ({
+				conversions: {
+					WIND_WEATHER_APPARENT: {
+						enabled: true,
+						resend: 0,
+						sources: {},
+						extras: {},
+					},
+				},
+			}),
+		});
+
+		const result = await new Advisor(deps).runReview();
+
+		expect(result.autoApplied).toEqual([]);
+		expect(result.pending).toEqual([]);
+		expect(result.notes).toEqual([
+			expect.stringContaining("Skipped enabling WIND because WIND_WEATHER_APPARENT"),
+		]);
+		expect(deps.getSaved()).toBeNull();
 	});
 
 	it("parks a disable as pending and does not write it", async () => {
@@ -492,6 +642,70 @@ describe("Advisor.runReview", () => {
 		expect(result.pending[0]?.action).toBe("clear-source");
 		expect(deps.getSaved()).toBeNull();
 	});
+
+	it("keeps an auto-apply recommendation pending when persistence fails", async () => {
+		const deps = advisorDeps({
+			updateConfig: async () => {
+				throw new Error("disk full");
+			},
+		});
+		const advisor = new Advisor(deps);
+
+		await expect(advisor.runReview()).rejects.toThrow("disk full");
+		expect(advisor.getPending().map((recommendation) => recommendation.optionKey)).toEqual([
+			"DEPTH",
+		]);
+	});
+
+	it("merges auto-applied fields into config changed during historic review", async () => {
+		let config: Record<string, unknown> = {
+			globalResendInterval: 5,
+			advisor: {
+				...DEFAULT_ADVISOR_CONFIG,
+				questdb: { enabled: true, url: "http://h:9000", lookbackDays: 7 },
+			},
+			conversions: {},
+		};
+		let markHistoryStarted = (): void => {};
+		let releaseHistory = (): void => {};
+		const historyStarted = new Promise<void>((resolve) => {
+			markHistoryStarted = resolve;
+		});
+		const historyGate = new Promise<void>((resolve) => {
+			releaseHistory = resolve;
+		});
+		const deps = advisorDeps({
+			readConfig: () => config,
+			updateConfig: async (updater) => {
+				config = updater(config);
+			},
+			fetchHistoric: async () => {
+				markHistoryStarted();
+				await historyGate;
+				return new Map();
+			},
+		});
+		const review = new Advisor(deps).runReview();
+		await historyStarted;
+
+		// Simulate a panel save while QuestDB is still responding.
+		config = {
+			...config,
+			globalResendInterval: 23,
+			conversions: {
+				GPS: { enabled: true, resend: 9, sources: {}, extras: { concurrent: true } },
+			},
+		};
+		releaseHistory();
+
+		const result = await review;
+		expect(result.autoApplied.map((recommendation) => recommendation.optionKey)).toEqual(["DEPTH"]);
+		expect(config.globalResendInterval).toBe(23);
+		expect(config.conversions).toMatchObject({
+			GPS: { enabled: true, resend: 9, extras: { concurrent: true } },
+			DEPTH: { enabled: true },
+		});
+	});
 });
 
 describe("Advisor.applyReview", () => {
@@ -510,10 +724,11 @@ describe("Advisor.applyReview", () => {
 				},
 			}),
 		});
-		await new Advisor(deps).applyReview([
+		const applied = await new Advisor(deps).applyReview([
 			{ optionKey: "GPS", approved: true },
 			{ optionKey: "AIS", approved: false },
 		]);
+		expect(applied).toBe(1);
 		const saved = deps.getSaved() as {
 			conversions: Record<string, { enabled: boolean }>;
 		};
@@ -523,6 +738,18 @@ describe("Advisor.applyReview", () => {
 
 	it("clears the named source pins on an approved clear-source decision", async () => {
 		const deps = advisorDeps({
+			buildInventory: () => [
+				{
+					path: "environment.water.temperature",
+					live: true,
+					liveSources: ["water-sensor"],
+				},
+				{
+					path: "environment.outside.temperature",
+					live: true,
+					liveSources: ["weather-station"],
+				},
+			],
 			getMetadata: () => [
 				meta("SEA_TEMP", ["environment.water.temperature", "environment.outside.temperature"]),
 			],
@@ -540,14 +767,46 @@ describe("Advisor.applyReview", () => {
 				},
 			}),
 		});
-		await new Advisor(deps).applyReview([
+		const advisor = new Advisor(deps);
+		await advisor.runReview();
+		await expect(
+			advisor.applyReview([
+				{
+					optionKey: "SEA_TEMP",
+					approved: true,
+					action: "clear-source",
+					clearSources: [{ path: "environment.water.temperature", pinned: "stale-id" }],
+				},
+			]),
+		).resolves.toBe(0);
+		await expect(
+			advisor.applyReview([
+				{
+					optionKey: "SEA_TEMP",
+					approved: true,
+					action: "clear-source",
+					clearSources: [
+						{ path: "environment.water.temperature", pinned: "stale-id" },
+						{ path: "environment.outside.temperature", pinned: "open-meteo" },
+						{ path: "environment.water.temperature", pinned: "stale-id" },
+					],
+				},
+			]),
+		).resolves.toBe(0);
+		expect(deps.getSaved()).toBeNull();
+		expect(advisor.getPending()).toHaveLength(1);
+		const applied = await advisor.applyReview([
 			{
 				optionKey: "SEA_TEMP",
 				approved: true,
 				action: "clear-source",
-				clearSourcePaths: ["environment.water.temperature", "environment.outside.temperature"],
+				clearSources: [
+					{ path: "environment.water.temperature", pinned: "stale-id" },
+					{ path: "environment.outside.temperature", pinned: "open-meteo" },
+				],
 			},
 		]);
+		expect(applied).toBe(1);
 		const saved = deps.getSaved() as {
 			conversions: Record<string, { sources: Record<string, string> }>;
 		};
@@ -556,6 +815,18 @@ describe("Advisor.applyReview", () => {
 
 	it("clears only the named path pins on a clear-source decision, leaving others", async () => {
 		const deps = advisorDeps({
+			buildInventory: () => [
+				{
+					path: "environment.water.temperature",
+					live: true,
+					liveSources: ["keep-me"],
+				},
+				{
+					path: "environment.outside.temperature",
+					live: true,
+					liveSources: ["weather-station"],
+				},
+			],
 			getMetadata: () => [
 				meta("SEA_TEMP", ["environment.water.temperature", "environment.outside.temperature"]),
 			],
@@ -573,12 +844,14 @@ describe("Advisor.applyReview", () => {
 				},
 			}),
 		});
-		await new Advisor(deps).applyReview([
+		const advisor = new Advisor(deps);
+		await advisor.runReview();
+		await advisor.applyReview([
 			{
 				optionKey: "SEA_TEMP",
 				approved: true,
 				action: "clear-source",
-				clearSourcePaths: ["environment.outside.temperature"],
+				clearSources: [{ path: "environment.outside.temperature", pinned: "open-meteo" }],
 			},
 		]);
 		const saved = deps.getSaved() as {
@@ -587,6 +860,264 @@ describe("Advisor.applyReview", () => {
 		expect(saved.conversions.SEA_TEMP?.sources).toEqual({
 			"environment.water.temperature": "keep-me",
 		});
+	});
+
+	it("clears canonical and legacy dotless source pins together", async () => {
+		const deps = advisorDeps({
+			buildInventory: () => [
+				{
+					path: "environment.water.temperature",
+					live: true,
+					liveSources: ["water-sensor"],
+				},
+			],
+			getMetadata: () => [meta("SEA_TEMP", ["environment.water.temperature"])],
+			readConfig: () => ({
+				conversions: {
+					SEA_TEMP: {
+						enabled: true,
+						resend: 0,
+						sources: {
+							"environment.water.temperature": "stale-source",
+							environmentwatertemperature: "stale-source",
+						},
+						extras: {},
+					},
+				},
+			}),
+		});
+
+		const advisor = new Advisor(deps);
+		await advisor.runReview();
+		await advisor.applyReview([
+			{
+				optionKey: "SEA_TEMP",
+				approved: true,
+				action: "clear-source",
+				clearSources: [{ path: "environment.water.temperature", pinned: "stale-source" }],
+			},
+		]);
+		const saved = deps.getSaved() as {
+			conversions: Record<string, { sources: Record<string, string> }>;
+		};
+		expect(saved.conversions.SEA_TEMP?.sources).toEqual({});
+	});
+
+	it("leaves a canonical or legacy pin whose value was not reviewed", async () => {
+		const deps = advisorDeps({
+			buildInventory: () => [
+				{
+					path: "environment.water.temperature",
+					live: true,
+					liveSources: ["water-sensor"],
+				},
+			],
+			getMetadata: () => [meta("SEA_TEMP", ["environment.water.temperature"])],
+			readConfig: () => ({
+				conversions: {
+					SEA_TEMP: {
+						enabled: true,
+						resend: 0,
+						sources: {
+							"environment.water.temperature": "reviewed-stale-source",
+							environmentwatertemperature: "separate-legacy-source",
+						},
+						extras: {},
+					},
+				},
+			}),
+		});
+		const advisor = new Advisor(deps);
+		await advisor.runReview();
+
+		await advisor.applyReview([
+			{
+				optionKey: "SEA_TEMP",
+				approved: true,
+				action: "clear-source",
+				clearSources: [{ path: "environment.water.temperature", pinned: "reviewed-stale-source" }],
+			},
+		]);
+
+		const saved = deps.getSaved() as {
+			conversions: Record<string, { sources: Record<string, string> }>;
+		};
+		expect(saved.conversions.SEA_TEMP?.sources).toEqual({
+			environmentwatertemperature: "separate-legacy-source",
+		});
+	});
+
+	it("does not clear a source pin changed after review and keeps the decision pending", async () => {
+		let config: Record<string, unknown> = {
+			conversions: {
+				PRESSURE: {
+					enabled: true,
+					resend: 0,
+					sources: { "environment.outside.pressure": "reviewed-stale-source" },
+					extras: {},
+				},
+			},
+		};
+		const deps = advisorDeps({
+			buildInventory: () => [
+				{
+					path: "environment.outside.pressure",
+					live: true,
+					liveSources: ["current-pressure-source"],
+				},
+			],
+			getMetadata: () => [meta("PRESSURE", ["environment.outside.pressure"])],
+			readConfig: () => config,
+		});
+		const advisor = new Advisor(deps);
+		await advisor.runReview();
+		config = {
+			...config,
+			conversions: {
+				PRESSURE: {
+					enabled: true,
+					resend: 0,
+					sources: { "environment.outside.pressure": "user-selected-source" },
+					extras: {},
+				},
+			},
+		};
+
+		await expect(
+			advisor.applyReview([
+				{
+					optionKey: "PRESSURE",
+					approved: true,
+					action: "clear-source",
+					clearSources: [
+						{
+							path: "environment.outside.pressure",
+							pinned: "reviewed-stale-source",
+						},
+					],
+				},
+			]),
+		).resolves.toBe(0);
+		expect(deps.getSaved()).toBeNull();
+		expect(advisor.getPending()).toEqual([
+			expect.objectContaining({ optionKey: "PRESSURE", action: "clear-source" }),
+		]);
+	});
+
+	it("rejects an approval bound to an older stale-source review", async () => {
+		let config: Record<string, unknown> = {
+			conversions: {
+				PRESSURE: {
+					enabled: true,
+					resend: 0,
+					sources: { "environment.outside.pressure": "first-stale-source" },
+					extras: {},
+				},
+			},
+		};
+		const deps = advisorDeps({
+			buildInventory: () => [
+				{
+					path: "environment.outside.pressure",
+					live: true,
+					liveSources: ["current-pressure-source"],
+				},
+			],
+			getMetadata: () => [meta("PRESSURE", ["environment.outside.pressure"])],
+			readConfig: () => config,
+		});
+		const advisor = new Advisor(deps);
+		await advisor.runReview();
+		const oldDecision: ApplyDecision = {
+			optionKey: "PRESSURE",
+			approved: true,
+			action: "clear-source",
+			clearSources: [{ path: "environment.outside.pressure", pinned: "first-stale-source" }],
+		};
+		config = {
+			...config,
+			conversions: {
+				PRESSURE: {
+					enabled: true,
+					resend: 0,
+					sources: { "environment.outside.pressure": "second-stale-source" },
+					extras: {},
+				},
+			},
+		};
+		await advisor.runReview();
+
+		await expect(advisor.applyReview([oldDecision])).resolves.toBe(0);
+		expect(deps.getSaved()).toBeNull();
+		expect(advisor.getPending()).toEqual([
+			expect.objectContaining({
+				optionKey: "PRESSURE",
+				staleSources: [expect.objectContaining({ pinned: "second-stale-source" })],
+			}),
+		]);
+	});
+
+	it("rejects clear paths and pin values absent from the reviewed stale-source recommendation", async () => {
+		const deps = advisorDeps({
+			buildInventory: () => [
+				{
+					path: "environment.water.temperature",
+					live: true,
+					liveSources: ["water-sensor"],
+				},
+				{
+					path: "environment.outside.temperature",
+					live: true,
+					liveSources: ["manual-source"],
+				},
+			],
+			getMetadata: () => [
+				meta("SEA_TEMP", ["environment.water.temperature", "environment.outside.temperature"]),
+			],
+			readConfig: () => ({
+				conversions: {
+					SEA_TEMP: {
+						enabled: true,
+						resend: 0,
+						sources: {
+							"environment.water.temperature": "reviewed-stale-source",
+							"environment.outside.temperature": "manual-source",
+						},
+						extras: {},
+					},
+				},
+			}),
+		});
+		const advisor = new Advisor(deps);
+		await advisor.runReview();
+
+		await expect(
+			advisor.applyReview([
+				{
+					optionKey: "SEA_TEMP",
+					approved: true,
+					action: "clear-source",
+					clearSources: [
+						{
+							path: "environment.water.temperature",
+							pinned: "caller-selected-value",
+						},
+					],
+				},
+			]),
+		).resolves.toBe(0);
+		await expect(
+			advisor.applyReview([
+				{
+					optionKey: "SEA_TEMP",
+					approved: true,
+					action: "clear-source",
+					clearSources: [{ path: "environment.outside.temperature", pinned: "manual-source" }],
+				},
+			]),
+		).resolves.toBe(0);
+		expect(deps.getSaved()).toBeNull();
+		expect(advisor.getPending()).toHaveLength(1);
 	});
 
 	it("applies an approved enable when the decision carries action enable", async () => {
@@ -638,12 +1169,262 @@ describe("Advisor.applyReview", () => {
 				{ approved: true } as unknown as ApplyDecision,
 				{ optionKey: "DEPTH", approved: true, action: "enable" },
 			]),
-		).resolves.toBeUndefined();
+		).resolves.toBe(1);
 		const saved = deps.getSaved() as {
 			conversions: Record<string, { enabled: boolean }>;
 		};
 		expect(saved.conversions.DEPTH?.enabled).toBe(true);
 		expect(Object.keys(saved.conversions)).toEqual(["DEPTH"]);
+	});
+
+	it("tolerates a non-array direct call without writing", async () => {
+		const deps = advisorDeps();
+		await expect(new Advisor(deps).applyReview(null as unknown as ApplyDecision[])).resolves.toBe(
+			0,
+		);
+		expect(deps.getSaved()).toBeNull();
+	});
+
+	it("returns zero and does not save decisions that make no change", async () => {
+		const deps = advisorDeps({
+			readConfig: () => ({
+				conversions: {
+					DEPTH: { enabled: true, resend: 0, sources: {}, extras: {} },
+				},
+			}),
+		});
+
+		await expect(
+			new Advisor(deps).applyReview([{ optionKey: "DEPTH", approved: true, action: "enable" }]),
+		).resolves.toBe(0);
+		expect(deps.getSaved()).toBeNull();
+	});
+
+	it("rejects unsupported actions and undeclared clear-source paths", async () => {
+		const deps = advisorDeps({
+			readConfig: () => ({
+				conversions: {
+					DEPTH: {
+						enabled: true,
+						resend: 0,
+						sources: { "navigation.depth.belowTransducer": "old-source" },
+						extras: {},
+					},
+				},
+			}),
+		});
+
+		const applied = await new Advisor(deps).applyReview([
+			{ optionKey: "DEPTH", approved: true, action: "keep" } as unknown as ApplyDecision,
+			{
+				optionKey: "DEPTH",
+				approved: true,
+				action: "clear-source",
+				clearSources: [{ path: "navigation.position", pinned: "old-source" }],
+			},
+		]);
+
+		expect(applied).toBe(0);
+		expect(deps.getSaved()).toBeNull();
+	});
+
+	it("does not count a clear-source decision when no named pin exists", async () => {
+		const deps = advisorDeps({
+			readConfig: () => ({
+				conversions: {
+					DEPTH: { enabled: true, resend: 0, sources: {}, extras: {} },
+				},
+			}),
+		});
+
+		await expect(
+			new Advisor(deps).applyReview([
+				{
+					optionKey: "DEPTH",
+					approved: true,
+					action: "clear-source",
+					clearSources: [{ path: "navigation.depth.belowTransducer", pinned: "old-source" }],
+				},
+			]),
+		).resolves.toBe(0);
+		expect(deps.getSaved()).toBeNull();
+	});
+
+	it("blocks an enable that conflicts with the active wind producer", async () => {
+		const deps = advisorDeps({
+			getMetadata: () => [
+				meta("WIND", ["environment.wind.speedApparent"]),
+				meta("WIND_WEATHER_APPARENT", ["environment.weather.windSpeedApparent"]),
+			],
+			readConfig: () => ({
+				conversions: {
+					WIND: { enabled: true, resend: 0, sources: {}, extras: {} },
+					WIND_WEATHER_APPARENT: {
+						enabled: false,
+						resend: 0,
+						sources: {},
+						extras: {},
+					},
+				},
+			}),
+		});
+
+		await expect(
+			new Advisor(deps).applyReview([
+				{ optionKey: "WIND_WEATHER_APPARENT", approved: true, action: "enable" },
+			]),
+		).resolves.toBe(0);
+		expect(deps.getSaved()).toBeNull();
+	});
+
+	it("blocks forecast true wind when real apparent wind is active", async () => {
+		const deps = advisorDeps({
+			getMetadata: () => [
+				meta("WIND", ["environment.wind.speedApparent"]),
+				meta("WIND_WEATHER_TRUE", [
+					"environment.wind.directionTrue",
+					"navigation.headingTrue",
+					"environment.wind.speedOverGround",
+				]),
+			],
+			readConfig: () => ({
+				conversions: {
+					WIND: { enabled: true, resend: 0, sources: {}, extras: {} },
+					WIND_WEATHER_TRUE: {
+						enabled: false,
+						resend: 0,
+						sources: {},
+						extras: {},
+					},
+				},
+			}),
+		});
+
+		await expect(
+			new Advisor(deps).applyReview([
+				{ optionKey: "WIND_WEATHER_TRUE", approved: true, action: "enable" },
+			]),
+		).resolves.toBe(0);
+		expect(deps.getSaved()).toBeNull();
+	});
+
+	it("applies an approved wind producer swap regardless of decision order", async () => {
+		const deps = advisorDeps({
+			getMetadata: () => [
+				meta("WIND", ["environment.wind.speedApparent"]),
+				meta("WIND_WEATHER_APPARENT", ["environment.weather.windSpeedApparent"]),
+			],
+			readConfig: () => ({
+				conversions: {
+					WIND: { enabled: true, resend: 0, sources: {}, extras: {} },
+					WIND_WEATHER_APPARENT: {
+						enabled: false,
+						resend: 0,
+						sources: {},
+						extras: {},
+					},
+				},
+			}),
+		});
+
+		const applied = await new Advisor(deps).applyReview([
+			{ optionKey: "WIND_WEATHER_APPARENT", approved: true, action: "enable" },
+			{ optionKey: "WIND", approved: true, action: "disable" },
+		]);
+
+		expect(applied).toBe(2);
+		const saved = deps.getSaved() as {
+			conversions: Record<string, { enabled: boolean }>;
+		};
+		expect(saved.conversions.WIND?.enabled).toBe(false);
+		expect(saved.conversions.WIND_WEATHER_APPARENT?.enabled).toBe(true);
+	});
+
+	it("prefers real wind when a request enables both competing producers", async () => {
+		const deps = advisorDeps({
+			getMetadata: () => [
+				meta("WIND", ["environment.wind.speedApparent"]),
+				meta("WIND_WEATHER_APPARENT", ["environment.weather.windSpeedApparent"]),
+			],
+		});
+
+		const applied = await new Advisor(deps).applyReview([
+			{ optionKey: "WIND_WEATHER_APPARENT", approved: true, action: "enable" },
+			{ optionKey: "WIND", approved: true, action: "enable" },
+		]);
+
+		expect(applied).toBe(1);
+		const saved = deps.getSaved() as {
+			conversions: Record<string, { enabled: boolean } | undefined>;
+		};
+		expect(saved.conversions.WIND?.enabled).toBe(true);
+		expect(saved.conversions.WIND_WEATHER_APPARENT).toBeUndefined();
+	});
+
+	it("retains pending decisions when an approved write fails", async () => {
+		const deps = advisorDeps({
+			readConfig: () => ({ advisor: { autoApply: false }, conversions: {} }),
+		});
+		const advisor = new Advisor(deps);
+		await advisor.runReview();
+		deps.updateConfig = async () => {
+			throw new Error("save failed");
+		};
+
+		await expect(
+			advisor.applyReview([{ optionKey: "DEPTH", approved: true, action: "enable" }]),
+		).rejects.toThrow("save failed");
+		expect(advisor.getPending().map((recommendation) => recommendation.optionKey)).toEqual([
+			"DEPTH",
+		]);
+	});
+
+	it("serializes concurrent read-modify-write operations", async () => {
+		let config: Record<string, unknown> = {
+			conversions: {
+				DEPTH: { enabled: false, resend: 0, sources: {}, extras: {} },
+				GPS: { enabled: true, resend: 0, sources: {}, extras: {} },
+			},
+		};
+		let releaseFirstWrite = (): void => {};
+		let markFirstStarted = (): void => {};
+		const firstStarted = new Promise<void>((resolve) => {
+			markFirstStarted = resolve;
+		});
+		const firstGate = new Promise<void>((resolve) => {
+			releaseFirstWrite = resolve;
+		});
+		let writes = 0;
+		const deps = advisorDeps({
+			getMetadata: () => [
+				meta("DEPTH", ["navigation.depth.belowTransducer"]),
+				meta("GPS", ["navigation.position"]),
+			],
+			readConfig: () => config,
+			updateConfig: async (updater) => {
+				writes++;
+				if (writes === 1) {
+					markFirstStarted();
+					await firstGate;
+				}
+				config = updater(config);
+			},
+		});
+		const advisor = new Advisor(deps);
+		const enableDepth = advisor.applyReview([
+			{ optionKey: "DEPTH", approved: true, action: "enable" },
+		]);
+		await firstStarted;
+		const disableGps = advisor.applyReview([
+			{ optionKey: "GPS", approved: true, action: "disable" },
+		]);
+		releaseFirstWrite();
+		await Promise.all([enableDepth, disableGps]);
+
+		const conversions = config.conversions as Record<string, { enabled: boolean }>;
+		expect(conversions.DEPTH?.enabled).toBe(true);
+		expect(conversions.GPS?.enabled).toBe(false);
+		expect(writes).toBe(2);
 	});
 });
 
@@ -818,7 +1599,9 @@ describe("Advisor.runReview with QuestDB", () => {
 				throw new Error("ECONNREFUSED");
 			},
 		});
-		const result = await new Advisor(deps).runReview();
+		const advisor = new Advisor(deps);
+		const result = await advisor.runReview();
 		expect(result.notes.some((n) => n.includes("QuestDB"))).toBe(true);
+		expect(advisor.getPendingResult()).toEqual(result);
 	});
 });

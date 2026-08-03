@@ -1,7 +1,7 @@
 // Runtime-neutral recommendation logic shared by the advisor and setup wizard.
 import type { ConversionMetadata } from "../api/types.js";
 import type { ConversionMap } from "../config/schema.js";
-import { isDefined } from "../utils/pathUtils.js";
+import { isDefined, pathToPropName } from "../utils/pathUtils.js";
 import {
 	classifySourceOrigin,
 	SOURCE_ORIGIN,
@@ -99,7 +99,7 @@ export function recommend(input: RecommendInput): Recommendation[] {
 			const staleSources: StaleSourcePin[] = [];
 			const reasonParts: string[] = [];
 			for (const e of matched) {
-				const pinned = pins[e.path];
+				const pinned = pins[e.path] ?? pins[pathToPropName(e.path)];
 				if (!pinned) continue;
 				const live = e.liveSources ?? [];
 				if (live.length > 0) {

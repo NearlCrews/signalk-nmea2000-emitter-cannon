@@ -72,8 +72,10 @@ const CONVERSION_DESCRIPTIONS: Record<string, string> = {
 		"Do not enable unless this vessel has a licensed AIS transceiver whose MMSI matches the value broadcast on the bus. Software-only emission of AIS safety messages violates ITU-R M.1371 and may breach license terms (e.g. US FCC ship station rules). Use Notifications (PGN 126985) for non-AIS alerts.",
 	WIND_WEATHER_APPARENT:
 		"Bridges the synthetic apparent wind from signalk-virtual-weather-sensors (forecast wind plus vessel motion) to PGN 130306. Leave disabled if a real masthead anemometer feeds apparent wind: emitting both puts competing values on the bus.",
+	WIND_WEATHER_TRUE:
+		"Encodes ground-referenced forecast wind with the True (water referenced) value that populated True Wind fields on a tested ECHOMAP UHD2 setup. This is a model-specific display approximation, not a water-referenced wind calculation. Leave disabled with real wind or water-speed sensors, and verify behavior on the exact chartplotter model and firmware.",
 	DSC_CALLS:
-		"Source-lock all DSC paths to an off-bus VHF or DSC provider. This mapper cannot inspect the original delta source, so using the same NMEA 2000 input can echo and duplicate distress frames.",
+		"Rejects inputs that Signal K identifies as NMEA 2000 by using canonical $source values with available structured metadata and the server sources tree. You can also pin all DSC paths to a specific off-bus VHF or DSC provider. Leave disabled when no non-NMEA 2000 DSC provider publishes the required paths.",
 	VESSEL_TRIP:
 		"Fuel range is an estimate, not a voyage-planning or safety value. Configure every fuel tank and propulsion consumer; other consumers, unusable reserve, cross-feed limits, weather, and tide are not included. Raymarine also requires Fuel Manager setup, fuel data from PGN 127489 or 127497, and PGN 129026 with GNSS for distance. Current Garmin documentation does not list PGN 127496.",
 };

@@ -41,6 +41,9 @@ export interface StaleSourcePin {
 	liveSources: string[];
 }
 
+/** The reviewed path and stale value bound into a clear-source approval. */
+export type ClearSourceApproval = Pick<StaleSourcePin, "path" | "pinned">;
+
 /** A single recommendation about one conversion. */
 export interface Recommendation {
 	optionKey: string;
@@ -48,7 +51,7 @@ export interface Recommendation {
 	currentlyEnabled: boolean;
 	matchedPaths: string[];
 	confidence: "high" | "low";
-	origin: "live" | "historic";
+	origin: "live" | "historic" | "configuration";
 	reason: string;
 	/** Present only for action "clear-source": the pins that are stale. */
 	staleSources?: StaleSourcePin[];
@@ -59,25 +62,31 @@ export interface ReviewResult {
 	ranAt: string;
 	/** Confident enables, already written to config. */
 	autoApplied: Recommendation[];
-	/** Disables awaiting user approval. */
+	/** Actionable recommendations awaiting user approval. */
 	pending: Recommendation[];
 	/** Non-fatal warnings (e.g. a data source was unavailable). */
 	notes: string[];
 }
+
+/** Parked review state returned before or after a completed review. */
+export type PendingReviewResult = Omit<ReviewResult, "ranAt"> & { ranAt?: string };
 
 /** One user decision on a pending recommendation. */
 export interface ApplyDecision {
 	optionKey: string;
 	approved: boolean;
 	/**
-	 * The recommended action this decision approves. Carried in the request so
-	 * applyReview does not depend on in-memory state surviving a restart.
-	 * Absent is treated as "disable" for backward compatibility.
+	 * The recommended action this decision approves. Enable and disable decisions
+	 * do not require in-memory review state. Clear-source additionally requires
+	 * `clearSources` to match the parked recommendation. Absent is treated as
+	 * "disable" for backward compatibility.
 	 */
 	action?: Exclude<AdvisorAction, "keep">;
 	/**
-	 * For action "clear-source": the path keys to remove from the conversion's
-	 * `sources` map, so it follows the live source for those paths again.
+	 * For action "clear-source": the exact stale path and source values the user
+	 * reviewed. The advisor requires these pairs to match its parked recommendation
+	 * and the freshest configuration before removing either canonical or legacy
+	 * source keys.
 	 */
-	clearSourcePaths?: string[];
+	clearSources?: ClearSourceApproval[];
 }

@@ -9,6 +9,7 @@ import {
 	TEMPERATURE_SOURCE_VALUES,
 } from "./environmentSources.js";
 import type { Config, ConversionConfig } from "./schema.js";
+import { COMPETING_WIND_PRODUCERS } from "./windConflicts.js";
 
 type ConfigIssueSeverity = "error" | "warning";
 
@@ -165,6 +166,27 @@ const BRIGHTNESS_GROUPS = new Set<string>(SEATALK_NETWORK_GROUPS);
 
 function severityFor(config: ConversionConfig | undefined): ConfigIssueSeverity {
 	return config?.enabled ? "error" : "warning";
+}
+
+function validateCompetingWindProducers(
+	issues: ConfigIssue[],
+	conversions: Config["conversions"],
+): void {
+	const blockersByAlternate = new Map<string, string[]>();
+	for (const [primaryKey, alternateKey] of COMPETING_WIND_PRODUCERS) {
+		if (!conversions[primaryKey]?.enabled || !conversions[alternateKey]?.enabled) continue;
+		const blockers = blockersByAlternate.get(alternateKey) ?? [];
+		blockers.push(primaryKey);
+		blockersByAlternate.set(alternateKey, blockers);
+	}
+	for (const [alternateKey, blockers] of blockersByAlternate) {
+		issues.push({
+			severity: "error",
+			conversionKey: alternateKey,
+			field: "enabled",
+			message: `${alternateKey} conflicts with enabled ${blockers.join(" and ")} wind data on PGN 130306. Use either real or forecast wind producers, not both.`,
+		});
+	}
 }
 
 function addIssue(
@@ -969,6 +991,7 @@ function validateLinkedInstances(issues: ConfigIssue[], conversions: Config["con
  */
 export function validateConfig(config: Pick<Config, "conversions">): ConfigIssue[] {
 	const issues: ConfigIssue[] = [];
+	validateCompetingWindProducers(issues, config.conversions);
 	for (const [conversionKey, rule] of Object.entries(MAPPING_RULES)) {
 		validateMapping(issues, conversionKey, config.conversions[conversionKey], rule);
 	}

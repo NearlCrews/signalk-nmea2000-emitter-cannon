@@ -47,7 +47,7 @@ export default function FooterBar({
 
 	return (
 		<ActionBar
-			sticky
+			sticky="bottom"
 			actions={
 				<Cluster gap={2}>
 					<Button variant="primary" onClick={handleSave} disabled={saveDisabled}>

@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 import { RootConfig } from "../config/schema.js";
 import { createConversionModules } from "../conversions/index.js";
 import type { SignalKApp, SignalKPlugin } from "../types/index.js";
-import { pathToPropName } from "../utils/pathUtils.js";
+import { matchPathPrefix, pathToPropName } from "../utils/pathUtils.js";
 
 /* Minimal mock app: pathUtils only needs the conversion factories to run.
  * They're called purely to harvest the `keys` arrays; no streams fire. */
@@ -96,5 +96,22 @@ describe("pathToPropName", () => {
 			collisions,
 			`pathToPropName collisions detected: ${JSON.stringify(collisions, null, 2)}`,
 		).toEqual([]);
+	});
+});
+
+describe("matchPathPrefix", () => {
+	const table = [
+		["notifications.navigation.anchor", "anchor"],
+		["notifications.navigation", "navigation"],
+	] as const;
+
+	it("matches exact paths and dotted descendants in table order", () => {
+		expect(matchPathPrefix("notifications.navigation.anchor", table)).toBe("anchor");
+		expect(matchPathPrefix("notifications.navigation.anchor.drag", table)).toBe("anchor");
+	});
+
+	it("does not cross a Signal K path segment boundary", () => {
+		expect(matchPathPrefix("notifications.navigation.anchorDrag", table)).toBe("navigation");
+		expect(matchPathPrefix("notifications.navigational", table)).toBeUndefined();
 	});
 });

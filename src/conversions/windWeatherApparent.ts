@@ -1,3 +1,4 @@
+import { WEATHER_DATA_TIMEOUT_MS } from "../constants.js";
 import type { ConversionModule, SignalKApp } from "../types/index.js";
 import { createWind130306Conversion } from "./windData.js";
 
@@ -16,5 +17,6 @@ export default function createWindWeatherApparentConversion(app: SignalKApp): Co
 		keys: ["environment.weather.windAngleApparent", "environment.weather.windSpeedApparent"],
 		reference: "Apparent",
 		category: "environment",
+		inputTimeoutMs: WEATHER_DATA_TIMEOUT_MS,
 	});
 }

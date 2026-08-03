@@ -59,6 +59,11 @@ identified statically because publisher ids are operator- and provider-defined.
 The live mismatch warning identifies that case once the server publisher list
 loads.
 
+Publisher filters also apply to wildcard notification subscriptions and other
+whole-delta conversions. Older configurations may contain a dotless form of a
+path from the legacy settings UI. Selecting a new publisher or **All
+publishers** removes that legacy key as well as the current canonical key.
+
 For example, the Outside Temperature conversion subscribes to
 `environment.outside.temperature`. Entering `environment.water.temperature` in
 its publisher field rejects the actual publisher because that string is a path,
@@ -143,22 +148,38 @@ enable `WIND_TRUE_GROUND` by hand if you want forecast wind on the bus.
 ## Forecast wind shows as Ground Wind, but True Wind Speed stays blank on a Garmin
 
 `WIND_TRUE_GROUND` emits PGN 130306 with reference `True (ground referenced to
-North)`. A Garmin maps that reference to its Ground Wind fields, not True Wind,
-and fills True Wind Speed/Angle either from a `True (boat referenced)` source or
-by computing it from apparent wind plus boat speed (speed through water). With no
-masthead anemometer and no speed sensor, the True Wind fields have nothing to draw
-from, so they stay blank even though the wind is on the bus.
+North)`. On the tested ECHOMAP UHD2 setup, that reference appeared in the Ground
+Wind fields rather than the True Wind fields. Garmin normally computes True Wind
+from apparent wind plus boat speed. With no masthead anemometer or water-speed
+sensor, the True Wind fields can stay blank even though forecast wind is on the
+bus.
 
-Enable `WIND_WEATHER_TRUE`. It computes the boat-referenced true wind angle
+Enable `WIND_WEATHER_TRUE`. It computes the relative true wind angle
 (`environment.wind.directionTrue` minus `navigation.headingTrue`) and emits PGN
-130306 with reference `True (boat referenced)`, which populates the Garmin's True
-Wind Speed/Angle directly. It needs a true heading on the bus to produce an angle;
-if only magnetic heading is available, make sure the server derives
+130306 with reference `True (water referenced)`. That reference populated True
+Wind Speed, True Wind Direction, and Wind VMG on the tested ECHOMAP UHD2 setup,
+but Garmin does not document enum-specific behavior, and results depend on the
+chartplotter model and firmware. The conversion is a display compatibility
+approximation because its forecast input remains ground referenced; do not
+enable it alongside real wind or water-speed sensors. It needs a true heading
+on the bus to produce an angle. If only magnetic heading is available, make
+sure the server derives
 `navigation.headingTrue` (heading plus magnetic variation) first. A true heading
-from an NMEA 2000 sensor such as a Garmin GPS24xd is a safe supporting input:
+from an NMEA 2000 sensor such as a Garmin GPS24xd is a safe supporting input.
 Emitter Cannon consumes its PGN 127250 heading to derive the relative wind angle
 but emits PGN 130306, so the path-aware echo guard permits the heading without
 allowing received wind data to loop back onto the bus.
+
+Do not mix the real-wind conversions (`WIND` or `WIND_TRUE`) with the forecast
+compatibility conversions (`WIND_WEATHER_APPARENT` or `WIND_WEATHER_TRUE`).
+They would present inconsistent real and forecast wind data on PGN 130306. The
+two real conversions may run together, as may the two forecast conversions.
+The panel blocks Save, and runtime startup rejects conflicting forecast members
+if the configuration was edited outside the panel. Live wind inputs expire
+after ten seconds. Forecast wind angle, direction, and speed inputs use a
+125-second window for a 60-second weather rebroadcast cadence, while the live
+heading required by `WIND_WEATHER_TRUE` still expires after ten seconds. A
+resend cannot keep an expired input alive.
 
 ## Configuration changes don't take effect
 

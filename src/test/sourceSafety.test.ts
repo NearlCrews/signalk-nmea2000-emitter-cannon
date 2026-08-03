@@ -41,13 +41,14 @@ function normalizedValue(
 	value: number,
 	$source: string,
 	type?: string,
+	pgn?: number,
 ): NormalizedDelta {
 	return {
 		context: "vessels.self",
 		path,
 		value,
 		$source,
-		source: type === undefined ? undefined : { label: $source, type },
+		source: type === undefined ? undefined : { label: $source, type, pgn },
 		timestamp: "2026-07-22T12:00:00.000Z",
 		isMeta: false,
 	} as NormalizedDelta;
@@ -72,7 +73,11 @@ describe("PluginManager stream source safety", () => {
 	let windDirectionBus: TestBus;
 	let headingBus: TestBus;
 	let windSpeedBus: TestBus;
+	let cogTrueBus: TestBus;
+	let cogMagneticBus: TestBus;
+	let headingMagneticBus: TestBus;
 	let emitted: N2KMessage[];
+	let app: SignalKApp;
 
 	beforeEach(() => {
 		vi.useFakeTimers();
@@ -80,9 +85,12 @@ describe("PluginManager stream source safety", () => {
 		windDirectionBus = createBus();
 		headingBus = createBus();
 		windSpeedBus = createBus();
+		cogTrueBus = createBus();
+		cogMagneticBus = createBus();
+		headingMagneticBus = createBus();
 		emitted = [];
 		const debug = Object.assign(() => {}, { enabled: false });
-		const app = {
+		app = {
 			debug,
 			error: () => {},
 			setPluginStatus: () => {},
@@ -101,6 +109,9 @@ describe("PluginManager stream source safety", () => {
 					if (path === "environment.wind.directionTrue") return windDirectionBus;
 					if (path === "navigation.headingTrue") return headingBus;
 					if (path === "environment.wind.speedOverGround") return windSpeedBus;
+					if (path === "navigation.courseOverGroundTrue") return cogTrueBus;
+					if (path === "navigation.courseOverGroundMagnetic") return cogMagneticBus;
+					if (path === "navigation.headingMagnetic") return headingMagneticBus;
 					return createBus();
 				},
 			},
@@ -175,9 +186,51 @@ describe("PluginManager stream source safety", () => {
 			pgn: 130306,
 			fields: {
 				windSpeed: 3.2,
-				reference: "True (boat referenced)",
+				reference: "True (water referenced)",
 			},
 		});
 		expect(emitted[0]?.fields.windAngle).toBeCloseTo(1.7);
+	});
+
+	it("allows only native COG and heading PGNs into Direction Data", async () => {
+		manager.stop();
+		emitted.length = 0;
+		manager = new PluginManager(
+			app,
+			{
+				id: "signalk-nmea2000-emitter-cannon",
+				name: "Test Plugin",
+				description: "Test plugin",
+				schema: () => RootConfig,
+				start: () => {},
+				stop: () => {},
+			},
+			() => true,
+		);
+		manager.start({
+			globalResendInterval: 0,
+			DIRECTION_DATA: { enabled: true, resend: 0 },
+		} as unknown as PluginOptions);
+
+		cogTrueBus.push(
+			normalizedValue("navigation.courseOverGroundTrue", 1.2, "can0.20", "NMEA2000", 129026),
+		);
+		headingBus.push(normalizedValue("navigation.headingTrue", 1.1, "can0.21", "NMEA2000", 127250));
+		await flushStream();
+		expect(emitted).toHaveLength(1);
+		expect(emitted[0]).toMatchObject({
+			pgn: 130577,
+			fields: { cogReference: "True" },
+		});
+		expect(emitted[0]?.fields.cog).toBeCloseTo(1.2);
+		expect(emitted[0]?.fields.heading).toBeCloseTo(1.1);
+
+		const beforeEcho = emitted.length;
+		cogTrueBus.push(
+			normalizedValue("navigation.courseOverGroundTrue", 2.2, "can0.22", "NMEA2000", 130577),
+		);
+		headingBus.push(normalizedValue("navigation.headingTrue", 2.1, "can0.22", "NMEA2000", 130577));
+		await flushStream();
+		expect(emitted).toHaveLength(beforeEcho);
 	});
 });

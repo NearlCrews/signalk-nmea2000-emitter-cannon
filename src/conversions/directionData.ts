@@ -1,4 +1,9 @@
-import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, N2K_SID_ZERO } from "../constants.js";
+import {
+	DEFAULT_DATA_TIMEOUT_MS,
+	N2K_BROADCAST_DST,
+	N2K_DEFAULT_PRIORITY,
+	N2K_SID_ZERO,
+} from "../constants.js";
 import type { ConversionCallback, ConversionModule, SignalKApp } from "../types/index.js";
 import { toUnsignedAngle, toValidNumber } from "../utils/validation.js";
 
@@ -15,6 +20,21 @@ export default function createDirectionDataConversion(
 			"navigation.headingTrue",
 			"navigation.headingMagnetic",
 		],
+		timeouts: [
+			DEFAULT_DATA_TIMEOUT_MS,
+			DEFAULT_DATA_TIMEOUT_MS,
+			DEFAULT_DATA_TIMEOUT_MS,
+			DEFAULT_DATA_TIMEOUT_MS,
+		],
+		// Accept only the standards-correct upstream PGNs. Blocking PGN 130577
+		// itself prevents this aggregate conversion from feeding back through
+		// Signal K while still allowing native COG and heading instruments.
+		allowNmea2000InputPgns: {
+			"navigation.courseOverGroundTrue": [129026],
+			"navigation.courseOverGroundMagnetic": [129026],
+			"navigation.headingTrue": [127250],
+			"navigation.headingMagnetic": [127250],
+		},
 		callback: ((
 			cogTrue: number | null,
 			cogMagnetic: number | null,

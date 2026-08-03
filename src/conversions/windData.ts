@@ -1,6 +1,12 @@
-import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, N2K_DEFAULT_SID } from "../constants.js";
+import {
+	DEFAULT_DATA_TIMEOUT_MS,
+	MAX_WIND_SPEED_MPS,
+	N2K_BROADCAST_DST,
+	N2K_DEFAULT_PRIORITY,
+	N2K_DEFAULT_SID,
+} from "../constants.js";
 import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
-import { isValidNumber, toUnsignedAngle, toValidNumber } from "../utils/validation.js";
+import { isValidNumber, toFiniteInRange, toUnsignedAngle } from "../utils/validation.js";
 
 // Shared PGN 130306 (Wind Data) builder. Every wind-130306 module (apparent,
 // true-over-water, true-over-ground, weather-forecast apparent) differs only
@@ -15,6 +21,7 @@ export function createWind130306Conversion(
 		reference: string;
 		category?: ConversionModule["category"];
 		presets?: ConversionModule["presets"];
+		inputTimeoutMs?: number;
 	},
 ): ConversionModule {
 	const module: ConversionModule = {
@@ -22,8 +29,14 @@ export function createWind130306Conversion(
 		optionKey: config.optionKey,
 		category: config.category ?? "navigation",
 		keys: config.keys,
+		timeouts: [
+			config.inputTimeoutMs ?? DEFAULT_DATA_TIMEOUT_MS,
+			config.inputTimeoutMs ?? DEFAULT_DATA_TIMEOUT_MS,
+		],
 		callback: (angle: unknown, speed: unknown): N2KMessage[] => {
-			if (!isValidNumber(angle) && !isValidNumber(speed)) {
+			const windAngle = isValidNumber(angle) ? toUnsignedAngle(angle) : undefined;
+			const windSpeed = toFiniteInRange(speed, 0, MAX_WIND_SPEED_MPS);
+			if (windAngle === undefined && windSpeed === undefined) {
 				return [];
 			}
 
@@ -34,9 +47,9 @@ export function createWind130306Conversion(
 					dst: N2K_BROADCAST_DST,
 					fields: {
 						sid: N2K_DEFAULT_SID,
-						windSpeed: isValidNumber(speed) ? speed : undefined,
+						...(windSpeed === undefined ? {} : { windSpeed }),
 						// Unsigned [0, 2pi) field; see toUnsignedAngle.
-						windAngle: toUnsignedAngle(toValidNumber(angle)),
+						...(windAngle === undefined ? {} : { windAngle }),
 						reference: config.reference,
 					},
 				},

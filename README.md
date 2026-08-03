@@ -16,22 +16,23 @@ reviewed against model-specific chartplotter receive lists.
 > Built on the foundation of [`signalk-to-nmea2000`](https://github.com/SignalK/signalk-to-nmea2000)
 > by Scott Bender and the Signal K community.
 
-## What's new in 1.10.4
+## What's new in 1.10.5
 
-- **Updated shared marine controls.** The configuration panel now bundles
-  `signalk-nearlcrews-ui` 0.4.1 for improved Night-theme and loading-button
-  contrast, responsive action overflow, and current shared-control behavior.
-- **Current compatible development stack.** Node 22.22.2 and npm 12.0.1 are the
-  development baseline, CI covers both the minimum Node release and Node 24,
-  and compatible development libraries are updated to current releases.
-- **Safer disabled controls.** Shared buttons marked with `aria-disabled` no
-  longer receive the panel's local hover or active brightness filters, and the
-  Chromium check guards against the regression.
-- **More reliable release validation.** Package checks support both npm 11 and
-  npm 12 report formats. Runtime audits must remain clean, and the development
-  audit permits only the identified canboatjs advisory chain.
+- **Safer wind compatibility output.** Forecast wind now accepts a fresh true
+  heading as a supporting input, uses the tested water-referenced form, and
+  keeps separate freshness windows for live and forecast data.
+- **Stronger source and echo protection.** Subscription, whole-delta, AIS,
+  alert, and alarm paths consistently reject unsafe bus-origin data while
+  preserving valid mixed-source updates.
+- **More reliable lifecycle and Advisor behavior.** Failed saves and restarts
+  recover cleanly, concurrent changes are serialized, stale responses cannot
+  restore applied recommendations, and retired managers stop asynchronous work.
+- **Current shared UI and toolchain.** The panel bundles
+  `signalk-nearlcrews-ui` 0.6.1, follows the host theme through Auto by default,
+  and adds Axe, actionlint, zizmor, dependency, package, and workflow checks to
+  the release gate.
 
-See the [v1.10.4 changelog entry](CHANGELOG.md#v1104) and the
+See the [v1.10.5 changelog entry](CHANGELOG.md#v1105) and the
 [full release history](CHANGELOG.md).
 
 ## What it does
@@ -52,8 +53,8 @@ priorities follow the current stable Canboat 7.1 database. It pairs well with se
 ## Features
 
 - **82 configurable data conversions emitting 60 data PGNs**, plus the plugin's
-  configurable PGN 126464 list broadcast and 5 stack-owned bus-layer PGNs (59392, 59904,
-  60928, 126993, 126996) advertised in that list
+  configurable PGN 126464 transmit-list broadcast at startup and every five
+  minutes. The list advertises only PGNs owned by this plugin.
 - **Chartplotter-oriented** PGN priorities, SID fields, temperature-source
   values, and wind and bearing reference enums, with model-specific behavior
   documented instead of assumed across a vendor's entire product line
@@ -61,10 +62,10 @@ priorities follow the current stable Canboat 7.1 database. It pairs well with se
   and per-key freshness timeouts
 - **Source filtering** per conversion: keep the fixed Signal K schema path and
   optionally choose a specific `$source` publisher, using consistent exact or
-  dot-prefix matching
+  dot-prefix matching for stream, subscription, and whole-delta conversions
 - **Resend timers** for conversions whose values remain current, plus a global
-  default. Event-driven targets, course data, timers, and fixed timestamps are
-  never replayed as fresh data
+  default. Freshness checks are reapplied on every tick. Event-driven targets,
+  course data, timers, and fixed timestamps are never replayed as fresh data
 - **Config Advisor** (optional): reviews the Signal K paths your boat
   publishes, recommends which conversions to enable or disable, and flags
   enabled conversions whose pinned `$source` has gone stale (a renamed weather
@@ -73,7 +74,7 @@ priorities follow the current stable Canboat 7.1 database. It pairs well with se
   single-open inline editor, a compact sticky toolbar carrying catalog search
   and live status, category tabs with per-category Enable all and Disable all,
   preset chips, a first-run setup wizard, and shared `signalk-nearlcrews-ui`
-  controls with Light, Auto, Dark, and red-preserving Night themes
+  controls with Auto, Light, Dark, and red-preserving Night themes
 - **NMEA 2000 echo guards** that use authoritative source metadata to reject
   known bus-origin input instead of re-emitting it onto the same bus. Unknown
   origins remain compatible, a numeric publisher suffix alone is not treated
@@ -224,6 +225,7 @@ npm run build        # esbuild plugin bundle plus webpack panel
 npm test             # Vitest suite
 npm run check        # type-check the plugin, the panel, and the tests
 npm run lint         # code, Markdown, and spelling checks
+npm run ci:workflows # action pins and release-workflow invariants
 npm run format       # Biome auto-format
 npm run verify       # local full verification gate
 ```

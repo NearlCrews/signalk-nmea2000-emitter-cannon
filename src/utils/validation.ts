@@ -49,13 +49,6 @@ export function toValidNumber(value: unknown): number | null {
 	return isValidNumber(value) ? value : null;
 }
 
-// The undefined-returning analogue of toValidNumber, for the many NMEA 2000
-// fields that omit a value by leaving it undefined rather than encoding a null
-// sentinel. A non-number or non-finite input returns undefined.
-export function toFiniteOrUndefined(value: unknown): number | undefined {
-	return isValidNumber(value) ? value : undefined;
-}
-
 /** Return a finite number only when it is inside an inclusive wire range. */
 export function toFiniteInRange(value: unknown, min: number, max: number): number | undefined {
 	return isValidNumber(value) && value >= min && value <= max ? value : undefined;

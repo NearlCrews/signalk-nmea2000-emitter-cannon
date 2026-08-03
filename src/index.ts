@@ -1,4 +1,4 @@
-import { Advisor } from "./advisor/advisor.js";
+import { Advisor, type AdvisorConfigUpdater, AdvisorOperationError } from "./advisor/advisor.js";
 import { buildLiveInventory } from "./advisor/inventory.js";
 import { fetchHistoricPaths, QuestDBClient } from "./advisor/questdb.js";
 import { AdvisorScheduler } from "./advisor/schedule.js";
@@ -22,6 +22,32 @@ import { isValidNumber } from "./utils/validation.js";
  */
 export default function createPlugin(app: SignalKApp): SignalKPlugin {
 	let pluginManager: PluginManager | null = null;
+	let hostActive = false;
+	let hostLifecycleEpoch = 0;
+	let deltaHandlerRegistered = false;
+
+	const ensureDeltaInputHandler = (): void => {
+		if (deltaHandlerRegistered) return;
+		app.registerDeltaInputHandler((delta, next) => {
+			// Signal K's input chain is synchronous. Forward first so its cache and
+			// Course API reflect this delta before callbacks call getSelfPath(),
+			// getPath(), or getCourse(). In particular, getCourse() captures the
+			// current courseInfo reference when called, before its Promise resolves.
+			// Invoke next exactly once, and never retry if a downstream handler throws.
+			try {
+				next(delta);
+			} catch (error) {
+				app.error(`Unable to forward delta input: ${errMessage(error)}`);
+				return;
+			}
+			try {
+				pluginManager?.handleDeltaInput(delta);
+			} catch (error) {
+				app.error(`Unable to process delta input: ${errMessage(error)}`);
+			}
+		});
+		deltaHandlerRegistered = true;
+	};
 
 	// Persistent readiness state across PluginManager restarts.
 	//
@@ -43,12 +69,17 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 	//      the only readiness signal for this case.
 	//
 	// Seed from the snapshot, then latch the event: the OR of the two covers
-	// both. Honouring only the event (the prior behaviour) silently dropped
+	// both. Honoring only the event (the prior behavior) silently dropped
 	// every PGN for a plugin enabled after output came up.
 	let nmea2000Ready = app.isNmea2000OutAvailable === true;
 	const factoryListener = (): void => {
 		nmea2000Ready = true;
+		pluginManager?.notifyNmea2000Ready();
 	};
+	// Signal K binds app.on to this plugin object's actor id, but does not add
+	// event-listener cleanup to its plugin onStopHandlers. Register once for the
+	// factory lifetime: it captures pre-start readiness, survives host and
+	// manager restarts, and always routes to the current manager closure.
 	app.on("nmea2000OutAvailable", factoryListener);
 
 	const plugin: SignalKPlugin = {
@@ -70,41 +101,131 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 	// covers failed starts, where the manager has already cleared its modules.
 	// Shared by the API router and the advisor, which both previously saw an empty
 	// catalog while the plugin was disabled.
-	let conversionCatalog: ConversionMetadata[] | null = null;
 	let standaloneConversions: ReturnType<typeof createConversionModules> | null = null;
 	const getMetadata = (): ConversionMetadata[] => {
 		if (pluginManager) {
 			const managerMetadata = pluginManager.getConversionMetadata();
 			if (managerMetadata.length > 0) return managerMetadata;
 		}
-		const config = readConfig();
+		const config = readConfigBestEffort();
 		standaloneConversions ??= createConversionModules(app, plugin);
-		conversionCatalog = buildConversionMetadata(
-			standaloneConversions,
-			conversionOptionsByKey(config),
-		);
-		return conversionCatalog;
+		return buildConversionMetadata(standaloneConversions, conversionOptionsByKey(config));
 	};
 
 	// readPluginOptions returns the full options envelope
 	// (`{ enabled, configuration, enableLogging, enableDebug }`); the plugin
-	// config lives under `.configuration`. readConfig runs that through
+	// config lives under `.configuration`. The authoritative reader runs that through
 	// migrateLegacyConfig, which flattens the envelope. A historical save bug
 	// could nest the envelope several layers deep; a single `.configuration`
 	// unwrap would then leave the advisor with a config whose `conversions`
 	// key is still buried, which the recommender mistakes for an empty config
 	// and rebuilds from scratch, stranding every factory-module conversion
 	// (BATTERY, NOTIFICATIONS, ENGINE_*, TANKS, SOLAR). savePluginOptions
-	// re-wraps the bare config as `.configuration`, so writeConfig passes the
+	// re-wraps the bare config as `.configuration`, so updateConfig passes the
 	// flattened object straight through.
-	function readConfig() {
-		if (typeof app.readPluginOptions !== "function") return migrateLegacyConfig({});
+	function readConfigAuthoritative() {
+		if (typeof app.readPluginOptions !== "function") {
+			throw new AdvisorOperationError(
+				"Signal K did not provide readPluginOptions",
+				"The saved plugin configuration could not be read. No changes were made.",
+			);
+		}
 		try {
 			const envelope = app.readPluginOptions() as { configuration?: unknown };
 			return migrateLegacyConfig(envelope.configuration ?? {});
 		} catch (error) {
 			app.error(`Unable to read plugin configuration: ${errMessage(error)}`);
+			throw new AdvisorOperationError(
+				`Unable to read plugin configuration: ${errMessage(error)}`,
+				"The saved plugin configuration could not be read. No changes were made.",
+			);
+		}
+	}
+
+	function readConfigBestEffort() {
+		try {
+			return readConfigAuthoritative();
+		} catch {
+			// The disabled-plugin catalog remains useful even when configuration
+			// storage is temporarily unavailable. Advisor operations use the strict
+			// reader above and never treat this fallback as authoritative.
 			return migrateLegacyConfig({});
+		}
+	}
+
+	function persistConfig(config: Record<string, unknown>): Promise<void> {
+		return new Promise<void>((resolve, reject) => {
+			try {
+				app.savePluginOptions(config, (error) => {
+					if (error) reject(error);
+					else resolve();
+				});
+			} catch (error) {
+				reject(error);
+			}
+		});
+	}
+
+	async function updateConfig(updater: AdvisorConfigUpdater): Promise<void> {
+		// Read at the persistence boundary, after any inventory or QuestDB work,
+		// so the updater merges only its intended fields into the newest config.
+		const previous = readConfigAuthoritative();
+		const next = updater(previous);
+		if (next === previous) return;
+
+		const hostWasActiveAtSave = hostActive;
+		const lifecycleEpochAtSave = hostLifecycleEpoch;
+		try {
+			await persistConfig(next);
+		} catch (error) {
+			app.error(`advisor config save failed: ${errMessage(error)}`);
+			throw new AdvisorOperationError(
+				`Unable to persist Advisor configuration: ${errMessage(error)}`,
+				"The configuration could not be saved. No changes were applied.",
+			);
+		}
+
+		// Saving while disabled changes only the stored options. The epoch guard
+		// prevents an asynchronous callback from resurrecting a stopped plugin.
+		if (!hostWasActiveAtSave || !hostActive || hostLifecycleEpoch !== lifecycleEpochAtSave) {
+			return;
+		}
+
+		try {
+			startManager(next);
+			return;
+		} catch (startError) {
+			app.error(`advisor runtime restart failed: ${errMessage(startError)}`);
+
+			let persistenceRollbackError: unknown;
+			try {
+				await persistConfig(previous);
+			} catch (rollbackError) {
+				persistenceRollbackError = rollbackError;
+				app.error(`advisor config rollback failed: ${errMessage(rollbackError)}`);
+			}
+
+			let runtimeRollbackError: unknown;
+			if (hostActive && hostLifecycleEpoch === lifecycleEpochAtSave) {
+				try {
+					startManager(previous);
+				} catch (rollbackError) {
+					runtimeRollbackError = rollbackError;
+					app.error(`advisor runtime rollback failed: ${errMessage(rollbackError)}`);
+				}
+			}
+
+			if (persistenceRollbackError === undefined && runtimeRollbackError === undefined) {
+				throw new AdvisorOperationError(
+					`Advisor configuration start failed and was rolled back: ${errMessage(startError)}`,
+					"The proposed configuration could not be started, so the previous configuration was restored.",
+				);
+			}
+
+			throw new AdvisorOperationError(
+				`Advisor configuration recovery failed after start error (${errMessage(startError)}); persistence rollback: ${persistenceRollbackError === undefined ? "ok" : errMessage(persistenceRollbackError)}; runtime rollback: ${runtimeRollbackError === undefined ? "ok" : errMessage(runtimeRollbackError)}`,
+				"The proposed configuration could not be started, and the previous configuration could not be fully restored. Check the Signal K server log, then restart the plugin.",
+			);
 		}
 	}
 
@@ -115,20 +236,8 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 	const advisor = new Advisor({
 		buildInventory: () => buildLiveInventory(app),
 		getMetadata,
-		readConfig,
-		writeConfig: (config) => {
-			app.savePluginOptions(config, (err) => {
-				if (err) {
-					app.error(`advisor config save failed: ${errMessage(err)}`);
-					return;
-				}
-				// savePluginOptions only writes the file; the running
-				// PluginManager still holds the previous config. Restart it so
-				// an advisor change takes effect immediately rather than on the
-				// next manual restart.
-				startPlugin(config);
-			});
-		},
+		readConfig: readConfigAuthoritative,
+		updateConfig,
 		// A fresh QuestDBClient per call is fine: a review is user-triggered
 		// or on a multi-day timer, never a hot path, and the client is
 		// stateless.
@@ -152,10 +261,12 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 		() => advisor,
 	);
 
-	function startPlugin(options: unknown, _restartPlugin?: (cfg: object) => void): void {
-		// Tear down any prior instance (and the scheduler) before re-wiring;
-		// the configure() call below re-arms the scheduler from fresh config.
-		stopPlugin();
+	function startManager(options: unknown): void {
+		// Tear down only plugin-owned runtime state. The host-owned delta input
+		// handler remains registered across Advisor restarts and routes through
+		// the pluginManager closure to the replacement instance.
+		stopManager(true);
+		let candidate: PluginManager | null = null;
 		try {
 			// Migrate once and share. PluginManager.start re-runs
 			// migrateLegacyConfig on its input, which is idempotent (and tested as
@@ -165,30 +276,56 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 			// the historical `configuration`-envelope nesting, so the periodic
 			// review would silently never arm even though conversions still emit.
 			const migrated = migrateLegacyConfig(options);
-			pluginManager = new PluginManager(app, plugin, () => nmea2000Ready);
-			pluginManager.start(migrated);
+			candidate = new PluginManager(app, plugin, () => nmea2000Ready, ensureDeltaInputHandler);
+			// Publish the candidate before its synchronous start so the sole factory
+			// readiness listener can reach it if the provider event fires during
+			// startup. JavaScript runs start() without interleaving unrelated deltas.
+			pluginManager = candidate;
+			candidate.start(migrated);
 			const schedule = migrated.advisor?.schedule;
 			advisorScheduler.configure(
 				schedule?.periodic === true,
 				isValidNumber(schedule?.intervalDays) ? schedule.intervalDays : 7,
 			);
 		} catch (error) {
-			const msg = errMessage(error);
-			app.error(`Failed to start plugin: ${msg}`);
-			app.debug(`Full startup error: ${msg}`);
-			// Null out so the next start() does not see a half-initialised
-			// instance: stopPlugin() in that path would call stop() on a
-			// PluginManager that may have partially-wired listeners.
+			advisorScheduler.stop();
 			pluginManager = null;
+			candidate?.stop(true);
+			throw error instanceof Error ? error : new Error(errMessage(error));
+		}
+	}
+
+	function stopManager(suppressStatus = false): void {
+		advisorScheduler.stop();
+		const manager = pluginManager;
+		pluginManager = null;
+		manager?.stop(suppressStatus);
+	}
+
+	function startPlugin(options: unknown, _restartPlugin?: (cfg: object) => void): void {
+		hostActive = true;
+		hostLifecycleEpoch++;
+		try {
+			startManager(options);
+		} catch (error) {
+			// A failed host start is not an active lifecycle. Invalidate the epoch
+			// so an Advisor save cannot mistake the failed attempt for a running
+			// plugin and resurrect a manager behind Signal K's back.
+			hostActive = false;
+			hostLifecycleEpoch++;
+			throw error;
 		}
 	}
 
 	function stopPlugin(): void {
-		advisorScheduler.stop();
-		if (pluginManager) {
-			pluginManager.stop();
-			pluginManager = null;
-		}
+		hostActive = false;
+		hostLifecycleEpoch++;
+		stopManager();
+		// Signal K runs the unregister callback associated with every delta
+		// input handler before invoking plugin.stop(). The next host start must
+		// therefore register a new handler. Manager-only restarts never reach
+		// this path and retain the existing registration.
+		deltaHandlerRegistered = false;
 	}
 
 	return plugin;

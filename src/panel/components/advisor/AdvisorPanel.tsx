@@ -61,6 +61,13 @@ export default function AdvisorPanel({
 
 	const pending = state.result?.pending ?? [];
 	const pendingCount = pending.length;
+	const busy = state.operation !== "idle";
+	const reviewLabel =
+		state.operation === "reviewing"
+			? "Reviewing..."
+			: state.operation === "applying"
+				? "Applying..."
+				: "Review now";
 
 	const handleReview = (): void => {
 		void review();
@@ -76,7 +83,7 @@ export default function AdvisorPanel({
 						optionKey: r.optionKey,
 						approved: true,
 						action: "clear-source",
-						clearSourcePaths: (r.staleSources ?? []).map((s) => s.path),
+						clearSources: (r.staleSources ?? []).map(({ path, pinned }) => ({ path, pinned })),
 					}
 				: {
 						optionKey: r.optionKey,
@@ -114,18 +121,13 @@ export default function AdvisorPanel({
 					or disable. Recommended enables apply automatically unless you turn that off in Advisor
 					settings below; disables always wait for your approval.
 				</p>
-				<button
-					type="button"
-					style={S.btnPrimary}
-					onClick={handleReview}
-					disabled={state.loading || dirty}
-				>
-					{state.loading ? "Reviewing..." : "Review now"}
+				<button type="button" style={S.btnPrimary} onClick={handleReview} disabled={busy || dirty}>
+					{reviewLabel}
 				</button>
 				{dirty && (
 					<p style={S.note}>
 						<span style={S.notePrefix}>Heads up:</span>
-						Save or discard your changes first. A review rewrites the saved configuration.
+						Save or discard your changes first. A review may update the saved configuration.
 					</p>
 				)}
 				{advisorSettingsDirty && (
@@ -145,7 +147,7 @@ export default function AdvisorPanel({
 							metaByKey={metaByKey}
 							onApprove={approveOne}
 							onReject={dismissPending}
-							busy={state.loading}
+							busy={busy}
 						/>
 					</div>
 				)}

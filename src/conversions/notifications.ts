@@ -5,11 +5,11 @@ import {
 	SOURCE_TYPE,
 	VESSELS_SELF_CONTEXT,
 } from "../constants.js";
+import { classifySourceOrigin, SOURCE_ORIGIN } from "../recommendation/busSource.js";
 import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
 import { isDebugEnabled } from "../utils/debugUtils.js";
 import { isClearState } from "../utils/notificationUtils.js";
-import { matchPathPrefix } from "../utils/pathUtils.js";
-import { clampString } from "../utils/validation.js";
+import { matchPathPrefix, pathMatchesPrefix } from "../utils/pathUtils.js";
 
 // Local copy of @signalk/server-api's `hasValues` type guard. Importing it as a
 // value pulls the whole server-api package (FullSignalK, BaconJS) into the
@@ -21,16 +21,24 @@ function hasValues(u: Update): u is Update & { values: PathValue[] } {
 
 interface AlertValue {
 	state: string;
-	message: string;
+	message?: string;
 	alertId?: number;
 	method?: string[];
+	status?: {
+		silenced?: boolean;
+		acknowledged?: boolean;
+		canSilence?: boolean;
+		canAcknowledge?: boolean;
+	};
 }
 
 function isAlertValue(v: unknown): v is AlertValue {
 	if (typeof v !== "object" || v === null) return false;
 	const obj = v as Record<string, unknown>;
-	return typeof obj.state === "string" && typeof obj.message === "string";
+	return typeof obj.state === "string";
 }
+
+type ActiveAlertValue = AlertValue & { message: string };
 
 // Values mirror @canboat/ts-pgns AlertType enum verbatim. Kept inline so the
 // plugin doesn't take a runtime dependency on ts-pgns (which is only a
@@ -67,44 +75,67 @@ function categoryForPath(path: string): string {
 const DEFAULT_ALERT_TYPE = "Caution";
 const DEFAULT_ALERT_PRIORITY = 4;
 const alertSystem = 5;
-// alertId field in PGN 126983/126985 is 16-bit unsigned (RangeMax 65532).
-// MAX_ALERT_ID stays one below the spec max so the canboat encoder never sees
-// the "data not available" sentinel.
-const MAX_ALERT_ID = 65531;
+// Canboat defines the PGN 126983/126985 alertId field as an integer from 0
+// through 65532. Values 65533 through 65535 are reserved sentinels. Preserve
+// upstream zero IDs, but keep locally allocated IDs nonzero.
+const MIN_ALERT_ID = 0;
+const MIN_ALLOCATED_ALERT_ID = 1;
+const MAX_ALERT_ID = 65532;
 // Hard caps so a misbehaving upstream cannot grow plugin state without bound.
-// 256 distinct active notification paths and 256 cached PGN entries cover
-// realistic load (each alarm contributes 2 PGN entries) with safe headroom.
+// 256 distinct active notification paths and 256 cached alert entries cover
+// realistic load. Each cached alert entry contains its status and text PGNs.
 const MAX_TRACKED_PATHS = 256;
-const MAX_PGN_ENTRIES = 256;
+const MAX_CACHED_ALERTS = 256;
 
-// PGN 126985 alertTextDescription is a STRING_LAU field; 200 chars keeps the
-// fast-packet PGN within a single 32-frame set. See clampString for why an
-// unclamped field is fatal to the host process.
-const MAX_ALERT_TEXT_CHARS = 200;
+// CanboatJS writes STRING_LAU with its one-byte ASCII mode and stores the
+// payload length in one byte. Keep alert text printable, single-byte, and
+// within one 200-byte payload budget before it reaches the encoder.
+const MAX_ALERT_TEXT_BYTES = 200;
+const ASCII_SPACE = 0x20;
+const ASCII_PRINTABLE_MAX = 0x7e;
+const ASCII_REPLACEMENT = 0x3f;
 
-// Object param to prevent a transposition trap: the two boolean fields are
-// semantically distinct (one is "acked", the other "still audible") but a
-// positional call site is one swap away from a silent semantic flip.
-function getAlertState({
-	isAcknowledged,
-	hasSound,
-}: {
-	isAcknowledged: boolean;
-	hasSound: boolean;
-}): string {
-	if (isAcknowledged) return "Acknowledged";
-	if (hasSound) return "Active";
-	return "Silenced";
+function sanitizeAlertText(value: string): string {
+	const bytes: number[] = [];
+	for (const character of value) {
+		if (bytes.length >= MAX_ALERT_TEXT_BYTES) break;
+		const codePoint = character.codePointAt(0);
+		if (codePoint !== undefined && codePoint >= ASCII_SPACE && codePoint <= ASCII_PRINTABLE_MAX) {
+			bytes.push(codePoint);
+		} else if (character === "\t" || character === "\n" || character === "\r") {
+			bytes.push(ASCII_SPACE);
+		} else {
+			bytes.push(ASCII_REPLACEMENT);
+		}
+	}
+	return String.fromCharCode(...bytes);
 }
 
-// dataSourceNetworkIdName is the 64-bit ISO NAME of the alert producer (used
-// by an MFD to correlate ack responses back to the source). Stuffing the
-// local 16-bit alertId here misrepresents identity and breaks ack
-// correlation across producers on the same bus. Until the plugin exposes a
-// stable producer NAME, emit 0 (the "no producer NAME" sentinel): MFDs will
-// still display the alert; ack round-tripping via PGN 126984 is already
-// out-of-scope.
-const STABLE_DATA_SOURCE_NETWORK_ID = 0;
+// Object param to prevent a transposition trap: acknowledgement and silence
+// are distinct states, but a positional call site could swap them silently.
+function getAlertState({
+	isAcknowledged,
+	isSilenced,
+}: {
+	isAcknowledged: boolean;
+	isSilenced: boolean;
+}): string {
+	if (isAcknowledged) return "Acknowledged";
+	return isSilenced ? "Silenced" : "Active";
+}
+
+function yesNo(value: boolean): "Yes" | "No" {
+	return value ? "Yes" : "No";
+}
+
+function isValidAlertId(value: unknown): value is number {
+	return (
+		typeof value === "number" &&
+		Number.isInteger(value) &&
+		value >= MIN_ALERT_ID &&
+		value <= MAX_ALERT_ID
+	);
+}
 
 function commonAlertFields(alertId: number, type: string, category: string) {
 	return {
@@ -113,7 +144,8 @@ function commonAlertFields(alertId: number, type: string, category: string) {
 		alertCategory: category,
 		alertSystem,
 		alertSubSystem: 0,
-		dataSourceNetworkIdName: STABLE_DATA_SOURCE_NETWORK_ID,
+		// Omit dataSourceNetworkIdName until the plugin has a stable producer
+		// ISO NAME. Zero would claim a real producer identity rather than N/A.
 		dataSourceInstance: 0,
 		dataSourceIndexSource: 0,
 		alertOccurrenceNumber: 0,
@@ -125,7 +157,7 @@ interface BuildAlertPgnsArgs {
 	type: string;
 	category: string;
 	priority: number;
-	value: AlertValue;
+	value: ActiveAlertValue;
 }
 
 function buildAlertPgns({
@@ -135,10 +167,12 @@ function buildAlertPgns({
 	priority,
 	value,
 }: BuildAlertPgnsArgs): [N2KMessage, N2KMessage] {
-	const method = value.method || [];
-	const isAcknowledged = method.length === 0;
-	const hasSound = method.includes("sound");
-	const state = getAlertState({ isAcknowledged, hasSound });
+	// Signal K status is the only authoritative control state. `method`
+	// describes presentation and cannot prove that an alert was acknowledged
+	// or silenced. Missing canonical flags therefore default safely to false.
+	const isAcknowledged = value.status?.acknowledged === true;
+	const isSilenced = value.status?.silenced === true;
+	const state = getAlertState({ isAcknowledged, isSilenced });
 	const common = commonAlertFields(alertId, type, category);
 	return [
 		{
@@ -148,7 +182,7 @@ function buildAlertPgns({
 			fields: {
 				...common,
 				languageId: "English (US)",
-				alertTextDescription: clampString(value.message, MAX_ALERT_TEXT_CHARS),
+				alertTextDescription: sanitizeAlertText(value.message),
 			},
 		},
 		{
@@ -157,11 +191,12 @@ function buildAlertPgns({
 			dst: N2K_BROADCAST_DST,
 			fields: {
 				...common,
-				temporarySilenceStatus: !isAcknowledged && !hasSound ? "Yes" : "No",
-				acknowledgeStatus: isAcknowledged ? "Yes" : "No",
+				temporarySilenceStatus: yesNo(isSilenced),
+				acknowledgeStatus: yesNo(isAcknowledged),
 				escalationStatus: "No",
-				temporarySilenceSupport: "Yes",
-				acknowledgeSupport: "Yes",
+				// Do not advertise controls until PGN 126984 responses are handled.
+				temporarySilenceSupport: "No",
+				acknowledgeSupport: "No",
 				escalationSupport: "No",
 				triggerCondition: "Auto",
 				thresholdStatus: "Threshold Exceeded",
@@ -170,6 +205,26 @@ function buildAlertPgns({
 			},
 		},
 	];
+}
+
+function buildDeactivationPgn(activeStatus: N2KMessage): N2KMessage {
+	return {
+		...activeStatus,
+		fields: {
+			...activeStatus.fields,
+			temporarySilenceStatus: "No",
+			acknowledgeStatus: "No",
+			escalationStatus: "No",
+			triggerCondition: "Auto",
+			thresholdStatus: "Normal",
+			alertState: "Normal",
+		},
+	};
+}
+
+interface BatchDeactivations {
+	entryStatuses: ReadonlyMap<number, N2KMessage>;
+	pending: Map<number, N2KMessage>;
 }
 
 export default function createNotificationsConversion(
@@ -194,22 +249,82 @@ export default function createNotificationsConversion(
 	// `notifications.*` delta on the vessel (Evinrude alone broadcasts 24
 	// state=normal paths at ~2.4 Hz each), so returning the full PGN cache
 	// on every invocation flooded the bus at ~100 PGN/s per active alert.
-	// Emit only when the payload digest changed (state, ack, silence, etc.)
-	// or MIN_EMIT_INTERVAL_MS has elapsed (1 Hz rebroadcast, matching the
-	// NMEA 2000 guidance for PGN 126983).
+	// Emit immediately when the payload digest changes. Otherwise, repeat an
+	// unchanged alert no more than once per MIN_EMIT_INTERVAL_MS (at most 1 Hz).
 	const emitTracker: Map<number, { lastEmitMs: number; lastDigest: string }> = new Map();
 	const MIN_EMIT_INTERVAL_MS = 1000;
 	const EMPTY_EMIT: N2KMessage[] = [];
 	let excludePrefixes: string[] = [];
 
+	function sourceIsAccepted(deltaUpdate: Update, getSourceMetadata: () => unknown): boolean {
+		const sourceRef = typeof deltaUpdate.$source === "string" ? deltaUpdate.$source : "";
+		if (
+			sourceRef === plugin.id ||
+			sourceRef.startsWith(`${plugin.id}.`) ||
+			(deltaUpdate.source?.type === "plugin" && deltaUpdate.source.label === plugin.id)
+		) {
+			return false;
+		}
+		let origin = classifySourceOrigin(sourceRef, deltaUpdate.source);
+		if (origin === SOURCE_ORIGIN.UNKNOWN) {
+			origin = classifySourceOrigin(sourceRef, undefined, getSourceMetadata());
+		}
+		return origin !== SOURCE_ORIGIN.NMEA2000;
+	}
+
+	function pathIsAccepted(path: string): boolean {
+		return (
+			path.startsWith("notifications.") &&
+			!pathMatchesPrefix(path, "notifications.nmea") &&
+			!excludePrefixes.some((prefix) => pathMatchesPrefix(path, prefix))
+		);
+	}
+
+	function valueIsAccepted(value: unknown): boolean {
+		if (value === null) return true;
+		if (!isAlertValue(value)) return false;
+		return isClearState(value.state) || typeof value.message === "string";
+	}
+
+	function deltaIsAccepted(candidate: unknown): boolean {
+		if (typeof candidate !== "object" || candidate === null) return false;
+		const delta = candidate as Delta;
+		if (!Array.isArray(delta.updates) || delta.updates.length === 0) return false;
+		let sourceMetadataLoaded = false;
+		let sourceMetadata: unknown;
+		const getSourceMetadata = () => {
+			if (!sourceMetadataLoaded) {
+				sourceMetadata = app.getPath?.("sources");
+				sourceMetadataLoaded = true;
+			}
+			return sourceMetadata;
+		};
+
+		for (const deltaUpdate of delta.updates) {
+			if (!hasValues(deltaUpdate) || deltaUpdate.values.length === 0) continue;
+			if (!sourceIsAccepted(deltaUpdate, getSourceMetadata)) continue;
+			for (const update of deltaUpdate.values) {
+				if (
+					update &&
+					typeof update.path === "string" &&
+					pathIsAccepted(update.path) &&
+					valueIsAccepted(update.value)
+				) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
 	function setAlertPgns(alertId: number, pgns: [N2KMessage, N2KMessage]): void {
 		pgnsByAlertId.set(alertId, { pgns, digest: JSON.stringify(pgns) });
 	}
 
-	function evictOldestIfOverCap(): void {
-		if (pgnsByAlertId.size <= MAX_PGN_ENTRIES) return;
+	function evictOldestIfOverCap(deactivations: BatchDeactivations): void {
+		if (pgnsByAlertId.size <= MAX_CACHED_ALERTS) return;
 		const firstKey = pgnsByAlertId.keys().next().value;
-		if (firstKey !== undefined) releaseAlertId(firstKey);
+		if (firstKey !== undefined) releaseAlertId(firstKey, deactivations);
 	}
 
 	function buildEmitList(): N2KMessage[] {
@@ -229,19 +344,25 @@ export default function createNotificationsConversion(
 	}
 
 	function allocateAlertId(): number | undefined {
-		for (let i = 0; i < MAX_ALERT_ID; i++) {
-			const candidate = ((nextAlertIdHint - 1 + i) % MAX_ALERT_ID) + 1;
+		const allocationCount = MAX_ALERT_ID - MIN_ALLOCATED_ALERT_ID + 1;
+		for (let i = 0; i < allocationCount; i++) {
+			const candidate =
+				((nextAlertIdHint - MIN_ALLOCATED_ALERT_ID + i) % allocationCount) + MIN_ALLOCATED_ALERT_ID;
 			if (!usedAlertIds.has(candidate)) {
 				usedAlertIds.add(candidate);
-				nextAlertIdHint = candidate + 1;
+				nextAlertIdHint = candidate === MAX_ALERT_ID ? MIN_ALLOCATED_ALERT_ID : candidate + 1;
 				return candidate;
 			}
 		}
 		return undefined;
 	}
 
-	function releaseAlertId(alertId: number): void {
+	function releaseAlertId(alertId: number, deactivations: BatchDeactivations): void {
+		const entryStatus = deactivations.entryStatuses.get(alertId);
 		const path = alertIdToPath.get(alertId);
+		if (entryStatus !== undefined && !deactivations.pending.has(alertId)) {
+			deactivations.pending.set(alertId, buildDeactivationPgn(entryStatus));
+		}
 		if (path !== undefined) ids.delete(path);
 		alertIdToPath.delete(alertId);
 		usedAlertIds.delete(alertId);
@@ -257,13 +378,48 @@ export default function createNotificationsConversion(
 	// can never be cleared) and corrupts the reverse map (alertIdToPath for
 	// the old id still points at the path, so a later releaseAlertId(oldId)
 	// would delete the NEW path binding).
-	function bindAlertId(path: string, alertId: number): void {
+	function bindAlertId(path: string, alertId: number, deactivations: BatchDeactivations): void {
 		const previous = ids.get(path);
 		if (previous === alertId) return;
-		if (previous !== undefined) releaseAlertId(previous);
+		if (previous !== undefined) releaseAlertId(previous, deactivations);
+		const previousPath = alertIdToPath.get(alertId);
+		if (previousPath !== undefined && previousPath !== path) {
+			releaseAlertId(alertId, deactivations);
+		}
 		usedAlertIds.add(alertId);
 		ids.set(path, alertId);
 		alertIdToPath.set(alertId, path);
+	}
+
+	function releasePath(path: string, deactivations: BatchDeactivations): void {
+		const alertId = ids.get(path);
+		if (alertId !== undefined) releaseAlertId(alertId, deactivations);
+	}
+
+	function resolveAlertId(
+		path: string,
+		rawAlertId: unknown,
+	): { alertId: number | undefined; publishAssignedId: boolean } {
+		const current = ids.get(path);
+		if (isValidAlertId(rawAlertId)) {
+			const owner = alertIdToPath.get(rawAlertId);
+			if (owner === undefined || owner === path) {
+				return { alertId: rawAlertId, publishAssignedId: false };
+			}
+			// Alert IDs identify one alert for this producer. Do not evict another
+			// active path when an upstream emits a duplicate ID.
+			app.debug(
+				`Notifications: alertId ${rawAlertId} is already assigned to ${owner}; assigning a different ID to ${path}`,
+			);
+		}
+
+		if (current !== undefined) {
+			return {
+				alertId: current,
+				publishAssignedId: rawAlertId !== undefined,
+			};
+		}
+		return { alertId: allocateAlertId(), publishAssignedId: true };
 	}
 
 	function resetState(): void {
@@ -282,6 +438,7 @@ export default function createNotificationsConversion(
 		keys: ["notifications.*"],
 		context: VESSELS_SELF_CONTEXT,
 		sourceType: SOURCE_TYPE.SUBSCRIPTION,
+		acceptsInput: (delta: unknown) => deltaIsAccepted(delta),
 		onOptionsLoaded: (options) => {
 			const raw = typeof options.excludePaths === "string" ? options.excludePaths : "";
 			excludePrefixes = raw
@@ -297,119 +454,123 @@ export default function createNotificationsConversion(
 		},
 		callback: (delta: Delta): N2KMessage[] => {
 			if (!delta?.updates || !Array.isArray(delta.updates) || delta.updates.length === 0) {
-				return [];
+				return EMPTY_EMIT;
 			}
 
-			const firstUpdate = delta.updates[0];
-			if (!firstUpdate || !hasValues(firstUpdate) || firstUpdate.values.length === 0) {
-				return [];
+			// Snapshot receiver-visible alert states before processing the batch.
+			// Only those IDs need terminal frames. Intermediate IDs created and
+			// removed inside this callback were never emitted to the bus.
+			const entryStatuses = new Map<number, N2KMessage>();
+			for (const [alertId, entry] of pgnsByAlertId) {
+				entryStatuses.set(alertId, entry.pgns[1]);
 			}
-
-			// Skip our own re-emitted delta (see one-shot publish below).
-			if (firstUpdate.source?.label === plugin.id) {
-				return buildEmitList();
-			}
-
-			const update = firstUpdate.values[0];
-			if (!update) {
-				return [];
-			}
-
-			if (!isAlertValue(update.value)) {
-				return buildEmitList();
-			}
-			const value = update.value;
-
-			if (update.path.includes("notifications.nmea")) {
-				return buildEmitList();
-			}
-
-			if (
-				excludePrefixes.length > 0 &&
-				excludePrefixes.some((prefix) => update.path.startsWith(prefix))
-			) {
-				return buildEmitList();
-			}
-
-			const category = categoryForPath(update.path);
-			const type = alertTypes[value.state] ?? DEFAULT_ALERT_TYPE;
-			const priority = alertPriorities[value.state] ?? DEFAULT_ALERT_PRIORITY;
-			if (alertTypes[value.state] === undefined && !isClearState(value.state)) {
-				app.debug(
-					`Unknown notification state "${value.state}" on ${update.path}; emitting as Caution`,
-				);
-			}
-
-			if (typeof value.alertId === "number") {
-				const alertId = value.alertId;
-				app.debug(`Using existing alertId ${alertId} for ${update.path}`);
-
-				if (isClearState(value.state)) {
-					releaseAlertId(alertId);
-					return buildEmitList();
+			const assignedValues = new Map<string, PathValue>();
+			const deactivations: BatchDeactivations = {
+				entryStatuses,
+				pending: new Map<number, N2KMessage>(),
+			};
+			let sawSafeValue = false;
+			let sourceMetadataLoaded = false;
+			let sourceMetadata: unknown;
+			const getSourceMetadata = () => {
+				if (!sourceMetadataLoaded) {
+					sourceMetadata = app.getPath?.("sources");
+					sourceMetadataLoaded = true;
 				}
+				return sourceMetadata;
+			};
 
-				// Register the upstream-supplied id in the allocation pool and the
-				// path maps. Without this, allocateAlertId() (which only skips ids
-				// in usedAlertIds) could later hand the same number to a different
-				// path and silently overwrite this alert's cached PGNs. nextAlertIdHint
-				// starts at 1 and providers commonly use alertId 1, so the collision
-				// is reachable on the first auto-allocated alert. bindAlertId no-ops
-				// on the common path where the same id arrives on every delta.
-				bindAlertId(update.path, alertId);
+			for (const deltaUpdate of delta.updates) {
+				if (!hasValues(deltaUpdate) || deltaUpdate.values.length === 0) continue;
+				// Skip both our one-shot alertId delta and NMEA-origin notifications.
+				// The runtime normally filters the latter before this callback, but
+				// keeping the conversion safe in isolation protects direct callers.
+				if (!sourceIsAccepted(deltaUpdate, getSourceMetadata)) continue;
 
-				setAlertPgns(alertId, buildAlertPgns({ alertId, type, category, priority, value }));
-				evictOldestIfOverCap();
-				return buildEmitList();
-			}
+				for (const update of deltaUpdate.values) {
+					if (!update || typeof update.path !== "string") continue;
+					if (!pathIsAccepted(update.path)) continue;
+					if (!valueIsAccepted(update.value)) {
+						assignedValues.delete(update.path);
+						continue;
+					}
+					sawSafeValue = true;
 
-			const existing = ids.get(update.path);
-			let alertId: number;
-			let firstAllocation = false;
-			if (existing !== undefined) {
-				alertId = existing;
-				app.debug(`Assigning existing alertId ${alertId} to ${update.path}`);
-			} else {
-				const allocated = allocateAlertId();
-				if (allocated === undefined) {
-					app.error(
-						`Notifications: alertId pool exhausted (${MAX_ALERT_ID} active); dropping ${update.path}`,
+					// Signal K uses value:null to remove a notification. Clear by path
+					// because a removal delta carries no alertId payload.
+					if (update.value === null) {
+						assignedValues.delete(update.path);
+						releasePath(update.path, deactivations);
+						continue;
+					}
+					if (!isAlertValue(update.value)) continue;
+					const value = update.value;
+
+					if (isClearState(value.state)) {
+						assignedValues.delete(update.path);
+						// The path binding is authoritative. A mismatched upstream alertId
+						// must never clear another path that owns that ID.
+						releasePath(update.path, deactivations);
+						continue;
+					}
+					if (typeof value.message !== "string") continue;
+
+					const category = categoryForPath(update.path);
+					const type = alertTypes[value.state] ?? DEFAULT_ALERT_TYPE;
+					const priority = alertPriorities[value.state] ?? DEFAULT_ALERT_PRIORITY;
+					if (alertTypes[value.state] === undefined) {
+						app.debug(
+							`Unknown notification state "${value.state}" on ${update.path}; emitting as Caution`,
+						);
+					}
+
+					const resolved = resolveAlertId(update.path, value.alertId);
+					const alertId = resolved.alertId;
+					if (alertId === undefined) {
+						app.error(
+							`Notifications: alertId pool exhausted (${MAX_ALERT_ID} active); dropping ${update.path}`,
+						);
+						assignedValues.delete(update.path);
+						continue;
+					}
+
+					bindAlertId(update.path, alertId, deactivations);
+					setAlertPgns(
+						alertId,
+						buildAlertPgns({ alertId, type, category, priority, value: value as ActiveAlertValue }),
 					);
-					return buildEmitList();
-				}
-				alertId = allocated;
-				bindAlertId(update.path, alertId);
-				firstAllocation = true;
-				app.debug(`Assigning new alertId ${alertId} to ${update.path}`);
-				// Evict the oldest tracked path so a misbehaving stream that
-				// fires warnings without ever normalising cannot grow `ids`
-				// unbounded. releaseAlertId handles the ids cleanup via
-				// alertIdToPath.
-				if (ids.size > MAX_TRACKED_PATHS) {
-					const oldest = ids.keys().next().value;
-					if (oldest !== undefined) {
-						const oldestId = ids.get(oldest);
-						if (oldestId !== undefined) releaseAlertId(oldestId);
+					evictOldestIfOverCap(deactivations);
+
+					if (ids.size > MAX_TRACKED_PATHS) {
+						const oldestPath = ids.keys().next().value;
+						const oldestId = oldestPath === undefined ? undefined : ids.get(oldestPath);
+						if (oldestId !== undefined) releaseAlertId(oldestId, deactivations);
+					}
+
+					const pendingAssignment = assignedValues.has(update.path);
+					const incomingCarriesResolvedId =
+						isValidAlertId(value.alertId) && value.alertId === alertId;
+					if (resolved.publishAssignedId || (pendingAssignment && !incomingCarriesResolvedId)) {
+						assignedValues.delete(update.path);
+						assignedValues.set(update.path, {
+							path: update.path,
+							value: {
+								...value,
+								alertType: type,
+								alertCategory: category,
+								alertSystem,
+								alertId,
+							},
+						});
+					} else {
+						assignedValues.delete(update.path);
 					}
 				}
 			}
 
-			// notificationApi bounce-backs strip our alertId, so a release
-			// can land here on path #2 with a clear state.
-			if (isClearState(value.state)) {
-				releaseAlertId(alertId);
-				return buildEmitList();
-			}
-
-			setAlertPgns(alertId, buildAlertPgns({ alertId, type, category, priority, value }));
-			evictOldestIfOverCap();
-
-			// One-shot publish of the assigned alertId. signalk-server's
-			// notificationApi strips notifications.* values from our re-emit
-			// (our delta lacks the notificationId field it uses for its own
-			// messages) and rebroadcasts under `notificationApi` without
-			// alertId. Re-emitting on every update would ping-pong.
-			if (firstAllocation) {
+			// Publish all newly assigned ids in one delta so a batched input does
+			// not recursively generate one Signal K update per value.
+			if (assignedValues.size > 0) {
 				const modifiedDelta: Partial<Delta> = {
 					...(delta.context !== undefined && { context: delta.context }),
 					updates: [
@@ -417,29 +578,23 @@ export default function createNotificationsConversion(
 							source: { label: plugin.id, type: "plugin" },
 							$source: plugin.id as SourceRef,
 							timestamp: new Date().toISOString() as Timestamp,
-							values: [
-								{
-									path: update.path,
-									value: {
-										...value,
-										alertType: type,
-										alertCategory: category,
-										alertSystem,
-										alertId,
-									},
-								},
-							],
+							values: [...assignedValues.values()],
 						},
 					],
 				};
-
 				if (isDebugEnabled(app)) {
-					app.debug(`New delta with alertId: ${JSON.stringify(modifiedDelta)}`);
+					app.debug(`New delta with alertIds: ${JSON.stringify(modifiedDelta)}`);
 				}
 				app.handleMessage(plugin.id, modifiedDelta);
 			}
 
-			return buildEmitList();
+			if (!sawSafeValue) return EMPTY_EMIT;
+			// The same producer alert ID still active at batch end supersedes any
+			// earlier clear for that ID. Terminals for different entry IDs remain.
+			for (const alertId of pgnsByAlertId.keys()) {
+				deactivations.pending.delete(alertId);
+			}
+			return [...deactivations.pending.values(), ...buildEmitList()];
 		},
 		tests: [
 			{
@@ -473,7 +628,6 @@ export default function createNotificationsConversion(
 							alertSystem: 5,
 							alertSubSystem: 0,
 							alertId: 1,
-							dataSourceNetworkIdName: 0,
 							dataSourceInstance: 0,
 							dataSourceIndexSource: 0,
 							alertOccurrenceNumber: 0,
@@ -491,31 +645,26 @@ export default function createNotificationsConversion(
 							alertSystem: 5,
 							alertSubSystem: 0,
 							alertId: 1,
-							dataSourceNetworkIdName: 0,
 							dataSourceInstance: 0,
 							dataSourceIndexSource: 0,
 							alertOccurrenceNumber: 0,
 							temporarySilenceStatus: "No",
-							acknowledgeStatus: "Yes",
+							acknowledgeStatus: "No",
 							escalationStatus: "No",
-							temporarySilenceSupport: "Yes",
-							acknowledgeSupport: "Yes",
+							temporarySilenceSupport: "No",
+							acknowledgeSupport: "No",
 							escalationSupport: "No",
 							triggerCondition: "Auto",
 							thresholdStatus: "Threshold Exceeded",
 							alertPriority: 4,
-							alertState: "Acknowledged",
+							alertState: "Active",
 						},
 					},
 				],
 			},
 			{
-				// Regression: clear the explicit-alertId alert set above so it does
-				// not linger across cases. With the external alertId now registered
-				// in usedAlertIds it cannot be reused by a later auto-allocation, so
-				// without this clear id 1 would survive and the 1 Hz rebroadcast gate
-				// could re-emit it in a later case on a slow run. Clearing keeps the
-				// embedded sequence deterministic.
+				// A receiver needs one terminal Alert frame before local cache state
+				// is released, otherwise it can retain the prior active indication.
 				input: [
 					{
 						context: "vessels.urn:mrn:imo:mmsi:367301250",
@@ -535,7 +684,33 @@ export default function createNotificationsConversion(
 						],
 					},
 				],
-				expected: [],
+				expected: [
+					{
+						prio: 2,
+						pgn: 126983,
+						dst: 255,
+						fields: {
+							alertType: "Caution",
+							alertCategory: "Technical",
+							alertSystem: 5,
+							alertSubSystem: 0,
+							alertId: 1,
+							dataSourceInstance: 0,
+							dataSourceIndexSource: 0,
+							alertOccurrenceNumber: 0,
+							temporarySilenceStatus: "No",
+							acknowledgeStatus: "No",
+							escalationStatus: "No",
+							temporarySilenceSupport: "No",
+							acknowledgeSupport: "No",
+							escalationSupport: "No",
+							triggerCondition: "Auto",
+							thresholdStatus: "Normal",
+							alertPriority: 4,
+							alertState: "Normal",
+						},
+					},
+				],
 			},
 			{
 				// Regression: "nominal" is a valid non-alert Signal K state. It
@@ -562,8 +737,8 @@ export default function createNotificationsConversion(
 				expected: [],
 			},
 			{
-				// Regression: an over-long message is clamped before it reaches
-				// PGN 126985's STRING_LAU field (see MAX_ALERT_TEXT_CHARS).
+				// Regression: an over-long message is sanitized and byte-capped before
+				// it reaches PGN 126985's STRING_LAU field.
 				input: [
 					{
 						context: "vessels.urn:mrn:imo:mmsi:367301250",
@@ -594,7 +769,6 @@ export default function createNotificationsConversion(
 							alertSystem: 5,
 							alertSubSystem: 0,
 							alertId: 7,
-							dataSourceNetworkIdName: 0,
 							dataSourceInstance: 0,
 							dataSourceIndexSource: 0,
 							alertOccurrenceNumber: 0,
@@ -612,20 +786,19 @@ export default function createNotificationsConversion(
 							alertSystem: 5,
 							alertSubSystem: 0,
 							alertId: 7,
-							dataSourceNetworkIdName: 0,
 							dataSourceInstance: 0,
 							dataSourceIndexSource: 0,
 							alertOccurrenceNumber: 0,
 							temporarySilenceStatus: "No",
-							acknowledgeStatus: "Yes",
+							acknowledgeStatus: "No",
 							escalationStatus: "No",
-							temporarySilenceSupport: "Yes",
-							acknowledgeSupport: "Yes",
+							temporarySilenceSupport: "No",
+							acknowledgeSupport: "No",
 							escalationSupport: "No",
 							triggerCondition: "Auto",
 							thresholdStatus: "Threshold Exceeded",
 							alertPriority: 2,
-							alertState: "Acknowledged",
+							alertState: "Active",
 						},
 					},
 				],

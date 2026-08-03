@@ -165,7 +165,7 @@ describe("PluginManager.getStatusSnapshot", () => {
 				};
 				options: { resend: number };
 			}>;
-			dispatchDelta: (delta: unknown) => void;
+			handleDeltaInput: (delta: unknown) => void;
 		};
 
 		for (const callback of callbacks) {
@@ -180,7 +180,7 @@ describe("PluginManager.getStatusSnapshot", () => {
 					options: { resend: 0 },
 				},
 			];
-			internal.dispatchDelta({ updates: [{ values: [{ path: "unrelated", value: true }] }] });
+			internal.handleDeltaInput({ updates: [{ values: [{ path: "unrelated", value: true }] }] });
 		}
 		await Promise.resolve();
 		await Promise.resolve();

@@ -31,15 +31,20 @@ export function subIndexKey(parent: string, idx: number): string {
 	return `${parent}[${idx}]`;
 }
 
-// First-prefix-match lookup. Iterates `table` in order and returns the value
-// paired with the first prefix that `path.startsWith`. List longer/more
-// specific prefixes earlier to control precedence.
+/** Return true when `path` is exactly `prefix` or a dotted descendant. */
+export function pathMatchesPrefix(path: string, prefix: string): boolean {
+	return path === prefix || path.startsWith(`${prefix}.`);
+}
+
+// First segment-prefix-match lookup. Iterates `table` in order and returns the
+// value paired with the first exact path or dotted descendant match. List
+// longer/more-specific prefixes earlier to control precedence.
 export function matchPathPrefix<T>(
 	path: string,
 	table: ReadonlyArray<readonly [prefix: string, value: T]>,
 ): T | undefined {
 	for (const [prefix, value] of table) {
-		if (path.startsWith(prefix)) return value;
+		if (pathMatchesPrefix(path, prefix)) return value;
 	}
 	return undefined;
 }

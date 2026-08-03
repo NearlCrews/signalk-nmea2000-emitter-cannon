@@ -14,12 +14,23 @@ export const MAX_TANK_INSTANCE = 13;
 // value that encodes as real data. A user-typed instance above this would wrap
 // into the sentinel range. (Raymarine displays only render instances 0-9.)
 export const MAX_N2K_INSTANCE = 252;
+// Unsigned PGN 130306 wind speed uses 0.01 m/s resolution. Raw values
+// 65533-65535 are reserved or unavailable, so 655.32 is the largest real value.
+export const MAX_WIND_SPEED_MPS = 655.32;
+// PGN 129539 DOP fields are signed 16-bit values at 0.01 resolution. Although
+// the wire type is signed to reserve sentinel values, physical DOP is nonnegative.
+export const MAX_N2K_DOP = 327.64;
 export const DEFAULT_DATA_TIMEOUT_MS = 10000;
 // 1-minute freshness window for slow-cadence data sources where the
 // data-path is expected to update much less often than the 10s default.
 // Used by battery/solar/tank gauges, route metadata, and nav notification
 // freshness windows that ride alongside per-key 10s data timeouts.
 export const SLOW_DATA_TIMEOUT_MS = 60000;
+// signalk-virtual-weather-sensors can rebroadcast cached weather as slowly as
+// every 60 seconds. Allow two full configured intervals plus scheduler jitter
+// before forecast wind expires, while still removing it after the producer
+// stops. Live masthead and heading inputs retain the 10-second default.
+export const WEATHER_DATA_TIMEOUT_MS = 125000;
 export const DEFAULT_GLOBAL_RESEND_SECONDS = 5;
 // Emit cadence for "static" PGNs (PGN 127498 engine identity). 60s keeps the
 // value present on the bus for MFDs that drop entries after a few minutes of

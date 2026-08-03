@@ -7,6 +7,63 @@ function conversion(enabled: boolean, extras: Record<string, unknown>): Conversi
 }
 
 describe("configuration validation", () => {
+	it("blocks competing apparent and true-wind display producers", () => {
+		const issues = validateConfig({
+			conversions: {
+				WIND: conversion(true, {}),
+				WIND_WEATHER_APPARENT: conversion(true, {}),
+				WIND_TRUE: conversion(true, {}),
+				WIND_WEATHER_TRUE: conversion(true, {}),
+			},
+		});
+
+		expect(issues).toEqual([
+			expect.objectContaining({
+				severity: "error",
+				conversionKey: "WIND_WEATHER_APPARENT",
+				field: "enabled",
+			}),
+			expect.objectContaining({
+				severity: "error",
+				conversionKey: "WIND_WEATHER_TRUE",
+				field: "enabled",
+			}),
+		]);
+	});
+
+	it("accepts the two forecast compatibility producers together", () => {
+		const issues = validateConfig({
+			conversions: {
+				WIND: conversion(false, {}),
+				WIND_WEATHER_APPARENT: conversion(true, {}),
+				WIND_TRUE: conversion(false, {}),
+				WIND_WEATHER_TRUE: conversion(true, {}),
+			},
+		});
+
+		expect(issues).toEqual([]);
+	});
+
+	it.each([
+		["WIND", "WIND_WEATHER_TRUE"],
+		["WIND_TRUE", "WIND_WEATHER_APPARENT"],
+	])("blocks cross-reference real and forecast producers: %s with %s", (real, forecast) => {
+		const issues = validateConfig({
+			conversions: {
+				[real]: conversion(true, {}),
+				[forecast]: conversion(true, {}),
+			},
+		});
+
+		expect(issues).toEqual([
+			expect.objectContaining({
+				severity: "error",
+				conversionKey: forecast,
+				field: "enabled",
+			}),
+		]);
+	});
+
 	it("blocks an enabled factory conversion without a mapping", () => {
 		const issues = validateConfig({
 			conversions: { BATTERY: conversion(true, {}) },

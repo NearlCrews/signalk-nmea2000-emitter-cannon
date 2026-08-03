@@ -6,8 +6,8 @@ We actively support the following versions with security updates:
 
 | Version | Supported |
 | ------- | --------- |
-| 1.9.x   | Yes       |
-| < 1.9   | No        |
+| 1.10.x  | Yes       |
+| < 1.10  | No        |
 
 ## Reporting a Vulnerability
 
@@ -79,7 +79,7 @@ When using this plugin:
 
 This project uses:
 
-- `npm run audit` for runtime and development dependency scanning
+- `npm run audit` for separate runtime and policy-aware full dependency scans
 - Automated dependency updates for security patches
 - A fail-closed exception for the documented development-only canboatjs
   advisory chain

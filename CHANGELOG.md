@@ -5,13 +5,91 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+<a id="v1105"></a>
+
+## [1.10.5] - 2026-08-02
+
+### Changed
+
+- The configuration panel now bundles `signalk-nearlcrews-ui` 0.6.1. Fresh
+  profiles follow the Signal K host through Auto theme, explicit preferences use
+  the shared storage key, and the footer uses the current directional sticky
+  action-bar contract. The panel component budget moves from 40 kB to 46 kB
+  brotlied for the bundled shared-UI upgrade, while the plugin and federation
+  runtime budgets remain unchanged.
+- Production plugin builds now use esbuild's syntax and whitespace minimization
+  to keep the expanded safety checks within the existing bundle budget without
+  obscuring identifiers. Panel builds use size-oriented internal export names
+  and function hoisting while preserving the public Module Federation contract.
+- Compatible development dependencies are refreshed, including Biome,
+  Playwright, Axe, Size Limit, Knip, Dependency Cruiser, React type definitions,
+  Webpack, its minimizer, and Webpack CLI. TypeScript stays on 6.0.3 because the
+  current typed-lint toolchain does not support TypeScript 7.
+- Workflow validation now enforces full action commit pins and release
+  invariants locally. GitHub Actions also runs actionlint and zizmor, release
+  jobs disable package-manager caching, checkout credentials are not persisted,
+  Dependabot updates observe a seven-day cooldown, and CodeQL scans every
+  change to `main`, pull request, and weekly scheduled run.
+- The dependency audit now exposes separate runtime and policy-aware full-audit
+  commands. The combined `audit` command runs both gates, and portfolio tooling
+  can verify their coverage directly.
+
 ### Fixed
 
+- The panel no longer reads the retired `skn-theme` key, which could pin a
+  fresh installation instead of following the host theme. Browser verification
+  now proves the Auto default and checks both initial and edited mobile states
+  with Axe.
 - `WIND_WEATHER_TRUE` now accepts `navigation.headingTrue` from an NMEA 2000
-  sensor, including a Garmin GPS24xd, as a supporting input when deriving
-  boat-referenced true wind. The echo guard remains active for received wind
-  inputs, so the conversion can emit PGN 130306 without retransmitting bus
-  wind data.
+  sensor, including a Garmin GPS24xd, as a supporting input when deriving the
+  relative forecast-wind angle. It now emits the `True (water referenced)` PGN
+  130306 form used by the tested ECHOMAP UHD2 setup. Garmin does not document
+  enum-specific display behavior, so results remain model- and firmware-specific.
+  The echo guard remains active for received wind inputs.
+- Live wind and Direction Data inputs now expire after ten seconds. Forecast
+  wind direction and speed use a 125-second window that accommodates a
+  60-second weather rebroadcast cadence, while the live heading used by
+  `WIND_WEATHER_TRUE` still expires after ten seconds. Resend ticks enforce the
+  same per-input freshness windows. Configuration validation and runtime startup
+  also prevent real and forecast producers from competing for the same apparent
+  or true-wind display data on PGN 130306.
+- Source filtering and NMEA 2000 echo protection now apply to subscription and
+  whole-delta conversions, honor canonical `$source` values, preserve safe
+  values in mixed-source deltas, and support narrowly allowed upstream PGNs.
+  This restores safe NMEA 2000 inputs for Vessel Trip and Direction Data without
+  allowing their own output PGNs to loop.
+- AIS relays now reject bus-origin updates identified only by `$source` while
+  retaining non-bus updates from the same delta. Per-field freshness prevents
+  stale navigation or static details from being paired with a new position,
+  protocol states follow the current Signal K schema, and an allow-listed,
+  bounded cache prevents unrelated vessel data from growing retained state.
+- Standard alerts now use canonical status fields, safe control-capability
+  flags, printable bounded text, collision-safe IDs, and terminal clear frames.
+  Raymarine alarms now recognize current waypoint-arrival paths, aggregate all
+  source-and-path contributors into one SeaTalk wire identity, retain alarms
+  until the final contributor clears, and time-gate terminal clear retries.
+- Config Advisor saves now propagate asynchronous failures, preserve unapplied
+  recommendations after a failed save, serialize concurrent changes, restore
+  saved and running configuration after a failed restart, and never start a
+  disabled or failed plugin. Canonical and legacy dotless publisher pins can
+  both be detected, changed, and cleared. Source-clear approvals are bound to
+  the complete reviewed path and publisher set, so stale or partial approvals
+  cannot remove a newer source choice. Slow parked-result responses can no
+  longer restore an already-applied recommendation in the panel.
+- Enabled factory conversions that produce no runnable mappings now report a
+  configuration error instead of counting as active. Startup failures are
+  returned to the plugin lifecycle, periodic Advisor scheduling starts only
+  after conversion startup succeeds, and host-managed delta handlers and NMEA
+  readiness listeners now survive plugin and Advisor restart boundaries without
+  leaking, duplicating, or processing before Signal K updates its model.
+  Asynchronous conversion callbacks also stop without emitting or arming resend
+  timers when their manager is retired while they are in flight.
+- PGN 126464 now broadcasts once at startup before continuing on its five-minute
+  interval. Its transmit list contains only plugin-owned PGNs because Signal K's
+  output-ready event does not prove which transport-layer capabilities the
+  provider owns. GNSS DOP output derives VDOP from valid HDOP and PDOP,
+  suppresses unusable PDOP-only frames, and no longer re-emits cached satellite
+  detail when only the scalar satellite count changes.
 - Repository CI and npm publishing now invoke the pinned npm 12 CLI without
   replacing setup-node's bundled npm installation, which prevents incomplete
   in-place npm upgrades on Node 22 runners.

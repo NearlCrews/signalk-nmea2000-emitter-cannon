@@ -87,8 +87,8 @@ export default function createTanksConversion(_app: SignalKApp): ConversionModul
 								fields: {
 									instance: tank.instanceId,
 									type: tank.type,
-									level: level !== null ? level * 100 : null,
-									capacity: cap !== null ? cap * 1000 : null,
+									...(level === null ? {} : { level: level * 100 }),
+									...(cap === null ? {} : { capacity: cap * 1000 }),
 								},
 							},
 						];
@@ -107,6 +107,28 @@ export default function createTanksConversion(_app: SignalKApp): ConversionModul
 										level: 35,
 										capacity: 12,
 									},
+								},
+							],
+						},
+						{
+							input: [0.35, null],
+							expected: [
+								{
+									prio: 2,
+									pgn: 127505,
+									dst: 255,
+									fields: { instance: 1, type: "Fuel", level: 35 },
+								},
+							],
+						},
+						{
+							input: [null, 0.012],
+							expected: [
+								{
+									prio: 2,
+									pgn: 127505,
+									dst: 255,
+									fields: { instance: 1, type: "Fuel", capacity: 12 },
 								},
 							],
 						},

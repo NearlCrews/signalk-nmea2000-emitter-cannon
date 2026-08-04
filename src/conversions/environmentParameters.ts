@@ -3,14 +3,18 @@ import {
 	resolveSourceOption,
 	TEMPERATURE_SOURCE_VALUES,
 } from "../config/environmentSources.js";
-import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, N2K_SID_ZERO } from "../constants.js";
+import {
+	MAX_PRESSURE_PA,
+	N2K_BROADCAST_DST,
+	N2K_DEFAULT_PRIORITY,
+	N2K_SID_ZERO,
+} from "../constants.js";
 import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
 import { toFiniteInRange, toRelativeHumidityPercent } from "../utils/validation.js";
 
 const DEFAULT_TEMPERATURE_SOURCE = "Outside Temperature";
 const DEFAULT_HUMIDITY_SOURCE = "Outside";
 const MAX_TEMPERATURE_K = 655.32;
-const MAX_PRESSURE_PA = 6_553_200;
 const ENVIRONMENT_PATHS = [
 	"environment.outside.temperature",
 	"environment.outside.relativeHumidity",

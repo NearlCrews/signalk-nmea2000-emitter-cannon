@@ -42,6 +42,11 @@ describe("Humidity overrides", () => {
 		expect(msg.fields.instance).toBe(100);
 	});
 
+	it("falls back to the default source for an unknown stored enum", () => {
+		const msg = emit("HUMIDITY_OUTSIDE", { n2kSource: "Damp" }, [0.6]);
+		expect(msg.fields.source).toBe("Outside");
+	});
+
 	it("clamps an out-of-range instance into the encodable uint8 data range", () => {
 		expect(emit("HUMIDITY_INSIDE", { instance: 300 }, [0.5]).fields.instance).toBe(252);
 		expect(emit("HUMIDITY_INSIDE", { instance: -5 }, [0.5]).fields.instance).toBe(0);

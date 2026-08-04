@@ -76,12 +76,15 @@ export function resolveInstanceAndSource(
 	options: unknown,
 	defaultInstance: number,
 	defaultSource: string,
+	allowedSources: readonly string[],
 ): { instance: number; source: string } {
 	const o = (options ?? {}) as { instance?: unknown; n2kSource?: unknown };
 	const rawInstance = isValidNumber(o.instance) ? o.instance : defaultInstance;
 	const instance = clamp(Math.trunc(rawInstance), 0, MAX_N2K_INSTANCE);
 	const source =
-		typeof o.n2kSource === "string" && o.n2kSource.trim() !== "" ? o.n2kSource : defaultSource;
+		typeof o.n2kSource === "string" && allowedSources.includes(o.n2kSource)
+			? o.n2kSource
+			: defaultSource;
 	return { instance, source };
 }
 

@@ -5,6 +5,30 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+<a id="v1106"></a>
+
+## [1.10.6] - 2026-08-04
+
+### Fixed
+
+- Standalone atmospheric-pressure output now rejects values above the PGN
+  130314 wire ceiling instead of allowing Canboat to truncate them.
+- Hand-edited or migrated temperature and humidity source overrides now fall
+  back to each conversion's default when the stored value is not a valid
+  Canboat enum.
+- Partial tank messages now omit unavailable numeric fields consistently while
+  retaining their NMEA 2000 not-available encoding.
+- README references to repository-only documents now remain useful in the
+  Signal K App Store and npm package views.
+
+### Changed
+
+- The configuration panel now bundles `signalk-nearlcrews-ui` 0.6.2.
+- Coverage floors now enforce 90 percent lines, 80 percent branches, and 90
+  percent functions while retaining the independently measured 85 percent
+  statement floor.
+- Refreshed compatible development dependencies.
+
 <a id="v1105"></a>
 
 ## [1.10.5] - 2026-08-02

@@ -16,24 +16,20 @@ reviewed against model-specific chartplotter receive lists.
 > Built on the foundation of [`signalk-to-nmea2000`](https://github.com/SignalK/signalk-to-nmea2000)
 > by Scott Bender and the Signal K community.
 
-## What's new in 1.10.5
+## What's new in 1.10.6
 
-- **Safer wind compatibility output.** Forecast wind now accepts a fresh true
-  heading as a supporting input, uses the tested water-referenced form, and
-  keeps separate freshness windows for live and forecast data.
-- **Stronger source and echo protection.** Subscription, whole-delta, AIS,
-  alert, and alarm paths consistently reject unsafe bus-origin data while
-  preserving valid mixed-source updates.
-- **More reliable lifecycle and Advisor behavior.** Failed saves and restarts
-  recover cleanly, concurrent changes are serialized, stale responses cannot
-  restore applied recommendations, and retired managers stop asynchronous work.
+- **Safer environmental output.** Standalone pressure now enforces the same
+  wire ceiling as the combined environmental conversion, and stored
+  temperature and humidity source overrides fall back when they are not valid
+  Canboat enums.
+- **Clear partial tank frames.** Tank output now omits unavailable numeric
+  fields while preserving the NMEA 2000 not-available encoding.
+- **Stronger release floors.** Coverage now enforces 90 percent lines, 80
+  percent branches, and 90 percent functions.
 - **Current shared UI and toolchain.** The panel bundles
-  `signalk-nearlcrews-ui` 0.6.1, follows the host theme through Auto by default,
-  and adds Axe, actionlint, zizmor, dependency, package, and workflow checks to
-  the release gate.
+  `signalk-nearlcrews-ui` 0.6.2, and compatible development tools are refreshed.
 
-See the [v1.10.5 changelog entry](CHANGELOG.md#v1105) and the
-[full release history](CHANGELOG.md).
+See the v1.10.6 changelog entry and full release history in `CHANGELOG.md`.
 
 ## What it does
 
@@ -194,18 +190,18 @@ settings and provide PGN 127489 or 127497 for fuel consumption, plus PGN
 129026 with GNSS for distance to empty. Enable `ENGINE_PARAMETERS` or
 `ENGINE_TRIP`, plus `COG_SOG`, when this plugin must provide those supporting
 messages. Other chartplotters have model- and firmware-specific requirements.
-See the [PGN reference](docs/pgn-reference.md#engine-and-propulsion) for the
+See the PGN reference in `docs/pgn-reference.md` for the
 calculation, freshness behavior, limitations, and current compatibility notes.
 
 ## Documentation
 
-- [PGN reference](docs/pgn-reference.md): all 61 plugin PGNs, conversion
+- PGN reference in `docs/pgn-reference.md`: all 61 plugin PGNs, conversion
   modules, bus-layer PGNs, and chartplotter guidance
-- [Troubleshooting](docs/troubleshooting.md)
-- [Development guide](docs/development.md)
-- [Changelog](CHANGELOG.md)
-- [Contributing](.github/CONTRIBUTING.md)
-- [Security policy](.github/SECURITY.md)
+- Troubleshooting in `docs/troubleshooting.md`
+- Development guide in `docs/development.md`
+- Changelog in `CHANGELOG.md`
+- [Contributing](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/blob/main/.github/CONTRIBUTING.md)
+- [Security policy](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/blob/main/.github/SECURITY.md)
 
 ## Development
 
@@ -233,11 +229,11 @@ npm run verify       # local full verification gate
 The repository-owned pre-commit hook runs formatting, lint, architecture, and
 dead-code gates. The pre-push hook runs `npm run verify` serially. Run
 `npm run verify:release` before preparing a release.
-See the [development guide](docs/development.md) for the full workflow.
+See `docs/development.md` for the full workflow.
 
 ## License
 
-Apache-2.0: see [LICENSE](LICENSE) for the full text. The software is
+Apache-2.0: see the `LICENSE` file for the full text. The software is
 provided "AS IS", without warranty of any kind. Data this plugin places on
 the NMEA 2000 bus is advisory: always carry independent means of navigation
 and verify against your primary instruments.
@@ -266,4 +262,4 @@ Find this plugin useful? You can support its continued development by
 
 - [Report a bug](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/issues/new?template=bug_report.yml)
 - [Request a feature](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/issues/new?template=feature_request.yml)
-- [Security issues](.github/SECURITY.md)
+- [Security issues](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/blob/main/.github/SECURITY.md)

@@ -98,6 +98,11 @@ describe("Temperature sources", () => {
 		expect(msg.fields.source).toBe("Inside Temperature");
 	});
 
+	it("falls back to the default source for an unknown stored enum", () => {
+		const msg = emit("TEMPERATURE2_REFRIGERATOR", { n2kSource: "Sea-ish" });
+		expect(msg.fields.source).toBe("Refrigeration Temperature");
+	});
+
 	it("clamps an out-of-range instance into the encodable uint8 data range", () => {
 		expect(emit("TEMPERATURE2_INSIDE", { instance: 300 }).fields.instance).toBe(252);
 		expect(emit("TEMPERATURE2_INSIDE", { instance: -5 }).fields.instance).toBe(0);

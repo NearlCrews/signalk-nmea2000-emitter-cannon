@@ -1,3 +1,4 @@
+import { HUMIDITY_SOURCE_VALUES } from "../config/environmentSources.js";
 import { raymarinePresetsFor } from "../config/raymarinePreset.js";
 import {
 	N2K_BROADCAST_DST,
@@ -38,6 +39,7 @@ function expectHumidity(
 			testOptions,
 			N2K_DEFAULT_INSTANCE,
 			defaultSource,
+			HUMIDITY_SOURCE_VALUES,
 		);
 		return {
 			prio: 2,
@@ -69,6 +71,7 @@ export default function createHumidityConversions(_app: SignalKApp): ConversionM
 					options,
 					N2K_DEFAULT_INSTANCE,
 					"Outside",
+					HUMIDITY_SOURCE_VALUES,
 				);
 				return [
 					{
@@ -112,6 +115,7 @@ export default function createHumidityConversions(_app: SignalKApp): ConversionM
 					options,
 					N2K_DEFAULT_INSTANCE,
 					"Inside",
+					HUMIDITY_SOURCE_VALUES,
 				);
 				return [
 					{

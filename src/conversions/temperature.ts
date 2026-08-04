@@ -1,5 +1,6 @@
 import {
 	TEMPERATURE_DEFINITIONS,
+	TEMPERATURE_SOURCE_VALUES,
 	type TemperatureDefinition,
 } from "../config/environmentSources.js";
 import { raymarinePresetsFor } from "../config/raymarinePreset.js";
@@ -53,7 +54,12 @@ function makeTemperatureConversion(
 		testOptions: [{ instance: 0 }, {}, { instance: 5, n2kSource: "Inside Temperature" }],
 
 		conversions: (options: unknown) => {
-			const { instance, source } = resolveInstanceAndSource(options, info.instance, info.n2kSource);
+			const { instance, source } = resolveInstanceAndSource(
+				options,
+				info.instance,
+				info.n2kSource,
+				TEMPERATURE_SOURCE_VALUES,
+			);
 
 			return [
 				{
@@ -74,6 +80,7 @@ function makeTemperatureConversion(
 										testOptions,
 										info.instance,
 										info.n2kSource,
+										TEMPERATURE_SOURCE_VALUES,
 									);
 									return createTemperatureMessage(pgn, tempFieldName, 281.2, i, s);
 								},

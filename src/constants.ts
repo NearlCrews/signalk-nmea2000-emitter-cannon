@@ -17,6 +17,8 @@ export const MAX_N2K_INSTANCE = 252;
 // Unsigned PGN 130306 wind speed uses 0.01 m/s resolution. Raw values
 // 65533-65535 are reserved or unavailable, so 655.32 is the largest real value.
 export const MAX_WIND_SPEED_MPS = 655.32;
+/** PGN 130311 and 130314 unsigned pressure ceiling at 100 Pa resolution. */
+export const MAX_PRESSURE_PA = 6_553_200;
 // PGN 129539 DOP fields are signed 16-bit values at 0.01 resolution. Although
 // the wire type is signed to reserve sentinel values, physical DOP is nonnegative.
 export const MAX_N2K_DOP = 327.64;

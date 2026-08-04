@@ -1,11 +1,12 @@
 import {
+	MAX_PRESSURE_PA,
 	N2K_BROADCAST_DST,
 	N2K_DEFAULT_INSTANCE,
 	N2K_DEFAULT_PRIORITY,
 	N2K_SID_ZERO,
 } from "../constants.js";
 import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
-import { isValidNumber } from "../utils/validation.js";
+import { toFiniteInRange } from "../utils/validation.js";
 
 function createPressureMessage(pressure: number, source: string): N2KMessage[] {
 	return [
@@ -32,10 +33,11 @@ export default function createPressureConversions(_app: SignalKApp): ConversionM
 			presets: ["environmental"],
 			keys: ["environment.outside.pressure"],
 			callback: (pressure: unknown): N2KMessage[] => {
-				if (!isValidNumber(pressure)) {
+				const atmosphericPressure = toFiniteInRange(pressure, 0, MAX_PRESSURE_PA);
+				if (atmosphericPressure === undefined) {
 					return [];
 				}
-				return createPressureMessage(pressure, "Atmospheric");
+				return createPressureMessage(atmosphericPressure, "Atmospheric");
 			},
 
 			tests: [
@@ -86,6 +88,10 @@ export default function createPressureConversions(_app: SignalKApp): ConversionM
 							},
 						},
 					],
+				},
+				{
+					input: [MAX_PRESSURE_PA + 1],
+					expected: [],
 				},
 			],
 		},

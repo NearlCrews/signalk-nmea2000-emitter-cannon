@@ -531,8 +531,10 @@ try {
 		throw new Error("mapping table scroll region was not keyboard focusable");
 	}
 	const refreshAssets = page.getByRole("button", { name: "Refresh path inventory" });
-	await refreshAssets.click();
-	await page.getByText("Refreshing Signal K server path inventory...", { exact: true }).waitFor();
+	await Promise.all([
+		page.getByText("Refreshing Signal K server path inventory...", { exact: true }).waitFor(),
+		refreshAssets.click(),
+	]);
 	await page.getByRole("button", { name: "Retry path inventory" }).waitFor();
 	await page.getByText(/Signal K server path inventory unavailable: HTTP 503/).waitFor();
 	await page.getByRole("button", { name: "Retry path inventory" }).click();

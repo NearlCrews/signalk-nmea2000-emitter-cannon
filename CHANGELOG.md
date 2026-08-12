@@ -12,9 +12,10 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- The panel targets `signalk-nearlcrews-ui` 0.7.0, uses its shared relative-age
+- The panel targets `signalk-nearlcrews-ui` 0.7.1, uses its shared relative-age
   formatter, docks save actions to the viewport when needed, and consumes
-  React and React DOM as host-provided Module Federation singletons.
+  React and React DOM at `^19.2.0` as host-provided Module Federation
+  singletons.
 - Save and discard actions now report that the host request was issued and
   move focus to the stable completion message.
 - Compatible dependencies and workflow checks are refreshed, Vitest loads its

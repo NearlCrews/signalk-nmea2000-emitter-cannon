@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { normalizePackReport } from "./package-report.mjs";
 
-const EXPECTED_SHARED_UI_VERSION = "0.7.0";
+const EXPECTED_SHARED_UI_VERSION = "0.7.1";
 const npm = process.env.npm_execpath ?? (process.platform === "win32" ? "npm.cmd" : "npm");
 const command = npm.endsWith(".js") ? process.execPath : npm;
 const commandArgs = npm.endsWith(".js")

@@ -5,7 +5,7 @@ import React from "react";
 import * as ReactDOM from "react-dom";
 import { renderToStaticMarkup } from "react-dom/server";
 
-const EXPECTED_SHARED_UI_VERSION = "0.7.0";
+const EXPECTED_SHARED_UI_VERSION = "0.7.1";
 const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 const manifestSharedUiVersion = packageJson.devDependencies?.["signalk-nearlcrews-ui"];
 if (manifestSharedUiVersion !== EXPECTED_SHARED_UI_VERSION) {
@@ -121,22 +121,20 @@ const require = createRequire(import.meta.url);
 const webpackConfig = require("../webpack.config.cjs");
 const federation = webpackConfig.plugins.find((plugin) => plugin?.options?.shared !== undefined);
 const shared = federation?.options?.shared;
+const sharedRequests = Object.keys(shared ?? {}).sort();
+if (sharedRequests.length !== 2 || sharedRequests.join(",") !== "react,react-dom") {
+	throw new Error("the panel share map must contain only react and react-dom");
+}
 for (const request of ["react", "react-dom"]) {
 	const entry = shared?.[request];
 	if (
 		entry?.singleton !== true ||
 		entry?.import !== false ||
-		entry?.requiredVersion !== ">=19.2.0 <20.0.0"
+		entry?.requiredVersion !== "^19.2.0"
 	) {
 		throw new Error(`${request} must be configured as an exact host-provided singleton share`);
 	}
 }
-if (shared?.["signalk-nearlcrews-ui"] !== undefined) {
-	throw new Error(
-		"signalk-nearlcrews-ui must stay bundled rather than entering the host share scope",
-	);
-}
-
 const combinedSource = bundles.map(({ source }) => source).join("\n");
 for (const marker of [
 	"__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE",

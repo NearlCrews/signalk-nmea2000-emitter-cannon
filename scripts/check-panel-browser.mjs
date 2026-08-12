@@ -8,7 +8,7 @@ const repositoryDir = new URL("../", import.meta.url);
 const publicDir = new URL("../public/", import.meta.url);
 const pluginPrefix = "/plugins/signalk-nmea2000-emitter-cannon/";
 const updateScreenshots = process.argv.includes("--update-screenshots");
-const EXPECTED_SHARED_UI_VERSION = "0.7.0";
+const EXPECTED_SHARED_UI_VERSION = "0.7.1";
 const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 const manifestSharedUiVersion = packageJson.devDependencies?.["signalk-nearlcrews-ui"];
 if (manifestSharedUiVersion !== EXPECTED_SHARED_UI_VERSION) {
@@ -279,7 +279,7 @@ const shareEntry = (module, version) => ({
     loaded: true,
     from: "panel-browser-check",
     eager: true,
-    shareConfig: { singleton: true, requiredVersion: ">=19.2.0 <20.0.0" },
+    shareConfig: { singleton: true, requiredVersion: "^19.2.0" },
   },
 });
 await container.init({

@@ -1,6 +1,6 @@
 {
 	"name": "signalk-nmea2000-emitter-cannon",
-	"version": "1.10.6",
+	"version": "1.10.7",
 	"description": "Signal K plugin that converts Signal K deltas to Canboat-validated NMEA 2000 PGNs",
 	"type": "commonjs",
 	"main": "dist/index.mjs",

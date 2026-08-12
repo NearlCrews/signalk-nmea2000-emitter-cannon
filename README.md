@@ -16,20 +16,21 @@ reviewed against model-specific chartplotter receive lists.
 > Built on the foundation of [`signalk-to-nmea2000`](https://github.com/SignalK/signalk-to-nmea2000)
 > by Scott Bender and the Signal K community.
 
-## What's new in 1.10.6
+## What's new in 1.10.7
 
-- **Safer environmental output.** Standalone pressure now enforces the same
-  wire ceiling as the combined environmental conversion, and stored
-  temperature and humidity source overrides fall back when they are not valid
-  Canboat enums.
-- **Clear partial tank frames.** Tank output now omits unavailable numeric
-  fields while preserving the NMEA 2000 not-available encoding.
-- **Stronger release floors.** Coverage now enforces 90 percent lines, 80
-  percent branches, and 90 percent functions.
-- **Current shared UI and toolchain.** The panel bundles
-  `signalk-nearlcrews-ui` 0.6.2, and compatible development tools are refreshed.
+- **Forward-compatible configuration.** Configuration migrations and Advisor
+  saves preserve unknown top-level and per-conversion keys.
+- **Current shared panel UI.** The panel bundles `signalk-nearlcrews-ui` 0.7.1,
+  uses the shared relative-age formatter, and docks save actions when needed.
+- **Clear save feedback and fallback guidance.** Save and discard actions move
+  focus to a stable completion message, and unsupported browsers receive a
+  direct explanation of the missing native CSS capability.
+- **Verified, reliable release checks.** Refreshed packaging verifies each
+  tarball's source commit, while browser checks isolate explicit requests from
+  automatic polling and await scheduled focus transitions.
 
-See the v1.10.6 changelog entry and full release history in `CHANGELOG.md`.
+See the [v1.10.7 changelog entry](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/blob/main/CHANGELOG.md#v1107)
+and [full release history](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/blob/main/CHANGELOG.md).
 
 ## What it does
 

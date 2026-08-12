@@ -5,6 +5,10 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+<a id="v1107"></a>
+
+## [1.10.7] - 2026-08-12
+
 ### Added
 
 - The configuration panel now explains when its required native CSS scope
@@ -18,14 +22,17 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   singletons.
 - Save and discard actions now report that the host request was issued and
   move focus to the stable completion message.
-- Compatible dependencies and workflow checks are refreshed, Vitest loads its
-  configuration as native ESM, and release tarballs verify their source commit
-  through npm `gitHead` metadata.
+- Compatible dependencies, release metadata, and workflow checks are refreshed,
+  Vitest loads its configuration as native ESM, and release tarballs verify
+  their source commit through npm `gitHead` metadata.
 
 ### Fixed
 
 - Configuration migrations and Advisor saves preserve unknown top-level and
   per-conversion keys for forward-compatible round trips.
+- Browser release checks now isolate explicit refresh and retry assertions from
+  automatic polling and wait for scheduled focus transitions, avoiding timing
+  races in CI.
 
 <a id="v1106"></a>
 
@@ -1614,3 +1621,6 @@ This plugin builds upon the excellent foundation of [signalk-to-nmea2000](https:
 - **Fast Development** - Watch mode compilation with instant feedback
 - **Comprehensive Documentation** - Self-documenting code with type definitions
 - **Future-Proof** - Built with latest standards for long-term maintainability
+
+[Unreleased]: https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/compare/v1.10.7...HEAD
+[1.10.7]: https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/compare/v1.10.6...v1.10.7

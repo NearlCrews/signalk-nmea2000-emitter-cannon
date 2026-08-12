@@ -90,6 +90,7 @@ jobs:
             if [ "$ACTUAL_GIT_HEAD" = "$EXPECTED_GIT_HEAD" ]; then
               exit 0
             fi
+            echo "Waiting for registry metadata (attempt ${attempt}/12)." >&2
             sleep 5
           done
           echo "Published gitHead ($ACTUAL_GIT_HEAD) does not match release commit ($EXPECTED_GIT_HEAD)." >&2

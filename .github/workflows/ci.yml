@@ -33,3 +33,19 @@ jobs:
       - run: npx --yes npm@12.0.1 ci
       - run: npx playwright install --with-deps chromium
       - run: npx --yes npm@12.0.1 run verify:release
+
+  ci-status:
+    name: CI Status
+    if: always()
+    needs: [verify]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Confirm the verification matrix passed
+        env:
+          VERIFY_RESULT: ${{ needs.verify.result }}
+        run: |
+          if [[ "$VERIFY_RESULT" != "success" ]]; then
+            echo "Verification matrix result: $VERIFY_RESULT"
+            exit 1
+          fi

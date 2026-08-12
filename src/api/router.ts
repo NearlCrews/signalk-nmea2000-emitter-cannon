@@ -1,4 +1,5 @@
-import type { IRouter, Request, Response } from "express";
+import type { PluginRouter } from "@signalk/server-api";
+import type { Request, Response } from "express";
 import { type Advisor, AdvisorOperationError } from "../advisor/advisor.js";
 import type { PluginManager } from "../plugin-manager.js";
 import type { SignalKApp } from "../types/index.js";
@@ -92,7 +93,7 @@ export function createApiRouter(
 	getManager: () => PluginManager | null,
 	getMetadata: () => ConversionMetadata[],
 	getAdvisor: () => Advisor | null,
-): (router: IRouter) => void {
+): (router: PluginRouter) => void {
 	return (router) => {
 		router.get("/api/status", (_req: Request, res: Response) => {
 			const pm = getManager();

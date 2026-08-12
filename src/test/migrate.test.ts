@@ -14,6 +14,21 @@ describe("migrateLegacyConfig", () => {
 		expect(migrateLegacyConfig(already)).toEqual(already);
 	});
 
+	it("preserves unknown keys in current nested configurations", () => {
+		const futureEntry = { enabled: true, resend: 0, sources: {}, extras: {}, futureMode: "eco" };
+		const out = migrateLegacyConfig({
+			globalResendInterval: 30,
+			futurePluginSetting: { enabled: true },
+			conversions: { WIND: futureEntry },
+		}) as unknown as {
+			futurePluginSetting: unknown;
+			conversions: Record<string, Record<string, unknown>>;
+		};
+
+		expect(out.futurePluginSetting).toEqual({ enabled: true });
+		expect(out.conversions.WIND?.futureMode).toBe("eco");
+	});
+
 	it("preserves globalResendInterval at the root", () => {
 		const legacy = {
 			globalResendInterval: 45,

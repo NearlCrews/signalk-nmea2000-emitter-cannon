@@ -72,7 +72,7 @@ export default function PresetChips({ onApply, meta }: Props): React.ReactElemen
 
 	const handleApply = (p: PresetTag): void => {
 		onApply(p);
-		const text = `Enabled ${plural(countByPreset[p], "conversion")}, not yet saved.`;
+		const text = `Enabled ${plural(countByPreset[p], "conversion")}, not yet sent to Signal K.`;
 		setAnnounce((prev) => ({ text, seq: prev.seq + 1 }));
 	};
 

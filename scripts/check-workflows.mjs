@@ -27,7 +27,15 @@ if (!pluginCi.includes("SignalK/signalk-server/.github/workflows/plugin-ci.yml@"
 }
 
 const publish = await readFile(".github/workflows/publish.yml", "utf8");
-for (const expected of ["--provenance --access public", "name: npm-package", "needs: build"]) {
+for (const expected of [
+	"--provenance --access public",
+	"name: npm-package",
+	"needs: build",
+	"npm@12.0.2",
+	"pack:release",
+	"Verify registry source commit",
+	"gitHead",
+]) {
 	if (!publish.includes(expected)) {
 		failures.push(`publish.yml must retain ${expected}.`);
 	}

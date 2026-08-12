@@ -1,4 +1,4 @@
-import type { IRouter } from "express";
+import type { PluginRouter } from "@signalk/server-api";
 import express from "express";
 import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -13,6 +13,15 @@ import type { SignalKApp } from "../types/index.js";
 // the literal through this type instead of `as unknown as PluginManager`
 // with embedded `as never` casts, so the structural shape is checked.
 type MockPluginManager = Pick<PluginManager, "getStatusSnapshot" | "getConversionMetadata">;
+
+/** A current Signal K Admin router whose directly registered routes remain admin-only. */
+function createAdminPluginRouter(): PluginRouter {
+	const router = express.Router() as PluginRouter;
+	router.access = (): never => {
+		throw new Error("an admin-only API route unexpectedly requested a lower access level");
+	};
+	return router;
+}
 
 // Mirrors index.ts: the catalog comes from the running manager when present,
 // else from a manager-free source (an empty list stands in for the standalone
@@ -29,7 +38,7 @@ function mountRouter(
 	getMetadata: () => ReturnType<PluginManager["getConversionMetadata"]> = metadataFromPm(getPm),
 ): express.Express {
 	const expressApp = express();
-	const router: IRouter = express.Router();
+	const router = createAdminPluginRouter();
 	createApiRouter(app, getPm, getMetadata, () => null)(router);
 	expressApp.use("/plugins/signalk-nmea2000-emitter-cannon", router);
 	return expressApp;
@@ -42,7 +51,7 @@ function mountRouterWithAdvisor(
 ): express.Express {
 	const expressApp = express();
 	expressApp.use(express.json());
-	const router: IRouter = express.Router();
+	const router = createAdminPluginRouter();
 	createApiRouter(app, getPm, metadataFromPm(getPm), getAdvisor as never)(router);
 	expressApp.use("/plugins/signalk-nmea2000-emitter-cannon", router);
 	return expressApp;
@@ -240,7 +249,7 @@ describe("API router", () => {
 		expect(() => plugin.start({}, vi.fn())).toThrow("forced startup failure");
 
 		const expressApp = express();
-		const router: IRouter = express.Router();
+		const router = createAdminPluginRouter();
 		expect(plugin.registerWithRouter).toBeDefined();
 		plugin.registerWithRouter?.(router);
 		expressApp.use("/plugins/signalk-nmea2000-emitter-cannon", router);
@@ -289,7 +298,7 @@ describe("API router", () => {
 		const plugin = createPlugin(app);
 		const expressApp = express();
 		expressApp.use(express.json());
-		const router: IRouter = express.Router();
+		const router = createAdminPluginRouter();
 		plugin.registerWithRouter?.(router);
 		expressApp.use("/plugins/signalk-nmea2000-emitter-cannon", router);
 
@@ -346,7 +355,7 @@ describe("API router", () => {
 
 		const expressApp = express();
 		expressApp.use(express.json());
-		const router: IRouter = express.Router();
+		const router = createAdminPluginRouter();
 		plugin.registerWithRouter?.(router);
 		expressApp.use("/plugins/signalk-nmea2000-emitter-cannon", router);
 		const response = await request(expressApp).post(
@@ -375,7 +384,7 @@ describe("API router", () => {
 		const plugin = createPlugin(app);
 		const expressApp = express();
 		expressApp.use(express.json());
-		const router: IRouter = express.Router();
+		const router = createAdminPluginRouter();
 		plugin.registerWithRouter?.(router);
 		expressApp.use("/plugins/signalk-nmea2000-emitter-cannon", router);
 
@@ -396,7 +405,7 @@ describe("API router", () => {
 		plugin.start(transactional.getStored(), vi.fn());
 		const expressApp = express();
 		expressApp.use(express.json());
-		const router: IRouter = express.Router();
+		const router = createAdminPluginRouter();
 		plugin.registerWithRouter?.(router);
 		expressApp.use("/plugins/signalk-nmea2000-emitter-cannon", router);
 
@@ -426,7 +435,7 @@ describe("API router", () => {
 		plugin.start(transactional.getStored(), vi.fn());
 		const expressApp = express();
 		expressApp.use(express.json());
-		const router: IRouter = express.Router();
+		const router = createAdminPluginRouter();
 		plugin.registerWithRouter?.(router);
 		expressApp.use("/plugins/signalk-nmea2000-emitter-cannon", router);
 

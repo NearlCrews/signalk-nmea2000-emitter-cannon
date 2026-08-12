@@ -126,7 +126,7 @@ export const CONVERSION_STYLES = {
 		background: "var(--skn-surface-raised)",
 		boxSizing: "border-box",
 		color: "var(--skn-text-muted)",
-		fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+		fontFamily: "var(--snui-font-family-mono)",
 		width: "100%",
 	},
 	fieldHelp: {

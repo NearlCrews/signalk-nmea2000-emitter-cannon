@@ -287,4 +287,20 @@ describe("mergeExternalConfig three-way merge", () => {
 		expect(mergeExternalConfig(base, ours, theirs).advisor).toBe(oursAdvisor);
 		expect(mergeExternalConfig(base, base, theirs).advisor).toBe(theirsAdvisor);
 	});
+
+	it("adopts unknown top-level settings from the newest external configuration", () => {
+		const base = {
+			globalResendInterval: 0,
+			conversions: {},
+			futurePluginSetting: { mode: "old" },
+		} as Config;
+		const theirs = {
+			globalResendInterval: 0,
+			conversions: {},
+			futurePluginSetting: { mode: "new" },
+		} as Config;
+
+		const merged = mergeExternalConfig(base, base, theirs) as unknown as Record<string, unknown>;
+		expect(merged.futurePluginSetting).toEqual({ mode: "new" });
+	});
 });

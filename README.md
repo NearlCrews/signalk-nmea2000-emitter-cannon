@@ -70,7 +70,9 @@ priorities follow the current stable Canboat 7.1 database. It pairs well with se
   single-open inline editor, a compact sticky toolbar carrying catalog search
   and live status, category tabs with per-category Enable all and Disable all,
   preset chips, a first-run setup wizard, and shared `signalk-nearlcrews-ui`
-  controls with Auto, Light, Dark, and red-preserving Night themes
+  controls with Auto, System, Light, Dark, and red-preserving Night themes.
+  Auto follows an explicit host theme and otherwise uses Light, while System
+  follows the operating-system color scheme.
 - **NMEA 2000 echo guards** that use authoritative source metadata to reject
   known bus-origin input instead of re-emitting it onto the same bus. Unknown
   origins remain compatible, a numeric publisher suffix alone is not treated
@@ -205,12 +207,14 @@ calculation, freshness behavior, limitations, and current compatibility notes.
 
 ## Development
 
-The published plugin and development toolchain require Node 22.22.2 or newer.
-The repository pins Node 22.22.2 and npm 12.0.1, while CI verifies on the
-minimum Node release and current Node 24.
+The published plugin requires Node 22.22.2 or newer. Source builds support Node
+22 from 22.22.2, Node 24 from 24.15.0, and Node 26. The repository pins Node
+22.22.2 and npm 12.0.2, while CI verifies on the minimum Node release and the
+current Node 24 release.
 CanboatJS and `@canboat/ts-pgns` are exercised in the test suite and are not
 runtime dependencies. `signalk-nearlcrews-ui` is bundled into the panel as a
-pinned development dependency, while React remains supplied by Signal K Admin.
+pinned development dependency, while React and React DOM are supplied by Signal
+K Admin.
 
 ```bash
 git clone https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon.git

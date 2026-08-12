@@ -5,6 +5,27 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- The configuration panel now explains when its required native CSS scope
+  support is unavailable.
+
+### Changed
+
+- The panel targets `signalk-nearlcrews-ui` 0.7.0, uses its shared relative-age
+  formatter, docks save actions to the viewport when needed, and consumes
+  React and React DOM as host-provided Module Federation singletons.
+- Save and discard actions now report that the host request was issued and
+  move focus to the stable completion message.
+- Compatible dependencies and workflow checks are refreshed, Vitest loads its
+  configuration as native ESM, and release tarballs verify their source commit
+  through npm `gitHead` metadata.
+
+### Fixed
+
+- Configuration migrations and Advisor saves preserve unknown top-level and
+  per-conversion keys for forward-compatible round trips.
+
 <a id="v1106"></a>
 
 ## [1.10.6] - 2026-08-04

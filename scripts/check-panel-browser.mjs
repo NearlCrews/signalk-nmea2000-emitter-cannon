@@ -8,10 +8,25 @@ const repositoryDir = new URL("../", import.meta.url);
 const publicDir = new URL("../public/", import.meta.url);
 const pluginPrefix = "/plugins/signalk-nmea2000-emitter-cannon/";
 const updateScreenshots = process.argv.includes("--update-screenshots");
+const EXPECTED_SHARED_UI_VERSION = "0.7.0";
 const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
-const sharedUiVersion = packageJson.devDependencies?.["signalk-nearlcrews-ui"];
-if (typeof sharedUiVersion !== "string" || !/^\d+\.\d+\.\d+$/.test(sharedUiVersion)) {
-	throw new Error("signalk-nearlcrews-ui must be pinned to an exact version");
+const manifestSharedUiVersion = packageJson.devDependencies?.["signalk-nearlcrews-ui"];
+if (manifestSharedUiVersion !== EXPECTED_SHARED_UI_VERSION) {
+	throw new Error(
+		`signalk-nearlcrews-ui must be pinned to exact version ${EXPECTED_SHARED_UI_VERSION}`,
+	);
+}
+const sharedUiPackageJson = JSON.parse(
+	readFileSync(
+		new URL("../node_modules/signalk-nearlcrews-ui/package.json", import.meta.url),
+		"utf8",
+	),
+);
+const sharedUiVersion = sharedUiPackageJson.version;
+if (sharedUiVersion !== manifestSharedUiVersion) {
+	throw new Error(
+		`installed signalk-nearlcrews-ui ${String(sharedUiVersion)} does not match package.json ${manifestSharedUiVersion}`,
+	);
 }
 const sharedUiRootSelector = `[data-snui-version="${sharedUiVersion}"]`;
 const vesselTripDescription =
@@ -158,6 +173,7 @@ const meta = (await loadConversionCatalog()).map((entry) => testMetaByKey.get(en
 
 const configuration = {
 	globalResendInterval: 5,
+	futurePluginSetting: { enabled: true, strategy: "coastal" },
 	conversions: {
 		BATTERY: {
 			enabled: true,
@@ -252,6 +268,7 @@ const screenshotConfiguration = {
 
 const hostSource = `
 import React from "react";
+import * as ReactDOM from "react-dom";
 import { createRoot } from "react-dom/client";
 
 const container = globalThis.signalk_nmea2000_emitter_cannon;
@@ -265,7 +282,10 @@ const shareEntry = (module, version) => ({
     shareConfig: { singleton: true, requiredVersion: ">=19.2.0 <20.0.0" },
   },
 });
-await container.init({ react: shareEntry(React, React.version) });
+await container.init({
+  react: shareEntry(React, React.version),
+  "react-dom": shareEntry(ReactDOM, ReactDOM.version),
+});
 const factory = await container.get("./PluginConfigurationPanel");
 const Panel = factory().default;
 createRoot(document.getElementById("root")).render(
@@ -638,6 +658,7 @@ try {
 		throw new Error("publisher lookup retry did not issue a request");
 
 	for (const [label, value] of [
+		["System", "system"],
 		["Light", "light"],
 		["Dark", "dark"],
 		["Night", "night"],
@@ -707,11 +728,23 @@ try {
 	}
 	await engineInput.fill("port");
 	await page.getByRole("button", { name: "Save", exact: true }).click();
+	await page.getByText("Save requested", { exact: true }).waitFor();
+	await page.locator('[data-panel-action-bar] [tabindex="-1"]').evaluate((element) => {
+		if (document.activeElement !== element) {
+			throw new Error("save completion status did not receive focus");
+		}
+	});
 	const saveResult = await page.evaluate(() => ({
 		count: globalThis.__panelSaveCount,
 		configuration: globalThis.__panelSavedConfiguration,
 	}));
 	if (saveResult.count !== 1) throw new Error(`expected one save, got ${saveResult.count ?? 0}`);
+	if (
+		JSON.stringify(saveResult.configuration?.futurePluginSetting) !==
+		JSON.stringify(configuration.futurePluginSetting)
+	) {
+		throw new Error("unknown top-level configuration was not preserved through Save");
+	}
 	const savedAc = saveResult.configuration?.conversions?.AC_STATUS?.extras?.acSources;
 	const savedBatteries = saveResult.configuration?.conversions?.BATTERY?.extras?.batteries;
 	if (savedBatteries?.length !== 1 || savedBatteries[0]?.signalkId !== "fomleMonitor-second") {
@@ -808,7 +841,10 @@ try {
 			}
 		};
 
-		await capture("config-panel.png", { width: 1405, height: 1279 });
+		// The first registry screenshot is the App Store hero. Keep it at one
+		// deterministic desktop viewport so consumers and review tooling see the
+		// same 1280 by 800 composition on every capture.
+		await capture("config-panel.png", { width: 1280, height: 800 });
 		await capture(
 			"environment-conversions.png",
 			{ width: 1393, height: 1235 },

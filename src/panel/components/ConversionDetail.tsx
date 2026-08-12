@@ -1,12 +1,12 @@
 import type * as React from "react";
 import { useEffect } from "react";
+import { formatRelativeAge } from "signalk-nearlcrews-ui";
 import type { ConversionMetadata, PerConversionStatus } from "../../api/types.js";
 import type { ConversionConfig } from "../../config/schema.js";
 import type { ConfigIssue } from "../../config/validation.js";
 import { pathToPropName } from "../../utils/pathUtils.js";
 import { configIssueControls } from "../configIssueTarget";
 import { CONVERSION_STYLES as C } from "../conversionStyles";
-import { humanizeAgo } from "../recency.js";
 import { conversionHealth } from "../rowStatus.js";
 import { S } from "../styles";
 import Disclosure from "./Disclosure";
@@ -73,7 +73,7 @@ export default function ConversionDetail(props: Props): React.ReactElement {
 			: `global: ${props.globalResendSeconds} s`;
 
 	const errorAgeSuffix =
-		status?.lastErrorAgeMs !== undefined ? ` (${humanizeAgo(status.lastErrorAgeMs)})` : "";
+		status?.lastErrorAgeMs !== undefined ? ` (${formatRelativeAge(status.lastErrorAgeMs)})` : "";
 
 	const compatibility = meta.compatibility;
 	const compatStyle = compatibility ? COMPATIBILITY_STYLES[compatibility.garmin] : null;
@@ -206,7 +206,7 @@ export default function ConversionDetail(props: Props): React.ReactElement {
 														{listed ? "listed by server" : "not in server inventory"};{" "}
 														{lastSeenMs === undefined
 															? "no value seen this run"
-															: `${stale ? "stale, " : ""}last seen ${humanizeAgo(lastSeenMs)}`}
+															: `${stale ? "stale, " : ""}last seen ${formatRelativeAge(lastSeenMs)}`}
 													</span>
 												</li>
 											);

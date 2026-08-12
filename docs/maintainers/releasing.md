@@ -11,8 +11,10 @@ release with auto-generated notes. The `Publish to npm` workflow then fires on
 the `release: published` event. It verifies the tag and main-branch ancestry,
 runs the complete release gate, packs one immutable tarball, transfers that
 artifact to a separate least-privilege publish job, and publishes to npm with
-sigstore provenance. Publishing requires an `NPM_TOKEN` repository secret with
-publish access to this package.
+sigstore provenance. The tarball records the tagged source commit as
+`gitHead`, and the publish job verifies npm reports that exact commit after
+publication. Publishing requires an `NPM_TOKEN` repository secret with publish
+access to this package.
 
 ## Checklist
 
@@ -31,14 +33,19 @@ GitHub release, and npm publication. Then:
    that links the CHANGELOG anchor (`CHANGELOG.md#vXYZ`) and the full release
    history (`CHANGELOG.md`). Update the `## What's new in X.Y.Z` heading to
    the new version.
-4. Run `npm ci` to prove the lockfile installs from a clean dependency tree.
-5. Run `npm run verify:release`. This covers formatting, linting, spelling,
+4. If the configuration panel changed materially, run `npm run screenshots`.
+   The command rebuilds the production panel, exercises it in Chromium, and
+   regenerates the App Store images. It keeps the first declared image, the
+   App Store hero, at a deterministic 1280 by 800 pixels. Inspect every image
+   before committing it.
+5. Run `npm ci` to prove the lockfile installs from a clean dependency tree.
+6. Run `npm run verify:release`. This covers formatting, linting, spelling,
    module boundaries, dead code, strict types, coverage, production builds,
    the panel runtime smoke test, bundle budgets, package contents, publint, and
    security audits. Runtime dependencies must have zero findings. The full
    dependency audit permits only the documented canboatjs development chain for
    `GHSA-mh99-v99m-4gvg` and fails closed for any other advisory.
-6. Run `npm outdated --long` and resolve unexpected output. A newer TypeScript
+7. Run `npm outdated --long` and resolve unexpected output. A newer TypeScript
    or `@types/node` major is expected only when it is outside the typed-lint or
    supported-Node compatibility range. Also ask npm's resolver whether the
    installed tree and lockfile have updates within their declared ranges:
@@ -63,7 +70,7 @@ GitHub release, and npm publication. Then:
    This uses npm's own hoisting and range resolution, so shared transitive
    packages are not falsely reported as stale when one installed version is
    the resolver's optimal fit for multiple parent ranges.
-7. Commit, run `npm run release -- --check` to exercise the release preflight,
+8. Commit, run `npm run release -- --check` to exercise the release preflight,
    then run `npm run release`.
 
 After `npm run release`:
@@ -75,7 +82,9 @@ After `npm run release`:
 3. Confirm `npm view signalk-nmea2000-emitter-cannon version` and
    `npm view signalk-nmea2000-emitter-cannon dist-tags.latest` both report the
    released version.
-4. Confirm SignalK Plugin CI ran on the tagged commit. The plugin registry uses
+4. Confirm `npm view signalk-nmea2000-emitter-cannon gitHead` reports the
+   tagged commit.
+5. Confirm SignalK Plugin CI ran on the tagged commit. The plugin registry uses
    that exact run as an app-store scoring input.
 
 ## Troubleshooting

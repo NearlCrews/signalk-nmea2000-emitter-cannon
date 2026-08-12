@@ -1,21 +1,29 @@
 import type * as React from "react";
+import { resolveSaveStatus } from "../saveStatusState";
 import { S } from "../styles";
 
 interface Props {
 	dirty: boolean;
-	/** Epoch ms of the last successful save, or null. */
-	justSavedAt: number | null;
+	unconfigured: boolean;
+	/** Epoch ms of the last save request, or null. */
+	saveRequestedAt: number | null;
 }
 
-/** The "Unsaved changes" / "Saved" indicator shared by the footer and the advisor save controls. */
-export default function SaveStatus({ dirty, justSavedAt }: Props): React.ReactElement | null {
-	if (dirty) return <span style={S.dirty}>Unsaved changes</span>;
-	if (justSavedAt) {
-		return (
-			<span role="status" style={S.savedPill}>
-				Saved
-			</span>
-		);
-	}
-	return null;
+/** The save state shown in the footer's persistent completion-status region. */
+export default function SaveStatus({
+	dirty,
+	unconfigured,
+	saveRequestedAt,
+}: Props): React.ReactElement {
+	const status = resolveSaveStatus(dirty, unconfigured, saveRequestedAt);
+	return (
+		<span
+			role="status"
+			style={
+				status.kind === "dirty" ? S.dirty : status.kind === "requested" ? S.savedPill : S.textFaint
+			}
+		>
+			{status.message}
+		</span>
+	);
 }

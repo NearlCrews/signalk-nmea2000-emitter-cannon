@@ -16,7 +16,7 @@ export const STATUS_VIEW_STYLES = {
 	},
 	inputPaths: {
 		marginTop: "var(--skn-space-compact)",
-		fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+		fontFamily: "var(--snui-font-family-mono)",
 		fontSize: "var(--skn-font-small)",
 		color: "var(--skn-text-faint)",
 		overflowWrap: "anywhere",

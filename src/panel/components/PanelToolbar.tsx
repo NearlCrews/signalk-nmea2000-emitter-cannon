@@ -1,8 +1,13 @@
 import type * as React from "react";
-import { Button, SegmentedControl, TextInput, ThemeToggle } from "signalk-nearlcrews-ui";
+import {
+	Button,
+	formatRelativeAge,
+	SegmentedControl,
+	TextInput,
+	ThemeToggle,
+} from "signalk-nearlcrews-ui";
 import type { StatusSnapshot } from "../../api/types.js";
 import { type OutputState, outputStateFor } from "../outputState";
-import { humanizeAgo } from "../recency";
 import { S } from "../styles";
 import { TOOLBAR_STYLES as T } from "../toolbarStyles";
 import ErrorBadgeButton from "./ErrorBadgeButton";
@@ -87,7 +92,9 @@ export default function PanelToolbar(props: Props): React.ReactElement {
 				<span role="status">
 					{s ? `${s.enabledCount} / ${s.totalConversions}` : "..."} {outputState}
 				</span>
-				{stale ? <span style={T.statusChipStale}>updated {humanizeAgo(staleAgeMs)}</span> : null}
+				{stale ? (
+					<span style={T.statusChipStale}>updated {formatRelativeAge(staleAgeMs)}</span>
+				) : null}
 			</span>
 			{errors > 0 ? <ErrorBadgeButton count={errors} onClick={props.onErrorBadgeClick} /> : null}
 			<SegmentedControl

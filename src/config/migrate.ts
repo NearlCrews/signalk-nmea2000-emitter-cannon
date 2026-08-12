@@ -72,6 +72,10 @@ function toStringRecord(value: unknown): Record<string, string> {
 function normalizeNestedEntry(value: unknown): ConversionConfig {
 	const entry = isPlainObject(value) ? value : {};
 	return {
+		// Preserve keys introduced by a newer plugin version so opening and
+		// saving this panel cannot silently erase configuration it does not yet
+		// understand.
+		...entry,
 		enabled: typeof entry.enabled === "boolean" ? entry.enabled : false,
 		resend: typeof entry.resend === "number" ? entry.resend : 0,
 		sources: toStringRecord(entry.sources),

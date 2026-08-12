@@ -185,7 +185,7 @@ export default function FirstRunWizard({
 					<p style={W.intro}>
 						This scans the Signal K paths your boat is publishing right now and proposes the
 						not-yet-enabled conversions that have live data. Review the pre-checked list, then Apply
-						to stage them. Nothing is saved until you Save in the main panel.
+						to stage them. Nothing is sent to Signal K until you Save in the main panel.
 					</p>
 
 					{scanning ? <p style={S.loadingText}>Scanning live Signal K paths...</p> : null}
@@ -233,7 +233,7 @@ export default function FirstRunWizard({
 						step.
 					</p>
 					{/* Preset chips show their own "Enabled N conversions, not yet
-					    saved." confirmation, so a chip tap does not also rewrite the
+					    sent to Signal K." confirmation, so a chip tap does not also rewrite the
 					    footer hint. */}
 					<PresetChips onApply={onApplyPreset} meta={meta} />
 				</div>

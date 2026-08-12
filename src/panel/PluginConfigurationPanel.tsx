@@ -1,6 +1,12 @@
 import type * as React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Banner, Button, PanelRoot, supportsNativeCssScope } from "signalk-nearlcrews-ui";
+import {
+	Banner,
+	Button,
+	PanelRoot,
+	supportsNativeCssScope,
+	UnsupportedBrowserNotice,
+} from "signalk-nearlcrews-ui";
 import type { ConversionMetadata, PerConversionStatus } from "../api/types.js";
 import {
 	Categories,
@@ -35,7 +41,7 @@ import { THEME_STYLE } from "./theme";
 
 interface Props {
 	configuration: unknown;
-	/** Fire-and-forget; returns void. Do not await. The next `configuration` prop reflects the saved state. */
+	/** Fire-and-forget; returns void. Do not await or report persistence success. */
 	save: (configuration: unknown) => void;
 }
 
@@ -99,13 +105,10 @@ function matchesQuery(m: ConversionMetadata, needle: string): boolean {
 export default function PluginConfigurationPanel(props: Props): React.ReactElement {
 	if (typeof window === "undefined" || !supportsNativeCssScope(window)) {
 		return (
-			<div data-browser-compatibility-message="" role="alert">
-				<h2>Browser update required</h2>
-				<p>
-					This panel requires native CSS @scope. Update the browser or embedded WebView before
-					reopening Signal K Admin.
-				</p>
-			</div>
+			<UnsupportedBrowserNotice>
+				This panel requires native CSS @scope. Update the browser or embedded WebView before
+				reopening Signal K Admin.
+			</UnsupportedBrowserNotice>
 		);
 	}
 
@@ -114,7 +117,8 @@ export default function PluginConfigurationPanel(props: Props): React.ReactEleme
 
 function SupportedPluginConfigurationPanel({ configuration, save }: Props): React.ReactElement {
 	const { status, error, lastUpdatedMs, lastAttemptMs } = useStatus();
-	const { state, savedState, dispatch, markSaved } = useConfig(configuration);
+	const { state, requestedState, dispatch, markSaveRequested, unconfigured } =
+		useConfig(configuration);
 	const { sourcesFor, sourceErrorFor, ensureLoaded } = useSources();
 	const { meta, metaError, metaLoading, reload: reloadMeta } = useMeta();
 	const {
@@ -126,7 +130,7 @@ function SupportedPluginConfigurationPanel({ configuration, save }: Props): Reac
 	const [tab, setTab] = useState<ConversionCategory>("navigation");
 	const [view, setView] = useState<PanelView>("configure");
 	const rootRef = useRef<HTMLDivElement>(null);
-	const [justSavedAt, setJustSavedAt] = useState<number | null>(null);
+	const [saveRequestedAt, setSaveRequestedAt] = useState<number | null>(null);
 	const [wizardOpen, setWizardOpen] = useState(false);
 	const [search, setSearch] = useState("");
 	// Disclosure state, persisted across tab switches within the session. An
@@ -159,23 +163,18 @@ function SupportedPluginConfigurationPanel({ configuration, save }: Props): Reac
 	}, []);
 
 	useEffect(() => {
-		if (justSavedAt === null) return;
-		const t = setTimeout(() => setJustSavedAt(null), 2500);
+		if (saveRequestedAt === null) return;
+		const t = setTimeout(() => setSaveRequestedAt(null), 2500);
 		return () => clearTimeout(t);
-	}, [justSavedAt]);
+	}, [saveRequestedAt]);
 
 	// Reducer cases always return a new object on change, so identity equality
-	// against the last-saved snapshot is a sound dirty check. Replaces a deep
+	// against the last-requested snapshot is a sound dirty check. Replaces a deep
 	// JSON.stringify compare that ran on every render.
-	const dirty = state !== savedState;
-	// True when the host has not yet handed the panel a saved configuration.
-	// The `configuration` prop is null or undefined on a fresh install, before
-	// the user has ever saved. In this state Save must be enabled at all times
-	// so the user can commit defaults and allow the plugin to start.
-	const unconfigured = configuration == null;
+	const dirty = state !== requestedState;
 	// The advisor block is replaced wholesale by the setAdvisor reducer case, so
 	// identity inequality against the baseline is a sound "advisor edited" check.
-	const advisorSettingsDirty = state.advisor !== savedState.advisor;
+	const advisorSettingsDirty = state.advisor !== requestedState.advisor;
 
 	// Warn before a tab close or reload while edits are unsaved. The handler is
 	// only registered while dirty and torn down once clean or unmounted.
@@ -284,8 +283,8 @@ function SupportedPluginConfigurationPanel({ configuration, save }: Props): Reac
 			return;
 		}
 		save(state);
-		markSaved();
-		setJustSavedAt(Date.now());
+		markSaveRequested();
+		setSaveRequestedAt(Date.now());
 	};
 
 	// Parent catalog keys currently reporting an error, with sub-conversion
@@ -586,9 +585,9 @@ function SupportedPluginConfigurationPanel({ configuration, save }: Props): Reac
 				dirty={dirty}
 				unconfigured={unconfigured}
 				validationErrorCount={validationErrors.length}
-				justSavedAt={justSavedAt}
+				saveRequestedAt={saveRequestedAt}
 				onSave={handleSave}
-				onDiscard={() => dispatch({ type: "discard", config: savedState })}
+				onDiscard={() => dispatch({ type: "discard", config: requestedState })}
 			/>
 			{wizardOpen ? (
 				<FirstRunWizard

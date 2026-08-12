@@ -1,12 +1,29 @@
 import { readdirSync, readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import vm from "node:vm";
 import React from "react";
+import * as ReactDOM from "react-dom";
 import { renderToStaticMarkup } from "react-dom/server";
 
+const EXPECTED_SHARED_UI_VERSION = "0.7.0";
 const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
-const sharedUiVersion = packageJson.devDependencies?.["signalk-nearlcrews-ui"];
-if (typeof sharedUiVersion !== "string" || !/^\d+\.\d+\.\d+$/.test(sharedUiVersion)) {
-	throw new Error("signalk-nearlcrews-ui must be pinned to an exact version");
+const manifestSharedUiVersion = packageJson.devDependencies?.["signalk-nearlcrews-ui"];
+if (manifestSharedUiVersion !== EXPECTED_SHARED_UI_VERSION) {
+	throw new Error(
+		`signalk-nearlcrews-ui must be pinned to exact version ${EXPECTED_SHARED_UI_VERSION}`,
+	);
+}
+const sharedUiPackageJson = JSON.parse(
+	readFileSync(
+		new URL("../node_modules/signalk-nearlcrews-ui/package.json", import.meta.url),
+		"utf8",
+	),
+);
+const sharedUiVersion = sharedUiPackageJson.version;
+if (sharedUiVersion !== manifestSharedUiVersion) {
+	throw new Error(
+		`installed signalk-nearlcrews-ui ${String(sharedUiVersion)} does not match package.json ${manifestSharedUiVersion}`,
+	);
 }
 
 const publicDir = new URL("../public/", import.meta.url);
@@ -71,6 +88,7 @@ const shareEntry = (module, version) => ({
 });
 await container.init({
 	react: shareEntry(React, React.version),
+	"react-dom": shareEntry(ReactDOM, ReactDOM.version),
 });
 
 // Register the already-built chunks after the container runtime exists. The
@@ -97,6 +115,26 @@ if (!markup.includes("Loading conversions")) {
 }
 if (!markup.includes(`data-snui-version="${sharedUiVersion}"`)) {
 	throw new Error("panel runtime check did not render signalk-nearlcrews-ui");
+}
+
+const require = createRequire(import.meta.url);
+const webpackConfig = require("../webpack.config.cjs");
+const federation = webpackConfig.plugins.find((plugin) => plugin?.options?.shared !== undefined);
+const shared = federation?.options?.shared;
+for (const request of ["react", "react-dom"]) {
+	const entry = shared?.[request];
+	if (
+		entry?.singleton !== true ||
+		entry?.import !== false ||
+		entry?.requiredVersion !== ">=19.2.0 <20.0.0"
+	) {
+		throw new Error(`${request} must be configured as an exact host-provided singleton share`);
+	}
+}
+if (shared?.["signalk-nearlcrews-ui"] !== undefined) {
+	throw new Error(
+		"signalk-nearlcrews-ui must stay bundled rather than entering the host share scope",
+	);
 }
 
 const combinedSource = bundles.map(({ source }) => source).join("\n");

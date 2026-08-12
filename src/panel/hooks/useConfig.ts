@@ -184,7 +184,7 @@ function reducer(state: Config, action: Action): Config {
  * the field it changes, so an untouched entry keeps its `base` reference while
  * a touched one gets a new reference.
  *
- * The caller pairs this with `setSavedState(theirs)`: the merged result becomes
+ * The caller pairs this with `setRequestedState(theirs)`: the merged result becomes
  * the new reducer state, `theirs` becomes the new baseline, so Save persists
  * the merged config and Discard reverts to the latest external state.
  */
@@ -202,6 +202,9 @@ export function mergeExternalConfig(base: Config, ours: Config, theirs: Config):
 		if (entry !== undefined) conversions[key] = entry;
 	}
 	const merged: Config = {
+		// Adopt unknown top-level settings from the newest host configuration.
+		// The panel cannot edit them, but it must round-trip them safely.
+		...theirs,
 		globalResendInterval:
 			ours.globalResendInterval === base.globalResendInterval
 				? theirs.globalResendInterval
@@ -210,30 +213,36 @@ export function mergeExternalConfig(base: Config, ours: Config, theirs: Config):
 	};
 	const advisor = ours.advisor === base.advisor ? theirs.advisor : ours.advisor;
 	if (advisor !== undefined) merged.advisor = advisor;
+	else delete merged.advisor;
 	return merged;
 }
 
 export function useConfig(initial: unknown): {
 	state: Config;
-	savedState: Config;
+	requestedState: Config;
 	dispatch: React.Dispatch<Action>;
-	markSaved: () => void;
+	markSaveRequested: () => void;
+	unconfigured: boolean;
 } {
 	// Migrate once per `initial` value. `incoming` seeds both the reducer state
-	// and savedState (each reads it only on first render), so the migration
+	// and requestedState (each reads it only on first render), so the migration
 	// runs once on mount rather than once here and again in a separate
 	// initializer. This keeps `dirty` false on mount and prevents legacy shapes
 	// from leaking into reducer state.
 	const incoming = useMemo(() => migrateLegacyConfig(initial), [initial]);
 	const [state, dispatch] = useReducer(reducer, incoming);
-	// savedState is the last config the user persisted (or the migrated
-	// initial value, before any save). The panel uses identity equality
-	// (`state !== savedState`) as the dirty check: every reducer case
+	// requestedState is the last config sent to the host (or the migrated
+	// initial value, before any request). The panel uses identity equality
+	// (`state !== requestedState`) as the dirty check: every reducer case
 	// returns a new object on change, so identity is a sound stand-in for
 	// the previous JSON.stringify deep compare without the O(N) cost.
-	const [savedState, setSavedState] = useState<Config>(incoming);
-	const markSaved = useCallback(() => {
-		setSavedState(state);
+	const [requestedState, setRequestedState] = useState<Config>(incoming);
+	const [unconfigured, setUnconfigured] = useState(() => initial == null);
+	const markSaveRequested = useCallback(() => {
+		setRequestedState(state);
+		// The host callback is void, so this is an optimistic local baseline,
+		// not confirmation that persistence completed.
+		setUnconfigured(false);
 	}, [state]);
 	// Tracks the last `incoming` object identity we reconciled against. `incoming`
 	// is memoized on `initial`, so its identity changes only when the host hands
@@ -246,21 +255,23 @@ export function useConfig(initial: unknown): {
 	//   - Clean panel: adopt the external config wholesale (old behavior).
 	//   - Dirty panel: three-way merge so the user's edits survive AND the
 	//     advisor's writes survive. See mergeExternalConfig for the rule.
-	// Either way `savedState` becomes the external config (the new baseline), so
+	// Either way `requestedState` becomes the external config (the new baseline), so
 	// Save persists the reconciled result and Discard reverts to the external
 	// state, never to a pre-advisor snapshot.
 	useEffect(() => {
 		if (incoming === reconciledIncoming.current) return;
 		reconciledIncoming.current = incoming;
+		if (initial != null) setUnconfigured(false);
 		// `incoming` is a fresh object each time `initial` changes, so identity
 		// cannot stand in for "did anything actually change"; the deep compare
 		// runs here only on a genuine prop change, not per keystroke.
-		if (JSON.stringify(incoming) === JSON.stringify(savedState)) return;
-		const next = state === savedState ? incoming : mergeExternalConfig(savedState, state, incoming);
-		setSavedState(incoming);
+		if (JSON.stringify(incoming) === JSON.stringify(requestedState)) return;
+		const next =
+			state === requestedState ? incoming : mergeExternalConfig(requestedState, state, incoming);
+		setRequestedState(incoming);
 		dispatch({ type: "discard", config: next });
-	}, [incoming, state, savedState]);
-	return { state, savedState, dispatch, markSaved };
+	}, [incoming, initial, state, requestedState]);
+	return { state, requestedState, dispatch, markSaveRequested, unconfigured };
 }
 
 // Test-only: exercises the setAdvisor reducer case without a React render.

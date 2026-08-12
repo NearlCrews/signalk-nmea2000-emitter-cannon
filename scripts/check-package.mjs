@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { normalizePackReport } from "./package-report.mjs";
 
+const EXPECTED_SHARED_UI_VERSION = "0.7.0";
 const npm = process.env.npm_execpath ?? (process.platform === "win32" ? "npm.cmd" : "npm");
 const command = npm.endsWith(".js") ? process.execPath : npm;
 const commandArgs = npm.endsWith(".js")
@@ -60,8 +61,20 @@ if (packageJson.dependencies?.["signalk-nearlcrews-ui"]) {
 	throw new Error("signalk-nearlcrews-ui must be a bundled development dependency");
 }
 const sharedUiVersion = packageJson.devDependencies?.["signalk-nearlcrews-ui"];
-if (typeof sharedUiVersion !== "string" || !/^\d+\.\d+\.\d+$/.test(sharedUiVersion)) {
-	throw new Error("signalk-nearlcrews-ui must be pinned to an exact version");
+if (sharedUiVersion !== EXPECTED_SHARED_UI_VERSION) {
+	throw new Error(
+		`signalk-nearlcrews-ui must be pinned to exact version ${EXPECTED_SHARED_UI_VERSION}`,
+	);
+}
+
+const hero = await readFile(new URL("../assets/screenshots/config-panel.png", import.meta.url));
+const pngSignature = "89504e470d0a1a0a";
+if (
+	hero.subarray(0, 8).toString("hex") !== pngSignature ||
+	hero.readUInt32BE(16) !== 1280 ||
+	hero.readUInt32BE(20) !== 800
+) {
+	throw new Error("the App Store hero must be a 1280 by 800 PNG");
 }
 
 if (

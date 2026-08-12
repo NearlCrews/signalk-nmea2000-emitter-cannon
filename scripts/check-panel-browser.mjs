@@ -395,9 +395,9 @@ const server = createServer((request, response) => {
 		return;
 	}
 	if (url.pathname === `${pluginPrefix}api/paths`) {
-		pathRequestCount++;
+		const requestNumber = ++pathRequestCount;
 		setTimeout(() => {
-			if (pathRequestCount === 2) {
+			if (requestNumber === 2) {
 				response.writeHead(503, { "content-type": "text/plain" });
 				response.end("inventory temporarily unavailable");
 				return;
@@ -506,7 +506,17 @@ try {
 	});
 	browserContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
 	const page = await browserContext.newPage();
-	await page.addInitScript(() => window.localStorage.setItem("skn-theme", "dark"));
+	await page.addInitScript(() => {
+		window.localStorage.setItem("skn-theme", "dark");
+		const nativeSetInterval = window.setInterval.bind(window);
+		window.setInterval = (callback, delay, ...args) => {
+			// Keep the explicit refresh and retry scenario independent of slow CI
+			// hosts, where the automatic inventory poll can otherwise consume the
+			// mocked failure before the test reaches the refresh button.
+			if (delay === 30_000) return 0;
+			return nativeSetInterval(callback, delay, ...args);
+		};
+	});
 	const errors = [];
 	page.on("pageerror", (error) => errors.push(error.message));
 	page.on("console", (message) => {
@@ -729,10 +739,9 @@ try {
 	await engineInput.fill("port");
 	await page.getByRole("button", { name: "Save", exact: true }).click();
 	await page.getByText("Save requested", { exact: true }).waitFor();
-	await page.locator('[data-panel-action-bar] [tabindex="-1"]').evaluate((element) => {
-		if (document.activeElement !== element) {
-			throw new Error("save completion status did not receive focus");
-		}
+	await page.waitForFunction(() => {
+		const status = document.querySelector('[data-panel-action-bar] [tabindex="-1"]');
+		return status !== null && document.activeElement === status;
 	});
 	const saveResult = await page.evaluate(() => ({
 		count: globalThis.__panelSaveCount,

@@ -17,8 +17,8 @@ import {
 import { type ConfigIssue, validateConfig } from "../config/validation.js";
 import { stripSubIndex } from "../utils/pathUtils.js";
 import AdvisorPanel from "./components/advisor/AdvisorPanel";
-import CategoryTabs from "./components/CategoryTabs";
 import CatalogSection from "./components/CatalogSection";
+import CategoryTabs from "./components/CategoryTabs";
 import ConversionRow from "./components/ConversionRow";
 import Disclosure from "./components/Disclosure";
 import FirstRunWizard from "./components/FirstRunWizard";

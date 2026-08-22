@@ -11,6 +11,7 @@
 		"assets/",
 		"README.md",
 		"LICENSE",
+		"THIRD_PARTY_NOTICES.md",
 		"CHANGELOG.md"
 	],
 	"scripts": {
@@ -39,7 +40,8 @@
 		"format": "biome format --write .",
 		"format:check": "biome format .",
 		"size": "size-limit",
-		"package:check": "node scripts/test-package-report.mjs && publint --pack=false --strict && node scripts/check-package.mjs",
+		"package:check": "node scripts/test-package-report.mjs && publint --pack=false --strict && node scripts/check-package.mjs && node scripts/generate-third-party-notices.mjs --check",
+		"licenses": "node scripts/generate-third-party-notices.mjs",
 		"pack:release": "node scripts/create-release-tarball.mjs",
 		"audit": "npm run audit:runtime && npm run audit:policy && npm run audit:full",
 		"audit:full": "npm audit --json | node scripts/check-audit.mjs",

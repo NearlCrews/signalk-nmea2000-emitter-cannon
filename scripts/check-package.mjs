@@ -1,8 +1,8 @@
 import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { normalizePackReport } from "./package-report.mjs";
+import { assertSharedUiVersion } from "./shared-ui-version.mjs";
 
-const EXPECTED_SHARED_UI_VERSION = "0.7.1";
 const npm = process.env.npm_execpath ?? (process.platform === "win32" ? "npm.cmd" : "npm");
 const command = npm.endsWith(".js") ? process.execPath : npm;
 const commandArgs = npm.endsWith(".js")
@@ -60,12 +60,7 @@ const packageJson = JSON.parse(await readFile(new URL("../package.json", import.
 if (packageJson.dependencies?.["signalk-nearlcrews-ui"]) {
 	throw new Error("signalk-nearlcrews-ui must be a bundled development dependency");
 }
-const sharedUiVersion = packageJson.devDependencies?.["signalk-nearlcrews-ui"];
-if (sharedUiVersion !== EXPECTED_SHARED_UI_VERSION) {
-	throw new Error(
-		`signalk-nearlcrews-ui must be pinned to exact version ${EXPECTED_SHARED_UI_VERSION}`,
-	);
-}
+assertSharedUiVersion(new URL("../", import.meta.url));
 
 const hero = await readFile(new URL("../assets/screenshots/config-panel.png", import.meta.url));
 const pngSignature = "89504e470d0a1a0a";

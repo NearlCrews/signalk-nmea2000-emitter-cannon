@@ -1,6 +1,6 @@
 import {
 	MAX_N2K_DOP,
-	MAX_N2K_INSTANCE,
+	MAX_SATELLITE_COUNT,
 	N2K_BROADCAST_DST,
 	N2K_DEFAULT_PRIORITY,
 	N2K_DEFAULT_SID,
@@ -149,7 +149,7 @@ export default function createGpsConversion(
 				// The satellite count and both dilution figures are narrow wire
 				// fields (uint8 and int16 at 0.01). An out-of-range value would wrap
 				// rather than be rejected, so a bogus reading is dropped instead.
-				const svs = toFiniteInRange(numberOfSvs, 0, MAX_N2K_INSTANCE);
+				const svs = toFiniteInRange(numberOfSvs, 0, MAX_SATELLITE_COUNT);
 				if (svs !== undefined) fields.numberOfSvs = svs;
 				const hdopValue = toFiniteInRange(hdop, 0, MAX_N2K_DOP);
 				if (hdopValue !== undefined) fields.hdop = hdopValue;

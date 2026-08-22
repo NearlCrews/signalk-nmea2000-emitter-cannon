@@ -60,7 +60,6 @@ const TERMINAL_CLEAR_RETRY_INTERVAL_MS = 1000;
 // Match the standard notification conversion's realistic state ceiling. Child
 // wildcard paths are publisher-controlled and must not grow state forever.
 const MAX_TRACKED_CONTRIBUTORS = 256;
-const MAX_PENDING_CLEARS = 256;
 
 // Signal K notification path prefix → Raymarine SeaTalk PGN 65288 alarmId
 // (must match @canboat/ts-pgns generated SeaTalk alarm ID values verbatim).
@@ -220,14 +219,13 @@ export default function createRaymarineAlarmsConversion(
 	}
 
 	function scheduleTerminalClear(alarmId: string, previous: N2KMessage, now: number): void {
-		// Refresh an existing entry to the newest end of the bounded insertion
-		// order, then discard the oldest already-sent retry if capacity is full.
+		// Delete before set so a refreshed entry moves to the newest end of the
+		// insertion order the retry sweep walks. No size cap is needed here:
+		// pendingClears is keyed by alarmId, and alarmIdForPath can only return
+		// one of the fixed ALARM_ID_BY_PATH_PREFIX ids, so the map is bounded by
+		// that table. MAX_TRACKED_CONTRIBUTORS is the real cap in this module,
+		// on the unbounded per-publisher map.
 		pendingClears.delete(alarmId);
-		while (pendingClears.size >= MAX_PENDING_CLEARS) {
-			const oldestAlarmId = pendingClears.keys().next().value;
-			if (oldestAlarmId === undefined) break;
-			pendingClears.delete(oldestAlarmId);
-		}
 		pendingClears.set(alarmId, {
 			message: {
 				...previous,

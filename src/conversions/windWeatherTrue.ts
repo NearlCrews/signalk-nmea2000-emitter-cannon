@@ -1,9 +1,6 @@
 import {
 	DEFAULT_DATA_TIMEOUT_MS,
 	MAX_N2K_SPEED_MPS,
-	N2K_BROADCAST_DST,
-	N2K_DEFAULT_PRIORITY,
-	N2K_DEFAULT_SID,
 	WEATHER_DATA_TIMEOUT_MS,
 } from "../constants.js";
 import type {
@@ -13,6 +10,7 @@ import type {
 	SignalKApp,
 } from "../types/index.js";
 import { isValidNumber, toFiniteInRange, toUnsignedAngle } from "../utils/validation.js";
+import { buildWind130306Message } from "./windData.js";
 
 const EMPTY_EMIT: N2KMessage[] = [];
 
@@ -61,19 +59,13 @@ export default function createWindWeatherTrueConversion(
 			}
 
 			const windSpeed = toFiniteInRange(speed, 0, MAX_N2K_SPEED_MPS);
+			// Relative TWA; see toUnsignedAngle for the [0, 2pi) wrap.
 			return [
-				{
-					prio: N2K_DEFAULT_PRIORITY,
-					pgn: 130306,
-					dst: N2K_BROADCAST_DST,
-					fields: {
-						sid: N2K_DEFAULT_SID,
-						...(windSpeed === undefined ? {} : { windSpeed }),
-						// Relative TWA; see toUnsignedAngle for the [0, 2pi) wrap.
-						windAngle: toUnsignedAngle(directionTrue - headingTrue),
-						reference: "True (water referenced)",
-					},
-				},
+				buildWind130306Message(
+					toUnsignedAngle(directionTrue - headingTrue),
+					windSpeed,
+					"True (water referenced)",
+				),
 			];
 		}) as ConversionCallback<[number | null, number | null, number | null]>,
 

@@ -1,8 +1,10 @@
 const MS_PER_DAY = 86_400_000;
 
-// PGN date fields count whole days since the Unix epoch.
+// PGN date fields count whole days since the Unix epoch. Floor, not trunc: a
+// pre-epoch instant inside the final day gives Math.trunc a negative zero, and
+// the `date < 0` guard in timeDate.ts does not catch -0.
 export function toN2KDate(date: Date = new Date()): number {
-	return Math.trunc(date.getTime() / MS_PER_DAY);
+	return Math.floor(date.getTime() / MS_PER_DAY);
 }
 
 function toN2KTime(date: Date = new Date()): number {

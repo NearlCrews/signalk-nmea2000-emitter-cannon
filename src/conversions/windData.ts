@@ -8,6 +8,30 @@ import {
 import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
 import { isValidNumber, toFiniteInRange, toUnsignedAngle } from "../utils/validation.js";
 
+/**
+ * The PGN 130306 field layout, shared by every wind module. windWeatherTrue
+ * derives its angle from two inputs so it cannot use the conversion factory
+ * below, but the message shape still lives in one place.
+ */
+export function buildWind130306Message(
+	windAngle: number | null | undefined,
+	windSpeed: number | undefined,
+	reference: string,
+): N2KMessage {
+	return {
+		prio: N2K_DEFAULT_PRIORITY,
+		pgn: 130306,
+		dst: N2K_BROADCAST_DST,
+		fields: {
+			sid: N2K_DEFAULT_SID,
+			...(windSpeed === undefined ? {} : { windSpeed }),
+			// Unsigned [0, 2pi) field; see toUnsignedAngle.
+			...(windAngle === undefined || windAngle === null ? {} : { windAngle }),
+			reference,
+		},
+	};
+}
+
 // Shared PGN 130306 (Wind Data) builder. Every wind-130306 module (apparent,
 // true-over-water, true-over-ground, weather-forecast apparent) differs only
 // in title, optionKey, the two source paths, the N2K `reference` label, and
@@ -40,20 +64,7 @@ export function createWind130306Conversion(
 				return [];
 			}
 
-			return [
-				{
-					prio: N2K_DEFAULT_PRIORITY,
-					pgn: 130306,
-					dst: N2K_BROADCAST_DST,
-					fields: {
-						sid: N2K_DEFAULT_SID,
-						...(windSpeed === undefined ? {} : { windSpeed }),
-						// Unsigned [0, 2pi) field; see toUnsignedAngle.
-						...(windAngle === undefined ? {} : { windAngle }),
-						reference: config.reference,
-					},
-				},
-			];
+			return [buildWind130306Message(windAngle, windSpeed, config.reference)];
 		},
 		tests: [
 			{

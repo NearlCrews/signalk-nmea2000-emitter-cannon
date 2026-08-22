@@ -1,5 +1,6 @@
 import { DEFAULT_DATA_TIMEOUT_MS, SLOW_DATA_TIMEOUT_MS } from "../constants.js";
 import type { SignalKApp } from "../types/index.js";
+import { pathMatchesPrefix } from "../utils/pathUtils.js";
 import { isPlainObject } from "../utils/validation.js";
 
 const CALC_ROOT = "navigation.course.calcValues";
@@ -36,7 +37,7 @@ function storeCourseValue(
 	updatedAt: number,
 ): void {
 	for (const cachedPath of cache.keys()) {
-		if (cachedPath === path || cachedPath.startsWith(`${path}.`)) cache.delete(cachedPath);
+		if (pathMatchesPrefix(cachedPath, path)) cache.delete(cachedPath);
 	}
 	cache.set(path, { value, updatedAt });
 	if (!isPlainObject(value)) return;
@@ -45,8 +46,10 @@ function storeCourseValue(
 	}
 }
 
+const NAVIGATION_NOTIFICATIONS_ROOT = "notifications.navigation";
+
 function cacheTtl(path: string): number {
-	return path === "notifications.navigation" || path.startsWith("notifications.navigation.")
+	return pathMatchesPrefix(path, NAVIGATION_NOTIFICATIONS_ROOT)
 		? SLOW_DATA_TIMEOUT_MS
 		: DEFAULT_DATA_TIMEOUT_MS;
 }
@@ -105,15 +108,13 @@ export function coursePathValue(app: SignalKApp, path: string, delta?: unknown):
 			const entries = updates.flatMap((update) => update.values ?? []);
 			if (
 				entries.some(
-					(entry) =>
-						typeof entry.path === "string" &&
-						(entry.path === CALC_ROOT || entry.path.startsWith(`${CALC_ROOT}.`)),
+					(entry) => typeof entry.path === "string" && pathMatchesPrefix(entry.path, CALC_ROOT),
 				)
 			) {
 				// Course Provider calculations are one coherent generation. A partial
 				// newer batch must not inherit sibling values from the prior waypoint.
 				for (const cachedPath of cache.keys()) {
-					if (cachedPath === CALC_ROOT || cachedPath.startsWith(`${CALC_ROOT}.`)) {
+					if (pathMatchesPrefix(cachedPath, CALC_ROOT)) {
 						cache.delete(cachedPath);
 					}
 				}
@@ -172,6 +173,20 @@ interface CourseDelta {
 	updates?: Array<{ values?: Array<{ path?: unknown; value?: unknown }> }>;
 }
 
+// Cached on first non-null observation. app.selfId is configured at server boot
+// and stable for the run, but this module can load before it is populated, so
+// memoize lazily rather than at module init. courseDeltaTouches is the first
+// statement of five course conversions, so without this the same template
+// string was rebuilt five times for every delta on the server.
+let cachedSelfContext: string | undefined;
+
+function selfContextFor(app: SignalKApp): string | undefined {
+	if (cachedSelfContext === undefined && app.selfId) {
+		cachedSelfContext = `vessels.${app.selfId}`;
+	}
+	return cachedSelfContext;
+}
+
 /** Return true when a self-vessel delta updates one of the requested paths. */
 export function courseDeltaTouches(
 	app: SignalKApp,
@@ -180,7 +195,7 @@ export function courseDeltaTouches(
 ): boolean {
 	if (!isPlainObject(delta)) return false;
 	const candidate = delta as CourseDelta;
-	const selfContext = app.selfId ? `vessels.${app.selfId}` : undefined;
+	const selfContext = selfContextFor(app);
 	if (
 		candidate.context !== undefined &&
 		candidate.context !== "vessels.self" &&
@@ -193,8 +208,7 @@ export function courseDeltaTouches(
 		update.values?.some((entry) => {
 			const entryPath = entry.path;
 			return (
-				typeof entryPath === "string" &&
-				paths.some((path) => entryPath === path || entryPath.startsWith(`${path}.`))
+				typeof entryPath === "string" && paths.some((path) => pathMatchesPrefix(entryPath, path))
 			);
 		}),
 	);

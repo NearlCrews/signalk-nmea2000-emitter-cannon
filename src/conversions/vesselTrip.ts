@@ -133,7 +133,7 @@ export default function createVesselTripConversion(_app: SignalKApp): Conversion
 
 			const callback: ConversionCallback = (...values: unknown[]): N2KMessage[] => {
 				let remainingCubicMeters = 0;
-				for (const [index] of fuelTanks.entries()) {
+				for (let index = 0; index < fuelTanks.length; index++) {
 					const valueIndex = index * 3;
 					const currentVolume = values[valueIndex];
 					const currentLevel = values[valueIndex + 1];
@@ -171,7 +171,7 @@ export default function createVesselTripConversion(_app: SignalKApp): Conversion
 					const engineOffset = fuelTanks.length * 3;
 					let totalFuelRate = 0;
 					let allEngineRatesAvailable = true;
-					for (const [index] of engines.entries()) {
+					for (let index = 0; index < engines.length; index++) {
 						const fuelRate = values[engineOffset + index];
 						if (!isValidNumber(fuelRate) || fuelRate < 0) {
 							allEngineRatesAvailable = false;

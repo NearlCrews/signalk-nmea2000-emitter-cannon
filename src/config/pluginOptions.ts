@@ -8,11 +8,14 @@ export function conversionOptionsByKey(
 ): Record<string, ConversionOptions> {
 	const conversions: Record<string, ConversionOptions> = {};
 	for (const [key, value] of Object.entries(config.conversions)) {
+		// Spread the user-controlled maps first: a source or extras key literally
+		// named "enabled" or "resend" must not be able to override the runtime
+		// flags that decide whether the conversion runs at all.
 		conversions[key] = {
-			enabled: value.enabled,
-			resend: value.resend,
 			...value.sources,
 			...value.extras,
+			enabled: value.enabled,
+			resend: value.resend,
 		};
 	}
 	return conversions;

@@ -138,12 +138,18 @@ export default function createAisExtendedConversions(
 							aisTransceiverInformation: "Channel A VDL reception",
 							heading: toUnsignedAngle(heading),
 							regionalApplication: 0,
-							unitType: "SOTDMA",
+							// Signal K describes no radio subtype or optional capability
+							// for this vessel, and there is no physical transceiver behind
+							// this frame at all, so these follow the same conservative
+							// no-capability defaults ais.ts uses for remote Class B
+							// targets. "Assigned" in particular would claim a base station
+							// had assigned a slot.
+							unitType: "CS",
 							integratedDisplay: "No",
-							dsc: "Yes",
+							dsc: "No",
 							band: "Top 525 kHz of marine band",
-							canHandleMsg22: "Yes",
-							aisMode: "Assigned",
+							canHandleMsg22: "No",
+							aisMode: "Autonomous",
 							aisCommunicationState: "SOTDMA",
 						},
 					},
@@ -162,12 +168,12 @@ export default function createAisExtendedConversions(
 							dst: 255,
 							fields: {
 								aisCommunicationState: "SOTDMA",
-								aisMode: "Assigned",
+								aisMode: "Autonomous",
 								aisTransceiverInformation: "Channel A VDL reception",
 								band: "Top 525 kHz of marine band",
-								canHandleMsg22: "Yes",
+								canHandleMsg22: "No",
 								cog: 1.501,
-								dsc: "Yes",
+								dsc: "No",
 								heading: 5.6199,
 								integratedDisplay: "No",
 								latitude: 39.1296,
@@ -179,7 +185,7 @@ export default function createAisExtendedConversions(
 								repeatIndicator: "Initial",
 								sog: 0.05,
 								timeStamp: AIS_TIMESTAMP_UNAVAILABLE,
-								unitType: "SOTDMA",
+								unitType: "CS",
 								userId: 367301250,
 							},
 						},
@@ -264,7 +270,7 @@ export default function createAisExtendedConversions(
 							positionReferenceFromBow: toFiniteInRange(fromBow, 0, MAX_AIS_DIMENSION_METERS),
 							name: clampString(selfName(), AIS_NAME_CHARS),
 							dte: "Available",
-							aisMode: "Assigned",
+							aisMode: "Autonomous",
 						},
 					},
 				];
@@ -303,7 +309,7 @@ export default function createAisExtendedConversions(
 							pgn: 129040,
 							dst: 255,
 							fields: {
-								aisMode: "Assigned",
+								aisMode: "Autonomous",
 								aisTransceiverInformation: "Channel A VDL reception",
 								beam: 7,
 								cog: 1.501,

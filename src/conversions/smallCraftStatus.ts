@@ -2,6 +2,14 @@ import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import type { ConversionModule, N2KFieldValue, N2KMessage } from "../types/index.js";
 import { isValidNumber } from "../utils/validation.js";
 
+// Signal K publishes a trim-tab position as a ratio; the wire field is a
+// signed percent. Module scope, not per callback: nothing here is per
+// invocation.
+function normalizeTabPosition(position: unknown): number | null {
+	if (!isValidNumber(position) || position < -1 || position > 1) return null;
+	return Math.round(position * 100);
+}
+
 export default function createSmallCraftStatusConversion(): ConversionModule {
 	return {
 		title: "Small Craft Status (PGN 130576)",
@@ -20,11 +28,6 @@ export default function createSmallCraftStatusConversion(): ConversionModule {
 			if (trimTabPort == null && trimTabStbd == null) {
 				return [];
 			}
-
-			const normalizeTabPosition = (position: unknown): number | null => {
-				if (!isValidNumber(position) || position < -1 || position > 1) return null;
-				return Math.round(position * 100);
-			};
 
 			const portTabPercent = normalizeTabPosition(trimTabPort);
 			const stbdTabPercent = normalizeTabPosition(trimTabStbd);

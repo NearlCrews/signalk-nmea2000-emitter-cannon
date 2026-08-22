@@ -88,8 +88,12 @@ const MAX_TRACKED_PATHS = 256;
 const MAX_CACHED_ALERTS = 256;
 
 // CanboatJS writes STRING_LAU with its one-byte ASCII mode and stores the
-// payload length in one byte. Keep alert text printable, single-byte, and
-// within one 200-byte payload budget before it reaches the encoder.
+// payload length in one byte, so alert text has to be printable and
+// single-byte. The size cap is set by the fast-packet limit rather than by the
+// encoder buffer: 32 frames carry 6 + 31 * 7 = 223 bytes, and at exactly 200
+// characters PGN 126985 is already 221 payload bytes. Adding any currently
+// omitted field to that PGN would push it over, so the cap has to come down
+// with it.
 const MAX_ALERT_TEXT_BYTES = 200;
 const ASCII_SPACE = 0x20;
 const ASCII_PRINTABLE_MAX = 0x7e;

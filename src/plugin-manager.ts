@@ -821,11 +821,6 @@ export class PluginManager {
 		for (const timer of timers) {
 			safe("clearInterval", () => clearInterval(timer));
 		}
-		for (const conversion of this.conversions) {
-			if (conversion.resendTimer) {
-				delete conversion.resendTimer;
-			}
-		}
 		this.conversions = [];
 
 		// Drop delta-conversion wiring. Signal K owns registered input-handler

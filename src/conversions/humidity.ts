@@ -1,13 +1,16 @@
-import { HUMIDITY_SOURCE_VALUES } from "../config/environmentSources.js";
-import { raymarinePresetsFor } from "../config/raymarinePreset.js";
 import {
-	N2K_BROADCAST_DST,
-	N2K_DEFAULT_INSTANCE,
-	N2K_DEFAULT_PRIORITY,
-	N2K_SID_ZERO,
-} from "../constants.js";
+	HUMIDITY_DEFAULT_IDENTITIES,
+	HUMIDITY_SOURCE_VALUES,
+} from "../config/environmentSources.js";
+import { raymarinePresetsFor } from "../config/raymarinePreset.js";
+import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, N2K_SID_ZERO } from "../constants.js";
 import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
 import { resolveInstanceAndSource, toRelativeHumidityPercent } from "../utils/validation.js";
+
+// One table drives both the runtime defaults and the PGN 130313 collision check
+// in config/validation.ts, so the two cannot drift apart.
+const OUTSIDE_DEFAULTS = HUMIDITY_DEFAULT_IDENTITIES.HUMIDITY_OUTSIDE;
+const INSIDE_DEFAULTS = HUMIDITY_DEFAULT_IDENTITIES.HUMIDITY_INSIDE;
 
 function createHumidityMessage(
 	humidityPercent: number,
@@ -33,11 +36,12 @@ function createHumidityMessage(
 function expectHumidity(
 	pct: number,
 	defaultSource: string,
+	defaultInstance: number,
 ): (testOptions: Record<string, unknown>) => N2KMessage {
 	return (testOptions) => {
 		const { instance, source } = resolveInstanceAndSource(
 			testOptions,
-			N2K_DEFAULT_INSTANCE,
+			defaultInstance,
 			defaultSource,
 			HUMIDITY_SOURCE_VALUES,
 		);
@@ -69,8 +73,8 @@ export default function createHumidityConversions(_app: SignalKApp): ConversionM
 			conversions: (options: unknown) => {
 				const { instance, source } = resolveInstanceAndSource(
 					options,
-					N2K_DEFAULT_INSTANCE,
-					"Outside",
+					OUTSIDE_DEFAULTS.instance,
+					OUTSIDE_DEFAULTS.source,
 					HUMIDITY_SOURCE_VALUES,
 				);
 				return [
@@ -86,17 +90,29 @@ export default function createHumidityConversions(_app: SignalKApp): ConversionM
 							return [createHumidityMessage(humidityPercent, source, instance)];
 						},
 						tests: [
-							{ input: [0.5, null], expected: [expectHumidity(50, "Outside")] },
+							{
+								input: [0.5, null],
+								expected: [expectHumidity(50, "Outside", OUTSIDE_DEFAULTS.instance)],
+							},
 							{
 								input: [0.95, null],
-								expected: [expectHumidity(95, "Outside")],
+								expected: [expectHumidity(95, "Outside", OUTSIDE_DEFAULTS.instance)],
 							},
 							// Fallback: only environment.outside.humidity is published
-							{ input: [null, 0.6], expected: [expectHumidity(60, "Outside")] },
+							{
+								input: [null, 0.6],
+								expected: [expectHumidity(60, "Outside", OUTSIDE_DEFAULTS.instance)],
+							},
 							// relativeHumidity wins when both are present
-							{ input: [0.5, 0.9], expected: [expectHumidity(50, "Outside")] },
+							{
+								input: [0.5, 0.9],
+								expected: [expectHumidity(50, "Outside", OUTSIDE_DEFAULTS.instance)],
+							},
 							// relativeHumidity = 0 is valid (0% RH); must not fall through
-							{ input: [0, 0.5], expected: [expectHumidity(0, "Outside")] },
+							{
+								input: [0, 0.5],
+								expected: [expectHumidity(0, "Outside", OUTSIDE_DEFAULTS.instance)],
+							},
 							{ input: [1.01, null], expected: [] },
 						],
 					},
@@ -113,8 +129,8 @@ export default function createHumidityConversions(_app: SignalKApp): ConversionM
 			conversions: (options: unknown) => {
 				const { instance, source } = resolveInstanceAndSource(
 					options,
-					N2K_DEFAULT_INSTANCE,
-					"Inside",
+					INSIDE_DEFAULTS.instance,
+					INSIDE_DEFAULTS.source,
 					HUMIDITY_SOURCE_VALUES,
 				);
 				return [
@@ -128,8 +144,8 @@ export default function createHumidityConversions(_app: SignalKApp): ConversionM
 							return [createHumidityMessage(humidityPercent, source, instance)];
 						},
 						tests: [
-							{ input: [1.0], expected: [expectHumidity(100, "Inside")] },
-							{ input: [0.35], expected: [expectHumidity(35, "Inside")] },
+							{ input: [1.0], expected: [expectHumidity(100, "Inside", INSIDE_DEFAULTS.instance)] },
+							{ input: [0.35], expected: [expectHumidity(35, "Inside", INSIDE_DEFAULTS.instance)] },
 						],
 					},
 				];

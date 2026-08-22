@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
 	DEFAULT_DATA_TIMEOUT_MS,
 	MAX_N2K_DOP,
-	MAX_WIND_SPEED_MPS,
+	MAX_N2K_SPEED_MPS,
 	WEATHER_DATA_TIMEOUT_MS,
 } from "../constants.js";
 import createGnssDataConversions from "../conversions/gnssData.js";
@@ -139,10 +139,10 @@ describe("marine conversion wire contracts", () => {
 			reference: "Apparent",
 		});
 		expect(angleOnly?.windAngle).toBeCloseTo(1.2);
-		expect((await invoke(wind, null, MAX_WIND_SPEED_MPS))[0]?.fields.windSpeed).toBe(
-			MAX_WIND_SPEED_MPS,
+		expect((await invoke(wind, null, MAX_N2K_SPEED_MPS))[0]?.fields.windSpeed).toBe(
+			MAX_N2K_SPEED_MPS,
 		);
-		expect(await invoke(wind, null, MAX_WIND_SPEED_MPS + 0.01)).toEqual([]);
+		expect(await invoke(wind, null, MAX_N2K_SPEED_MPS + 0.01)).toEqual([]);
 	});
 
 	it("uses extended freshness only for forecast wind inputs", () => {

@@ -1,6 +1,6 @@
 import {
 	DEFAULT_DATA_TIMEOUT_MS,
-	MAX_WIND_SPEED_MPS,
+	MAX_N2K_SPEED_MPS,
 	N2K_BROADCAST_DST,
 	N2K_DEFAULT_PRIORITY,
 	N2K_DEFAULT_SID,
@@ -60,7 +60,7 @@ export default function createWindWeatherTrueConversion(
 				return EMPTY_EMIT;
 			}
 
-			const windSpeed = toFiniteInRange(speed, 0, MAX_WIND_SPEED_MPS);
+			const windSpeed = toFiniteInRange(speed, 0, MAX_N2K_SPEED_MPS);
 			return [
 				{
 					prio: N2K_DEFAULT_PRIORITY,

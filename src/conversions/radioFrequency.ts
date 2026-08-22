@@ -1,6 +1,11 @@
 import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import type { ConversionModule, N2KMessage } from "../types/index.js";
-import { isValidNumber, toValidNumber } from "../utils/validation.js";
+import { isValidNumber, toFiniteInRange } from "../utils/validation.js";
+
+// PGN 129799 wire ceilings: both frequencies are unsigned 32-bit at 10 Hz
+// resolution, and txPower is unsigned 16-bit in watts.
+const MAX_RADIO_FREQUENCY_HZ = 42_949_672_920;
+const MAX_TX_POWER_W = 65_532;
 
 // Values below 1000 are interpreted as MHz and scaled to Hz; everything
 // above is taken as-is. Marine VHF (156-162 MHz) and most SK radio paths
@@ -41,7 +46,7 @@ export default function createRadioFrequencyConversion(): ConversionModule {
 					fields: {
 						rxFrequency: rxFreqHz,
 						txFrequency: txFreqHz,
-						txPower: toValidNumber(power) ?? undefined,
+						txPower: toFiniteInRange(power, 0, MAX_TX_POWER_W),
 					},
 				},
 			];
@@ -83,5 +88,10 @@ export default function createRadioFrequencyConversion(): ConversionModule {
 
 function normalizeFreq(freq: unknown): number | null {
 	if (!isValidNumber(freq)) return null;
-	return freq < 1000 ? freq * MHZ_TO_HZ : freq;
+	// Signal K publishes VHF frequencies in either MHz or Hz depending on the
+	// provider, so a small value is scaled up. Both wire fields are unsigned
+	// 32-bit at 10 Hz resolution and would wrap rather than reject, so the
+	// scaled result is range checked before it is emitted.
+	const hz = freq < 1000 ? freq * MHZ_TO_HZ : freq;
+	return toFiniteInRange(hz, 0, MAX_RADIO_FREQUENCY_HZ) ?? null;
 }

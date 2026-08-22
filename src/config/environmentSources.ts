@@ -1,3 +1,5 @@
+import { N2K_DEFAULT_INSTANCE } from "../constants.js";
+
 // The complete Canboat TemperatureSource and HumiditySource enums. They live in
 // this runtime-neutral module so conversions and panel metadata share one list
 // without importing the complete PGN database into either production bundle.
@@ -109,9 +111,15 @@ export const TEMPERATURE_DEFINITIONS: readonly TemperatureDefinition[] = [
 	},
 ];
 
+// The single source of truth for both the humidity runtime defaults and the
+// PGN 130313 source-plus-instance collision check in config/validation.ts. The
+// two have to agree: a table that disagreed with the runtime would compare a
+// pair the plugin never emits and miss a real collision. Instance 100 is the
+// base of the block the environmental sensors use, matching
+// TEMPERATURE_DEFINITIONS above.
 export const HUMIDITY_DEFAULT_IDENTITIES = {
-	HUMIDITY_OUTSIDE: { source: "Outside", instance: 0 },
-	HUMIDITY_INSIDE: { source: "Inside", instance: 0 },
+	HUMIDITY_OUTSIDE: { source: "Outside", instance: N2K_DEFAULT_INSTANCE },
+	HUMIDITY_INSIDE: { source: "Inside", instance: N2K_DEFAULT_INSTANCE },
 } as const;
 
 export function resolveSourceOption<T extends string>(

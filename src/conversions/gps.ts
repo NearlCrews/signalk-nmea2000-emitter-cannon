@@ -1,4 +1,10 @@
-import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, N2K_DEFAULT_SID } from "../constants.js";
+import {
+	MAX_N2K_DOP,
+	MAX_N2K_INSTANCE,
+	N2K_BROADCAST_DST,
+	N2K_DEFAULT_PRIORITY,
+	N2K_DEFAULT_SID,
+} from "../constants.js";
 import type {
 	ConversionCallback,
 	ConversionModule,
@@ -7,7 +13,12 @@ import type {
 } from "../types/index.js";
 import { toN2KDateTime } from "../utils/dateUtils.js";
 import { getSelfValue } from "../utils/pathUtils.js";
-import { isValidLatitude, isValidLongitude, isValidNumber } from "../utils/validation.js";
+import {
+	isValidLatitude,
+	isValidLongitude,
+	isValidNumber,
+	toFiniteInRange,
+} from "../utils/validation.js";
 
 // Distinct from routeTypes' Position (which has optional lat/lon and no
 // altitude): the GPS callback requires a fixed lat/lon and accepts altitude.
@@ -18,6 +29,59 @@ interface GpsPosition {
 }
 
 const GNSS_RATE_LIMIT_MS = 1000;
+
+// Signal K and canboat spell the PGN 129029 lookup values differently, and the
+// canboat encoder does not reject an unrecognized label: it silently encodes
+// enum 0. Passing Signal K's own spelling straight through therefore made a
+// normal fix ("GNSS Fix") broadcast as "no GNSS" (enum 0), telling every
+// chartplotter on the bus there was no fix while a valid position rode
+// alongside it. These tables translate instead. Keys are lower-cased so both
+// the Signal K and the canboat spelling of a value resolve to the same entry.
+// A value with no canboat counterpart is deliberately absent: for the two
+// 4-bit fields an omitted lookup encodes as all-ones, which decodes as "not
+// available", the honest answer.
+const GNSS_TYPE_BY_SK: ReadonlyMap<string, string> = new Map([
+	["gps", "GPS"],
+	["glonass", "GLONASS"],
+	["combined gps/glonass", "GPS+GLONASS"],
+	["gps+glonass", "GPS+GLONASS"],
+	["gps+sbas/waas", "GPS+SBAS/WAAS"],
+	["gps+sbas/waas+glonass", "GPS+SBAS/WAAS+GLONASS"],
+	["chayka", "Chayka"],
+	["integrated", "integrated"],
+	["surveyed", "surveyed"],
+	["galileo", "Galileo"],
+]);
+
+const GNSS_METHOD_BY_SK: ReadonlyMap<string, string> = new Map([
+	["no gps", "no GNSS"],
+	["no gnss", "no GNSS"],
+	["gnss fix", "GNSS fix"],
+	["dgnss fix", "DGNSS fix"],
+	["precise gnss", "Precise GNSS"],
+	["rtk fixed integer", "RTK Fixed Integer"],
+	["rtk float", "RTK float"],
+	["estimated (dr) mode", "Estimated (DR) mode"],
+	["manual input", "Manual Input"],
+	["simulator mode", "Simulate mode"],
+	["simulate mode", "Simulate mode"],
+]);
+
+// Every one of the four 2-bit integrity codes is assigned, so this field has no
+// not-available sentinel: an omitted value encodes as all-ones, which decodes
+// as "Unsafe". Most installs never publish navigation.gnss.integrity, so the
+// field has to fall back to the explicit "no checking" code instead.
+const GNSS_INTEGRITY_BY_SK: ReadonlyMap<string, string> = new Map([
+	["no integrity checking", "No integrity checking"],
+	["safe", "Safe"],
+	["caution", "Caution"],
+	["unsafe", "Unsafe"],
+]);
+const GNSS_INTEGRITY_UNCHECKED = "No integrity checking";
+
+function lookupLabel(table: ReadonlyMap<string, string>, value: unknown): string | undefined {
+	return typeof value === "string" ? table.get(value.trim().toLowerCase()) : undefined;
+}
 
 export default function createGpsConversion(
 	app: SignalKApp,
@@ -77,13 +141,21 @@ export default function createGpsConversion(
 					longitude: position.longitude,
 				};
 				if (isValidNumber(position.altitude)) fields.altitude = position.altitude;
-				if (typeof gnssType === "string") fields.gnssType = gnssType;
-				if (typeof method === "string") fields.method = method;
-				if (typeof integrity === "string") fields.integrity = integrity;
-				if (isValidNumber(numberOfSvs)) fields.numberOfSvs = numberOfSvs;
-				if (isValidNumber(hdop)) fields.hdop = hdop;
+				const gnssTypeLabel = lookupLabel(GNSS_TYPE_BY_SK, gnssType);
+				if (gnssTypeLabel !== undefined) fields.gnssType = gnssTypeLabel;
+				const methodLabel = lookupLabel(GNSS_METHOD_BY_SK, method);
+				if (methodLabel !== undefined) fields.method = methodLabel;
+				fields.integrity = lookupLabel(GNSS_INTEGRITY_BY_SK, integrity) ?? GNSS_INTEGRITY_UNCHECKED;
+				// The satellite count and both dilution figures are narrow wire
+				// fields (uint8 and int16 at 0.01). An out-of-range value would wrap
+				// rather than be rejected, so a bogus reading is dropped instead.
+				const svs = toFiniteInRange(numberOfSvs, 0, MAX_N2K_INSTANCE);
+				if (svs !== undefined) fields.numberOfSvs = svs;
+				const hdopValue = toFiniteInRange(hdop, 0, MAX_N2K_DOP);
+				if (hdopValue !== undefined) fields.hdop = hdopValue;
 				if (isValidNumber(geoidalSeparation)) fields.geoidalSeparation = geoidalSeparation;
-				if (isValidNumber(pdop)) fields.pdop = pdop;
+				const pdopValue = toFiniteInRange(pdop, 0, MAX_N2K_DOP);
+				if (pdopValue !== undefined) fields.pdop = pdopValue;
 
 				res.push({
 					prio: N2K_DEFAULT_PRIORITY,
@@ -98,11 +170,15 @@ export default function createGpsConversion(
 
 		tests: [
 			{
+				// Signal K's own spellings, which differ from canboat's for both
+				// lookups: "GNSS Fix" and "Combined GPS/GLONASS" used to encode as
+				// enum 0 ("no GNSS" and "GPS"). Integrity is deliberately absent, so
+				// this also pins the "no checking" fallback that keeps an omitted
+				// field from encoding as "Unsafe".
 				input: [{ longitude: -75.487264, latitude: 32.0631296, altitude: 12.5 }],
 				skSelfData: {
-					"navigation.gnss.methodQuality": { value: "GNSS fix" },
-					"navigation.gnss.integrity": { value: "No integrity checking" },
-					"navigation.gnss.type": { value: "GPS" },
+					"navigation.gnss.methodQuality": { value: "GNSS Fix" },
+					"navigation.gnss.type": { value: "Combined GPS/GLONASS" },
 					"navigation.gnss.satellites": { value: 9 },
 					"navigation.gnss.horizontalDilution": { value: 1.2 },
 					"navigation.gnss.geoidalSeparation": { value: -34.5 },
@@ -127,7 +203,7 @@ export default function createGpsConversion(
 							latitude: 32.0631296,
 							longitude: -75.487264,
 							altitude: 12.5,
-							gnssType: "GPS",
+							gnssType: "GPS+GLONASS",
 							method: "GNSS fix",
 							integrity: "No integrity checking",
 							numberOfSvs: 9,

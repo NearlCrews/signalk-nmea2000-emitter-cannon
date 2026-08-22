@@ -1,6 +1,11 @@
-import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, N2K_DEFAULT_SID } from "../constants.js";
+import {
+	MAX_N2K_SPEED_MPS,
+	N2K_BROADCAST_DST,
+	N2K_DEFAULT_PRIORITY,
+	N2K_DEFAULT_SID,
+} from "../constants.js";
 import type { ConversionCallback, ConversionModule, SignalKApp } from "../types/index.js";
-import { toUnsignedAngle, toValidNumber } from "../utils/validation.js";
+import { toFiniteInRange, toUnsignedAngle, toValidNumber } from "../utils/validation.js";
 
 export default function createCogSogConversion(
 	_app: SignalKApp,
@@ -13,7 +18,10 @@ export default function createCogSogConversion(
 		keys: ["navigation.courseOverGroundTrue", "navigation.speedOverGround"],
 		callback: ((course: number | null, speed: number | null) => {
 			const validCourse = toValidNumber(course);
-			const validSpeed = toValidNumber(speed);
+			// SOG is unsigned on the wire, so a negative or oversized speed would
+			// wrap into a plausible reading rather than be rejected: -2 m/s
+			// decodes as 653.36 m/s. Out of range means no SOG, not a fake one.
+			const validSpeed = toFiniteInRange(speed, 0, MAX_N2K_SPEED_MPS) ?? null;
 
 			if (validCourse === null && validSpeed === null) {
 				return [];

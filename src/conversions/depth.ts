@@ -1,9 +1,12 @@
 import { N2K_BROADCAST_DST, N2K_DEFAULT_SID } from "../constants.js";
 import type { ConversionCallback, ConversionModule, SignalKApp } from "../types/index.js";
 import { getSelfValue } from "../utils/pathUtils.js";
-import { isValidNumber, toValidNumber } from "../utils/validation.js";
+import { isValidNumber, toFiniteInRange, toValidNumber } from "../utils/validation.js";
 
 const N2K_DEPTH_PRIORITY = 3;
+// PGN 128267 offset is signed 16-bit at 0.001 m resolution.
+const MIN_DEPTH_OFFSET_M = -32.767;
+const MAX_DEPTH_OFFSET_M = 32.764;
 
 export default function createDepthConversion(app: SignalKApp): ConversionModule<[number | null]> {
 	return {
@@ -40,11 +43,16 @@ export default function createDepthConversion(app: SignalKApp): ConversionModule
 			// is configured, leave the field undefined so canboatjs encodes the
 			// spec's "data not available" sentinel rather than 0, which would
 			// claim the transducer sits exactly at the waterline.
+			//
+			// The field is signed 16-bit at 0.001 m, so it only reaches about
+			// +-32.7 m. A configured offset past that would wrap and come out with
+			// the opposite sign (+50 m decodes as -15.536 m), which is worse than
+			// no offset at all, so an unencodable offset is left undefined.
 			let offset: number | undefined;
 			if (surfaceToTransducer !== null) {
-				offset = surfaceToTransducer;
+				offset = toFiniteInRange(surfaceToTransducer, MIN_DEPTH_OFFSET_M, MAX_DEPTH_OFFSET_M);
 			} else if (transducerToKeel !== null) {
-				offset = -transducerToKeel;
+				offset = toFiniteInRange(-transducerToKeel, MIN_DEPTH_OFFSET_M, MAX_DEPTH_OFFSET_M);
 			}
 
 			return [

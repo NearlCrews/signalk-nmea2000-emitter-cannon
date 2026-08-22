@@ -29,6 +29,11 @@ export default function createDscCallsConversion(_app: SignalKApp): ConversionMo
 		// (which has no top-level communication branch); it is a convention
 		// used by DSC-aware upstream providers. Requires such a provider.
 		keys: ["communication.dsc.callType", "communication.dsc.mmsi", "communication.dsc.nature"],
+		// A distress call is an event, not a state. With the default resend the
+		// plugin would rebroadcast one inbound distress relay every 5 seconds for
+		// as long as the provider left the path in place, which is the same
+		// failure mode the AIS conversions avoid by never resending.
+		allowResend: false,
 		callback: ((callType: string | null, mmsi: string | null, nature: string | null) => {
 			// canboatjs 3.20 only selects a correctly encodable variant for
 			// distress calls. Suppress all other categories instead of emitting a

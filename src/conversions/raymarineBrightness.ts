@@ -7,7 +7,7 @@ import type {
 	SignalKPlugin,
 	SubConversionModule,
 } from "../types/index.js";
-import { isValidNumber } from "../utils/validation.js";
+import { isValidSignalKId, toFiniteInRange } from "../utils/validation.js";
 
 // Set view of the shared canboat SEATALK_NETWORK_GROUP label list for the O(1)
 // membership check below. An out-of-enum label would not match the PGN 126720
@@ -28,7 +28,10 @@ interface BrightnessGroup {
 function isBrightnessGroup(v: unknown): v is BrightnessGroup {
 	if (typeof v !== "object" || v === null) return false;
 	const obj = v as Record<string, unknown>;
-	return typeof obj.signalkId === "string" && typeof obj.groupLabel === "string";
+	// isValidSignalKId, not a bare string check: the id is interpolated into a
+	// subscription path, so a value containing a dot would silently build a path
+	// that never fires. The sibling electrical conversions guard the same way.
+	return isValidSignalKId(obj.signalkId) && typeof obj.groupLabel === "string";
 }
 
 export default function createRaymarineBrightnessConversion(
@@ -55,7 +58,12 @@ export default function createRaymarineBrightnessConversion(
 				title: `Raymarine Display Brightness ${group.groupLabel} (PGN 126720)`,
 				keys: [`electrical.displays.raymarine.${group.signalkId}.brightness`],
 				callback: (brightness: number | null) => {
-					if (!isValidNumber(brightness)) {
+					// A Signal K ratio, scaled to the uint8 percent the Seatalk frame
+					// carries. A provider publishing 0 to 100 instead would scale to
+					// 8500, wrap, and set a real display's backlight to 52 percent, so
+					// anything outside the ratio range is rejected rather than sent.
+					const ratio = toFiniteInRange(brightness, 0, 1);
+					if (ratio === undefined) {
 						return [];
 					}
 
@@ -79,7 +87,7 @@ export default function createRaymarineBrightnessConversion(
 								group: n2kGroup,
 								shared: "Shared",
 								command: 0,
-								brightness: brightness * 100,
+								brightness: ratio * 100,
 								unknown2: 0,
 							},
 						},

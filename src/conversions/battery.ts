@@ -13,7 +13,7 @@ import type {
 	SubConversionModule,
 } from "../types/index.js";
 import { ExponentialSmoother } from "../utils/smoothing.js";
-import { isPlainObject, toValidNumber } from "../utils/validation.js";
+import { isPlainObject, toFiniteInRange, toValidNumber } from "../utils/validation.js";
 import {
 	instanceList,
 	isValidInstanceSignalKId,
@@ -154,7 +154,13 @@ export default function createBatteryConversion(
 							}
 						}
 
-						const resolvedTimeRemaining = validTimeRemaining ?? computedTR;
+						// The clamp above guards only the derived branch. A Signal K
+						// supplied capacity.timeRemaining reaches the wire field the same
+						// way and needs the same bound: PGN 127506 timeRemaining is
+						// unsigned 16-bit at 60 s resolution, so an out-of-range value
+						// wraps into a plausible one (-100 s decodes as 1092 hours).
+						const resolvedTimeRemaining =
+							toFiniteInRange(validTimeRemaining, 0, MAX_TIME_REMAINING_S) ?? computedTR;
 
 						if (
 							validStateOfCharge !== null ||

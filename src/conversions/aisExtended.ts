@@ -32,6 +32,12 @@ interface Position extends GeoPosition {
 // is still useful, while reapplying DEFAULT_DATA_TIMEOUT_MS would expire
 // after 10 seconds and silently mute the message between repeats.
 const SAFETY_MESSAGE_TIMEOUT_MS = 300000;
+// The 6-bit AIS timestamp lookup reads 0 through 59 as a literal UTC second
+// and 60 as "not available". These own-vessel reports carry no fix second,
+// and they ride the resend path, so a clock-derived second would restamp a
+// stale report as fresh. ais.ts uses the same sentinel for remote targets
+// with no known fix second.
+const AIS_TIMESTAMP_UNAVAILABLE = "Not available";
 const MAX_CLASS_B_SOG_METERS_PER_SECOND = 655.32;
 const MAX_SAR_SOG_METERS_PER_SECOND = 6553.2;
 const MAX_AIS_DIMENSION_METERS = 6553.2;
@@ -124,7 +130,7 @@ export default function createAisExtendedConversions(
 							latitude: position.latitude,
 							positionAccuracy: "Low",
 							raim: "not in use",
-							timeStamp: "0",
+							timeStamp: AIS_TIMESTAMP_UNAVAILABLE,
 							// COG and heading are unsigned [0, 2pi) fields; see
 							// toUnsignedAngle.
 							cog: toUnsignedAngle(cog),
@@ -172,7 +178,7 @@ export default function createAisExtendedConversions(
 								regionalApplication: 0,
 								repeatIndicator: "Initial",
 								sog: 0.05,
-								timeStamp: "0",
+								timeStamp: AIS_TIMESTAMP_UNAVAILABLE,
 								unitType: "SOTDMA",
 								userId: 367301250,
 							},
@@ -244,7 +250,7 @@ export default function createAisExtendedConversions(
 							latitude: position.latitude,
 							positionAccuracy: "Low",
 							raim: "not in use",
-							timeStamp: "0",
+							timeStamp: AIS_TIMESTAMP_UNAVAILABLE,
 							// COG and true heading are unsigned [0, 2pi) fields; see
 							// toUnsignedAngle.
 							cog: toUnsignedAngle(cog),
@@ -313,7 +319,7 @@ export default function createAisExtendedConversions(
 								raim: "not in use",
 								repeatIndicator: "Initial",
 								sog: 0.05,
-								timeStamp: "0",
+								timeStamp: AIS_TIMESTAMP_UNAVAILABLE,
 								trueHeading: 5.6199,
 								// Callback emits the numeric LOOKUP id (36 for Sailing). The
 								// canboatjs decoder used by the test harness round-trips the id
@@ -375,7 +381,7 @@ export default function createAisExtendedConversions(
 							latitude: position.latitude,
 							positionAccuracy: "High",
 							raim: "in use",
-							timeStamp: "0",
+							timeStamp: AIS_TIMESTAMP_UNAVAILABLE,
 							// COG is an unsigned [0, 2pi) field; see toUnsignedAngle.
 							cog: toUnsignedAngle(cog),
 							sog: toFiniteInRange(sog, 0, MAX_SAR_SOG_METERS_PER_SECOND),
@@ -407,7 +413,7 @@ export default function createAisExtendedConversions(
 								raim: "in use",
 								repeatIndicator: "Initial",
 								sog: 25.7,
-								timeStamp: "0",
+								timeStamp: AIS_TIMESTAMP_UNAVAILABLE,
 								userId: 111000001,
 							},
 						},
@@ -435,7 +441,7 @@ export default function createAisExtendedConversions(
 								raim: "in use",
 								repeatIndicator: "Initial",
 								sog: 25.7,
-								timeStamp: "0",
+								timeStamp: AIS_TIMESTAMP_UNAVAILABLE,
 								userId: 111000001,
 							},
 						},

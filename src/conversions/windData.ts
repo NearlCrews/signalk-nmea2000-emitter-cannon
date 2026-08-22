@@ -1,6 +1,6 @@
 import {
 	DEFAULT_DATA_TIMEOUT_MS,
-	MAX_WIND_SPEED_MPS,
+	MAX_N2K_SPEED_MPS,
 	N2K_BROADCAST_DST,
 	N2K_DEFAULT_PRIORITY,
 	N2K_DEFAULT_SID,
@@ -35,7 +35,7 @@ export function createWind130306Conversion(
 		],
 		callback: (angle: unknown, speed: unknown): N2KMessage[] => {
 			const windAngle = isValidNumber(angle) ? toUnsignedAngle(angle) : undefined;
-			const windSpeed = toFiniteInRange(speed, 0, MAX_WIND_SPEED_MPS);
+			const windSpeed = toFiniteInRange(speed, 0, MAX_N2K_SPEED_MPS);
 			if (windAngle === undefined && windSpeed === undefined) {
 				return [];
 			}

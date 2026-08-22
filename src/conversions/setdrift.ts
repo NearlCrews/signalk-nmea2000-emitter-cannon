@@ -1,6 +1,6 @@
-import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
+import { MAX_N2K_SPEED_MPS, N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
-import { toUnsignedAngle, toValidNumber } from "../utils/validation.js";
+import { toFiniteInRange, toUnsignedAngle, toValidNumber } from "../utils/validation.js";
 
 export default function createSetDriftConversion(_app: SignalKApp): ConversionModule {
 	return {
@@ -13,7 +13,9 @@ export default function createSetDriftConversion(_app: SignalKApp): ConversionMo
 		keys: ["environment.water.current.set", "environment.water.current.drift"],
 		callback: (set: unknown, drift: unknown): N2KMessage[] => {
 			const setValue = toValidNumber(set);
-			const driftValue = toValidNumber(drift);
+			// Drift shares the unsigned 0.01 m/s field class with SOG, so it wraps
+			// the same way and gets the same range check.
+			const driftValue = toFiniteInRange(drift, 0, MAX_N2K_SPEED_MPS) ?? null;
 
 			if (setValue === null && driftValue === null) {
 				return [];

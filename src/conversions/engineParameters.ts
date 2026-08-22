@@ -1,6 +1,7 @@
 import {
 	DEFAULT_DATA_TIMEOUT_MS,
 	M3PS_TO_LPH,
+	MAX_TEMPERATURE_K,
 	N2K_BROADCAST_DST,
 	N2K_DEFAULT_PRIORITY,
 	VESSELS_SELF_CONTEXT,
@@ -11,7 +12,12 @@ import type {
 	SignalKApp,
 	SubConversionModule,
 } from "../types/index.js";
-import { isPlainObject, isValidNumber, toValidNumber } from "../utils/validation.js";
+import {
+	isPlainObject,
+	isValidNumber,
+	toFiniteInRange,
+	toValidNumber,
+} from "../utils/validation.js";
 import {
 	instanceList,
 	isValidInstanceSignalKId,
@@ -84,8 +90,18 @@ export default function createEngineParametersConversions(
 
 				return engines.map((engine) => ({
 					keys: [`propulsion.${engine.signalkId}.exhaustTemperature`],
+					// Without a freshness window mapRxJS retains the last reading
+					// forever, so a dead probe would keep rebroadcasting it. Every
+					// sibling per-instance conversion declares one.
+					timeouts: [DEFAULT_DATA_TIMEOUT_MS],
 					callback: ((temperature: number | null) => {
-						if (!isValidNumber(temperature)) {
+						// PGN 130312 tops out at 655.32 K (382 C). A dry-stack exhaust
+						// gas probe reads well past that under load, and the unsigned
+						// field wraps rather than rejecting: 773 K would go on the bus
+						// as 117.64 K, a fabricated low reading at the exact moment
+						// exhaust temperature matters.
+						const exhaustK = toFiniteInRange(temperature, 0, MAX_TEMPERATURE_K);
+						if (exhaustK === undefined) {
 							return [];
 						}
 						return [
@@ -95,7 +111,7 @@ export default function createEngineParametersConversions(
 								dst: N2K_BROADCAST_DST,
 								fields: {
 									instance: engine.tempInstanceId,
-									actualTemperature: temperature,
+									actualTemperature: exhaustK,
 									source: "Exhaust Gas Temperature",
 								},
 							},

@@ -4,9 +4,15 @@ import {
 	type TemperatureDefinition,
 } from "../config/environmentSources.js";
 import { raymarinePresetsFor } from "../config/raymarinePreset.js";
-import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, N2K_DEFAULT_SID } from "../constants.js";
+import {
+	MAX_TEMPERATURE_EXTENDED_K,
+	MAX_TEMPERATURE_K,
+	N2K_BROADCAST_DST,
+	N2K_DEFAULT_PRIORITY,
+	N2K_DEFAULT_SID,
+} from "../constants.js";
 import type { ConversionModule, N2KMessage } from "../types/index.js";
-import { isValidNumber, resolveInstanceAndSource } from "../utils/validation.js";
+import { resolveInstanceAndSource, toFiniteInRange } from "../utils/validation.js";
 
 export type TemperatureInfo = TemperatureDefinition;
 
@@ -37,6 +43,10 @@ function makeTemperatureConversion(
 ): ConversionModule {
 	const optionKey = `${prefix}_${info.option}`;
 	const tempFieldName = pgn === 130316 ? "temperature" : "actualTemperature";
+	// Both fields are unsigned, so an out-of-range reading wraps into a
+	// plausible one instead of being rejected: -5 K encodes as 650.36 K on
+	// PGN 130312, which is hot enough to trip a receiver's high-temp alarm.
+	const maxTemperatureK = pgn === 130316 ? MAX_TEMPERATURE_EXTENDED_K : MAX_TEMPERATURE_K;
 
 	return {
 		title: `${info.n2kSource} (PGN ${pgn})`,
@@ -65,11 +75,12 @@ function makeTemperatureConversion(
 				{
 					keys: [info.source],
 					callback: (temperature: unknown): N2KMessage[] => {
-						if (!isValidNumber(temperature)) {
+						const temperatureK = toFiniteInRange(temperature, 0, maxTemperatureK);
+						if (temperatureK === undefined) {
 							return [];
 						}
 
-						return [createTemperatureMessage(pgn, tempFieldName, temperature, instance, source)];
+						return [createTemperatureMessage(pgn, tempFieldName, temperatureK, instance, source)];
 					},
 					tests: [
 						{

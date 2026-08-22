@@ -338,7 +338,10 @@ describe("configuration validation", () => {
 				// carry the same sensor identity for old receivers.
 				TEMPERATURE_SEA: conversion(true, {}),
 				HUMIDITY_OUTSIDE: conversion(true, {}),
-				HUMIDITY_INSIDE: conversion(true, { instance: 0, n2kSource: "Outside" }),
+				// Collides with the HUMIDITY_OUTSIDE default identity, which is
+				// ("Outside", N2K_DEFAULT_INSTANCE): the environmental sensors share
+				// the instance block that starts at 100.
+				HUMIDITY_INSIDE: conversion(true, { instance: 100, n2kSource: "Outside" }),
 			},
 		});
 

@@ -49,12 +49,19 @@ export function encodeDscMmsi(mmsi: unknown): Buffer | undefined {
  * non-digits (the "IMO" prefix), and returns undefined for missing, empty, or
  * zero input so the field stays unset.
  */
+// An IMO number is seven digits, so anything longer is not one. The bound also
+// keeps the parsed value inside the unsigned 32-bit PGN 129794 field: stripping
+// non-digits out of a malformed value can leave far more than seven, and the
+// encoder would truncate that modulo the field width into a fabricated IMO
+// rather than reject it.
+const MAX_IMO_NUMBER = 9_999_999;
+
 export function parseImo(raw: unknown): number | undefined {
 	if (typeof raw !== "string") return undefined;
 	const digits = raw.replace(/\D/g, "");
 	if (digits.length === 0) return undefined;
 	const n = Number(digits);
-	return n > 0 ? n : undefined;
+	return n > 0 && n <= MAX_IMO_NUMBER ? n : undefined;
 }
 
 // AIS string field widths. canboatjs writes STRING_FIX values with no length

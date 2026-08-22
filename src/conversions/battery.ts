@@ -123,15 +123,18 @@ export default function createBatteryConversion(
 						// SK spec calls capacity.remaining Joule, but real-world
 						// producers (Victron, BMS bridges) publish Coulombs; honoring
 						// observed convention. See CHANGELOG v1.3.1.
+						// Hoisted out of the timeRemaining branch below: this is the
+						// remaining charge, so it fills the remainingCapacity field too
+						// rather than being computed for one use and thrown away.
+						const remainingC =
+							validCapacityRemaining !== null
+								? validCapacityRemaining
+								: validCapacityActual !== null && validStateOfCharge !== null
+									? validCapacityActual * validStateOfCharge
+									: null;
+
 						let computedTR: number | null = null;
 						if (validTimeRemaining === null) {
-							const remainingC =
-								validCapacityRemaining !== null
-									? validCapacityRemaining
-									: validCapacityActual !== null && validStateOfCharge !== null
-										? validCapacityActual * validStateOfCharge
-										: null;
-
 							let dischargeCurrentA: number | null = null;
 							if (validCurrent !== null) {
 								if (validCurrent > DISCHARGE_THRESHOLD_A) {

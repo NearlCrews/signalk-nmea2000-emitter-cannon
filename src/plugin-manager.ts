@@ -37,6 +37,8 @@ import { withCanonicalPgnPriority } from "./utils/pgnPriorities.js";
 import { resolveRefreshInterval } from "./utils/refreshInterval.js";
 import { clearAllSmoothers } from "./utils/smoothing.js";
 
+const SOURCE_METADATA_TTL_MS = 1000;
+
 function resolveKeys(
 	keys: string[] | ((options: ConversionOptions) => string[]) | undefined,
 	options: ConversionOptions,
@@ -183,6 +185,31 @@ interface RuntimeStatusDescriptor {
 export class PluginManager {
 	private app: SignalKApp;
 	private conversions: ConversionModule[] = [];
+	/**
+	 * Per-conversion delta filter inputs, derived once instead of on every
+	 * delta. filterDeltaForConversion runs for each ON_DELTA and SUBSCRIPTION
+	 * conversion on every matching delta, which is the hottest path in the
+	 * plugin, and both of these depend only on the conversion and its options:
+	 * the sorted subscription keys, and whether any option can be a publisher
+	 * pin at all. Without the second flag the common no-pin case still paid a
+	 * regex replace per value to build a property name nothing would match.
+	 * Keyed by the per-start conversion object, so a new start cycle recomputes
+	 * and the old entries are collected with their conversions.
+	 */
+	private readonly deltaFilterInputs = new WeakMap<
+		ConversionModule,
+		{ options: ConversionOptions; subscriptionKeys: string[]; mayHavePin: boolean }
+	>();
+	/**
+	 * Short-lived cache of the server's sources tree. The two delta paths
+	 * memoize this per delta, but the RxJS stream filter has no such boundary:
+	 * a provider that omits structured source metadata sends every value down
+	 * the unknown-origin branch, so each one walked the whole tree. The tree
+	 * changes only when a new source appears, so a one-second window is far
+	 * shorter than the interval at which the answer could change.
+	 */
+	private sourceMetadata: unknown;
+	private sourceMetadataAt = 0;
 	private unsubscribes: Array<() => void> = [];
 	private timers: NodeJS.Timeout[] = [];
 	/**
@@ -846,6 +873,10 @@ export class PluginManager {
 		safe("clear perConversion", () => this.perConversion.clear());
 		safe("clear runtimeStatusDescriptors", () => this.runtimeStatusDescriptors.clear());
 		safe("clear errorBuckets", () => this.errorBuckets.clear());
+		// Drop the sources snapshot so a restart re-reads it rather than answering
+		// the first value of the next cycle from the previous one.
+		this.sourceMetadata = undefined;
+		this.sourceMetadataAt = 0;
 
 		// Wipe ExponentialSmoother state across plugin restarts.
 		safe("clearAllSmoothers", () => clearAllSmoothers());
@@ -919,9 +950,7 @@ export class PluginManager {
 		getSourceMetadata: () => unknown = () => this.app.getPath?.("sources"),
 	): unknown | undefined {
 		if (!isRecord(delta) || !Array.isArray(delta.updates)) return delta;
-		const subscriptionKeys = [...resolveKeys(conversion.keys, options)].sort(
-			(a, b) => b.length - a.length,
-		);
+		const { subscriptionKeys, mayHavePin } = this.deltaFilterInputsFor(conversion, options);
 		const updates: DeltaUpdateLike[] = [];
 		let changed = false;
 
@@ -940,18 +969,20 @@ export class PluginManager {
 			const values = rawValues.filter((rawValue) => {
 				if (!isRecord(rawValue) || typeof rawValue.path !== "string") return false;
 				const path = rawValue.path;
-				const subscriptionKey = subscriptionKeys.find((key) =>
-					pathMatchesSubscriptionKey(path, key),
-				);
-				const pin =
-					options[path] ??
-					options[pathToPropName(path)] ??
-					(subscriptionKey === undefined
-						? undefined
-						: (options[subscriptionKey] ?? options[pathToPropName(subscriptionKey)]));
-				if (typeof pin === "string" && pin.length > 0 && !sourceMatchesFilter(sourceRef, pin)) {
-					this.recordDrop(conversion.optionKey, "publisher-filter");
-					return false;
+				if (mayHavePin) {
+					const subscriptionKey = subscriptionKeys.find((key) =>
+						pathMatchesSubscriptionKey(path, key),
+					);
+					const pin =
+						options[path] ??
+						options[pathToPropName(path)] ??
+						(subscriptionKey === undefined
+							? undefined
+							: (options[subscriptionKey] ?? options[pathToPropName(subscriptionKey)]));
+					if (typeof pin === "string" && pin.length > 0 && !sourceMatchesFilter(sourceRef, pin)) {
+						this.recordDrop(conversion.optionKey, "publisher-filter");
+						return false;
+					}
 				}
 				if (
 					origin === SOURCE_ORIGIN.NMEA2000 &&
@@ -969,6 +1000,40 @@ export class PluginManager {
 
 		if (updates.length === 0) return undefined;
 		return changed || updates.length !== delta.updates.length ? { ...delta, updates } : delta;
+	}
+
+	/** The sources tree, re-read at most once per SOURCE_METADATA_TTL_MS. */
+	private cachedSourceMetadata(): unknown {
+		const now = Date.now();
+		if (now - this.sourceMetadataAt >= SOURCE_METADATA_TTL_MS) {
+			this.sourceMetadata = this.app.getPath?.("sources");
+			this.sourceMetadataAt = now;
+		}
+		return this.sourceMetadata;
+	}
+
+	/**
+	 * Subscription keys and the pin-possible flag for one conversion, computed
+	 * on first use and reused until the conversion's options are replaced.
+	 */
+	private deltaFilterInputsFor(
+		conversion: ConversionModule,
+		options: ConversionOptions,
+	): { subscriptionKeys: string[]; mayHavePin: boolean } {
+		const cached = this.deltaFilterInputs.get(conversion);
+		if (cached !== undefined && cached.options === options) return cached;
+		// Longest key first so the most specific subscription wins the match.
+		const subscriptionKeys = [...resolveKeys(conversion.keys, options)].sort(
+			(a, b) => b.length - a.length,
+		);
+		// Conservative: a non-empty string anywhere in the options could be a
+		// publisher pin, so this only skips the lookup when nothing can match.
+		const mayHavePin = Object.values(options).some(
+			(value) => typeof value === "string" && value.length > 0,
+		);
+		const entry = { options, subscriptionKeys, mayHavePin };
+		this.deltaFilterInputs.set(conversion, entry);
+		return entry;
 	}
 
 	private async processOutput(
@@ -1162,7 +1227,7 @@ export class PluginManager {
 				}
 				let origin = classifySourceOrigin(src, x.source);
 				if (origin === SOURCE_ORIGIN.UNKNOWN) {
-					origin = classifySourceOrigin(src, undefined, this.app.getPath?.("sources"));
+					origin = classifySourceOrigin(src, undefined, this.cachedSourceMetadata());
 				}
 				if (
 					origin === SOURCE_ORIGIN.NMEA2000 &&

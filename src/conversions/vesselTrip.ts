@@ -164,6 +164,12 @@ export default function createVesselTripConversion(_app: SignalKApp): Conversion
 					MAX_ESTIMATED_FUEL_LITERS,
 					FUEL_RESOLUTION_LITERS,
 				);
+				// Deliberately all or nothing on the fuel figure. timeToEmpty and
+				// distanceToEmpty are derived from the same remaining volume, so
+				// publishing a range while declaring the fuel quantity unavailable
+				// would put numbers on the bus whose basis the frame cannot state.
+				// The reverse asymmetry is intended: an unencodable range still
+				// leaves a trustworthy fuel quantity worth sending.
 				if (estimatedFuelRemaining === undefined) return [];
 
 				const fields: N2KMessage["fields"] = { estimatedFuelRemaining };

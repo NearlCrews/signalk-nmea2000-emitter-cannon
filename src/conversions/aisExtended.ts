@@ -9,6 +9,8 @@ import {
 	AIS_NAME_CHARS,
 	AIS_SAFETY_TEXT_CHARS,
 	type AisShipType,
+	MAX_AIS_DECIMETER_FIELD,
+	MAX_AIS_SOG_METERS_PER_SECOND,
 	parseMmsi,
 	starboardOffset,
 } from "../utils/aisUtils.js";
@@ -38,9 +40,9 @@ const SAFETY_MESSAGE_TIMEOUT_MS = 300000;
 // stale report as fresh. ais.ts uses the same sentinel for remote targets
 // with no known fix second.
 const AIS_TIMESTAMP_UNAVAILABLE = "Not available";
-const MAX_CLASS_B_SOG_METERS_PER_SECOND = 655.32;
-const MAX_SAR_SOG_METERS_PER_SECOND = 6553.2;
-const MAX_AIS_DIMENSION_METERS = 6553.2;
+const MAX_CLASS_B_SOG_METERS_PER_SECOND = MAX_AIS_SOG_METERS_PER_SECOND;
+const MAX_SAR_SOG_METERS_PER_SECOND = MAX_AIS_DECIMETER_FIELD;
+const MAX_AIS_DIMENSION_METERS = MAX_AIS_DECIMETER_FIELD;
 const MIN_SAR_ALTITUDE_METERS = -21_474_836.47;
 const MAX_SAR_ALTITUDE_METERS = 21_474_836.44;
 

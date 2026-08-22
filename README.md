@@ -20,7 +20,7 @@ reviewed against model-specific chartplotter receive lists.
 
 - **Forward-compatible configuration.** Configuration migrations and Advisor
   saves preserve unknown top-level and per-conversion keys.
-- **Current shared panel UI.** The panel bundles `signalk-nearlcrews-ui` 0.7.1,
+- **Current shared panel UI.** The panel bundles `signalk-nearlcrews-ui` 0.8.0,
   uses the shared relative-age formatter, and docks save actions when needed.
 - **Clear save feedback and fallback guidance.** Save and discard actions move
   focus to a stable completion message, and unsupported browsers receive a
@@ -213,7 +213,7 @@ The published plugin requires Node 22.22.2 or newer. Source builds support Node
 22.22.2 and npm 12.0.2, while CI verifies on the minimum Node release and the
 current Node 24 release.
 CanboatJS and `@canboat/ts-pgns` are exercised in the test suite and are not
-runtime dependencies. `signalk-nearlcrews-ui` 0.7.1 is bundled into the panel
+runtime dependencies. `signalk-nearlcrews-ui` 0.8.0 is bundled into the panel
 as a pinned development dependency, while React and React DOM `^19.2.0` are
 supplied by Signal K Admin.
 

@@ -116,7 +116,14 @@ export function toUnsignedAngle(value: number | null | undefined): number | null
 // at .slice; callers can then fall back to a sentinel or skip the field.
 export function clampString(value: string, maxChars: number): string;
 export function clampString(value: string | undefined, maxChars: number): string | undefined;
+// Third overload for the AIS caches, which clamp values straight off an
+// unvalidated inbound delta.
+export function clampString(value: unknown, maxChars: number): string | undefined;
 export function clampString(value: unknown, maxChars: number): string | undefined {
 	if (typeof value !== "string") return undefined;
-	return value.length <= maxChars ? value : value.slice(0, maxChars);
+	if (value.length <= maxChars) return value;
+	// split/join forces a bounded copy rather than an engine-dependent sliced
+	// string that keeps the whole source alive. AIS relays third-party strings
+	// of arbitrary length, so this matters at the cache boundary.
+	return value.slice(0, maxChars).split("").join("");
 }

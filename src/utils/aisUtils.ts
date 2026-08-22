@@ -76,3 +76,13 @@ export const AIS_SAFETY_TEXT_CHARS = 161;
 // same value keeps our pre-encode width authoritative and means we never feed
 // the encoder a value it would silently truncate.
 export const ATON_NAME_CHARS = 18;
+
+// AIS numeric field widths, shared by the remote-target and own-vessel modules.
+// Each is the largest value the field encodes: the encoder truncates anything
+// past it rather than rejecting, so every one is a range check, not a clamp.
+/** Unsigned 16-bit at 0.01 m/s: the Class A and Class B speed-over-ground field. */
+export const MAX_AIS_SOG_METERS_PER_SECOND = 655.32;
+/** Unsigned 16-bit at 0.1 units: the SAR aircraft speed field and the dimension fields. */
+export const MAX_AIS_DECIMETER_FIELD = 6553.2;
+/** Unsigned 16-bit at 0.0001 rad: course over ground and heading. */
+export const MAX_AIS_ANGLE_RADIANS = 6.2831852;

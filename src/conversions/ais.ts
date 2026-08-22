@@ -13,6 +13,9 @@ import {
 	AIS_NAME_CHARS,
 	type AisShipType,
 	ATON_NAME_CHARS,
+	MAX_AIS_ANGLE_RADIANS,
+	MAX_AIS_DECIMETER_FIELD,
+	MAX_AIS_SOG_METERS_PER_SECOND,
 	parseImo,
 	parseMmsi,
 	starboardOffset,
@@ -29,12 +32,10 @@ import type { Position } from "./routeTypes.js";
 // stops at 14, but the AIS bitfield is 4 bits and 15 is the spec default
 // for "navigation state unknown". canboatjs accepts the numeric value.
 const NAV_STATUS_NOT_DEFINED = 15;
-const MAX_AIS_ANGLE_RADIANS = 6.2831852;
-const MAX_AIS_SOG_METERS_PER_SECOND = 655.32;
 const MIN_AIS_ROT_RADIANS_PER_SECOND = -1.02396875;
 const MAX_AIS_ROT_RADIANS_PER_SECOND = 1.023875;
-const MAX_AIS_DIMENSION_METERS = 6553.2;
-const MAX_AIS_DRAFT_METERS = 655.32;
+const MAX_AIS_DIMENSION_METERS = MAX_AIS_DECIMETER_FIELD;
+const MAX_AIS_DRAFT_METERS = MAX_AIS_SOG_METERS_PER_SECOND;
 const MAX_AIS_CONTEXTS = 2048;
 // Class A vessels at anchor, slow Class B vessels, and AIS AtoNs normally
 // report at intervals up to three minutes. Allow fifteen seconds of transport
@@ -1224,14 +1225,6 @@ function hasOwn(record: Record<string, unknown>, key: string): boolean {
 	return Object.hasOwn(record, key);
 }
 
-function boundedString(value: unknown, maximumLength: number): string | undefined {
-	if (typeof value !== "string") return undefined;
-	if (value.length <= maximumLength) return value;
-	// split/join forces a bounded copy instead of retaining a potentially huge
-	// source string through an engine-dependent sliced-string representation.
-	return value.slice(0, maximumLength).split("").join("");
-}
-
 function normalizeAisRelevantValue(path: string, value: unknown): unknown | undefined {
 	if (AIS_NUMBER_VALUE_PATHS.has(path)) {
 		return typeof value === "number" ? value : undefined;
@@ -1243,11 +1236,11 @@ function normalizeAisRelevantValue(path: string, value: unknown): unknown | unde
 		case "sensors.ais.class":
 			return value === "A" || value === "B" ? value : undefined;
 		case "name":
-			return boundedString(value, AIS_NAME_CHARS);
+			return clampString(value, AIS_NAME_CHARS);
 		case "communication.callsignVhf":
-			return boundedString(value, AIS_CALLSIGN_CHARS);
+			return clampString(value, AIS_CALLSIGN_CHARS);
 		case "navigation.destination.commonName":
-			return boundedString(value, AIS_DESTINATION_CHARS);
+			return clampString(value, AIS_DESTINATION_CHARS);
 		case "registrations.imo":
 			return typeof value === "string" && value.length <= 32 ? value : undefined;
 		case "navigation.state":

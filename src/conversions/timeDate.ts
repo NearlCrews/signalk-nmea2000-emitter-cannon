@@ -1,6 +1,6 @@
 import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, SLOW_DATA_TIMEOUT_MS } from "../constants.js";
 import type { ConversionModule, N2KMessage } from "../types/index.js";
-import { toN2KDateTime } from "../utils/dateUtils.js";
+import { toN2KDate } from "../utils/dateUtils.js";
 
 const UTC_RFC3339 = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/;
 const TIME_UNITS_PER_SECOND = 10_000;
@@ -27,7 +27,6 @@ export default function createTimeDateConversion(): ConversionModule {
 			// instead of rejecting them. Ensure the parsed UTC components still
 			// match the source before putting the date on the bus.
 			if (sourceDate.toISOString().slice(0, 19) !== datetime.slice(0, 19)) return [];
-			const converted = toN2KDateTime(sourceDate);
 			// Date retains only milliseconds, while Signal K permits arbitrary
 			// RFC 3339 fractional precision and PGN 129033 resolves to 0.0001 s.
 			// Reapply the source fraction, then round to the wire resolution before
@@ -40,7 +39,9 @@ export default function createTimeDateConversion(): ConversionModule {
 				sourceDate.getUTCSeconds() +
 				(fraction === undefined ? 0 : Number(`0.${fraction}`));
 			let timeUnits = Math.round(sourceTime * TIME_UNITS_PER_SECOND);
-			let { date } = converted;
+			// Only the date comes from the helper: the time is recomputed below to
+			// carry the source's sub-millisecond fraction, which a Date cannot hold.
+			let date = toN2KDate(sourceDate);
 			if (timeUnits >= SECONDS_PER_DAY * TIME_UNITS_PER_SECOND) {
 				date += 1;
 				timeUnits -= SECONDS_PER_DAY * TIME_UNITS_PER_SECOND;

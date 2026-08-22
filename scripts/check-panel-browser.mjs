@@ -742,6 +742,13 @@ try {
 		throw new Error("invalid Vessel Trip engine row did not block Save");
 	}
 	await engineInput.fill("port");
+	// Focus before clicking. Save sits in the viewport-bottom ActionBar, and
+	// snui 0.8.0 swallows the first click on a control overlapping the docked
+	// bar: the focusin clearance scroll moves the control out from under the
+	// pointer between press and release. Focusing first means the click lands on
+	// a control the bar has already settled. Remove once the library ships the
+	// fix.
+	await page.getByRole("button", { name: "Save", exact: true }).focus();
 	await page.getByRole("button", { name: "Save", exact: true }).click();
 	await page.getByText("Save requested", { exact: true }).waitFor();
 	await page.waitForFunction(() => {

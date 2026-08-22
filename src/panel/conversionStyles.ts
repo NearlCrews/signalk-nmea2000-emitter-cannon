@@ -37,7 +37,10 @@ export const CONVERSION_STYLES = {
 		alignItems: "center",
 		gap: "var(--skn-space-1)",
 		flex: 1,
-		minWidth: 0,
+		// A floor, not 0. The title still ellipsizes inside it, but the toggle can
+		// never be squeezed to zero width by a long recency string at 320px, which
+		// leaves the row with no clickable target at all.
+		minWidth: 96,
 		padding: 0,
 		background: "transparent",
 		border: "none",
@@ -79,7 +82,13 @@ export const CONVERSION_STYLES = {
 		color: "var(--skn-text-faint)",
 		fontSize: "var(--skn-font-small)",
 		whiteSpace: "nowrap",
-		flexShrink: 0,
+		// Yields before the toggle does: on a narrow row the conversion name
+		// matters more than the exact age, so this ellipsizes rather than holding
+		// its full width and starving the control beside it.
+		flexShrink: 1,
+		minWidth: 0,
+		overflow: "hidden",
+		textOverflow: "ellipsis",
 	},
 	detail: {
 		background: "var(--skn-surface-muted)",

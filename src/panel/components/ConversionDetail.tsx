@@ -7,6 +7,7 @@ import type { ConfigIssue } from "../../config/validation.js";
 import { pathToPropName } from "../../utils/pathUtils.js";
 import { configIssueControls } from "../configIssueTarget";
 import { CONVERSION_STYLES as C } from "../conversionStyles";
+import { RELATIVE_AGE_FORMAT } from "../recency";
 import { conversionHealth } from "../rowStatus.js";
 import { S } from "../styles";
 import Disclosure from "./Disclosure";
@@ -73,7 +74,9 @@ export default function ConversionDetail(props: Props): React.ReactElement {
 			: `global: ${props.globalResendSeconds} s`;
 
 	const errorAgeSuffix =
-		status?.lastErrorAgeMs !== undefined ? ` (${formatRelativeAge(status.lastErrorAgeMs)})` : "";
+		status?.lastErrorAgeMs !== undefined
+			? ` (${formatRelativeAge(status.lastErrorAgeMs, RELATIVE_AGE_FORMAT)})`
+			: "";
 
 	const hasValidationError = props.validationIssues.some((issue) => issue.severity === "error");
 
@@ -208,7 +211,7 @@ export default function ConversionDetail(props: Props): React.ReactElement {
 														{listed ? "listed by server" : "not in server inventory"};{" "}
 														{lastSeenMs === undefined
 															? "no value seen this run"
-															: `${stale ? "stale, " : ""}last seen ${formatRelativeAge(lastSeenMs)}`}
+															: `${stale ? "stale, " : ""}last seen ${formatRelativeAge(lastSeenMs, RELATIVE_AGE_FORMAT)}`}
 													</span>
 												</li>
 											);

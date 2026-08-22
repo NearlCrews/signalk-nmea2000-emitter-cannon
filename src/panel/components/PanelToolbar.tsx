@@ -8,6 +8,7 @@ import {
 } from "signalk-nearlcrews-ui";
 import type { StatusSnapshot } from "../../api/types.js";
 import { type OutputState, outputStateFor } from "../outputState";
+import { RELATIVE_AGE_FORMAT } from "../recency";
 import { S } from "../styles";
 import { TOOLBAR_STYLES as T } from "../toolbarStyles";
 import ErrorBadgeButton from "./ErrorBadgeButton";
@@ -93,7 +94,9 @@ export default function PanelToolbar(props: Props): React.ReactElement {
 					{s ? `${s.enabledCount} / ${s.totalConversions}` : "..."} {outputState}
 				</span>
 				{stale ? (
-					<span style={T.statusChipStale}>updated {formatRelativeAge(staleAgeMs)}</span>
+					<span style={T.statusChipStale}>
+						updated {formatRelativeAge(staleAgeMs, RELATIVE_AGE_FORMAT)}
+					</span>
 				) : null}
 			</span>
 			{errors > 0 ? <ErrorBadgeButton count={errors} onClick={props.onErrorBadgeClick} /> : null}

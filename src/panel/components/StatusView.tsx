@@ -4,6 +4,7 @@ import type { ConversionMetadata, PerConversionStatus, StatusSnapshot } from "..
 import { stripSubIndex } from "../../utils/pathUtils.js";
 import { extractPgnsFromTitle } from "../../utils/pgnUtils.js";
 import { outputStateFor } from "../outputState";
+import { RELATIVE_AGE_FORMAT } from "../recency";
 import { conversionHealth } from "../rowStatus.js";
 import { STATUS_VIEW_STYLES as V } from "../statusStyles";
 import { S } from "../styles";
@@ -132,7 +133,9 @@ export default function StatusView({ status, metaByKey, onErrorClick }: Props): 
 						<tbody>
 							{displayRows.map((row) => {
 								const recency =
-									row.emitCount > 0 ? formatRelativeAge(row.lastEmitMs) : "no recent output";
+									row.emitCount > 0
+										? formatRelativeAge(row.lastEmitMs, RELATIVE_AGE_FORMAT)
+										: "no recent output";
 								const health = conversionHealth(row);
 								const isChild = row.parentKey !== undefined;
 								return (
@@ -155,7 +158,7 @@ export default function StatusView({ status, metaByKey, onErrorClick }: Props): 
 													<span aria-hidden="true">⚠ </span>
 													{row.lastErrorMessage}
 													{row.lastErrorAgeMs !== undefined
-														? ` (${formatRelativeAge(row.lastErrorAgeMs)})`
+														? ` (${formatRelativeAge(row.lastErrorAgeMs, RELATIVE_AGE_FORMAT)})`
 														: ""}
 												</span>
 											) : (

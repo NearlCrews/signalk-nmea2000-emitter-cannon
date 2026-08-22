@@ -1,5 +1,6 @@
 import { formatRelativeAge } from "signalk-nearlcrews-ui";
 import type { PerConversionStatus } from "../api/types.js";
+import { RELATIVE_AGE_FORMAT } from "./recency";
 
 export type RailState = "emitting" | "silent" | "error" | "disabled";
 
@@ -72,7 +73,7 @@ export function rowStatus(status: PerConversionStatus | undefined, enabled: bool
 				: "disabled";
 	let recency: string | null = null;
 	if (health.state === "emitting" && status && status.emitCount > 0) {
-		recency = `${status.emitCount} emits, last ${formatRelativeAge(status.lastEmitMs)}`;
+		recency = `${status.emitCount} emits, last ${formatRelativeAge(status.lastEmitMs, RELATIVE_AGE_FORMAT)}`;
 	} else if (enabled) {
 		recency = health.label.toLowerCase();
 	}

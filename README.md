@@ -88,7 +88,7 @@ priorities follow the current stable Canboat 7.1 database. It pairs well with se
 
 | Conversion config | Environment category | Config Advisor |
 | :---: | :---: | :---: |
-| [![Conversion catalog with compact rows and live emit counts](assets/screenshots/config-panel.png)](assets/screenshots/config-panel.png) | [![Environment category conversion rows](assets/screenshots/environment-conversions.png)](assets/screenshots/environment-conversions.png) | [![Config Advisor review controls](assets/screenshots/config-advisor.png)](assets/screenshots/config-advisor.png) |
+| ![Conversion catalog with compact rows and live emit counts](assets/screenshots/config-panel.png) | ![Environment category conversion rows](assets/screenshots/environment-conversions.png) | ![Config Advisor review controls](assets/screenshots/config-advisor.png) |
 
 ## Requirements
 

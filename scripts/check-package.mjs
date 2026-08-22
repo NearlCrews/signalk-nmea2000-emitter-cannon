@@ -62,6 +62,21 @@ if (packageJson.dependencies?.["signalk-nearlcrews-ui"]) {
 }
 assertSharedUiVersion(new URL("../", import.meta.url));
 
+// @types/node must describe the LOWEST runtime this package advertises, or a
+// newer Node's APIs typecheck here and then fail on that lane. Derived from
+// engines.node rather than pinned twice, so relaxing the floor cannot silently
+// leave the types behind. dependabot already refuses every semver-major bump,
+// which is the other half of the guard.
+const engineFloor = /(\d+)/.exec(packageJson.engines?.node ?? "");
+if (!engineFloor) throw new Error("engines.node declares no floor to derive the types major from");
+const typesRange = packageJson.devDependencies?.["@types/node"] ?? "";
+const typesMajor = /(\d+)/.exec(typesRange);
+if (!typesMajor || typesMajor[1] !== engineFloor[1]) {
+	throw new Error(
+		`@types/node ${typesRange} must match the engines.node floor major ${engineFloor[1]}`,
+	);
+}
+
 const hero = await readFile(new URL("../assets/screenshots/config-panel.png", import.meta.url));
 const pngSignature = "89504e470d0a1a0a";
 if (

@@ -77,11 +77,13 @@ module.exports = {
 				react: {
 					singleton: true,
 					requiredVersion: "^19.2.0",
+					strictVersion: true,
 					import: false,
 				},
 				"react-dom": {
 					singleton: true,
 					requiredVersion: "^19.2.0",
+					strictVersion: true,
 					import: false,
 				},
 			},

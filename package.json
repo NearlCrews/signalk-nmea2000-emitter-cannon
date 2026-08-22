@@ -23,7 +23,7 @@
 		"test:watch": "vitest",
 		"test:ui": "vitest --ui",
 		"test:coverage": "vitest run --coverage",
-		"test:panel": "node scripts/check-panel-bundle.mjs",
+		"test:panel": "node scripts/test-shared-ui-version.mjs && node scripts/check-panel-bundle.mjs",
 		"test:panel:browser": "node scripts/check-panel-browser.mjs",
 		"screenshots": "npm run build:panel && node scripts/check-panel-browser.mjs --update-screenshots",
 		"check": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.panel.json && tsc --noEmit -p tsconfig.test.json",

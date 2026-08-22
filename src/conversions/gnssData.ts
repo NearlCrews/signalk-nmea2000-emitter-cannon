@@ -6,7 +6,7 @@ import {
 	N2K_SID_ZERO,
 } from "../constants.js";
 import type { ConversionCallback, ConversionModule, SignalKApp } from "../types/index.js";
-import { isValidNumber, toFiniteInRange } from "../utils/validation.js";
+import { isValidNumber, toFiniteInRange, toUnsignedAngle } from "../utils/validation.js";
 
 const MAX_SATELLITES_PER_FAST_PACKET = 18;
 
@@ -151,7 +151,10 @@ export default function createGnssDataConversions(_app: SignalKApp): ConversionM
 						continue;
 					}
 					const elevation = toFiniteInRange(sat.elevation, -Math.PI, Math.PI);
-					const azimuth = toFiniteInRange(sat.azimuth, 0, Math.PI * 2);
+					// Unsigned [0, 2pi) on the wire, so normalize rather than range
+					// check: a provider publishing [-pi, pi] would otherwise lose every
+					// western-hemisphere satellite instead of having it wrapped.
+					const azimuth = toUnsignedAngle(sat.azimuth);
 					const snr = toFiniteInRange(sat.SNR ?? sat.signalToNoiseRatio, -327.67, 327.64);
 					satelliteData.push({
 						prn: sat.id,

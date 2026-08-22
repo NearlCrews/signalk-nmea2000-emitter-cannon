@@ -318,6 +318,15 @@ export default function createNotificationsConversion(
 	}
 
 	function setAlertPgns(alertId: number, pgns: [N2KMessage, N2KMessage]): void {
+		// Delete before set so a refresh moves this alert to the newest end of the
+		// Map's insertion order, the same way ais.ts and raymarineAlarms.ts keep
+		// their caps behaving as an LRU. Map.set on an existing key preserves the
+		// original position, so without this the eviction below would take the
+		// oldest alert by first sighting rather than the least recently seen: at
+		// the cap it would clear the anchor alarm that had been active for hours,
+		// then re-allocate it on its next delta, so the alarm flapped on the
+		// chartplotter.
+		pgnsByAlertId.delete(alertId);
 		pgnsByAlertId.set(alertId, { pgns, digest: JSON.stringify(pgns) });
 	}
 
@@ -380,7 +389,14 @@ export default function createNotificationsConversion(
 	// would delete the NEW path binding).
 	function bindAlertId(path: string, alertId: number, deactivations: BatchDeactivations): void {
 		const previous = ids.get(path);
-		if (previous === alertId) return;
+		if (previous === alertId) {
+			// Binding unchanged, so there is no release work to do, but the path
+			// still has to move to the newest end so the MAX_TRACKED_PATHS eviction
+			// stays least-recently-seen rather than first-seen.
+			ids.delete(path);
+			ids.set(path, alertId);
+			return;
+		}
 		if (previous !== undefined) releaseAlertId(previous, deactivations);
 		const previousPath = alertIdToPath.get(alertId);
 		if (previousPath !== undefined && previousPath !== path) {

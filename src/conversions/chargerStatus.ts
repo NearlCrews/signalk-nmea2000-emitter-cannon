@@ -5,8 +5,12 @@ import {
 	VESSELS_SELF_CONTEXT,
 } from "../constants.js";
 import type { ConversionModule, N2KMessage, SubConversionModule } from "../types/index.js";
-import { isPlainObject, isValidSignalKId } from "../utils/validation.js";
-import { instanceList, normalizedN2kInstance } from "./instanceOptions.js";
+import { isPlainObject } from "../utils/validation.js";
+import {
+	instanceList,
+	isValidInstanceSignalKId,
+	normalizedN2kInstance,
+} from "./instanceOptions.js";
 
 interface ChargerConfig {
 	signalkId: string;
@@ -30,12 +34,12 @@ const CHARGE_MODE: Record<string, string> = {
 
 function normalizedConfig(config: unknown): ChargerConfig | null {
 	if (!isPlainObject(config)) return null;
-	if (!isValidSignalKId(config.signalkId)) return null;
+	if (!isValidInstanceSignalKId(config.signalkId)) return null;
 	const instanceId = normalizedN2kInstance(config.instanceId);
 	const batteryInstanceId = normalizedN2kInstance(config.batteryInstanceId);
 	if (instanceId === undefined || batteryInstanceId === undefined) return null;
 	return {
-		signalkId: config.signalkId,
+		signalkId: String(config.signalkId),
 		instanceId,
 		batteryInstanceId,
 	};

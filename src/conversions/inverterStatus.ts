@@ -5,8 +5,12 @@ import {
 	VESSELS_SELF_CONTEXT,
 } from "../constants.js";
 import type { ConversionModule, N2KMessage, SubConversionModule } from "../types/index.js";
-import { isPlainObject, isValidSignalKId } from "../utils/validation.js";
-import { instanceList, normalizedN2kInstance } from "./instanceOptions.js";
+import { isPlainObject } from "../utils/validation.js";
+import {
+	instanceList,
+	isValidInstanceSignalKId,
+	normalizedN2kInstance,
+} from "./instanceOptions.js";
 
 interface InverterConfig {
 	signalkId: string;
@@ -22,7 +26,7 @@ const OPERATING_STATE: Record<string, string> = {
 };
 
 function normalizedConfig(config: unknown): InverterConfig | null {
-	if (!isPlainObject(config) || !isValidSignalKId(config.signalkId)) return null;
+	if (!isPlainObject(config) || !isValidInstanceSignalKId(config.signalkId)) return null;
 	const instanceId = normalizedN2kInstance(config.instanceId);
 	const acInstanceId = normalizedN2kInstance(config.acInstanceId);
 	const dcInstanceId = normalizedN2kInstance(config.dcInstanceId);
@@ -30,7 +34,7 @@ function normalizedConfig(config: unknown): InverterConfig | null {
 		return null;
 	}
 	return {
-		signalkId: config.signalkId,
+		signalkId: String(config.signalkId),
 		instanceId,
 		acInstanceId,
 		dcInstanceId,

@@ -6,8 +6,8 @@ import {
 	VESSELS_SELF_CONTEXT,
 } from "../constants.js";
 import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
-import { clamp, isPlainObject, isValidNumber, toFiniteInRange } from "../utils/validation.js";
-import { instanceList, parseSignalKTankPath } from "./instanceOptions.js";
+import { isPlainObject, toFiniteInRange } from "../utils/validation.js";
+import { instanceList, normalizedN2kInstance, parseSignalKTankPath } from "./instanceOptions.js";
 
 // PGN 127505 capacity is unsigned 32-bit at 0.1 L, so it tops out at
 // 429,496,729.2 L. Signal K publishes cubic metres, hence the /1000.
@@ -21,6 +21,7 @@ const typeMapping: Record<string, string> = {
 	greyWater: "Gray water",
 	grayWater: "Gray water",
 	liveWell: "Live well",
+	baitWell: "Live well",
 	lubrication: "Oil",
 	gas: "Fuel",
 };
@@ -34,18 +35,13 @@ interface TankConfig {
 function normalizedTankConfig(config: unknown): TankConfig | null {
 	if (!isPlainObject(config) || typeof config.signalkPath !== "string") return null;
 	const tankPath = parseSignalKTankPath(config.signalkPath);
-	if (
-		tankPath === null ||
-		typeMapping[tankPath.type] === undefined ||
-		!isValidNumber(config.instanceId)
-	) {
-		return null;
-	}
-	return {
-		signalkPath: tankPath.path,
-		instanceId: clamp(Math.trunc(config.instanceId), 0, MAX_TANK_INSTANCE),
-		type: typeMapping[tankPath.type] ?? "",
-	};
+	if (tankPath === null) return null;
+	const type = typeMapping[tankPath.type];
+	// normalizedN2kInstance takes a max precisely so a caller can pass its own
+	// field width; seven sibling modules already use it.
+	const instanceId = normalizedN2kInstance(config.instanceId, MAX_TANK_INSTANCE);
+	if (type === undefined || instanceId === undefined) return null;
+	return { signalkPath: tankPath.path, instanceId, type };
 }
 
 export default function createTanksConversion(_app: SignalKApp): ConversionModule {

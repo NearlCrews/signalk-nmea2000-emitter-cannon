@@ -5,8 +5,12 @@ import {
 	VESSELS_SELF_CONTEXT,
 } from "../constants.js";
 import type { ConversionModule, N2KMessage, SubConversionModule } from "../types/index.js";
-import { isPlainObject, isValidSignalKId, toFiniteInRange } from "../utils/validation.js";
-import { instanceList, normalizedN2kInstance } from "./instanceOptions.js";
+import { isPlainObject, toFiniteInRange } from "../utils/validation.js";
+import {
+	instanceList,
+	isValidInstanceSignalKId,
+	normalizedN2kInstance,
+} from "./instanceOptions.js";
 
 interface AcConfig {
 	signalkId: string;
@@ -70,7 +74,7 @@ function acLine(
 
 function normalizedConfig(config: unknown): AcConfig | null {
 	if (!isPlainObject(config)) return null;
-	if (!isValidSignalKId(config.signalkId)) return null;
+	if (!isValidInstanceSignalKId(config.signalkId)) return null;
 	if (config.direction !== "input" && config.direction !== "output") return null;
 	if (config.phaseMode !== "single" && config.phaseMode !== "three") return null;
 	const acceptabilityValues: AcConfig["acceptability"][] = [
@@ -91,7 +95,7 @@ function normalizedConfig(config: unknown): AcConfig | null {
 	const instanceId = normalizedN2kInstance(config.instanceId);
 	if (instanceId === undefined) return null;
 	return {
-		signalkId: config.signalkId,
+		signalkId: String(config.signalkId),
 		instanceId,
 		direction: config.direction,
 		phaseMode: config.phaseMode,

@@ -31,6 +31,12 @@ export default function createAttitudeConversion(
 			if (isValidNumber(attitude.yaw)) fields.yaw = attitude.yaw;
 			if (isValidNumber(attitude.roll)) fields.roll = attitude.roll;
 
+			// An attitude object whose three components are all invalid would
+			// otherwise emit a frame carrying nothing but the SID.
+			if (fields.pitch === undefined && fields.yaw === undefined && fields.roll === undefined) {
+				return [];
+			}
+
 			return [
 				{
 					prio: N2K_DEFAULT_PRIORITY,

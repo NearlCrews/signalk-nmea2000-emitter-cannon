@@ -28,7 +28,10 @@ export const MAX_N2K_SPEED_MPS = 655.32;
 export const MAX_TEMPERATURE_K = 655.32;
 /** PGN 130316 widens the same quantity to 24 bits at 0.001 K. */
 export const MAX_TEMPERATURE_EXTENDED_K = 16_777.212;
-/** PGN 130311 and 130314 unsigned pressure ceiling at 100 Pa resolution. */
+// The unsigned 16-bit 100 Pa pressure field on PGN 130310 and 130311. PGN
+// 130314 is not bounded by this: its pressure field is signed 32-bit at 0.1 Pa,
+// so this ceiling is about 32 times tighter than that wire allows. That is
+// harmless for atmospheric pressure and keeps one bound across the group.
 export const MAX_PRESSURE_PA = 6_553_200;
 // PGN 129539 DOP fields are signed 16-bit values at 0.01 resolution. Although
 // the wire type is signed to reserve sentinel values, physical DOP is nonnegative.

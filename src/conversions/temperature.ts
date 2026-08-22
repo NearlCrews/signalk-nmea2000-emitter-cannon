@@ -9,7 +9,7 @@ import {
 	MAX_TEMPERATURE_K,
 	N2K_BROADCAST_DST,
 	N2K_DEFAULT_PRIORITY,
-	N2K_DEFAULT_SID,
+	N2K_SID_ZERO,
 } from "../constants.js";
 import type { ConversionModule, N2KMessage } from "../types/index.js";
 import { resolveInstanceAndSource, toFiniteInRange } from "../utils/validation.js";
@@ -28,7 +28,11 @@ function createTemperatureMessage(
 		pgn,
 		dst: N2K_BROADCAST_DST,
 		fields: {
-			sid: N2K_DEFAULT_SID,
+			// Standalone single-shot PGN, so no correlation SID: twelve unrelated
+			// sensors all claiming SID 87 is the false correlation the constant's
+			// own comment warns against. Matches seaTemp, environmentParameters,
+			// pressure, and humidity.
+			sid: N2K_SID_ZERO,
 			instance: inst,
 			source: src,
 			[tempFieldName]: temp,

@@ -34,17 +34,21 @@ export default function createTransmissionParametersConversion(): ConversionModu
 		],
 		timeouts: TRANSMISSION_TIMEOUTS,
 		callback: (gear: unknown, oilPressure: unknown, oilTemperature: unknown): N2KMessage[] => {
+			let transmissionGear: string | undefined;
+			if (typeof gear === "string") {
+				transmissionGear = SK_GEAR_TO_N2K[gear.toLowerCase()];
+			}
+
+			// Test the mapped gear, not the raw string. GEAR_STATUS has no "fault"
+			// member, so a fault gear with both oil values absent would otherwise
+			// emit a frame whose only content is the instance and an empty status
+			// array. The sibling engine conversions guard the same way.
 			if (
-				typeof gear !== "string" &&
+				transmissionGear === undefined &&
 				!isValidNumber(oilPressure) &&
 				!isValidNumber(oilTemperature)
 			) {
 				return [];
-			}
-
-			let transmissionGear: string | undefined;
-			if (typeof gear === "string") {
-				transmissionGear = SK_GEAR_TO_N2K[gear.toLowerCase()];
 			}
 
 			return [
@@ -57,9 +61,10 @@ export default function createTransmissionParametersConversion(): ConversionModu
 						transmissionGear,
 						oilPressure: toValidNumber(oilPressure) ?? undefined,
 						oilTemperature: toValidNumber(oilTemperature) ?? undefined,
-						// Canboat 7.1 defines this field as a BITLOOKUP. An empty
-						// array encodes no active status flags and remains compatible
-						// with older canboatjs releases that modeled it as a number.
+						// An empty array encodes no active status flags. The pinned
+						// ts-pgns models this particular field as an 8-bit number (only
+						// PGN 127489 has BITLOOKUP status fields), and an empty array
+						// still encodes as 0, so this stays compatible either way.
 						discreteStatus1: [],
 					},
 				},

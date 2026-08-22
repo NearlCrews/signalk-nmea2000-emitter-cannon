@@ -416,6 +416,52 @@ describe("batched delta safety", () => {
 		expect(assigned.updates[0]?.values.map(({ value }) => value.alertId)).toEqual([1, 2, 3, 4, 5]);
 	});
 
+	it("evicts the least recently seen alert rather than the longest running one", async () => {
+		// Map.set on an existing key preserves its original position, so an alert
+		// that keeps refreshing never moved in insertion order and was the first
+		// thing evicted at the cap. That is precisely the wrong victim: an anchor
+		// alarm active for hours would be terminally cleared on the chartplotter
+		// and then re-allocated on its next delta, so the alarm flapped.
+		const conversion = createNotificationsConversion(appForDeltas(), plugin);
+		conversion.onOptionsLoaded?.({ enabled: true, resend: 0 });
+		const anchorPath = "notifications.navigation.anchor";
+		const trackedPathCap = 256;
+
+		const opened = await invoke(conversion, {
+			context: "vessels.self",
+			updates: [{ $source: "monitor", values: [alert(anchorPath, "Anchor alarm")] }],
+		});
+		const anchorAlertId = opened[0]?.fields.alertId;
+		expect(typeof anchorAlertId).toBe("number");
+
+		// Other alerts come and go while the anchor watch keeps republishing.
+		for (let i = 0; i <= trackedPathCap; i++) {
+			await invoke(conversion, {
+				context: "vessels.self",
+				updates: [
+					{
+						$source: "monitor",
+						values: [
+							alert(anchorPath, "Anchor alarm"),
+							alert(`notifications.test.churn${i}`, `Churn ${i}`),
+						],
+					},
+				],
+			});
+		}
+
+		// A changed message forces past the 1 Hz emit gate, so the anchor's
+		// current wire identity is observable. It must still be the original.
+		const refreshed = await invoke(conversion, {
+			context: "vessels.self",
+			updates: [{ $source: "monitor", values: [alert(anchorPath, "Anchor alarm, dragging")] }],
+		});
+		expect(refreshed.map((message) => message.fields.alertId)).toEqual([
+			anchorAlertId,
+			anchorAlertId,
+		]);
+	});
+
 	it("keeps an active-then-clear notification cleared within one batch", async () => {
 		const handleMessage = vi.fn();
 		const conversion = createNotificationsConversion(appForDeltas({ handleMessage }), plugin);

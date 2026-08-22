@@ -113,6 +113,13 @@ export default function createBearingDistanceBetweenMarksConversion(
 		optionKey: "BEARING_DISTANCE_MARKS",
 		category: "navigation",
 		sourceType: SOURCE_TYPE.ON_DELTA,
+		// KNOWN LIMITATION: this is gated on the whole
+		// navigation.course.calcValues subtree, but the frame's content depends
+		// only on previousPoint and nextPoint. Between waypoints it therefore
+		// rebroadcasts an identical PGN 129302 at whatever rate the Course
+		// Provider republishes calcValues. Fixing it well means the digest plus
+		// interval gate notifications.ts uses, which is a design change rather
+		// than a patch.
 		allowResend: false,
 		callback: async (delta: unknown): Promise<N2KMessage[]> => {
 			if (!courseDeltaTouches(app, delta, ["navigation.course.calcValues"])) return [];

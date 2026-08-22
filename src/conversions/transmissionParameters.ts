@@ -27,6 +27,12 @@ export default function createTransmissionParametersConversion(): ConversionModu
 		// Read gear from the canonical propulsion.<id>.transmission.gear enum
 		// (Forward / Neutral / Reverse): the discreteStatus1/2 leaves used
 		// previously are not in the v1 schema.
+		//
+		// KNOWN LIMITATION: single gearbox only. The path is hardcoded to
+		// propulsion.main and the wire instance to 0, so a twin-engine boat
+		// cannot emit its second gearbox. Fixing it means a per-engine factory
+		// like ENGINE_PARAMETERS, which changes the persisted config shape and
+		// needs its own extras editor: a feature, not a maintenance fix.
 		keys: [
 			"propulsion.main.transmission.gear",
 			"propulsion.main.transmission.oilPressure",

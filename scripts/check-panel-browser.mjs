@@ -11,6 +11,14 @@ const pluginPrefix = "/plugins/signalk-nmea2000-emitter-cannon/";
 const updateScreenshots = process.argv.includes("--update-screenshots");
 const sharedUiVersion = assertSharedUiVersion(repositoryDir);
 const sharedUiRootSelector = `[data-snui-version="${sharedUiVersion}"]`;
+/**
+ * Playwright's 30s default is a budget, not a correctness bound, and this check
+ * runs on hosts that are often busy with other work. An actionability retry
+ * loop waiting for the panel's sticky chrome to settle then fails on the clock
+ * rather than on anything the panel did. A slow host should wait longer instead
+ * of reporting a failure the same run reproduces on nothing else.
+ */
+const ACTION_TIMEOUT_MS = 120000;
 const vesselTripDescription =
 	"Fuel range is an estimate, not a voyage-planning or safety value. Configure every fuel tank and propulsion consumer; other consumers, unusable reserve, cross-feed limits, weather, and tide are not included. Raymarine also requires Fuel Manager setup, fuel data from PGN 127489 or 127497, and PGN 129026 with GNSS for distance. Current Garmin documentation does not list PGN 127496.";
 
@@ -27,6 +35,21 @@ async function assertAccessible(page, label) {
 		)
 		.join("\n");
 	throw new Error(`${label} has accessibility violations:\n${details}`);
+}
+
+/**
+ * Clicks a target after centering it. At the 320px viewport the sticky toolbar
+ * and the docked action bar own the top and bottom of the panel, and scrolling
+ * a control merely into view can leave it under one of them: the click then
+ * retries against an interception until it gives up, naming whichever band won
+ * the race. Centering puts the target clear of both, which is a property of the
+ * layout rather than of how long a busy host takes to settle.
+ */
+async function clickCentered(locator) {
+	await locator.evaluate((element) => {
+		element.scrollIntoView({ block: "center", inline: "nearest" });
+	});
+	await locator.click();
 }
 
 async function loadConversionCatalog() {
@@ -487,6 +510,7 @@ try {
 		...(executablePath === undefined ? {} : { executablePath }),
 	});
 	browserContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+	browserContext.setDefaultTimeout(ACTION_TIMEOUT_MS);
 	const page = await browserContext.newPage();
 	await page.addInitScript(() => {
 		window.localStorage.setItem("skn-theme", "dark");
@@ -696,13 +720,13 @@ try {
 		throw new Error(`panel root overflows a 320px viewport by ${rootOverflow}px`);
 	}
 
-	await page.getByRole("tab", { name: /Electrical/ }).click();
-	await page.locator("#skn-row-toggle-CHARGER_STATUS").click();
+	await clickCentered(page.getByRole("tab", { name: /Electrical/ }));
+	await clickCentered(page.locator("#skn-row-toggle-CHARGER_STATUS"));
 	await page.getByLabel("NMEA 2000 charger instance").fill("5");
-	await page.locator("#skn-row-toggle-INVERTER_STATUS").click();
+	await clickCentered(page.locator("#skn-row-toggle-INVERTER_STATUS"));
 	await page.getByLabel("NMEA 2000 DC instance").fill("7");
-	await page.getByRole("tab", { name: /Engine/ }).click();
-	await page.locator("#skn-row-toggle-VESSEL_TRIP").click();
+	await clickCentered(page.getByRole("tab", { name: /Engine/ }));
+	await clickCentered(page.locator("#skn-row-toggle-VESSEL_TRIP"));
 	const vesselTripNote = page.getByRole("note");
 	await vesselTripNote.waitFor();
 	if (!(await vesselTripNote.textContent())?.includes(vesselTripDescription)) {
@@ -794,6 +818,7 @@ try {
 	await assertAccessible(page, "edited mobile configuration panel");
 
 	const advisorRaceContext = await browser.newContext({ viewport: { width: 1000, height: 800 } });
+	advisorRaceContext.setDefaultTimeout(ACTION_TIMEOUT_MS);
 	const advisorRacePage = await advisorRaceContext.newPage();
 	try {
 		const pendingRequest = advisorRacePage.waitForRequest(
@@ -849,6 +874,7 @@ try {
 	if (updateScreenshots) {
 		const capture = async (name, viewport, prepare = async () => {}) => {
 			const screenshotContext = await browser.newContext({ viewport });
+			screenshotContext.setDefaultTimeout(ACTION_TIMEOUT_MS);
 			try {
 				const screenshotPage = await screenshotContext.newPage();
 				await screenshotPage.emulateMedia({ reducedMotion: "reduce", colorScheme: "light" });
@@ -897,6 +923,7 @@ try {
 		const webkitContext = await webkitBrowser.newContext({
 			viewport: { width: 1280, height: 900 },
 		});
+		webkitContext.setDefaultTimeout(ACTION_TIMEOUT_MS);
 		const webkitPage = await webkitContext.newPage();
 		const webkitErrors = [];
 		webkitPage.on("pageerror", (error) => webkitErrors.push(error.message));
@@ -917,6 +944,7 @@ try {
 		hasTouch: true,
 		isMobile: false,
 	});
+	touchContext.setDefaultTimeout(ACTION_TIMEOUT_MS);
 	try {
 		const touchPage = await touchContext.newPage();
 		await touchPage.goto(`http://127.0.0.1:${address.port}/`, { waitUntil: "networkidle" });

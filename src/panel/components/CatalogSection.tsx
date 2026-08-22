@@ -24,8 +24,15 @@ interface Props {
 /**
  * A disclosure section grouping conversion cards (Modern or Legacy). The
  * header is a button; the body of cards renders only while expanded.
+ *
+ * Deliberately NOT the shared CollapsibleSection, and named apart from it so a
+ * reader does not mistake one for the other. This groups conversion cards and
+ * unmounts them when collapsed, through Disclosure's lazy mode. The shared
+ * component's retain strategy keeps a collapsed subtree mounted under React
+ * Activity, which re-runs every effect on each expand; adopting it would bring
+ * that hazard here for no gain, since this panel wants the cards gone.
  */
-export default function CollapsibleSection({
+export default function CatalogSection({
 	id,
 	title,
 	count,

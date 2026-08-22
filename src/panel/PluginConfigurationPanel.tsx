@@ -18,7 +18,7 @@ import { type ConfigIssue, validateConfig } from "../config/validation.js";
 import { stripSubIndex } from "../utils/pathUtils.js";
 import AdvisorPanel from "./components/advisor/AdvisorPanel";
 import CategoryTabs from "./components/CategoryTabs";
-import CollapsibleSection from "./components/CollapsibleSection";
+import CatalogSection from "./components/CatalogSection";
 import ConversionRow from "./components/ConversionRow";
 import Disclosure from "./components/Disclosure";
 import FirstRunWizard from "./components/FirstRunWizard";
@@ -519,7 +519,7 @@ function SupportedPluginConfigurationPanel({ configuration, save }: Props): Reac
 						{searchResult.groups.map((g) => {
 							const counts = sectionCounts(g.list, state.conversions, errorKeys);
 							return (
-								<CollapsibleSection
+								<CatalogSection
 									key={g.cat}
 									id={`skn-search-${g.cat}`}
 									title={CategoryLabels[g.cat]}
@@ -530,7 +530,7 @@ function SupportedPluginConfigurationPanel({ configuration, save }: Props): Reac
 									onToggle={() => toggleSection(`search:${g.cat}`)}
 								>
 									<div style={C.list}>{g.list.map(renderRow)}</div>
-								</CollapsibleSection>
+								</CatalogSection>
 							);
 						})}
 					</div>
@@ -551,7 +551,7 @@ function SupportedPluginConfigurationPanel({ configuration, save }: Props): Reac
 								const sectionKey = `${tab}:${s.group}`;
 								const counts = sectionCounts(s.list, state.conversions, errorKeys);
 								return (
-									<CollapsibleSection
+									<CatalogSection
 										key={s.group}
 										id={`skn-section-${tab}-${s.group}`}
 										title={s.title}
@@ -574,7 +574,7 @@ function SupportedPluginConfigurationPanel({ configuration, save }: Props): Reac
 										}
 									>
 										<div style={C.list}>{s.list.map(renderRow)}</div>
-									</CollapsibleSection>
+									</CatalogSection>
 								);
 							})}
 						</div>

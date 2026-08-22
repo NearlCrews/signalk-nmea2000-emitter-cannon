@@ -23,7 +23,11 @@ const SCALE_TOKENS = `
 	--skn-space-1: 8px;
 	--skn-space-2: 12px;
 	--skn-space-3: 16px;
-	--skn-control-height: 36px;
+	/* The shared control floor, not a literal: the library resolves it to 40px
+	   normally and 44px under a coarse pointer, which is the accessibility
+	   contract a helm touchscreen depends on. A local px value cannot carry that
+	   media query, which is how an undersized touch target hides here. */
+	--skn-control-height: var(--snui-control-min-height);
 	--skn-row-height: 40px;
 	--skn-toolbar-height: 52px;
 	--skn-status-dot-size: 10px;
@@ -131,5 +135,26 @@ ${SCALE_TOKENS}${SHARED_THEME_BRIDGE}}
 }
 .skn-toolbar { position: sticky; top: 0; z-index: 2; }
 .skn-row { scroll-margin-top: var(--skn-toolbar-height); }
+/* The 34px conversion row is a deliberate DESKTOP density choice: it lets a
+   mouse user scan the whole catalog at once. On a coarse pointer that same row
+   put the enable checkbox at 22px and its disclosure toggle at 22.5px, half the
+   44px target the design contract requires, and these panels run on helm
+   touchscreens where that checkbox is the control people actually reach for.
+   Density yields to reachability here, and only here: the desktop row is
+   untouched. An inline style object cannot express this, which is exactly how
+   the gap survived until a coarse-pointer browser check measured it. */
+@media (pointer: coarse) {
+	.skn-panel {
+		--skn-row-height: var(--snui-control-min-height);
+		--skn-checkbox-size: var(--snui-control-min-height);
+	}
+	.skn-row {
+		min-height: var(--snui-control-min-height);
+	}
+	.skn-row button,
+	.skn-row input[type="checkbox"] {
+		min-height: var(--snui-control-min-height);
+	}
+}
 .skn-row:hover { filter: brightness(0.97); }
 `;

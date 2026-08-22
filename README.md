@@ -5,7 +5,7 @@
 [![CI](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/actions/workflows/ci.yml/badge.svg)](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/actions/workflows/ci.yml)
 [![Plugin CI](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/actions/workflows/plugin-ci.yml/badge.svg)](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/actions/workflows/plugin-ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/blob/main/LICENSE)
-[![node](https://img.shields.io/badge/node-%3E%3D22.22.2-brightgreen.svg)](https://nodejs.org)
+[![node](https://img.shields.io/badge/node-%3E%3D22.0.0-brightgreen.svg)](https://nodejs.org)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?logo=buymeacoffee&logoColor=black)](https://www.buymeacoffee.com/nearlcrews)
 
 A [Signal K](https://signalk.org) plugin that converts Signal K deltas into
@@ -16,20 +16,26 @@ reviewed against model-specific chartplotter receive lists.
 > Built on the foundation of [`signalk-to-nmea2000`](https://github.com/SignalK/signalk-to-nmea2000)
 > by Scott Bender and the Signal K community.
 
-## What's new in 1.10.7
+## What's new in 1.10.8
 
-- **Forward-compatible configuration.** Configuration migrations and Advisor
-  saves preserve unknown top-level and per-conversion keys.
-- **Current shared panel UI.** The panel bundles `signalk-nearlcrews-ui` 0.8.0,
-  uses the shared relative-age formatter, and docks save actions when needed.
-- **Clear save feedback and fallback guidance.** Save and discard actions move
-  focus to a stable completion message, and unsupported browsers receive a
-  direct explanation of the missing native CSS capability.
-- **Verified, reliable release checks.** Refreshed packaging verifies each
-  tarball's source commit, while browser checks isolate explicit requests from
-  automatic polling and await scheduled focus transitions.
+- **Correct GNSS status on the bus.** Fix quality and satellite system are
+  translated to the values Canboat defines, so a normal fix is no longer
+  broadcast as "no GNSS", and fix integrity no longer defaults to "Unsafe".
+- **No more wrapped readings.** A value that cannot fit its NMEA 2000 field is
+  dropped rather than wrapping into a plausible wrong number, across exhaust gas
+  temperature, speed over ground, tank level, display brightness, depth offset,
+  and more.
+- **Steadier alarms and orders.** A long-running alert is no longer the first one
+  evicted when the alert cache fills, a rudder order keeps its port or starboard
+  sign, and a DSC distress call is emitted once instead of every five seconds.
+- **Usable on a helm touchscreen.** Panel touch targets meet the 44 pixel minimum
+  on a coarse pointer, and browser checks now cover WebKit and a touch viewport
+  alongside Chromium.
+- **Current shared panel UI.** The panel bundles `signalk-nearlcrews-ui` 0.8.1,
+  the setup wizard uses its shared dialog, and the supported Node floor is stated
+  as 22.0.0 to match what the plugin actually requires.
 
-See the [v1.10.7 changelog entry](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/blob/main/CHANGELOG.md#v1107)
+See the [v1.10.8 changelog entry](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/blob/main/CHANGELOG.md#v1108)
 and [full release history](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/blob/main/CHANGELOG.md).
 
 ## What it does
@@ -96,7 +102,7 @@ priorities follow the current stable Canboat 7.1 database. It pairs well with se
   config panel loads on every signalk-server 2.x admin UI.
 - A browser with native CSS `@scope` support: Chromium or Edge 118, Firefox
   146, or Safari 17.4 and newer.
-- Node.js 22.22.2 or newer.
+- Node.js 22.0.0 or newer.
 - A supported NMEA 2000 gateway (for example an Actisense NGT-1 or a Yacht
   Devices YDNR-02) connected so emitted messages reach the bus.
 
@@ -208,12 +214,15 @@ calculation, freshness behavior, limitations, and current compatibility notes.
 
 ## Development
 
-The published plugin requires Node 22.22.2 or newer. Source builds support Node
-22 from 22.22.2, Node 24 from 24.15.0, and Node 26. The repository pins Node
-22.22.2 and npm 12.0.2, while CI verifies on the minimum Node release and the
-current Node 24 release.
+The published plugin requires Node 22.0.0 or newer at runtime: its only runtime
+dependency is RxJS, and the build targets Node 22. Building from source needs a
+newer Node than running the plugin does, so the toolchain floor is stated
+separately in `devEngines`: Node 22 from 22.22.2, Node 24 from 24.15.0, or Node
+26. The repository pins Node 22.22.2 and npm 12.0.2 for development, and CI
+verifies on that toolchain floor and the current Node 24 release rather than on
+the lower runtime floor, because CI installs the full development tree.
 CanboatJS and `@canboat/ts-pgns` are exercised in the test suite and are not
-runtime dependencies. `signalk-nearlcrews-ui` 0.8.0 is bundled into the panel
+runtime dependencies. `signalk-nearlcrews-ui` 0.8.1 is bundled into the panel
 as a pinned development dependency, while React and React DOM `^19.2.0` are
 supplied by Signal K Admin.
 

@@ -5,6 +5,65 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+<a id="v1108"></a>
+
+## [1.10.8] - 2026-08-22
+
+### Fixed
+
+- GNSS fix quality and satellite system are translated to the values Canboat
+  defines instead of being passed through. Signal K spells these differently, and
+  an unrecognized label encodes as the first enumerated value, so a normal fix was
+  broadcast as "no GNSS" while a valid position rode alongside it, and a combined
+  GPS and GLONASS receiver was reported as plain GPS. Fix integrity now defaults
+  to "no integrity checking" rather than being omitted, because every code in that
+  field is assigned and an omitted one decodes as "Unsafe".
+- Values that cannot fit their NMEA 2000 field are dropped instead of wrapping
+  into a plausible wrong reading. This covers exhaust gas temperature, speed over
+  ground, current drift, every temperature PGN, tank level and capacity, display
+  brightness, depth transducer offset, battery time remaining, radio frequency and
+  transmit power, satellite count, dilution of precision, rudder angles, and the
+  IMO number.
+- A long-running alert is no longer the first one dropped when the alert cache is
+  full. An anchor alarm active for hours could be cleared on the chartplotter and
+  immediately reopened under a new identifier, so the alarm appeared to flap.
+- A rudder angle order keeps its sign, so a receiver reading that field on its own
+  no longer shows a port order as starboard.
+- An inbound DSC distress call is emitted once rather than rebroadcast every five
+  seconds for as long as the sending station remains in the data.
+- Own-vessel AIS reports carry the not-available timestamp instead of a literal
+  zero second, and no longer claim transceiver capabilities the plugin cannot
+  know.
+- Chargers, inverters, and AC sources accept a numeric device identifier, so an
+  installation using numeric ids no longer silently produces no conversion.
+- Exhaust gas temperature stops broadcasting once its sensor goes quiet, and
+  transmission and attitude frames are suppressed when they would carry no data.
+- Touch targets in the configuration panel meet the 44 pixel minimum on a coarse
+  pointer. The dense conversion row put its enable checkbox at 22 pixels, which is
+  the control a helm touchscreen user reaches for most.
+
+### Changed
+
+- The panel targets `signalk-nearlcrews-ui` 0.8.1, which corrects the docked
+  action bar swallowing a first click. The setup wizard is now the shared dialog,
+  so its focus handling, escape key, and scrim come from the shared library rather
+  than from panel code.
+- The supported Node floor is stated as 22.0.0. The plugin's only runtime
+  dependency is RxJS, which imposes no floor of its own, so the previous 22.22.2
+  excluded installations that run the plugin correctly. The toolchain floor is
+  unchanged and continues to live in `devEngines`.
+- Advisor settings, global settings, and every panel notice use the shared field,
+  checkbox, banner, and button components, so labels are associated with their
+  controls and a busy button keeps a stable name.
+
+### Added
+
+- `THIRD_PARTY_NOTICES.md` lists every package bundled into the configuration
+  panel together with its license, generated from the panel build and verified
+  during packaging.
+- Browser checks now cover WebKit and a coarse-pointer viewport in addition to
+  Chromium.
+
 <a id="v1107"></a>
 
 ## [1.10.7] - 2026-08-12

@@ -238,7 +238,7 @@ Federation specifics:
 - Do NOT switch the panel to an ESM federation container (`experiments.outputModule`, `output.module: true`, `library: { type: "module" }`) and do NOT add `"type": "module"` back to `package.json`. v1.5.4 through v1.6.4 shipped exactly that: an ESM container is only loadable by `@signalk/server-admin-ui >= 2.27.0` and failed with a bare "Error loading component" on every older admin UI (issue #8). The classic `var` container loads on all signalk-server 2.x admin UIs.
 - The plugin runtime bundle is `dist/index.mjs`. The explicit `.mjs` extension marks it as ESM for Node now that `package.json` has no `"type": "module"`.
 - Library name: `pkg.name.replace(/[-@/]/g, "_")` (the safe identifier form derived from the package name).
-- Shared singletons: `react` and `react-dom` at `^19.2.0`. Signal K Admin provides both with `import: false`, so the panel has no bundled React fallback. `signalk-nearlcrews-ui` 0.8.1 and its React Aria dependencies remain bundled in the remote. It is pinned exactly, and `scripts/shared-ui-version.mjs` asserts the pin so a bump that has not been reviewed fails the panel checks: the shared UI ships breaking changes in minor releases.
+- Shared singletons: `react` and `react-dom` at `^19.2.0`. Signal K Admin provides both with `import: false`, so the panel has no bundled React fallback. `signalk-nearlcrews-ui` 0.8.2 and its React Aria dependencies remain bundled in the remote. It is pinned exactly, and `scripts/shared-ui-version.mjs` asserts the pin so a bump that has not been reviewed fails the panel checks: the shared UI ships breaking changes in minor releases.
 
 Adding a new conversion now requires:
 

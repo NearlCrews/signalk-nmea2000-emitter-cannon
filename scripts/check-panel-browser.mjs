@@ -823,7 +823,7 @@ try {
 		}
 
 		// The advisor settings form is the panel's largest shared-field surface.
-		// 0.8.1 throws on an invalid LabeledField child in production builds too,
+		// 0.8.2 throws on an invalid LabeledField child in production builds too,
 		// so assert the fields render and that each visible label really is
 		// associated with its control rather than duplicated into an aria-label.
 		await advisorRacePage.getByRole("button", { name: "Advisor settings" }).click();

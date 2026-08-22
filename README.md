@@ -31,7 +31,7 @@ reviewed against model-specific chartplotter receive lists.
 - **Usable on a helm touchscreen.** Panel touch targets meet the 44 pixel minimum
   on a coarse pointer, and browser checks now cover WebKit and a touch viewport
   alongside Chromium.
-- **Current shared panel UI.** The panel bundles `signalk-nearlcrews-ui` 0.8.1,
+- **Current shared panel UI.** The panel bundles `signalk-nearlcrews-ui` 0.8.2,
   the setup wizard uses its shared dialog, and the supported Node floor is stated
   as 22.0.0 to match what the plugin actually requires.
 
@@ -222,7 +222,7 @@ separately in `devEngines`: Node 22 from 22.22.2, Node 24 from 24.15.0, or Node
 verifies on that toolchain floor and the current Node 24 release rather than on
 the lower runtime floor, because CI installs the full development tree.
 CanboatJS and `@canboat/ts-pgns` are exercised in the test suite and are not
-runtime dependencies. `signalk-nearlcrews-ui` 0.8.1 is bundled into the panel
+runtime dependencies. `signalk-nearlcrews-ui` 0.8.2 is bundled into the panel
 as a pinned development dependency, while React and React DOM `^19.2.0` are
 supplied by Signal K Admin.
 

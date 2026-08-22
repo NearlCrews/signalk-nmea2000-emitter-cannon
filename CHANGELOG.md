@@ -44,9 +44,11 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- The panel targets `signalk-nearlcrews-ui` 0.8.1, which corrects the docked
-  action bar swallowing a first click. The setup wizard is now the shared dialog,
-  so its focus handling, escape key, and scrim come from the shared library rather
+- The panel targets `signalk-nearlcrews-ui` 0.8.2, which corrects the docked
+  action bar swallowing a first click, settles that bar in a single frame rather
+  than letting it flicker at the point where it docks, and no longer scrolls the
+  panel when a click moves focus. The setup wizard is now the shared dialog, so
+  its focus handling, escape key, and scrim come from the shared library rather
   than from panel code.
 - The supported Node floor is stated as 22.0.0. The plugin's only runtime
   dependency is RxJS, which imposes no floor of its own, so the previous 22.22.2

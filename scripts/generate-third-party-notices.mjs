@@ -38,10 +38,27 @@ function bundledPackageNames() {
 	}
 	const stats = JSON.parse(result.stdout);
 	const names = new Set();
-	for (const module of stats.modules ?? []) {
-		const match = /node_modules\/((?:@[^/]+\/)?[^/]+)/.exec(module.name ?? "");
-		if (match?.[1]) names.add(match[1]);
-	}
+	// Recurse rather than reading the top level only. Module concatenation nests
+	// the records it merged, and those nested entries can carry a package the
+	// outer record does not name. A top-level walk happens to find everything in
+	// this build, verified by comparing the two, but silent under-attribution is
+	// exactly the failure this file exists to prevent, so it should not depend on
+	// the optimizer's shape.
+	const collect = (modules) => {
+		for (const module of modules ?? []) {
+			const match = /node_modules\/((?:@[^/]+\/)?[^/]+)/.exec(module.name ?? "");
+			if (match?.[1]) names.add(match[1]);
+			collect(module.modules);
+			collect(module.children);
+		}
+	};
+	collect(stats.modules);
+	// webpack templates its own runtime into every emitted bundle (the chunk
+	// loader, the share-scope consume logic, and the container bootstrap), so its
+	// code really is redistributed here. Those records are moduleType "runtime"
+	// and carry no node_modules path, so no walk over the module list can find
+	// them. Named explicitly instead.
+	names.add("webpack");
 	return [...names].sort();
 }
 

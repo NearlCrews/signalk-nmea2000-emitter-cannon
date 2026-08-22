@@ -130,13 +130,13 @@ export default function AdvisorSettings({
 				checked={cfg.questdb.enabled}
 				onChange={(e) => patch({ questdb: { ...cfg.questdb, enabled: e.target.checked } })}
 			/>
+			{/* Deliberately not type="url": the field is edited character by
+			    character, and a native url control reports every partial value as
+			    invalid while the user is still typing. */}
 			<LabeledField
 				label="QuestDB REST URL"
 				description="Test connection checks the saved URL. If you just changed it, Save first."
 			>
-				{/* Deliberately not type="url": the field is edited character by
-				    character, and a native url control reports every partial value as
-				    invalid while the user is still typing. */}
 				<TextInput
 					type="text"
 					style={S.input}

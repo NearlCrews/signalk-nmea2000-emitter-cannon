@@ -821,6 +821,22 @@ try {
 		if (advisorRaceApplyCount !== 1) {
 			throw new Error(`expected one Advisor apply request, got ${advisorRaceApplyCount}`);
 		}
+
+		// The advisor settings form is the panel's largest shared-field surface.
+		// 0.8.0 throws on an invalid LabeledField child in production builds too,
+		// so assert the fields render and that each visible label really is
+		// associated with its control rather than duplicated into an aria-label.
+		await advisorRacePage.getByRole("button", { name: "Advisor settings" }).click();
+		await advisorRacePage.getByRole("checkbox", { name: "Enable the Config Advisor" }).waitFor();
+		const questdbUrl = advisorRacePage.getByLabel("QuestDB REST URL");
+		await questdbUrl.waitFor();
+		await questdbUrl.fill("http://127.0.0.1:9000");
+		if ((await questdbUrl.inputValue()) !== "http://127.0.0.1:9000") {
+			throw new Error("the QuestDB URL field did not accept input through its label");
+		}
+		await advisorRacePage.getByLabel("History look-back (days)").waitFor();
+		await advisorRacePage.getByLabel("Review every (days)").waitFor();
+		await assertAccessible(advisorRacePage, "advisor settings form");
 	} finally {
 		await advisorRaceContext.close();
 		if (advisorRacePendingResponse !== undefined) {

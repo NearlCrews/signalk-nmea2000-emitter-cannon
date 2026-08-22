@@ -1,5 +1,6 @@
 import type * as React from "react";
 import { useState } from "react";
+import type { LabeledFieldControlProps } from "signalk-nearlcrews-ui";
 import { NumberInput as SharedNumberInput } from "signalk-nearlcrews-ui";
 import { clamp } from "../../utils/validation.js";
 import { S } from "../styles";
@@ -9,7 +10,18 @@ interface BaseProps {
 	min?: number;
 	max?: number;
 	placeholder?: string;
-	ariaLabel: string;
+	/**
+	 * Accessible name for a field that stands on its own. Omit inside a
+	 * LabeledField, whose visible label owns the name; an aria-label there would
+	 * override the label the user can see.
+	 */
+	ariaLabel?: string;
+	/**
+	 * Control props injected by LabeledField's render-prop contract. The two
+	 * lookup ids it also supplies are not DOM attributes, so they are dropped
+	 * here rather than forwarded onto the input.
+	 */
+	field?: LabeledFieldControlProps;
 }
 
 // `allowEmpty` widens `onChange` to emit `undefined` for a cleared field.
@@ -27,8 +39,9 @@ type Props = BaseProps &
 // Inside mapping-table cells the THEME_STYLE td rule overrides S.input's
 // fixed width so the field flexes with its column.
 export default function NumberInput(props: Props): React.ReactElement {
-	const { value, min = 0, max, placeholder, ariaLabel } = props;
+	const { value, min = 0, max, placeholder, ariaLabel, field } = props;
 	const [draft, setDraft] = useState<string | null>(null);
+	const { descriptionId: _descriptionId, errorId: _errorId, ...fieldAttrs } = field ?? {};
 
 	const commit = (raw: string): void => {
 		if (raw.trim() === "") {
@@ -44,6 +57,7 @@ export default function NumberInput(props: Props): React.ReactElement {
 
 	return (
 		<SharedNumberInput
+			{...fieldAttrs}
 			min={min}
 			max={max}
 			style={S.input}
@@ -60,7 +74,7 @@ export default function NumberInput(props: Props): React.ReactElement {
 				// past the field safe; an unfocused number input never spins.
 				if (document.activeElement === e.currentTarget) e.currentTarget.blur();
 			}}
-			aria-label={ariaLabel}
+			{...(ariaLabel === undefined ? {} : { "aria-label": ariaLabel })}
 		/>
 	);
 }

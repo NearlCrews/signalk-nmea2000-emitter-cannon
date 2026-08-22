@@ -34,8 +34,6 @@ const SCALE_TOKENS = `
 	--skn-field-padding: 6px 10px;
 	--skn-control-padding: 6px 12px;
 	--skn-transition-fast: 120ms;
-	--skn-modal-backdrop: rgba(0, 0, 0, 0.5);
-	--skn-modal-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
 `;
 
 const SHARED_THEME_BRIDGE = `

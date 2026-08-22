@@ -1,5 +1,7 @@
 import type * as React from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Banner, Button, Checkbox } from "signalk-nearlcrews-ui";
+import { Dialog } from "signalk-nearlcrews-ui/overlays";
 import type { ConversionMetadata, PathsResponse } from "../../api/types.js";
 import { CategoryLabels, groupByCategory, type PresetTag } from "../../config/enums.js";
 import type { Config } from "../../config/schema.js";
@@ -34,8 +36,10 @@ const REVIEW_THEN_SAVE = "Close, review the checked conversions, then Save.";
  * conversions whose declared paths have live data, grouped by category and
  * pre-checked. One Apply button stages the checked enables through the
  * reducer; the user then reviews and Saves. Preset shortcuts cover the rest.
- * The dialog closes on the X button, the Escape key, or a click on the
- * backdrop.
+ *
+ * The shared Dialog owns the scrim, the focus trap, focus return, the Escape
+ * key, and the scrim press, so this component keeps only the wizard's own
+ * scan, proposal, and staging behavior.
  */
 export default function FirstRunWizard({
 	meta,
@@ -52,9 +56,6 @@ export default function FirstRunWizard({
 	// Footer hint, updated after an Apply or a preset-chip apply so the
 	// role="status" region reflects what just happened.
 	const [hint, setHint] = useState<string | null>(null);
-	const dialogRef = useRef<HTMLDivElement>(null);
-	const returnFocusRef = useRef<HTMLElement | null>(null);
-	const titleId = "skn-wizard-title";
 
 	useEffect(() => {
 		let cancelled = false;
@@ -71,53 +72,6 @@ export default function FirstRunWizard({
 		return () => {
 			cancelled = true;
 			controller.abort();
-		};
-	}, []);
-
-	// Close on Escape from anywhere, and trap Tab inside the dialog: a modal
-	// that lets Tab walk out into the (visually dimmed) page behind it strands
-	// keyboard users. Minimal trap: wrap at the dialog edges.
-	useEffect(() => {
-		const onKey = (e: KeyboardEvent): void => {
-			if (e.key === "Escape") {
-				onClose();
-				return;
-			}
-			if (e.key !== "Tab") return;
-			const dialog = dialogRef.current;
-			if (!dialog) return;
-			const focusables = dialog.querySelectorAll<HTMLElement>(
-				'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])',
-			);
-			if (focusables.length === 0) return;
-			const first = focusables[0];
-			const last = focusables[focusables.length - 1];
-			if (first === undefined || last === undefined) return;
-			const active = document.activeElement;
-			const inside = active instanceof Node && dialog.contains(active);
-			if (e.shiftKey) {
-				if (!inside || active === first) {
-					e.preventDefault();
-					last.focus();
-				}
-			} else if (!inside || active === last) {
-				e.preventDefault();
-				first.focus();
-			}
-		};
-		document.addEventListener("keydown", onKey);
-		return () => document.removeEventListener("keydown", onKey);
-	}, [onClose]);
-
-	// Move focus into the dialog on mount, then return it to the control that
-	// opened the wizard when the modal closes.
-	useEffect(() => {
-		const active = document.activeElement;
-		returnFocusRef.current = active instanceof HTMLElement ? active : null;
-		dialogRef.current?.focus();
-		return () => {
-			const target = returnFocusRef.current;
-			if (target?.isConnected) target.focus();
 		};
 	}, []);
 
@@ -153,109 +107,70 @@ export default function FirstRunWizard({
 	const scanning = paths === null && loadError === null;
 
 	return (
-		<div style={W.overlay}>
-			{/* Real button so click-to-close has native keyboard semantics; it sits
-			    behind the dialog via zIndex. tabIndex -1 keeps the redundant close
-			    out of the tab order (Escape and the header button cover keyboard). */}
-			<button
-				type="button"
-				style={W.backdrop}
-				aria-label="Close setup wizard"
-				tabIndex={-1}
-				onClick={onClose}
-			/>
-			<div
-				ref={dialogRef}
-				style={W.dialog}
-				role="dialog"
-				aria-modal="true"
-				aria-labelledby={titleId}
-				tabIndex={-1}
-			>
-				<div style={W.header}>
-					<h2 id={titleId} style={W.title}>
-						Setup wizard
-					</h2>
-					<button type="button" style={W.close} onClick={onClose} aria-label="Close setup wizard">
-						×
-					</button>
-				</div>
-
-				<div style={W.body}>
-					<p style={W.intro}>
-						This scans the Signal K paths your boat is publishing right now and proposes the
-						not-yet-enabled conversions that have live data. Review the pre-checked list, then Apply
-						to stage them. Nothing is sent to Signal K until you Save in the main panel.
-					</p>
-
-					{scanning ? <p style={S.loadingText}>Scanning live Signal K paths...</p> : null}
-
-					{loadError ? (
-						<div role="alert" style={S.errorBanner}>
-							<span>
-								Could not scan live paths: {loadError}. You can still apply a preset below.
-							</span>
-						</div>
-					) : null}
-
-					{paths !== null && grouped.length === 0 && !loadError ? (
-						<p style={S.helpHint}>
-							No new conversions matched live data; conversions already enabled are not listed.
-							Apply a preset below, or close this wizard and enable conversions manually.
-						</p>
-					) : null}
-
-					{grouped.map((g) => (
-						<div key={g.cat} style={W.group}>
-							<h3 style={W.groupTitle}>{CategoryLabels[g.cat]}</h3>
-							{g.list.map((m) => (
-								<label key={m.key} style={W.row}>
-									<input
-										type="checkbox"
-										style={S.checkbox}
-										checked={overrides[m.key] ?? true}
-										onChange={(e) =>
-											setOverrides((c) => ({
-												...c,
-												[m.key]: e.target.checked,
-											}))
-										}
-									/>
-									<span style={W.rowText}>{m.title}</span>
-								</label>
-							))}
-						</div>
-					))}
-
-					<h3 style={W.subhead}>Or apply a preset now</h3>
-					<p style={S.helpHint}>
-						Preset chips stage their conversions the moment you tap one; there is no separate Apply
-						step.
-					</p>
-					{/* Preset chips show their own "Enabled N conversions, not yet
-					    sent to Signal K." confirmation, so a chip tap does not also rewrite the
-					    footer hint. */}
-					<PresetChips onApply={onApplyPreset} meta={meta} />
-				</div>
-
-				<div style={W.footer}>
-					<span style={W.footerHint} role="status">
-						{hint ??
-							`Apply stages your selection; preset chips stage instantly. ${REVIEW_THEN_SAVE}`}
-					</span>
-					<button
-						type="button"
-						style={S.btnPrimary}
-						onClick={handleApply}
-						disabled={checkedKeys.length === 0}
-					>
+		<Dialog
+			open
+			onOpenChange={(next) => {
+				if (!next) onClose();
+			}}
+			title="Setup wizard"
+			width="wide"
+			description="This scans the Signal K paths your boat is publishing right now and proposes the not-yet-enabled conversions that have live data. Review the pre-checked list, then Apply to stage them. Nothing is sent to Signal K until you Save in the main panel."
+			actions={
+				<>
+					<Button variant="primary" onClick={handleApply} disabled={checkedKeys.length === 0}>
 						Apply {checkedKeys.length > 0 ? `(${checkedKeys.length})` : ""}
-					</button>
-					<button type="button" style={S.btnSecondary} onClick={onClose}>
-						Close
-					</button>
+					</Button>
+					<Button onClick={onClose}>Close</Button>
+				</>
+			}
+		>
+			{scanning ? <p style={S.loadingText}>Scanning live Signal K paths...</p> : null}
+
+			{loadError ? (
+				<Banner live="assertive" title="Live path scan failed" tone="danger">
+					{loadError}. You can still apply a preset below.
+				</Banner>
+			) : null}
+
+			{paths !== null && grouped.length === 0 && !loadError ? (
+				<p style={S.helpHint}>
+					No new conversions matched live data; conversions already enabled are not listed. Apply a
+					preset below, or close this wizard and enable conversions manually.
+				</p>
+			) : null}
+
+			{grouped.map((g) => (
+				<div key={g.cat} style={W.group}>
+					<h3 style={W.groupTitle}>{CategoryLabels[g.cat]}</h3>
+					{g.list.map((m) => (
+						<Checkbox
+							key={m.key}
+							label={m.title}
+							checked={overrides[m.key] ?? true}
+							onChange={(e) =>
+								setOverrides((c) => ({
+									...c,
+									[m.key]: e.target.checked,
+								}))
+							}
+						/>
+					))}
 				</div>
-			</div>
-		</div>
+			))}
+
+			<h3 style={W.subhead}>Or apply a preset now</h3>
+			<p style={S.helpHint}>
+				Preset chips stage their conversions the moment you tap one; there is no separate Apply
+				step.
+			</p>
+			{/* Preset chips show their own "Enabled N conversions, not yet
+			    sent to Signal K." confirmation, so a chip tap does not also rewrite the
+			    status hint below. */}
+			<PresetChips onApply={onApplyPreset} meta={meta} />
+
+			<p style={W.footerHint} role="status">
+				{hint ?? `Apply stages your selection; preset chips stage instantly. ${REVIEW_THEN_SAVE}`}
+			</p>
+		</Dialog>
 	);
 }

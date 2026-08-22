@@ -1,6 +1,6 @@
 import type * as React from "react";
 import { useEffect } from "react";
-import { formatRelativeAge } from "signalk-nearlcrews-ui";
+import { Banner, Button, formatRelativeAge } from "signalk-nearlcrews-ui";
 import type { ConversionMetadata, PerConversionStatus } from "../../api/types.js";
 import type { ConversionConfig } from "../../config/schema.js";
 import type { ConfigIssue } from "../../config/validation.js";
@@ -74,6 +74,8 @@ export default function ConversionDetail(props: Props): React.ReactElement {
 
 	const errorAgeSuffix =
 		status?.lastErrorAgeMs !== undefined ? ` (${formatRelativeAge(status.lastErrorAgeMs)})` : "";
+
+	const hasValidationError = props.validationIssues.some((issue) => issue.severity === "error");
 
 	const compatibility = meta.compatibility;
 	const compatStyle = compatibility ? COMPATIBILITY_STYLES[compatibility.garmin] : null;
@@ -227,38 +229,32 @@ export default function ConversionDetail(props: Props): React.ReactElement {
 	return (
 		<div id={props.bodyId} style={C.detail}>
 			{props.validationIssues.length > 0 ? (
-				<div
-					role={
-						props.validationIssues.some((issue) => issue.severity === "error") ? "alert" : "status"
-					}
-					style={S.errorBanner}
+				<Banner
+					live={hasValidationError ? "assertive" : "polite"}
+					title="Configuration issue"
+					tone={hasValidationError ? "danger" : "warning"}
 				>
-					<div>
-						<strong>Configuration issue:</strong>
-						<ul>
-							{props.validationIssues.map((issue, index) => (
-								<li
-									id={`${props.bodyId}-validation-${index}`}
-									key={`${issue.field}:${issue.rowIndex ?? "all"}:${issue.message}`}
-								>
-									{issue.rowIndex === undefined ? "" : `Row ${issue.rowIndex + 1}: `}
-									{issue.message}
-								</li>
-							))}
-						</ul>
-					</div>
-				</div>
+					<ul>
+						{props.validationIssues.map((issue, index) => (
+							<li
+								id={`${props.bodyId}-validation-${index}`}
+								key={`${issue.field}:${issue.rowIndex ?? "all"}:${issue.message}`}
+							>
+								{issue.rowIndex === undefined ? "" : `Row ${issue.rowIndex + 1}: `}
+								{issue.message}
+							</li>
+						))}
+					</ul>
+				</Banner>
 			) : null}
 			{/* Inline error banner: the same message the header's warning marks,
 			    shown in full for touchscreens where the title tooltip is
 			    unreachable. */}
 			{status?.lastErrorMessage ? (
-				<div role="alert" style={S.errorBanner}>
-					<span>
-						Error: {status.lastErrorMessage}
-						{errorAgeSuffix}
-					</span>
-				</div>
+				<Banner live="assertive" title="Emit error" tone="danger">
+					{status.lastErrorMessage}
+					{errorAgeSuffix}
+				</Banner>
 			) : null}
 			{cfg.enabled && !status?.lastErrorMessage && healthMessage ? (
 				<p role="status" style={health.state === "waiting-input" ? C.fieldHelp : C.fieldWarning}>
@@ -338,14 +334,14 @@ export default function ConversionDetail(props: Props): React.ReactElement {
 										? `Signal K server path inventory unavailable: ${props.pathsError}`
 										: `${props.availablePaths.length} paths in the Signal K server inventory.`}
 							</span>
-							<button
-								type="button"
-								style={S.btnSecondarySm}
+							<Button
+								size="compact"
 								onClick={props.reloadPaths}
-								disabled={props.pathsLoading}
+								loading={props.pathsLoading}
+								loadingLabel="Refreshing"
 							>
 								{props.pathsError ? "Retry path inventory" : "Refresh path inventory"}
-							</button>
+							</Button>
 						</div>
 						{outputControls}
 					</fieldset>

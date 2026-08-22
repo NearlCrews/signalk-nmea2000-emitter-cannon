@@ -86,12 +86,6 @@ export const ADVISOR_STYLES = {
 		color: "var(--skn-text)",
 		margin: "12px 0 4px",
 	},
-	toggleLabel: {
-		fontSize: "var(--skn-font-body)",
-		color: "var(--skn-text)",
-		flex: "1 1 auto",
-		minWidth: 160,
-	},
 	countPill: {
 		display: "inline-flex",
 		alignItems: "center",

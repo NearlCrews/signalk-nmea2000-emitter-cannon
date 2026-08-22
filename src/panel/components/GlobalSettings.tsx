@@ -1,4 +1,5 @@
 import type * as React from "react";
+import { LabeledField } from "signalk-nearlcrews-ui";
 import { GLOBAL_RESEND_HELP } from "../../config/enums.js";
 import { S } from "../styles";
 import Disclosure from "./Disclosure";
@@ -32,16 +33,13 @@ export default function GlobalSettings({ value, onChange }: Props): React.ReactE
 				bodyStyle={S.cardBody}
 				summary={value === 0 ? "global resend off" : `resend every ${value} s`}
 			>
-				<div style={S.fieldRow}>
-					<span style={S.label}>Global resend interval (seconds)</span>
-					<NumberInput
-						value={value}
-						onChange={onChange}
-						min={0}
-						ariaLabel="Global resend interval in seconds"
-					/>
-				</div>
-				<p style={S.helpHint}>{GLOBAL_RESEND_HELP}</p>
+				<LabeledField
+					label="Global resend interval (seconds)"
+					description={GLOBAL_RESEND_HELP}
+					layout="inline"
+				>
+					{(field) => <NumberInput value={value} onChange={onChange} min={0} field={field} />}
+				</LabeledField>
 			</Disclosure>
 		</div>
 	);

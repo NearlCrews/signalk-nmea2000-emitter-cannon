@@ -11,7 +11,7 @@ export const FOUNDATION_STYLES = {
 	// The root paints --skn-bg itself: a pinned Dark or Night theme must read
 	// as one continuous surface, including the sticky footer.
 	root: {
-		fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+		fontFamily: "var(--snui-font-family)",
 		color: "var(--skn-text)",
 		background: "var(--skn-bg)",
 		padding: "var(--skn-space-3)",

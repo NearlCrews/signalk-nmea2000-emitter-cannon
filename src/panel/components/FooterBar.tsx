@@ -71,8 +71,7 @@ export default function FooterBar({
 					{validationErrorCount > 0 ? (
 						<span role="status" style={S.textFaint}>
 							Fix {validationErrorCount} configuration{" "}
-							{validationErrorCount === 1 ? "error" : "errors"}
-							before saving.
+							{validationErrorCount === 1 ? "error" : "errors"} before saving.
 						</span>
 					) : null}
 				</>

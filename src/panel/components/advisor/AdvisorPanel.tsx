@@ -1,5 +1,6 @@
 import type * as React from "react";
 import { useEffect, useState } from "react";
+import { Banner, Button } from "signalk-nearlcrews-ui";
 import type { ConversionMetadata } from "../../../api/types.js";
 import type { Config } from "../../../config/schema.js";
 import type { ApplyDecision, Recommendation } from "../../../recommendation/types.js";
@@ -62,12 +63,10 @@ export default function AdvisorPanel({
 	const pending = state.result?.pending ?? [];
 	const pendingCount = pending.length;
 	const busy = state.operation !== "idle";
-	const reviewLabel =
-		state.operation === "reviewing"
-			? "Reviewing..."
-			: state.operation === "applying"
-				? "Applying..."
-				: "Review now";
+	// The shared Button keeps its accessible name stable while busy and exposes
+	// the progress wording as a description, so the control is not announced as
+	// a different element part way through the operation.
+	const busyLabel = state.operation === "applying" ? "Applying" : "Reviewing";
 
 	const handleReview = (): void => {
 		void review();
@@ -121,9 +120,15 @@ export default function AdvisorPanel({
 					or disable. Recommended enables apply automatically unless you turn that off in Advisor
 					settings below; disables always wait for your approval.
 				</p>
-				<button type="button" style={S.btnPrimary} onClick={handleReview} disabled={busy || dirty}>
-					{reviewLabel}
-				</button>
+				<Button
+					variant="primary"
+					onClick={handleReview}
+					loading={busy}
+					loadingLabel={busyLabel}
+					disabled={dirty}
+				>
+					Review now
+				</Button>
 				{dirty && (
 					<p style={S.note}>
 						<span style={S.notePrefix}>Heads up:</span>
@@ -136,9 +141,9 @@ export default function AdvisorPanel({
 					</p>
 				)}
 				{state.error && (
-					<div role="alert" style={S.errorBanner}>
-						<span>{state.error}</span>
-					</div>
+					<Banner live="assertive" title="Advisor request failed" tone="danger">
+						{state.error}
+					</Banner>
 				)}
 				{state.result && (
 					<div style={A.stackGap}>

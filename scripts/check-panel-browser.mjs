@@ -3,31 +3,13 @@ import { createServer } from "node:http";
 import AxeBuilder from "@axe-core/playwright";
 import { chromium } from "@playwright/test";
 import { build } from "esbuild";
+import { assertSharedUiVersion } from "./shared-ui-version.mjs";
 
 const repositoryDir = new URL("../", import.meta.url);
 const publicDir = new URL("../public/", import.meta.url);
 const pluginPrefix = "/plugins/signalk-nmea2000-emitter-cannon/";
 const updateScreenshots = process.argv.includes("--update-screenshots");
-const EXPECTED_SHARED_UI_VERSION = "0.7.1";
-const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
-const manifestSharedUiVersion = packageJson.devDependencies?.["signalk-nearlcrews-ui"];
-if (manifestSharedUiVersion !== EXPECTED_SHARED_UI_VERSION) {
-	throw new Error(
-		`signalk-nearlcrews-ui must be pinned to exact version ${EXPECTED_SHARED_UI_VERSION}`,
-	);
-}
-const sharedUiPackageJson = JSON.parse(
-	readFileSync(
-		new URL("../node_modules/signalk-nearlcrews-ui/package.json", import.meta.url),
-		"utf8",
-	),
-);
-const sharedUiVersion = sharedUiPackageJson.version;
-if (sharedUiVersion !== manifestSharedUiVersion) {
-	throw new Error(
-		`installed signalk-nearlcrews-ui ${String(sharedUiVersion)} does not match package.json ${manifestSharedUiVersion}`,
-	);
-}
+const sharedUiVersion = assertSharedUiVersion(repositoryDir);
 const sharedUiRootSelector = `[data-snui-version="${sharedUiVersion}"]`;
 const vesselTripDescription =
 	"Fuel range is an estimate, not a voyage-planning or safety value. Configure every fuel tank and propulsion consumer; other consumers, unusable reserve, cross-feed limits, weather, and tide are not included. Raymarine also requires Fuel Manager setup, fuel data from PGN 127489 or 127497, and PGN 129026 with GNSS for distance. Current Garmin documentation does not list PGN 127496.";
@@ -570,6 +552,29 @@ try {
 	await page.getByRole("button", { name: "Retry path inventory" }).click();
 	await page.getByText("7 paths in the Signal K server inventory.", { exact: true }).waitFor();
 	if (pathRequestCount < 3) throw new Error("path inventory retry did not issue a new request");
+
+	// The setup wizard is a shared Dialog, so the panel no longer owns the
+	// scrim, the focus trap, focus return, or Escape handling. Prove the whole
+	// contract end to end: it portals inside the owning panel root, moves focus
+	// into itself, stays clean under axe with its proposal list rendered, and
+	// returns focus to the control that opened it. This runs after the inventory
+	// scenario above so the wizard's own path scan is not the mocked failure.
+	await setupButton.click();
+	const wizard = page.getByRole("dialog", { name: "Setup wizard" });
+	await wizard.waitFor();
+	if ((await root.locator("[role='dialog']").count()) !== 1) {
+		throw new Error("setup wizard did not portal inside the owning panel root");
+	}
+	await wizard.getByRole("button", { name: /^Apply/ }).waitFor();
+	await assertAccessible(page, "setup wizard");
+	if (!(await wizard.evaluate((element) => element.contains(document.activeElement)))) {
+		throw new Error("setup wizard did not move focus into the dialog");
+	}
+	await page.keyboard.press("Escape");
+	await wizard.waitFor({ state: "detached" });
+	if (!(await setupButton.evaluate((element) => element === document.activeElement))) {
+		throw new Error("setup wizard did not return focus to its trigger");
+	}
 	const advancedPublishers = page.getByRole("button", { name: /Advanced publisher filters/ });
 	if ((await advancedPublishers.getAttribute("aria-expanded")) !== "false") {
 		throw new Error("mapped publisher filters were not collapsed by default");

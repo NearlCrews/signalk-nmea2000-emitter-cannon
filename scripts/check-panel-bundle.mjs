@@ -4,27 +4,9 @@ import vm from "node:vm";
 import React from "react";
 import * as ReactDOM from "react-dom";
 import { renderToStaticMarkup } from "react-dom/server";
+import { assertSharedUiVersion } from "./shared-ui-version.mjs";
 
-const EXPECTED_SHARED_UI_VERSION = "0.7.1";
-const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
-const manifestSharedUiVersion = packageJson.devDependencies?.["signalk-nearlcrews-ui"];
-if (manifestSharedUiVersion !== EXPECTED_SHARED_UI_VERSION) {
-	throw new Error(
-		`signalk-nearlcrews-ui must be pinned to exact version ${EXPECTED_SHARED_UI_VERSION}`,
-	);
-}
-const sharedUiPackageJson = JSON.parse(
-	readFileSync(
-		new URL("../node_modules/signalk-nearlcrews-ui/package.json", import.meta.url),
-		"utf8",
-	),
-);
-const sharedUiVersion = sharedUiPackageJson.version;
-if (sharedUiVersion !== manifestSharedUiVersion) {
-	throw new Error(
-		`installed signalk-nearlcrews-ui ${String(sharedUiVersion)} does not match package.json ${manifestSharedUiVersion}`,
-	);
-}
+const sharedUiVersion = assertSharedUiVersion(new URL("../", import.meta.url));
 
 const publicDir = new URL("../public/", import.meta.url);
 const bundles = readdirSync(publicDir)
@@ -38,6 +20,16 @@ for (const { name, source } of bundles) {
 		throw new Error(`${name} uses the React development JSX runtime`);
 	}
 }
+
+// React Aria's overlay, focus, and transition modules run global setup the
+// moment their chunk evaluates, guarded only on `window` and `document` being
+// defined. This context defines both, so it also has to answer the small set of
+// DOM members that setup touches. Render itself is server-side, so these are
+// inert listeners, not a DOM implementation.
+const domEventTargetStub = () => ({
+	addEventListener: () => {},
+	removeEventListener: () => {},
+});
 
 const context = vm.createContext({
 	console,
@@ -54,6 +46,10 @@ const context = vm.createContext({
 			tagName: "SCRIPT",
 			src: "http://localhost/plugins/signalk-nmea2000-emitter-cannon/remoteEntry.js",
 		},
+		readyState: "complete",
+		body: domEventTargetStub(),
+		documentElement: domEventTargetStub(),
+		...domEventTargetStub(),
 	},
 	fetch: async () => {
 		throw new Error("panel runtime check must not fetch during render");
@@ -65,6 +61,9 @@ context.globalThis = context;
 context.CSSScopeRule = class CSSScopeRule {};
 context.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
 context.confirm = () => false;
+context.HTMLElement = class HTMLElement {};
+Object.assign(context, domEventTargetStub());
+context.matchMedia = () => ({ matches: false, ...domEventTargetStub() });
 
 const remoteEntry = bundles.find(({ name }) => name === "remoteEntry.js");
 if (!remoteEntry) throw new Error("panel build produced no remoteEntry.js");

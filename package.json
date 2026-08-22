@@ -175,7 +175,7 @@
 		{
 			"name": "Panel component chunks",
 			"path": "public/[0-9]*.js",
-			"limit": "48 kB"
+			"limit": "65 kB"
 		},
 		{
 			"name": "Panel federation runtime",

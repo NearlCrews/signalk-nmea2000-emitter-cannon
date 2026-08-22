@@ -1,17 +1,5 @@
 import type { CSSProperties } from "react";
 
-const btnPrimary: CSSProperties = {
-	padding: "8px 16px",
-	minHeight: "var(--skn-control-height)",
-	background: "var(--skn-accent)",
-	color: "var(--skn-accent-text)",
-	border: "none",
-	borderRadius: "var(--skn-radius)",
-	fontSize: "var(--skn-font-body)",
-	fontWeight: 600,
-	cursor: "pointer",
-};
-
 const btnSecondary: CSSProperties = {
 	padding: "8px 16px",
 	minHeight: "var(--skn-control-height)",
@@ -71,11 +59,11 @@ export const ACTION_STYLES = {
 		fontWeight: 600,
 	},
 	tabCount: { color: "var(--skn-text-faint)" },
-	btnPrimary,
+	// Only the styles a component still consumes are re-exported. Primary and
+	// small secondary actions now come from the shared Button, and the local
+	// bases below stay private to this module.
 	btnSecondary,
-	btnDestructive,
 	btnDestructiveSm,
-	btnSecondarySm,
 	// The armed state makes the second, destructive tap unmistakable.
 	btnDestructiveSmArmed: {
 		...btnDestructiveSm,

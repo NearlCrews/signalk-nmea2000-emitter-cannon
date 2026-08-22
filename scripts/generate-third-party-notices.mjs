@@ -75,16 +75,17 @@ function render(names) {
 		"",
 		`${HEADER_MARKER}${sharedUiVersion} -->`,
 		"",
-		"The configuration panel is a Module Federation remote, so the packages below",
-		"are bundled into `public/*.js` and redistributed with this plugin. Their",
-		"licenses follow. Regenerate with `npm run licenses` after any change to the",
-		"panel's dependency tree.",
-		"",
-		"React and React DOM are supplied by the Signal K admin host as singletons and",
-		"are not bundled here; the React entry that does appear is the JSX runtime.",
-		"The plugin bundle `dist/index.mjs` is built with `--external:rxjs` and carries",
-		"no third-party code.",
-		"",
+		// One element per PARAGRAPH, not per source line: the join below puts a
+		// blank line between elements, so a line-per-element shape would render
+		// every wrapped line as its own one-line paragraph.
+		"The configuration panel is a Module Federation remote, so the packages below " +
+			"are bundled into `public/*.js` and redistributed with this plugin. Their " +
+			"licenses follow. Regenerate with `npm run licenses` after any change to " +
+			"the panel's dependency tree.",
+		"React and React DOM are supplied by the Signal K admin host as singletons and " +
+			"are not bundled here; the React entry that does appear is the JSX runtime. " +
+			"The plugin bundle `dist/index.mjs` is built with `--external:rxjs` and " +
+			"carries no third-party code.",
 		...sections,
 	]
 		.join("\n\n")

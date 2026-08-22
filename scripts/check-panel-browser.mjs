@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { createServer } from "node:http";
 import AxeBuilder from "@axe-core/playwright";
-import { chromium } from "@playwright/test";
+import { chromium, devices, webkit } from "@playwright/test";
 import { build } from "esbuild";
 import { assertSharedUiVersion } from "./shared-ui-version.mjs";
 
@@ -742,13 +742,6 @@ try {
 		throw new Error("invalid Vessel Trip engine row did not block Save");
 	}
 	await engineInput.fill("port");
-	// Focus before clicking. Save sits in the viewport-bottom ActionBar, and
-	// snui 0.8.0 swallows the first click on a control overlapping the docked
-	// bar: the focusin clearance scroll moves the control out from under the
-	// pointer between press and release. Focusing first means the click lands on
-	// a control the bar has already settled. Remove once the library ships the
-	// fix.
-	await page.getByRole("button", { name: "Save", exact: true }).focus();
 	await page.getByRole("button", { name: "Save", exact: true }).click();
 	await page.getByText("Save requested", { exact: true }).waitFor();
 	await page.waitForFunction(() => {
@@ -830,7 +823,7 @@ try {
 		}
 
 		// The advisor settings form is the panel's largest shared-field surface.
-		// 0.8.0 throws on an invalid LabeledField child in production builds too,
+		// 0.8.1 throws on an invalid LabeledField child in production builds too,
 		// so assert the fields render and that each visible label really is
 		// associated with its control rather than duplicated into an aria-label.
 		await advisorRacePage.getByRole("button", { name: "Advisor settings" }).click();
@@ -895,7 +888,70 @@ try {
 			await screenshotPage.getByRole("button", { name: "Review now" }).waitFor();
 		});
 	}
-	process.stdout.write("Panel passed Chromium interaction, theme, and 320px layout checks.\n");
+	// A second engine and a coarse pointer. Chromium alone misses two classes
+	// this family has actually shipped: WebKit is where the docked action bar's
+	// settling cascade was traced, and a coarse-pointer viewport is where a
+	// touch target below the 44px floor survived every desktop check.
+	const webkitBrowser = await webkit.launch({ headless: true });
+	try {
+		const webkitContext = await webkitBrowser.newContext({
+			viewport: { width: 1280, height: 900 },
+		});
+		const webkitPage = await webkitContext.newPage();
+		const webkitErrors = [];
+		webkitPage.on("pageerror", (error) => webkitErrors.push(error.message));
+		await webkitPage.goto(`http://127.0.0.1:${address.port}/`, { waitUntil: "networkidle" });
+		await webkitPage.locator(sharedUiRootSelector).waitFor();
+		await webkitPage.getByRole("button", { name: "Setup wizard" }).waitFor();
+		await assertAccessible(webkitPage, "WebKit configuration panel");
+		if (webkitErrors.length > 0) {
+			throw new Error(`WebKit reported page errors: ${webkitErrors.join(", ")}`);
+		}
+		await webkitContext.close();
+	} finally {
+		await webkitBrowser.close();
+	}
+
+	const touchContext = await browser.newContext({
+		...devices["Pixel 5"],
+		hasTouch: true,
+		isMobile: false,
+	});
+	try {
+		const touchPage = await touchContext.newPage();
+		await touchPage.goto(`http://127.0.0.1:${address.port}/`, { waitUntil: "networkidle" });
+		await touchPage.locator(sharedUiRootSelector).waitFor();
+		await assertAccessible(touchPage, "coarse-pointer configuration panel");
+		// The design contract puts every coarse-pointer target at 44px minimum.
+		// Measure what the panel actually renders rather than trusting the token.
+		const undersized = await touchPage.evaluate(() => {
+			const root = document.querySelector(".skn-panel");
+			if (root === null) return ["panel root missing"];
+			const tooSmall = [];
+			for (const element of root.querySelectorAll("button, a[href], select, input")) {
+				if (element.type === "hidden" || element.closest("[hidden]") !== null) continue;
+				const box = element.getBoundingClientRect();
+				if (box.width === 0 && box.height === 0) continue;
+				if (box.height < 44) {
+					tooSmall.push(
+						`${element.tagName.toLowerCase()}[${element.getAttribute("aria-label") ?? element.id ?? element.textContent?.trim().slice(0, 24) ?? "?"}] ${box.height.toFixed(1)}px`,
+					);
+				}
+			}
+			return tooSmall;
+		});
+		if (undersized.length > 0) {
+			throw new Error(
+				`coarse-pointer targets below the 44px floor: ${undersized.slice(0, 8).join("; ")}`,
+			);
+		}
+	} finally {
+		await touchContext.close();
+	}
+
+	process.stdout.write(
+		"Panel passed Chromium, WebKit, coarse-pointer, theme, and 320px layout checks.\n",
+	);
 } finally {
 	await browserContext?.close();
 	await browser?.close();

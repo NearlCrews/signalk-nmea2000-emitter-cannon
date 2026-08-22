@@ -1,22 +1,10 @@
 # Third-party notices
 
-<!-- generated-for-signalk-nearlcrews-ui:0.8.0 -->
+<!-- generated-for-signalk-nearlcrews-ui:0.8.1 -->
 
-The configuration panel is a Module Federation remote, so the packages below
+The configuration panel is a Module Federation remote, so the packages below are bundled into `public/*.js` and redistributed with this plugin. Their licenses follow. Regenerate with `npm run licenses` after any change to the panel's dependency tree.
 
-are bundled into `public/*.js` and redistributed with this plugin. Their
-
-licenses follow. Regenerate with `npm run licenses` after any change to the
-
-panel's dependency tree.
-
-React and React DOM are supplied by the Signal K admin host as singletons and
-
-are not bundled here; the React entry that does appear is the JSX runtime.
-
-The plugin bundle `dist/index.mjs` is built with `--external:rxjs` and carries
-
-no third-party code.
+React and React DOM are supplied by the Signal K admin host as singletons and are not bundled here; the React entry that does appear is the JSX runtime. The plugin bundle `dist/index.mjs` is built with `--external:rxjs` and carries no third-party code.
 
 ## @internationalized/date
 

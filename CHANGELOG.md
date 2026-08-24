@@ -5,6 +5,19 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+<a id="v1109"></a>
+
+## [1.10.9] - 2026-08-24
+
+### Fixed
+
+- The configuration panel did not mount on Signal K 2.24.x hosts in 1.10.8.
+  Those hosts register the React shares the Admin provides with an understated
+  version while actually shipping a compatible React, and the strict share
+  check added in 1.10.8 rejected them, leaving the panel unable to load. The
+  check is removed; the version-range warning logged on such hosts is expected
+  and harmless.
+
 <a id="v1108"></a>
 
 ## [1.10.8] - 2026-08-24

@@ -16,26 +16,15 @@ reviewed against model-specific chartplotter receive lists.
 > Built on the foundation of [`signalk-to-nmea2000`](https://github.com/SignalK/signalk-to-nmea2000)
 > by Scott Bender and the Signal K community.
 
-## What's new in 1.10.8
+## What's new in 1.10.9
 
-- **Correct GNSS status on the bus.** Fix quality and satellite system are
-  translated to the values Canboat defines, so a normal fix is no longer
-  broadcast as "no GNSS", and fix integrity no longer defaults to "Unsafe".
-- **No more wrapped readings.** A value that cannot fit its NMEA 2000 field is
-  dropped rather than wrapping into a plausible wrong number, across exhaust gas
-  temperature, speed over ground, tank level, display brightness, depth offset,
-  and more.
-- **Steadier alarms and orders.** A long-running alert is no longer the first one
-  evicted when the alert cache fills, a rudder order keeps its port or starboard
-  sign, and a DSC distress call is emitted once instead of every five seconds.
-- **Usable on a helm touchscreen.** Panel touch targets meet the 44 pixel minimum
-  on a coarse pointer, conversion names stay legible on phone widths, and browser
-  checks now cover WebKit and a touch viewport alongside Chromium.
-- **Current shared panel UI.** The panel bundles `signalk-nearlcrews-ui` 0.8.2,
-  the setup wizard uses its shared dialog, and the supported Node floor is stated
-  as 22.0.0 to match what the plugin actually requires.
+- **The configuration panel loads again on Signal K 2.24.x hosts.** Those hosts
+  report an understated React version for the shares the Admin provides, and a
+  strict version check added in 1.10.8 rejected them even though the React they
+  actually ship is compatible, so the panel never mounted there. The check is
+  removed.
 
-See the [v1.10.8 changelog entry](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/blob/main/CHANGELOG.md#v1108)
+See the [v1.10.9 changelog entry](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/blob/main/CHANGELOG.md#v1109)
 and [full release history](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/blob/main/CHANGELOG.md).
 
 ## What it does

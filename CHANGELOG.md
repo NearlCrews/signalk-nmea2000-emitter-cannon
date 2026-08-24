@@ -7,7 +7,7 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 <a id="v1108"></a>
 
-## [1.10.8] - 2026-08-23
+## [1.10.8] - 2026-08-24
 
 ### Fixed
 

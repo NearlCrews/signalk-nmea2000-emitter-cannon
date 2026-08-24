@@ -7,7 +7,7 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 <a id="v1108"></a>
 
-## [1.10.8] - 2026-08-22
+## [1.10.8] - 2026-08-23
 
 ### Fixed
 
@@ -41,6 +41,10 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Touch targets in the configuration panel meet the 44 pixel minimum on a coarse
   pointer. The dense conversion row put its enable checkbox at 22 pixels, which is
   the control a helm touchscreen user reaches for most.
+- Conversion names stay legible on phone widths. The dense row let the PGN run
+  crowd out the name, so at 320 pixels a title could collapse to a character or
+  two while the recency column collided with the PGN links. The docked action
+  bar also separates its two status sentences with the space they were missing.
 
 ### Changed
 

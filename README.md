@@ -29,8 +29,8 @@ reviewed against model-specific chartplotter receive lists.
   evicted when the alert cache fills, a rudder order keeps its port or starboard
   sign, and a DSC distress call is emitted once instead of every five seconds.
 - **Usable on a helm touchscreen.** Panel touch targets meet the 44 pixel minimum
-  on a coarse pointer, and browser checks now cover WebKit and a touch viewport
-  alongside Chromium.
+  on a coarse pointer, conversion names stay legible on phone widths, and browser
+  checks now cover WebKit and a touch viewport alongside Chromium.
 - **Current shared panel UI.** The panel bundles `signalk-nearlcrews-ui` 0.8.2,
   the setup wizard uses its shared dialog, and the supported Node floor is stated
   as 22.0.0 to match what the plugin actually requires.

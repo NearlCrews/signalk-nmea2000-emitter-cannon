@@ -73,17 +73,20 @@ module.exports = {
 			shared: {
 				// React and React DOM are supplied by Signal K Admin. The shared UI
 				// package remains bundled in this remote and must not be added to the
-				// share map.
+				// share map. Never set strictVersion on these shares: the Admin
+				// registers them with a hardcoded 19.0.0 while actually shipping a
+				// newer React (2.24.0 bundles 19.2.4), so a strict ^19.2.0 check
+				// rejects a fully compatible host and, with import: false, the panel
+				// never mounts there. The version-range warning on such hosts is
+				// expected and harmless.
 				react: {
 					singleton: true,
 					requiredVersion: "^19.2.0",
-					strictVersion: true,
 					import: false,
 				},
 				"react-dom": {
 					singleton: true,
 					requiredVersion: "^19.2.0",
-					strictVersion: true,
 					import: false,
 				},
 			},

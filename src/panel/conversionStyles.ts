@@ -39,8 +39,11 @@ export const CONVERSION_STYLES = {
 		flex: 1,
 		// A floor, not 0. The title still ellipsizes inside it, but the toggle can
 		// never be squeezed to zero width by a long recency string at 320px, which
-		// leaves the row with no clickable target at all.
-		minWidth: 96,
+		// leaves the row with no clickable target at all. The proportional middle
+		// term keeps the conversion NAME legible on phone widths: with a bare 96px
+		// floor the non-shrinking PGN run consumed the floor and the name collapsed
+		// to one or two characters while the recency column kept most of the row.
+		minWidth: "clamp(96px, 55%, 240px)",
 		padding: 0,
 		background: "transparent",
 		border: "none",
@@ -53,13 +56,19 @@ export const CONVERSION_STYLES = {
 		alignItems: "baseline",
 		flex: 1,
 		minWidth: 0,
+		// The PGN run inside never shrinks, so without this it escapes the wrap on
+		// phone widths and collides with the recency column beside it.
+		overflow: "hidden",
 	},
 	title: {
 		fontSize: "var(--skn-font-title)",
 		fontWeight: 600,
 		color: "var(--skn-text)",
 		flex: "0 1 auto",
-		minWidth: 0,
+		// The name is what identifies a row, so it keeps a readable floor and the
+		// PGN run beside it ellipsizes first on phone widths. With a 0 floor the
+		// two-PGN rows rendered as bare PGN numbers with no name at 320px.
+		minWidth: "6ch",
 		whiteSpace: "nowrap",
 		overflow: "hidden",
 		textOverflow: "ellipsis",
@@ -67,7 +76,10 @@ export const CONVERSION_STYLES = {
 	pgn: {
 		color: "var(--skn-text-muted)",
 		whiteSpace: "nowrap",
-		flex: "0 0 auto",
+		flex: "0 1 auto",
+		minWidth: 0,
+		overflow: "hidden",
+		textOverflow: "ellipsis",
 		marginLeft: 4,
 	},
 	badgeSlot: {

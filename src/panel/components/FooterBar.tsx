@@ -67,7 +67,7 @@ export default function FooterBar({
 						dirty={dirty}
 						unconfigured={unconfigured}
 						saveRequestedAt={saveRequestedAt ?? null}
-					/>
+					/>{" "}
 					{validationErrorCount > 0 ? (
 						<span role="status" style={S.textFaint}>
 							Fix {validationErrorCount} configuration{" "}

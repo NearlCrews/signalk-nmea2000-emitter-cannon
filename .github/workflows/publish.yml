@@ -43,7 +43,7 @@ jobs:
           git fetch origin main --no-tags
           git merge-base --is-ancestor "$GITHUB_SHA" origin/main
       - run: npx --yes npm@12.0.2 ci
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps chromium webkit
       - run: npx --yes npm@12.0.2 run verify:release
       - name: Pack the verified plugin
         run: npx --yes npm@12.0.2 run pack:release

@@ -22,7 +22,21 @@ const ACTION_TIMEOUT_MS = 120000;
 const vesselTripDescription =
 	"Fuel range is an estimate, not a voyage-planning or safety value. Configure every fuel tank and propulsion consumer; other consumers, unusable reserve, cross-feed limits, weather, and tide are not included. Raymarine also requires Fuel Manager setup, fuel data from PGN 127489 or 127497, and PGN 129026 with GNSS for distance. Current Garmin documentation does not list PGN 127496.";
 
+/**
+ * Axe reads computed colors, so auditing while a dialog is still fading in
+ * blends its text with the scrim behind it and fails color-contrast on content
+ * that is compliant at rest. Let every finite animation finish before
+ * sampling; infinite animations are excluded because they never settle.
+ */
 async function assertAccessible(page, label) {
+	await page.evaluate(() =>
+		Promise.all(
+			document
+				.getAnimations()
+				.filter((animation) => animation.effect?.getTiming().iterations !== Infinity)
+				.map((animation) => animation.finished.catch(() => {})),
+		),
+	);
 	const { violations } = await new AxeBuilder({ page }).analyze();
 	if (violations.length === 0) return;
 
@@ -567,10 +581,11 @@ try {
 		throw new Error("mapping table scroll region was not keyboard focusable");
 	}
 	const refreshAssets = page.getByRole("button", { name: "Refresh path inventory" });
-	await Promise.all([
-		page.getByText("Refreshing Signal K server path inventory...", { exact: true }).waitFor(),
-		refreshAssets.click(),
-	]);
+	// The refreshing notice is transient: when the mocked 503 lands between two
+	// locator polls the notice is gone before it is ever sampled, and the wait
+	// then fails on the clock. Assert the settled retry state the refresh must
+	// reach rather than the moment it passes through.
+	await refreshAssets.click();
 	await page.getByRole("button", { name: "Retry path inventory" }).waitFor();
 	await page.getByText(/Signal K server path inventory unavailable: HTTP 503/).waitFor();
 	await page.getByRole("button", { name: "Retry path inventory" }).click();

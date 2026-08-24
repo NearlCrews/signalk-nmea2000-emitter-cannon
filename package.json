@@ -128,7 +128,7 @@
 		"@vitest/coverage-v8": "4.1.11",
 		"@vitest/ui": "4.1.11",
 		"babel-loader": "^10.1.1",
-		"cspell": "10.0.1",
+		"cspell": "10.1.0",
 		"dependency-cruiser": "^18.2.0",
 		"esbuild": "^0.28.2",
 		"eslint": "10.9.0",

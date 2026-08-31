@@ -131,7 +131,7 @@
 		"cspell": "10.1.0",
 		"dependency-cruiser": "^18.2.0",
 		"esbuild": "^0.28.2",
-		"eslint": "10.9.0",
+		"eslint": "10.9.1",
 		"express": "^5.2.1",
 		"knip": "6.32.2",
 		"markdownlint-cli2": "0.23.2",
@@ -143,7 +143,7 @@
 		"size-limit": "13.0.3",
 		"supertest": "^7.2.2",
 		"typescript": "^6.0.3",
-		"typescript-eslint": "8.67.0",
+		"typescript-eslint": "8.68.0",
 		"vitest": "4.1.11",
 		"webpack": "^5.109.2",
 		"webpack-cli": "^7.2.2"

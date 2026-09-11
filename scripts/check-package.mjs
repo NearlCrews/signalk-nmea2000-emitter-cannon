@@ -1,7 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { normalizePackReport } from "./package-report.mjs";
-import { assertSharedUiVersion } from "./shared-ui-version.mjs";
 
 const npm = process.env.npm_execpath ?? (process.platform === "win32" ? "npm.cmd" : "npm");
 const command = npm.endsWith(".js") ? process.execPath : npm;
@@ -57,10 +56,12 @@ const unexpectedPanelBundles = [...paths].filter(
 );
 
 const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+// The shared UI is bundled into the panel remote, so it must never reach the
+// runtime dependency list. Its exact pin and installed version are asserted by
+// snui-check-consumer in the panel checks.
 if (packageJson.dependencies?.["signalk-nearlcrews-ui"]) {
 	throw new Error("signalk-nearlcrews-ui must be a bundled development dependency");
 }
-assertSharedUiVersion(new URL("../", import.meta.url));
 
 // @types/node must describe the LOWEST runtime this package advertises, or a
 // newer Node's APIs typecheck here and then fail on that lane. Derived from
@@ -74,6 +75,19 @@ const typesMajor = /(\d+)/.exec(typesRange);
 if (!typesMajor || typesMajor[1] !== engineFloor[1]) {
 	throw new Error(
 		`@types/node ${typesRange} must match the engines.node floor major ${engineFloor[1]}`,
+	);
+}
+
+// npm 10, which ships with the Node 22 lanes, still executes a prepare script
+// during `npm pack --ignore-scripts`. That prints the script banner and its
+// output on stdout, so any consumer that captures the pack result reads a
+// corrupted tarball name. npm 11 does not, which is exactly what makes the trap
+// easy to miss locally and only visible on the older CI lane. prepack stays
+// allowed because both majors keep it out of the pack capture, and git hooks
+// belong in the non-lifecycle `hooks` script instead.
+if (packageJson.scripts?.prepare) {
+	throw new Error(
+		"package.json must not define a prepare script: npm 10 runs it during `npm pack --ignore-scripts`",
 	);
 }
 

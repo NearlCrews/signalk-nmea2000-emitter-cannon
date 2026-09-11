@@ -1,11 +1,11 @@
 name: SignalK Plugin CI
 
 # Calls the official SignalK reusable plugin-ci workflow. The plugin registry
-# (dirkwa.github.io/signalk-plugin-registry) looks for a workflow run that
-# references SignalK/signalk-server/.github/workflows/plugin-ci.yml on the
-# published version's commit; without one it applies a scoring penalty. The
-# tag trigger guarantees a run exists on the exact commit each release is
-# published from.
+# (https://signalk.org/signalk-plugin-registry/, scored from
+# SignalK/signalk-plugin-registry) looks for a workflow run that references
+# SignalK/signalk-server/.github/workflows/plugin-ci.yml on the published
+# version's commit; without one it applies a scoring penalty. The tag trigger
+# guarantees a run exists on the exact commit each release is published from.
 
 on:
   push:
@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   plugin-ci:
-    uses: SignalK/signalk-server/.github/workflows/plugin-ci.yml@9edfbf958eb7addb69140a605b4d21a0df249fdc # master 2026-07-19
+    uses: SignalK/signalk-server/.github/workflows/plugin-ci.yml@a9dc80e6c248326927951c39047787493f89edf4 # master 2026-09-02
     with:
       build-command: npm run build
       test-command: npm test

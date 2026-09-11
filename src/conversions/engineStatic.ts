@@ -1,4 +1,5 @@
 import {
+	MAX_N2K_ENGINE_SPEED_RPM,
 	N2K_BROADCAST_DST,
 	N2K_DEFAULT_PRIORITY,
 	SOURCE_TYPE,
@@ -10,7 +11,7 @@ import type {
 	SignalKApp,
 	SubConversionModule,
 } from "../types/index.js";
-import { clampString, isPlainObject, isValidNumber, toValidNumber } from "../utils/validation.js";
+import { clampString, isPlainObject, isValidNumber, toFiniteInRange } from "../utils/validation.js";
 import {
 	instanceList,
 	isValidInstanceSignalKId,
@@ -66,7 +67,13 @@ const INSTANCE_LABELS: Record<number, string> = {
 };
 
 function buildPgn(engine: EngineStaticEngineConfig): N2KMessage[] {
-	const ratedEngineSpeed = toValidNumber(engine.ratedEngineSpeed);
+	// ratedEngineSpeed is the same unsigned 0.25 rpm field as PGN 127488 speed,
+	// and it comes straight from a hand-typed config panel rather than from a
+	// provider. A trailing zero on 3600 makes 36000, which wraps to 3232 RPM
+	// rather than being refused, so an MFD would show a redline the engine
+	// cannot reach.
+	const ratedEngineSpeed =
+		toFiniteInRange(engine.ratedEngineSpeed, 0, MAX_N2K_ENGINE_SPEED_RPM) ?? null;
 	const vinRaw = typeof engine.VIN === "string" ? engine.VIN : "";
 	const softwareIdRaw = typeof engine.softwareVersion === "string" ? engine.softwareVersion : "";
 	const vin = clampString(vinRaw, MAX_VIN_CHARS);
@@ -98,7 +105,12 @@ function buildPgn(engine: EngineStaticEngineConfig): N2KMessage[] {
 }
 
 function expectedFromEngine(engine: EngineStaticEngineConfig): N2KMessage[] {
-	const ratedEngineSpeed = toValidNumber(engine.ratedEngineSpeed);
+	// Bound independently of toFiniteInRange, for the same reason the strings
+	// are truncated independently below. normalizedEngineStaticConfig has
+	// already rejected a non-finite value, so only the range is left to check.
+	const rated = engine.ratedEngineSpeed;
+	const ratedEngineSpeed =
+		rated !== undefined && rated >= 0 && rated <= MAX_N2K_ENGINE_SPEED_RPM ? rated : null;
 	const vinRaw = typeof engine.VIN === "string" ? engine.VIN : "";
 	const softwareIdRaw = typeof engine.softwareVersion === "string" ? engine.softwareVersion : "";
 	// Truncate independently of clampString so the embedded round-trip test
@@ -154,6 +166,17 @@ export default function createEngineStaticConversion(_app: SignalKApp): Conversi
 					instanceId: 2,
 					VIN: "VIN1234567890123456789",
 					softwareVersion: "plugin-firmware-build-1234567890-abcdefghijklmnop",
+				},
+				{
+					// Regression: ratedEngineSpeed is typed by hand into the config
+					// panel, and the unsigned 0.25 rpm field wraps rather than
+					// refusing an oversized value. A trailing zero on 3600 makes
+					// 36000, which used to reach the bus as 3232 RPM. It is now left
+					// not-available, so only the software version is carried.
+					signalkId: "3",
+					instanceId: 3,
+					ratedEngineSpeed: 36000,
+					softwareVersion: "v3.0.0",
 				},
 			],
 		},

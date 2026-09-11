@@ -1510,6 +1510,26 @@ describe("fetchHistoricPaths", () => {
 		expect(paths.get("navigation.position")?.samples).toBe(900);
 	});
 
+	it("floors a fractional look-back to one day instead of an empty window", async () => {
+		// Math.trunc alone yields dateadd('d', -0, now()), which QuestDB answers
+		// with an empty window rather than an error, so the review would silently
+		// see no history at all.
+		const queried: string[] = [];
+		const fetchImpl = (async (url: string) => {
+			queried.push(url);
+			return { ok: true, status: 200, json: async () => ({ dataset: [] }) } as Response;
+		}) as typeof fetch;
+		const client = new QuestDBClient({ url: "http://h:9000" }, fetchImpl);
+		await fetchHistoricPaths(client, 0.5);
+
+		expect(queried.length).toBeGreaterThan(0);
+		for (const url of queried) {
+			const sql = decodeURIComponent(url);
+			expect(sql).toContain("dateadd('d', -1, now())");
+			expect(sql).not.toContain("-0,");
+		}
+	});
+
 	it("omits navigation.position when signalk_position has no rows", async () => {
 		const fetchImpl = (async (url: string) => ({
 			ok: true,
@@ -1603,5 +1623,164 @@ describe("Advisor.runReview with QuestDB", () => {
 		const result = await advisor.runReview();
 		expect(result.notes.some((n) => n.includes("QuestDB"))).toBe(true);
 		expect(advisor.getPendingResult()).toEqual(result);
+	});
+});
+
+describe("Advisor QuestDB configuration validation", () => {
+	const withQuestdb = (questdb: Record<string, unknown>) => ({
+		conversions: {},
+		advisor: { ...DEFAULT_ADVISOR_CONFIG, questdb },
+	});
+
+	it("notes a blank QuestDB URL instead of leaking the SQL statement", async () => {
+		let fetched = false;
+		const deps = advisorDeps({
+			readConfig: () => withQuestdb({ enabled: true, url: "   ", lookbackDays: 7 }),
+			fetchHistoric: async () => {
+				fetched = true;
+				return new Map();
+			},
+		});
+
+		const result = await new Advisor(deps).runReview();
+
+		// A blank URL reaches fetch as a relative URL, whose "Failed to parse URL
+		// from /exec?query=SELECT..." would put the whole statement in the note.
+		expect(fetched).toBe(false);
+		expect(result.notes).toContain(
+			"QuestDB history is switched on but no QuestDB URL is saved; reviewed live data only.",
+		);
+		expect(result.notes.some((note) => note.includes("SELECT"))).toBe(false);
+	});
+
+	it("notes a scheme-less QuestDB URL rather than attempting the fetch", async () => {
+		let fetched = false;
+		const deps = advisorDeps({
+			readConfig: () => withQuestdb({ enabled: true, url: "localhost:9000", lookbackDays: 7 }),
+			fetchHistoric: async () => {
+				fetched = true;
+				return new Map();
+			},
+		});
+
+		const result = await new Advisor(deps).runReview();
+
+		expect(fetched).toBe(false);
+		expect(result.notes).toContain(
+			"QuestDB history is switched on but the saved QuestDB URL is not a valid http or https address; reviewed live data only.",
+		);
+	});
+
+	it("notes QuestDB being switched on with no URL saved at all", async () => {
+		// Without a note this is indistinguishable from QuestDB being switched
+		// off, so the user never learns why history was skipped.
+		const deps = advisorDeps({
+			readConfig: () => ({
+				conversions: {},
+				advisor: { ...DEFAULT_ADVISOR_CONFIG, questdb: { enabled: true } },
+			}),
+			fetchHistoric: async () => new Map(),
+		});
+
+		const result = await new Advisor(deps).runReview();
+
+		expect(result.notes).toContain(
+			"QuestDB history is switched on but no QuestDB URL is saved; reviewed live data only.",
+		);
+	});
+
+	it("adds no note when QuestDB is switched off", async () => {
+		const deps = advisorDeps({
+			readConfig: () => withQuestdb({ enabled: false, url: "", lookbackDays: 7 }),
+			fetchHistoric: async () => new Map(),
+		});
+
+		const result = await new Advisor(deps).runReview();
+
+		expect(result.notes.some((note) => note.includes("QuestDB"))).toBe(false);
+	});
+
+	it("floors a fractional look-back before handing it to the history fetch", async () => {
+		let received: number | undefined;
+		const deps = advisorDeps({
+			readConfig: () => withQuestdb({ enabled: true, url: "http://h:9000", lookbackDays: 0.5 }),
+			fetchHistoric: async (_url, lookbackDays) => {
+				received = lookbackDays;
+				return new Map();
+			},
+		});
+
+		const result = await new Advisor(deps).runReview();
+
+		expect(received).toBe(1);
+		expect(result.notes.some((note) => note.includes("QuestDB"))).toBe(false);
+	});
+});
+
+describe("Advisor.testQuestDB", () => {
+	it("reports configured false when no usable URL is saved", async () => {
+		let probed = false;
+		const deps = advisorDeps({
+			readConfig: () => ({
+				conversions: {},
+				advisor: { ...DEFAULT_ADVISOR_CONFIG, questdb: { enabled: true } },
+			}),
+			probeQuestDB: async () => {
+				probed = true;
+				return true;
+			},
+		});
+
+		// "Nothing to test" and "tested and unreachable" both used to answer
+		// { ok: false }, so the panel could not tell the user which one it was.
+		expect(await new Advisor(deps).testQuestDB()).toEqual({ ok: false, configured: false });
+		expect(probed).toBe(false);
+	});
+
+	it("reports configured false for a URL that is not http or https", async () => {
+		const deps = advisorDeps({
+			readConfig: () => ({
+				conversions: {},
+				advisor: {
+					...DEFAULT_ADVISOR_CONFIG,
+					questdb: { enabled: true, url: "localhost:9000", lookbackDays: 7 },
+				},
+			}),
+			probeQuestDB: async () => true,
+		});
+
+		expect(await new Advisor(deps).testQuestDB()).toEqual({ ok: false, configured: false });
+	});
+
+	it("reports configured true and unreachable when the probe fails", async () => {
+		const deps = advisorDeps({
+			readConfig: () => ({
+				conversions: {},
+				advisor: {
+					...DEFAULT_ADVISOR_CONFIG,
+					questdb: { enabled: false, url: "http://h:9000", lookbackDays: 7 },
+				},
+			}),
+			probeQuestDB: async () => false,
+		});
+
+		// Probes even while the feature is switched off, so the panel can test a
+		// URL before enabling it.
+		expect(await new Advisor(deps).testQuestDB()).toEqual({ ok: false, configured: true });
+	});
+
+	it("reports ok when the probe answers", async () => {
+		const deps = advisorDeps({
+			readConfig: () => ({
+				conversions: {},
+				advisor: {
+					...DEFAULT_ADVISOR_CONFIG,
+					questdb: { enabled: true, url: "http://h:9000", lookbackDays: 7 },
+				},
+			}),
+			probeQuestDB: async () => true,
+		});
+
+		expect(await new Advisor(deps).testQuestDB()).toEqual({ ok: true, configured: true });
 	});
 });

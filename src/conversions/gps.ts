@@ -29,6 +29,12 @@ interface GpsPosition {
 }
 
 const GNSS_RATE_LIMIT_MS = 1000;
+// PGN 129029 geoidalSeparation is signed 32-bit at 0.01 m. Real geoid heights
+// stay inside about 110 m either way, but the field wraps rather than
+// rejecting, so a garbage value would arrive as a plausible separation and
+// shift every altitude derived from it.
+const MIN_GEOIDAL_SEPARATION_M = -21_474_836.47;
+const MAX_GEOIDAL_SEPARATION_M = 21_474_836.44;
 
 // Signal K and canboat spell the PGN 129029 lookup values differently, and the
 // canboat encoder does not reject an unrecognized label: it silently encodes
@@ -153,7 +159,12 @@ export default function createGpsConversion(
 				if (svs !== undefined) fields.numberOfSvs = svs;
 				const hdopValue = toFiniteInRange(hdop, 0, MAX_N2K_DOP);
 				if (hdopValue !== undefined) fields.hdop = hdopValue;
-				if (isValidNumber(geoidalSeparation)) fields.geoidalSeparation = geoidalSeparation;
+				const separation = toFiniteInRange(
+					geoidalSeparation,
+					MIN_GEOIDAL_SEPARATION_M,
+					MAX_GEOIDAL_SEPARATION_M,
+				);
+				if (separation !== undefined) fields.geoidalSeparation = separation;
 				const pdopValue = toFiniteInRange(pdop, 0, MAX_N2K_DOP);
 				if (pdopValue !== undefined) fields.pdop = pdopValue;
 

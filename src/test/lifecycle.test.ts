@@ -51,6 +51,12 @@ interface MockSignalKApp {
 	firstSubscription: () => unknown;
 	/** Captured nmea2000JsonOut emissions. */
 	emittedMessages: N2KMessage[];
+	/**
+	 * Set what the nmea2000JsonOut emit returns. signalk-server's wrapped
+	 * emitter answers false when nothing is listening for the event, which is
+	 * what a disabled or torn-down NMEA 2000 connection looks like.
+	 */
+	setBusWriterAttached: (attached: boolean) => void;
 	/** Captured plugin status strings. */
 	statusUpdates: string[];
 	/** Captured plugin error strings. */
@@ -80,6 +86,7 @@ function createMockSignalKApp(): MockSignalKApp {
 	const deltaInputHandlers = new Set<DeltaInputHandler>();
 
 	const emittedMessages: N2KMessage[] = [];
+	let busWriterAttached = true;
 	const statusUpdates: string[] = [];
 	const errorUpdates: string[] = [];
 	const loggedErrors: string[] = [];
@@ -180,7 +187,9 @@ function createMockSignalKApp(): MockSignalKApp {
 		emit: (event: string, data: unknown) => {
 			if (event === "nmea2000JsonOut") {
 				emittedMessages.push(data as N2KMessage);
+				return busWriterAttached;
 			}
+			return true;
 		},
 
 		// Required ServerAPI methods exercised by PluginManager.
@@ -212,6 +221,9 @@ function createMockSignalKApp(): MockSignalKApp {
 		},
 		firstSubscription: () => subscriptionCalls[0]?.subscription,
 		emittedMessages,
+		setBusWriterAttached: (attached) => {
+			busWriterAttached = attached;
+		},
 		statusUpdates,
 		errorUpdates,
 		loggedErrors,
@@ -1629,5 +1641,229 @@ describe("createPlugin NMEA 2000 readiness seeding", () => {
 		expect(mock.emittedMessages).toEqual([]);
 
 		plugin.stop();
+	});
+});
+
+describe("createPlugin advisor periodic review", () => {
+	beforeEach(() => {
+		vi.useFakeTimers();
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	/**
+	 * No conversion is enabled, so the plugin itself wires no interval. Any
+	 * pending timer is therefore the advisor scheduler's, which makes
+	 * vi.getTimerCount() an exact read of whether the periodic review armed.
+	 */
+	const advisorOnlyOptions = (advisor: Record<string, unknown>): PluginOptions =>
+		({
+			globalResendInterval: 0,
+			conversions: {},
+			advisor,
+		}) as unknown as PluginOptions;
+
+	it("arms no periodic timer while the Config Advisor master toggle is off", () => {
+		const mock = createMockSignalKApp();
+		const plugin = createPlugin(mock.app);
+
+		plugin.start(
+			advisorOnlyOptions({
+				enabled: false,
+				schedule: { periodic: true, intervalDays: 1 },
+			}),
+			() => {},
+		);
+
+		// An unattended scheduled review can auto-apply enables, so a user who
+		// left the master toggle off must not get one.
+		expect(vi.getTimerCount()).toBe(0);
+
+		plugin.stop();
+	});
+
+	it("arms the periodic timer when both the master toggle and the schedule are on", () => {
+		const mock = createMockSignalKApp();
+		const plugin = createPlugin(mock.app);
+
+		plugin.start(
+			advisorOnlyOptions({
+				enabled: true,
+				schedule: { periodic: true, intervalDays: 1 },
+			}),
+			() => {},
+		);
+
+		expect(vi.getTimerCount()).toBe(1);
+
+		plugin.stop();
+		expect(vi.getTimerCount()).toBe(0);
+	});
+
+	it("arms no periodic timer when the schedule is off but the master toggle is on", () => {
+		const mock = createMockSignalKApp();
+		const plugin = createPlugin(mock.app);
+
+		plugin.start(
+			advisorOnlyOptions({
+				enabled: true,
+				schedule: { periodic: false, intervalDays: 1 },
+			}),
+			() => {},
+		);
+
+		expect(vi.getTimerCount()).toBe(0);
+
+		plugin.stop();
+	});
+});
+
+describe("PluginManager detached bus writer", () => {
+	let mock: ReturnType<typeof createMockSignalKApp>;
+	let manager: PluginManager;
+
+	beforeEach(() => {
+		vi.useFakeTimers();
+		mock = createMockSignalKApp();
+		manager = new PluginManager(mock.app, mockPlugin, () => true);
+	});
+
+	afterEach(() => {
+		try {
+			manager.stop();
+		} catch {
+			// stop() is exercised elsewhere; swallow if already torn down.
+		}
+		vi.useRealTimers();
+	});
+
+	/** Drive one wind conversion output through the debounce. */
+	async function emitWind(index: number): Promise<void> {
+		mock.pushStream("environment.wind.angleApparent", { value: 1.5 + index * 0.01 });
+		mock.pushStream("environment.wind.speedApparent", { value: 2 + index * 0.01 });
+		await flush();
+	}
+
+	it("reports a detached bus writer, then clears it when a write is delivered again", async () => {
+		manager.start({
+			globalResendInterval: 0,
+			WIND: { enabled: true, resend: 0 },
+		} as unknown as PluginOptions);
+
+		expect(manager.getStatusSnapshot().busWriterAttached).toBe(true);
+
+		// signalk-server latches isNmea2000OutAvailable and never resets it, and
+		// the plugin latches its own readiness the same way, so a connection
+		// disabled at runtime leaves readiness true while every write lands
+		// nowhere. The emit return is the only signal left.
+		mock.setBusWriterAttached(false);
+
+		// One undelivered write is a provider restart, not a fault.
+		await emitWind(0);
+		expect(manager.getStatusSnapshot().busWriterAttached).toBe(true);
+		expect(mock.errorUpdates).toEqual([]);
+
+		for (let index = 1; index < 25; index++) {
+			await emitWind(index);
+		}
+
+		expect(mock.emittedMessages.length).toBeGreaterThanOrEqual(20);
+		expect(manager.getStatusSnapshot().busWriterAttached).toBe(false);
+		expect(mock.errorUpdates.some((msg) => msg.includes("NMEA 2000 output has no listener"))).toBe(
+			true,
+		);
+
+		// The connection comes back: the first delivered write clears the state
+		// and restores the running status.
+		const errorsBeforeRecovery = mock.errorUpdates.length;
+		mock.setBusWriterAttached(true);
+		await emitWind(25);
+
+		expect(manager.getStatusSnapshot().busWriterAttached).toBe(true);
+		expect(mock.statusUpdates).toContain("Running with 1 conversions enabled");
+		expect(mock.errorUpdates).toHaveLength(errorsBeforeRecovery);
+	});
+
+	it("does not report a detached writer when a host returns nothing from emit", async () => {
+		// Only an explicit false means no listener was attached. A host that
+		// returns undefined must not be read as a detached bus writer.
+		const silentApp = {
+			...(mock.app as unknown as Record<string, unknown>),
+			emit: () => undefined,
+		} as unknown as SignalKApp;
+		const silentManager = new PluginManager(silentApp, mockPlugin, () => true);
+		silentManager.start({
+			globalResendInterval: 0,
+			WIND: { enabled: true, resend: 0 },
+		} as unknown as PluginOptions);
+
+		for (let index = 0; index < 25; index++) {
+			mock.pushStream("environment.wind.angleApparent", { value: 1.5 + index * 0.01 });
+			mock.pushStream("environment.wind.speedApparent", { value: 2 + index * 0.01 });
+			await flush();
+		}
+
+		expect(silentManager.getStatusSnapshot().busWriterAttached).toBe(true);
+		expect(mock.errorUpdates).toEqual([]);
+		silentManager.stop();
+	});
+});
+
+describe("PluginManager configuration-error status", () => {
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	/**
+	 * WIND and WIND_WEATHER_APPARENT compete for PGN 130306, so enabling both
+	 * is the simplest way to produce a configuration error.
+	 */
+	const conflictingOptions = {
+		globalResendInterval: 0,
+		WIND: { enabled: true, resend: 0 },
+		WIND_WEATHER_APPARENT: { enabled: true, resend: 0 },
+	} as unknown as PluginOptions;
+
+	it("names the missing NMEA 2000 output alongside a configuration error", () => {
+		vi.useFakeTimers();
+		const mock = createMockSignalKApp();
+		const manager = new PluginManager(mock.app, mockPlugin, () => false);
+
+		manager.start(conflictingOptions);
+
+		// The status ladder is exclusive, so without this clause an operator with
+		// both problems sees only the configuration conflict and never learns
+		// that nothing at all can reach the bus.
+		const configurationError = mock.errorUpdates.find((msg) =>
+			msg.startsWith("Configuration error:"),
+		);
+		expect(configurationError).toBeDefined();
+		expect(configurationError).toContain("NMEA 2000 output is not available yet.");
+
+		// Readiness arrives: the re-emit drops the clause.
+		manager.notifyNmea2000Ready();
+		const refreshed = mock.errorUpdates[mock.errorUpdates.length - 1];
+		expect(refreshed).toContain("Configuration error:");
+		expect(refreshed).not.toContain("NMEA 2000 output is not available yet.");
+
+		manager.stop();
+	});
+
+	it("omits the readiness clause when output is already available", () => {
+		vi.useFakeTimers();
+		const mock = createMockSignalKApp();
+		const manager = new PluginManager(mock.app, mockPlugin, () => true);
+
+		manager.start(conflictingOptions);
+
+		const configurationError = mock.errorUpdates.find((msg) =>
+			msg.startsWith("Configuration error:"),
+		);
+		expect(configurationError).toBeDefined();
+		expect(configurationError).not.toContain("NMEA 2000 output is not available yet.");
+
+		manager.stop();
 	});
 });

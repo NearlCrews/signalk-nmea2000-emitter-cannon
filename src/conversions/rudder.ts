@@ -1,10 +1,10 @@
-import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
+import {
+	MAX_N2K_ANGLE_SIGNED_RADIANS,
+	N2K_BROADCAST_DST,
+	N2K_DEFAULT_PRIORITY,
+} from "../constants.js";
 import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
 import { toFiniteInRange } from "../utils/validation.js";
-
-// PGN 127245 angleOrder and position are both signed 16-bit at 0.0001 rad,
-// which canboat bounds at plus or minus pi.
-const MAX_RUDDER_ANGLE_RADIANS = Math.PI;
 
 export default function createRudderConversion(_app: SignalKApp): ConversionModule {
 	return {
@@ -15,11 +15,21 @@ export default function createRudderConversion(_app: SignalKApp): ConversionModu
 		keys: ["steering.rudderAngle", "steering.rudderAngleTarget"],
 		timeouts: [1000, 1000],
 		callback: (rudderAngle: unknown, rudderAngleTarget: unknown): N2KMessage[] => {
+			// angleOrder and position are the signed int16 0.0001 rad field. A
+			// rudder is a bounded mechanical deflection, not a circular quantity,
+			// so an angle past the field ceiling is bad data and the frame is
+			// dropped rather than wrapped the way toSignedAngle treats a compass
+			// bearing. The bound is 3.1415 and not pi because canboat's decoder
+			// discards anything above it; see MAX_N2K_ANGLE_SIGNED_RADIANS.
 			const angle =
-				toFiniteInRange(rudderAngle, -MAX_RUDDER_ANGLE_RADIANS, MAX_RUDDER_ANGLE_RADIANS) ?? null;
-			const target =
-				toFiniteInRange(rudderAngleTarget, -MAX_RUDDER_ANGLE_RADIANS, MAX_RUDDER_ANGLE_RADIANS) ??
+				toFiniteInRange(rudderAngle, -MAX_N2K_ANGLE_SIGNED_RADIANS, MAX_N2K_ANGLE_SIGNED_RADIANS) ??
 				null;
+			const target =
+				toFiniteInRange(
+					rudderAngleTarget,
+					-MAX_N2K_ANGLE_SIGNED_RADIANS,
+					MAX_N2K_ANGLE_SIGNED_RADIANS,
+				) ?? null;
 
 			if (angle === null && target === null) {
 				return [];
@@ -114,6 +124,18 @@ export default function createRudderConversion(_app: SignalKApp): ConversionModu
 						},
 					},
 				],
+			},
+			{
+				// Regression: Math.PI passed the old plus-or-minus-pi guard and
+				// encoded onto the bus, where canboat's decoder discarded it. No
+				// usable angle remains, so the frame is dropped here instead.
+				// Math.PI is the input that discriminates: it sits above the 3.1415
+				// encodable ceiling and below the old bound, so this case emitted a
+				// frame before the fix and drops it after. An input past pi, such as
+				// 3.1416, would have been rejected by the old guard too and would
+				// pass either way.
+				input: [Math.PI, null],
+				expected: [],
 			},
 		],
 	};

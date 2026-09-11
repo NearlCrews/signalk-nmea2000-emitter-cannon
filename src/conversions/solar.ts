@@ -1,11 +1,13 @@
 import {
+	MAX_N2K_CURRENT_A,
+	MAX_N2K_VOLTAGE_V,
 	N2K_BROADCAST_DST,
 	N2K_DEFAULT_PRIORITY,
 	SLOW_DATA_TIMEOUT_MS,
 	VESSELS_SELF_CONTEXT,
 } from "../constants.js";
 import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
-import { isPlainObject, toValidNumber } from "../utils/validation.js";
+import { isPlainObject, toFiniteInRange } from "../utils/validation.js";
 import {
 	instanceList,
 	isValidInstanceSignalKId,
@@ -64,10 +66,19 @@ export default function createSolarConversion(_app: SignalKApp): ConversionModul
 				): N2KMessage[] => {
 					const res: N2KMessage[] = [];
 
-					const voltageValue = toValidNumber(voltage);
-					const currentValue = toValidNumber(current);
-					const panelCurrentValue = toValidNumber(panelCurrent);
-					const panelVoltageValue = toValidNumber(panelVoltage);
+					// PGN 127508 voltage is signed 16-bit at 0.01 V and current is
+					// signed 16-bit at 0.1 A. Both wrap rather than refusing an
+					// oversized value: 400 V, which a high-voltage string inverter can
+					// reach, would go on the bus as -255.36 V, and a charger publishing
+					// milliamps would send 23.1 A as -3114.4 A.
+					const voltageValue =
+						toFiniteInRange(voltage, -MAX_N2K_VOLTAGE_V, MAX_N2K_VOLTAGE_V) ?? null;
+					const currentValue =
+						toFiniteInRange(current, -MAX_N2K_CURRENT_A, MAX_N2K_CURRENT_A) ?? null;
+					const panelCurrentValue =
+						toFiniteInRange(panelCurrent, -MAX_N2K_CURRENT_A, MAX_N2K_CURRENT_A) ?? null;
+					const panelVoltageValue =
+						toFiniteInRange(panelVoltage, -MAX_N2K_VOLTAGE_V, MAX_N2K_VOLTAGE_V) ?? null;
 
 					if (voltageValue !== null || currentValue !== null) {
 						res.push({
@@ -119,6 +130,62 @@ export default function createSolarConversion(_app: SignalKApp): ConversionModul
 									instance: 11,
 									voltage: 45,
 									current: 2,
+								},
+							},
+						],
+					},
+					{
+						// Regression: a 400 V panel string exceeds the signed 0.01 V
+						// field and used to reach the receiver as -255.36 V. The panel
+						// voltage is now left not-available and only the panel current
+						// is carried, while the charger side stays in range.
+						input: [13, 5, 2, 400],
+						expected: [
+							{
+								prio: 2,
+								pgn: 127508,
+								dst: 255,
+								fields: {
+									instance: 10,
+									voltage: 13,
+									current: 5,
+								},
+							},
+							{
+								prio: 2,
+								pgn: 127508,
+								dst: 255,
+								fields: {
+									instance: 11,
+									current: 2,
+								},
+							},
+						],
+					},
+					{
+						// Regression: a charger publishing milliamps sends 5 A as 5000
+						// and 4 A as 4000, which reached the receiver as -1553.6 A and
+						// -2553.6 A, turning a charging array into a heavy discharge.
+						// Both currents are now omitted and only the two voltages are
+						// carried.
+						input: [13, 5000, 4000, 45.0],
+						expected: [
+							{
+								prio: 2,
+								pgn: 127508,
+								dst: 255,
+								fields: {
+									instance: 10,
+									voltage: 13,
+								},
+							},
+							{
+								prio: 2,
+								pgn: 127508,
+								dst: 255,
+								fields: {
+									instance: 11,
+									voltage: 45,
 								},
 							},
 						],

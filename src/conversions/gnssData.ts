@@ -1,5 +1,6 @@
 import {
 	DEFAULT_DATA_TIMEOUT_MS,
+	MAX_N2K_ANGLE_SIGNED_RADIANS,
 	MAX_N2K_DOP,
 	N2K_BROADCAST_DST,
 	N2K_DEFAULT_PRIORITY,
@@ -150,7 +151,15 @@ export default function createGnssDataConversions(_app: SignalKApp): ConversionM
 					if (!isValidNumber(sat.id) || !Number.isInteger(sat.id) || sat.id < 0 || sat.id > 252) {
 						continue;
 					}
-					const elevation = toFiniteInRange(sat.elevation, -Math.PI, Math.PI);
+					// The signed int16 0.0001 rad field; MAX_N2K_ANGLE_SIGNED_RADIANS
+					// rather than pi because canboat's decoder discards anything
+					// above it, so a pi-bounded guard would emit a field the receiver
+					// then throws away.
+					const elevation = toFiniteInRange(
+						sat.elevation,
+						-MAX_N2K_ANGLE_SIGNED_RADIANS,
+						MAX_N2K_ANGLE_SIGNED_RADIANS,
+					);
 					// Unsigned [0, 2pi) on the wire, so normalize rather than range
 					// check: a provider publishing [-pi, pi] would otherwise lose every
 					// western-hemisphere satellite instead of having it wrapped.

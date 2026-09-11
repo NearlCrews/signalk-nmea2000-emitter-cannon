@@ -1,12 +1,14 @@
 import { N2K_BROADCAST_DST, N2K_DEFAULT_SID } from "../constants.js";
 import type { ConversionCallback, ConversionModule, SignalKApp } from "../types/index.js";
 import { getSelfValue } from "../utils/pathUtils.js";
-import { isValidNumber, toFiniteInRange, toValidNumber } from "../utils/validation.js";
+import { toFiniteInRange, toValidNumber } from "../utils/validation.js";
 
 const N2K_DEPTH_PRIORITY = 3;
 // PGN 128267 offset is signed 16-bit at 0.001 m resolution.
 const MIN_DEPTH_OFFSET_M = -32.767;
 const MAX_DEPTH_OFFSET_M = 32.764;
+// PGN 128267 depth is unsigned 32-bit at 0.01 m resolution.
+const MAX_DEPTH_M = 42_949_672.92;
 
 export default function createDepthConversion(app: SignalKApp): ConversionModule<[number | null]> {
 	return {
@@ -16,14 +18,11 @@ export default function createDepthConversion(app: SignalKApp): ConversionModule
 		presets: ["basic-nav"],
 		keys: ["environment.depth.belowTransducer"],
 		callback: ((belowTransducer: number | null) => {
-			if (!isValidNumber(belowTransducer)) {
-				return [];
-			}
-
-			// PGN 128267 `depth` is an unsigned u32 at 0.01m resolution.
-			// Negative input would wrap into garbage on the wire, so drop the
-			// frame instead of encoding nonsense.
-			if (belowTransducer < 0) {
+			// PGN 128267 `depth` is an unsigned u32 at 0.01m resolution. Both ends
+			// wrap into garbage on the wire rather than being rejected, so drop
+			// the frame instead of encoding nonsense.
+			const depth = toFiniteInRange(belowTransducer, 0, MAX_DEPTH_M);
+			if (depth === undefined) {
 				return [];
 			}
 
@@ -62,7 +61,7 @@ export default function createDepthConversion(app: SignalKApp): ConversionModule
 					dst: N2K_BROADCAST_DST,
 					fields: {
 						sid: N2K_DEFAULT_SID,
-						depth: belowTransducer,
+						depth,
 						offset,
 					},
 				},
@@ -126,6 +125,13 @@ export default function createDepthConversion(app: SignalKApp): ConversionModule
 			},
 			{
 				input: [-1],
+				expected: [],
+			},
+			{
+				// Regression: the unsigned 32-bit field wraps at the top of its
+				// range too. A depth of 1e9 m reached the receiver as 12157521.92 m
+				// rather than being refused.
+				input: [1e9],
 				expected: [],
 			},
 		],

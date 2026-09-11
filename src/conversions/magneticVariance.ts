@@ -1,7 +1,14 @@
 import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY, N2K_SID_ZERO } from "../constants.js";
 import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
 import { toN2KDate } from "../utils/dateUtils.js";
-import { isValidNumber } from "../utils/validation.js";
+import { isValidNumber, toFiniteInRange, toSignedAngle } from "../utils/validation.js";
+
+// PGN 127258 ageOfService is an unsigned 16-bit DATE at 1 day, topping out at
+// 65532 days (2149-06-03). It wraps by the field modulus rather than being
+// rejected, so a provider publishing epoch milliseconds where the Signal K
+// path calls for seconds resolves to 19675925 days and reaches the bus as
+// 2011-05-31, a plausible date that is quietly wrong by 14 years.
+const MAX_AGE_OF_SERVICE_DAYS = 65532;
 
 export default function createMagneticVarianceConversion(_app: SignalKApp): ConversionModule {
 	return {
@@ -22,7 +29,7 @@ export default function createMagneticVarianceConversion(_app: SignalKApp): Conv
 			// SK `magneticVariationAgeOfService` is Unix epoch seconds when the
 			// variation was computed; PGN 127258 carries days-since-1970-01-01.
 			const ageValue = isValidNumber(ageOfService)
-				? toN2KDate(new Date(ageOfService * 1000))
+				? toFiniteInRange(toN2KDate(new Date(ageOfService * 1000)), 0, MAX_AGE_OF_SERVICE_DAYS)
 				: undefined;
 
 			return [
@@ -39,7 +46,8 @@ export default function createMagneticVarianceConversion(_app: SignalKApp): Conv
 						// Garmin documented expectation.
 						source: "Automatic Calculation",
 						ageOfService: ageValue,
-						variation: magneticVariation,
+						// The signed int16 0.0001 rad field; see toSignedAngle.
+						variation: toSignedAngle(magneticVariation),
 					},
 				},
 			];
@@ -87,6 +95,27 @@ export default function createMagneticVarianceConversion(_app: SignalKApp): Conv
 				// than emit a zeroed PGN 127258.
 				input: [null, null],
 				expected: [],
+			},
+			{
+				// Regression on both fields. A provider publishing the age of
+				// service in epoch milliseconds resolves to 19675925 days, which
+				// wrapped onto the bus as 2011-05-31; it is now omitted, which the
+				// receiver reads as "not available". The variation is the signed
+				// int16 0.0001 rad field, so 4 rad truncated to -2.5536 rad, a
+				// different direction, rather than wrapping to -2.2832 rad.
+				input: [4.0, 1700000000000],
+				expected: [
+					{
+						prio: 2,
+						pgn: 127258,
+						dst: 255,
+						fields: {
+							sid: 0,
+							source: "Automatic Calculation",
+							variation: -2.2832,
+						},
+					},
+				],
 			},
 		],
 	};

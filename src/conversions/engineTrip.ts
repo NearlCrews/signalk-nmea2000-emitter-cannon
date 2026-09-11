@@ -2,6 +2,7 @@ import {
 	DEFAULT_DATA_TIMEOUT_MS,
 	M3_TO_L,
 	M3PS_TO_LPH,
+	MAX_N2K_FUEL_RATE_LPH,
 	N2K_BROADCAST_DST,
 	N2K_DEFAULT_PRIORITY,
 	VESSELS_SELF_CONTEXT,
@@ -12,7 +13,7 @@ import type {
 	SignalKApp,
 	SubConversionModule,
 } from "../types/index.js";
-import { isPlainObject, isValidNumber } from "../utils/validation.js";
+import { isPlainObject, isValidNumber, toFiniteInRange } from "../utils/validation.js";
 import {
 	instanceList,
 	isValidInstanceSignalKId,
@@ -25,6 +26,12 @@ const TRIP_KEYS = [
 	"trip.fuelRate.economy",
 	"trip.fuelRate.instantaneousEconomy",
 ] as const;
+
+// PGN 127497 tripFuelUsed is unsigned 16-bit at 1 L, not the 32-bit field its
+// cumulative-total role suggests, so a long-range tank total wraps: 70000 L
+// reaches the receiver as 4464 L. The three sibling rate fields share the
+// signed 0.1 L/h definition that MAX_N2K_FUEL_RATE_LPH describes.
+const MAX_TRIP_FUEL_USED_L = 65532;
 
 interface EngineTripConfig {
 	signalkId: string | number;
@@ -71,15 +78,34 @@ export default function createEngineTripConversion(_app: SignalKApp): Conversion
 					fuelRateEconomy,
 					instantaneousFuelEconomy,
 				) => {
-					const tripFuelUsed = isValidNumber(fuelUsed) ? fuelUsed * M3_TO_L : null;
+					// Bound each field after its unit conversion, in the litres and
+					// L/h the wire carries rather than the m^3 and m^3/s Signal K
+					// publishes. Every one of these wraps rather than rejecting, so
+					// an out-of-range value would arrive as a smaller, plausible
+					// number instead of as not-available.
+					const tripFuelUsed = isValidNumber(fuelUsed)
+						? (toFiniteInRange(fuelUsed * M3_TO_L, 0, MAX_TRIP_FUEL_USED_L) ?? null)
+						: null;
 					const fuelRateAverageLph = isValidNumber(fuelRateAverage)
-						? fuelRateAverage * M3PS_TO_LPH
+						? (toFiniteInRange(
+								fuelRateAverage * M3PS_TO_LPH,
+								-MAX_N2K_FUEL_RATE_LPH,
+								MAX_N2K_FUEL_RATE_LPH,
+							) ?? null)
 						: null;
 					const fuelRateEconomyLph = isValidNumber(fuelRateEconomy)
-						? fuelRateEconomy * M3PS_TO_LPH
+						? (toFiniteInRange(
+								fuelRateEconomy * M3PS_TO_LPH,
+								-MAX_N2K_FUEL_RATE_LPH,
+								MAX_N2K_FUEL_RATE_LPH,
+							) ?? null)
 						: null;
 					const instantaneousFuelEconomyLph = isValidNumber(instantaneousFuelEconomy)
-						? instantaneousFuelEconomy * M3PS_TO_LPH
+						? (toFiniteInRange(
+								instantaneousFuelEconomy * M3PS_TO_LPH,
+								-MAX_N2K_FUEL_RATE_LPH,
+								MAX_N2K_FUEL_RATE_LPH,
+							) ?? null)
 						: null;
 
 					// All-null payload would otherwise replace a useful entry
@@ -154,6 +180,15 @@ export default function createEngineTripConversion(_app: SignalKApp): Conversion
 						// Every field missing: no PGN emitted.
 						{
 							input: [null, null, null, null],
+							expected: [],
+						},
+						// Regression on all four fields at once. 70 m^3 is 70000 L and
+						// wrapped to 4464 L, and 0.001 m^3/s is 3600 L/h on each rate
+						// field and wrapped to -2953.6 L/h. Nothing usable is left, so
+						// the frame is dropped rather than sent with four fabricated
+						// numbers.
+						{
+							input: [70, 0.001, 0.001, 0.001],
 							expected: [],
 						},
 					],

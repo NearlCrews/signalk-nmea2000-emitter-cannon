@@ -137,6 +137,7 @@ describe("API router", () => {
 			getStatusSnapshot: () => ({
 				pluginRunning: true,
 				nmea2000Ready: true,
+				busWriterAttached: true,
 				enabledCount: 3,
 				totalConversions: 45,
 				perConversion: [],
@@ -157,6 +158,7 @@ describe("API router", () => {
 			getStatusSnapshot: () => ({
 				pluginRunning: true,
 				nmea2000Ready: false,
+				busWriterAttached: true,
 				enabledCount: 0,
 				totalConversions: 0,
 				perConversion: [],
@@ -614,28 +616,58 @@ describe("API router", () => {
 		expect(calls).toHaveLength(1);
 	});
 
-	it("GET /api/advisor/questdb-test reports reachability", async () => {
-		const advisor = {
-			runReview: async () => ({
-				ranAt: "",
-				autoApplied: [],
-				pending: [],
-				notes: [],
-			}),
-			getPending: () => [],
-			applyReview: async () => 0,
-			testQuestDB: async () => ({ ok: true }),
-		};
+	// The handler makes an outbound request to an operator-supplied URL, so it
+	// is a POST: not the safe, idempotent read a GET promises.
+	const questdbTestAdvisor = (result: { ok: boolean; configured: boolean }) => ({
+		runReview: async () => ({
+			ranAt: "",
+			autoApplied: [],
+			pending: [],
+			notes: [],
+		}),
+		getPending: () => [],
+		applyReview: async () => 0,
+		testQuestDB: async () => result,
+	});
+
+	it("POST /api/advisor/questdb-test reports reachability", async () => {
 		const ex = mountRouterWithAdvisor(
 			fakeApp,
 			() => null,
-			() => advisor,
+			() => questdbTestAdvisor({ ok: true, configured: true }),
 		);
-		const res = await request(ex).get(
+		const res = await request(ex).post(
 			"/plugins/signalk-nmea2000-emitter-cannon/api/advisor/questdb-test",
 		);
 		expect(res.status).toBe(200);
 		expect(res.body.ok).toBe(true);
+		expect(res.body.configured).toBe(true);
+	});
+
+	it("POST /api/advisor/questdb-test distinguishes an unconfigured QuestDB", async () => {
+		const ex = mountRouterWithAdvisor(
+			fakeApp,
+			() => null,
+			() => questdbTestAdvisor({ ok: false, configured: false }),
+		);
+		const res = await request(ex).post(
+			"/plugins/signalk-nmea2000-emitter-cannon/api/advisor/questdb-test",
+		);
+		expect(res.status).toBe(200);
+		expect(res.body.ok).toBe(false);
+		expect(res.body.configured).toBe(false);
+	});
+
+	it("does not route GET /api/advisor/questdb-test", async () => {
+		const ex = mountRouterWithAdvisor(
+			fakeApp,
+			() => null,
+			() => questdbTestAdvisor({ ok: true, configured: true }),
+		);
+		const res = await request(ex).get(
+			"/plugins/signalk-nmea2000-emitter-cannon/api/advisor/questdb-test",
+		);
+		expect(res.status).toBe(404);
 	});
 
 	it("advisor endpoints 503 when no advisor is wired", async () => {

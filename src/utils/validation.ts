@@ -1,4 +1,8 @@
-import { MAX_N2K_INSTANCE } from "../constants.js";
+import {
+	MAX_N2K_ANGLE_SIGNED_RADIANS,
+	MAX_N2K_ANGLE_UNSIGNED_RADIANS,
+	MAX_N2K_INSTANCE,
+} from "../constants.js";
 
 const TWO_PI = Math.PI * 2;
 
@@ -100,10 +104,42 @@ function normalizeAngle(angle: number): number {
 // as a wrong direction. Normalize before the field. null and undefined pass
 // through unchanged; a non-finite number returns undefined. Both null and
 // undefined encode as the "not available" sentinel on the wire.
+//
+// Normalizing alone is not sufficient: [0, 2 pi) still reaches above
+// MAX_N2K_ANGLE_UNSIGNED_RADIANS, and canboat's decoder discards anything past
+// that, so a heading of 359.999 degrees arrived as "not available" instead of
+// as north. Clamp the residue the way toSignedAngle does.
 export function toUnsignedAngle(value: number | null | undefined): number | null | undefined {
 	if (value === null || value === undefined) return value;
 	if (!Number.isFinite(value)) return undefined;
-	return normalizeAngle(value);
+	// An already-encodable angle is returned untouched, so the modulo below
+	// cannot introduce a rounding artifact on ordinary in-range data.
+	if (value >= 0 && value <= MAX_N2K_ANGLE_UNSIGNED_RADIANS) return value;
+	return Math.min(normalizeAngle(value), MAX_N2K_ANGLE_UNSIGNED_RADIANS);
+}
+
+// The signed counterpart, and the single choke point for int16 0.0001 rad
+// angle fields (attitude, rudder position, deviation, variation, and leeway).
+// Like the unsigned fields these wrap by the field modulus (65536 raw units)
+// rather than by a turn, so a compass-style yaw of 4 rad reaches the receiver
+// as -2.5536 rad: a different direction, not a clipped one.
+//
+// Wrap into (-pi, pi] first. An angle is circular, so 4 rad and -2.2832 rad
+// name the same direction and the wrap loses nothing. Then clamp the residue
+// to MAX_N2K_ANGLE_SIGNED_RADIANS so a genuine 180 degree reading lands on
+// the largest angle the receiver accepts instead of being discarded; that
+// clamp moves the value by at most 0.006 degrees. null and undefined pass
+// through unchanged; a non-finite number returns undefined. Both null and
+// undefined encode as the "not available" sentinel on the wire.
+export function toSignedAngle(value: number | null | undefined): number | null | undefined {
+	if (value === null || value === undefined) return value;
+	if (!Number.isFinite(value)) return undefined;
+	// An already-encodable angle is returned untouched, so the modulo below
+	// cannot introduce a rounding artifact on ordinary in-range data.
+	if (Math.abs(value) <= MAX_N2K_ANGLE_SIGNED_RADIANS) return value;
+	const turn = normalizeAngle(value);
+	const signed = turn > Math.PI ? turn - TWO_PI : turn;
+	return clamp(signed, -MAX_N2K_ANGLE_SIGNED_RADIANS, MAX_N2K_ANGLE_SIGNED_RADIANS);
 }
 
 // Truncates a string so it cannot overflow a fixed-width or length-prefixed

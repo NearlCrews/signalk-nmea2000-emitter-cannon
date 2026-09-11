@@ -326,6 +326,32 @@ describe("configuration validation", () => {
 		]);
 	});
 
+	it("bounds rated engine speed to the PGN 127498 wire range", () => {
+		// The field is unsigned 16-bit at 0.25 rpm, so 36000 (a trailing-zero
+		// typo for 3600) wraps to 3232 RPM. The conversion drops it rather than
+		// emitting the wrapped value, but a silently missing field gives the
+		// operator no hint that a digit slipped, so the ceiling is reported here.
+		const issues = validateConfig({
+			conversions: {
+				ENGINE_STATIC: conversion(true, {
+					engines: [
+						{ signalkId: "main", instanceId: 0, ratedEngineSpeed: 3600 },
+						{ signalkId: "wing", instanceId: 1, ratedEngineSpeed: 36000 },
+					],
+				}),
+			},
+		});
+
+		expect(issues).toEqual([
+			expect.objectContaining({
+				conversionKey: "ENGINE_STATIC",
+				field: "ratedEngineSpeed",
+				rowIndex: 1,
+				severity: "error",
+			}),
+		]);
+	});
+
 	it("uses source plus instance as the temperature and humidity wire identity", () => {
 		const issues = validateConfig({
 			conversions: {

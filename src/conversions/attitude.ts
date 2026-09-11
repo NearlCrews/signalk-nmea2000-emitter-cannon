@@ -5,7 +5,7 @@ import type {
 	N2KMessage,
 	SignalKApp,
 } from "../types/index.js";
-import { isValidNumber } from "../utils/validation.js";
+import { toSignedAngle, toValidNumber } from "../utils/validation.js";
 
 interface AttitudeData {
 	pitch?: number;
@@ -26,10 +26,18 @@ export default function createAttitudeConversion(
 				return [];
 			}
 
+			// All three PGN 127257 components are the signed int16 0.0001 rad
+			// angle field, which truncates an out-of-range input rather than
+			// rejecting it. See toSignedAngle: a heading-style yaw of 4 rad would
+			// otherwise reach the receiver as -2.5536 rad, a different direction.
+			const pitch = toSignedAngle(toValidNumber(attitude.pitch));
+			const yaw = toSignedAngle(toValidNumber(attitude.yaw));
+			const roll = toSignedAngle(toValidNumber(attitude.roll));
+
 			const fields: N2KMessage["fields"] = { sid: N2K_DEFAULT_SID };
-			if (isValidNumber(attitude.pitch)) fields.pitch = attitude.pitch;
-			if (isValidNumber(attitude.yaw)) fields.yaw = attitude.yaw;
-			if (isValidNumber(attitude.roll)) fields.roll = attitude.roll;
+			if (pitch !== null && pitch !== undefined) fields.pitch = pitch;
+			if (yaw !== null && yaw !== undefined) fields.yaw = yaw;
+			if (roll !== null && roll !== undefined) fields.roll = roll;
 
 			// An attitude object whose three components are all invalid would
 			// otherwise emit a frame carrying nothing but the SID.
@@ -86,6 +94,35 @@ export default function createAttitudeConversion(
 						fields: {
 							roll: 0.1,
 							sid: 87,
+						},
+						pgn: 127257,
+						prio: 2,
+					},
+				],
+			},
+			{
+				// A compass-style IMU publishes yaw as an absolute [0, 2pi)
+				// heading, which the signed field cannot carry: 4 rad used to
+				// reach the receiver as -2.5536 rad, a heading 15 degrees off the
+				// true one. Wrapping preserves the direction. A pitch of exactly
+				// pi sits above the largest angle canboat's decoder accepts, so it
+				// clamps to 3.1415 instead of being discarded.
+				input: [
+					{
+						yaw: 4.0,
+						pitch: Math.PI,
+						roll: -0.042,
+					},
+				],
+				expected: [
+					{
+						dst: 255,
+						fields: {
+							// biome-ignore lint/suspicious/noApproximativeNumericConstant: decoded wire value. Math.PI clamps to this literal, so substituting Math.PI would falsely pass.
+							pitch: 3.1415,
+							roll: -0.042,
+							sid: 87,
+							yaw: -2.2832,
 						},
 						pgn: 127257,
 						prio: 2,

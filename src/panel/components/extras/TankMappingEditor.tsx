@@ -1,8 +1,7 @@
 import type * as React from "react";
 import { MAX_TANK_INSTANCE } from "../../../constants.js";
-import NumberInput from "../NumberInput";
 import { extraRows } from "./extraRows";
-import MappingTable, { signalkPathColumn } from "./MappingTable";
+import MappingTable, { numberColumn, signalkPathColumn } from "./MappingTable";
 
 // signalkPath is the full SK path (e.g. "tanks.fuel.0") because the SK tank
 // identity is the {type, instance} pair, not a single trailing segment.
@@ -45,19 +44,13 @@ export default function TankMappingEditor({
 						alternatives: [["currentLevel"], ["capacity"]],
 					}),
 				}),
-				{
+				numberColumn<Row>({
 					header: "NMEA 2000 tank instance",
+					field: "instanceId",
 					group: "NMEA 2000 output",
-					render: (r, set) => (
-						<NumberInput
-							value={r.instanceId}
-							onChange={(n) => set({ ...r, instanceId: n })}
-							min={0}
-							max={MAX_TANK_INSTANCE}
-							ariaLabel="NMEA 2000 tank instance"
-						/>
-					),
-				},
+					min: 0,
+					max: MAX_TANK_INSTANCE,
+				}),
 			]}
 		/>
 	);

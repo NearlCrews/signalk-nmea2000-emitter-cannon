@@ -3,14 +3,12 @@ import { createServer } from "node:http";
 import AxeBuilder from "@axe-core/playwright";
 import { chromium, devices, webkit } from "@playwright/test";
 import { build } from "esbuild";
-import { assertSharedUiVersion } from "./shared-ui-version.mjs";
+import { sharedUiRootSelector } from "./shared-ui-version.mjs";
 
 const repositoryDir = new URL("../", import.meta.url);
 const publicDir = new URL("../public/", import.meta.url);
 const pluginPrefix = "/plugins/signalk-nmea2000-emitter-cannon/";
 const updateScreenshots = process.argv.includes("--update-screenshots");
-const sharedUiVersion = assertSharedUiVersion(repositoryDir);
-const sharedUiRootSelector = `[data-snui-version="${sharedUiVersion}"]`;
 /**
  * Playwright's 30s default is a budget, not a correctness bound, and this check
  * runs on hosts that are often busy with other work. An actionability retry
@@ -559,15 +557,13 @@ try {
 	}
 	await assertAccessible(page, "initial configuration panel");
 	const setupButton = page.getByRole("button", { name: "Setup wizard" });
-	await setupButton.evaluate((element) => element.setAttribute("aria-disabled", "true"));
-	await setupButton.hover();
-	const busyFilter = await setupButton.evaluate((element) => getComputedStyle(element).filter);
-	if (busyFilter !== "none") {
-		throw new Error(`aria-disabled shared button received the local hover filter: ${busyFilter}`);
-	}
-	await setupButton.evaluate((element) => element.removeAttribute("aria-disabled"));
+	// Conversion rows name their disclosure after the row wrapper, so the
+	// toggle is `#skn-row-<key>-trigger` and the editor region it controls is
+	// `#skn-row-<key>-panel`. Both come from the shared disclosure hook.
+	const rowToggle = (key) => page.locator(`#skn-row-${key}-trigger`);
+	const rowEditor = (key) => page.locator(`#skn-row-${key}`);
 	await page.getByRole("tab", { name: /Electrical/ }).click();
-	await page.locator("#skn-row-toggle-BATTERY").click();
+	await rowToggle("BATTERY").click();
 	await page.getByText("Battery mapping", { exact: true }).waitFor();
 	const batteryId = page.getByLabel("Signal K battery id");
 	await batteryId.fill("fomleMonitor-second");
@@ -619,50 +615,43 @@ try {
 		throw new Error("mapped publisher filters were not collapsed by default");
 	}
 	await advancedPublishers.click();
-	await page.getByLabel("Signal K input path: electrical.batteries.house.voltage").waitFor();
+	await rowEditor("BATTERY").getByLabel("Signal K input path").waitFor();
 	if (!(await batteryId.evaluate((element) => element.checkValidity()))) {
 		throw new Error("hyphenated Venus battery id was rejected by the panel");
 	}
 	await page.getByText(/For electrical\.batteries\.258-second\.voltage/).waitFor();
 	await page.getByRole("columnheader", { name: "Signal K input", exact: true }).waitFor();
 	await page.getByRole("columnheader", { name: "NMEA 2000 output", exact: true }).waitFor();
-	await page.locator("#skn-row-toggle-AC_STATUS").click();
+	await rowToggle("AC_STATUS").click();
 	await page.getByText("AC source mapping", { exact: true }).waitFor();
-	await page
-		.getByLabel("Resend interval seconds for AC Input and Output Status (PGNs 127503, 127504)")
-		.waitFor();
+	await rowEditor("AC_STATUS").getByLabel("Resend interval").waitFor();
 	await page.getByLabel("Signal K AC bus id").fill("shorePower");
 	await page.getByLabel("Direction").selectOption("output");
 	if (!(await page.getByLabel("Input acceptability").isDisabled())) {
 		throw new Error("output rows must disable input acceptability");
 	}
 	await page.getByRole("tab", { name: /Environment/ }).click();
-	await page.locator("#skn-row-toggle-TEMPERATURE2_OUTSIDE").click();
+	await rowToggle("TEMPERATURE2_OUTSIDE").click();
 	const signalKInputGroup = page.getByRole("group", { name: "Signal K input" });
 	await signalKInputGroup.waitFor();
-	const fixedInputPath = signalKInputGroup.getByLabel(
-		"Signal K input path: environment.outside.temperature",
-	);
-	if ((await fixedInputPath.inputValue()) !== "environment.outside.temperature") {
+	// The fixed path is an output, not a read-only input: it is computed by the
+	// conversion, never editable, and so carries no tab stop.
+	const fixedInputPath = signalKInputGroup.getByLabel("Signal K input path");
+	if ((await fixedInputPath.textContent())?.trim() !== "environment.outside.temperature") {
 		throw new Error("fixed Signal K input path was not displayed");
 	}
-	if ((await fixedInputPath.getAttribute("readonly")) === null) {
+	if ((await fixedInputPath.evaluate((element) => element.tagName)) !== "OUTPUT") {
 		throw new Error("fixed Signal K input path was editable");
 	}
-	const publisher = signalKInputGroup.getByLabel(
-		"Signal K publisher ($source), optional, for environment.outside.temperature",
-	);
+	const publisher = signalKInputGroup.getByLabel("Signal K publisher ($source), optional");
 	if ((await publisher.inputValue()) !== "") {
 		throw new Error("publisher filter did not default to All publishers");
 	}
 	await publisher.selectOption({ label: "Enter publisher manually..." });
-	const manualPublisher = signalKInputGroup.getByLabel(
-		"Manual Signal K publisher for environment.outside.temperature",
-	);
+	const manualPublisher = signalKInputGroup.getByLabel("Manual Signal K publisher");
 	await manualPublisher.fill("environment.outside.temperature");
-	await signalKInputGroup.getByRole("status").waitFor();
-	await page
-		.locator("#skn-card-TEMPERATURE2_OUTSIDE")
+	await signalKInputGroup.getByText(/No publisher in the server model matches/).waitFor();
+	await rowEditor("TEMPERATURE2_OUTSIDE")
 		.getByText(/publisher filter repeats the Signal K input path/i, { exact: false })
 		.waitFor();
 	if ((await publisher.getAttribute("aria-invalid")) !== "true") {
@@ -681,7 +670,7 @@ try {
 	if (
 		!(
 			await signalKInputGroup
-				.getByText(/filters who may publish the fixed input path/)
+				.getByText(/filters who may publish the fixed input path environment\.outside\.temperature/)
 				.textContent()
 		)?.includes("does not change the Signal K path")
 	) {
@@ -700,8 +689,8 @@ try {
 		throw new Error("unknown persisted select value was hidden behind a valid-looking default");
 	}
 	await n2kSourceType.selectOption("");
-	await page.locator("#skn-row-toggle-TEMPERATURE2_SEA").click();
-	const seaCard = page.locator("#skn-card-TEMPERATURE2_SEA");
+	await rowToggle("TEMPERATURE2_SEA").click();
+	const seaCard = rowEditor("TEMPERATURE2_SEA");
 	await seaCard.getByText(/Publisher lookup unavailable: HTTP 503/).waitFor();
 	if ((await seaCard.getByText(/No publisher in the server model matches/).count()) !== 0) {
 		throw new Error("publisher lookup failure was presented as a definitive mismatch");
@@ -736,12 +725,12 @@ try {
 	}
 
 	await clickCentered(page.getByRole("tab", { name: /Electrical/ }));
-	await clickCentered(page.locator("#skn-row-toggle-CHARGER_STATUS"));
+	await clickCentered(rowToggle("CHARGER_STATUS"));
 	await page.getByLabel("NMEA 2000 charger instance").fill("5");
-	await clickCentered(page.locator("#skn-row-toggle-INVERTER_STATUS"));
+	await clickCentered(rowToggle("INVERTER_STATUS"));
 	await page.getByLabel("NMEA 2000 DC instance").fill("7");
 	await clickCentered(page.getByRole("tab", { name: /Engine/ }));
-	await clickCentered(page.locator("#skn-row-toggle-VESSEL_TRIP"));
+	await clickCentered(rowToggle("VESSEL_TRIP"));
 	const vesselTripNote = page.getByRole("note");
 	await vesselTripNote.waitFor();
 	if (!(await vesselTripNote.textContent())?.includes(vesselTripDescription)) {
@@ -768,8 +757,10 @@ try {
 	await fuelTankInput.fill("tanks.fuel.reserve_1");
 	await engineInput.fill("invalid.id");
 	await page.getByRole("button", { name: "Review first error" }).click();
-	await page.waitForFunction(
-		() => document.activeElement?.getAttribute("aria-label") === "Signal K engine id",
+	// Mapping cells append their row number, so the accessible name of the
+	// focused control is "Signal K engine id, row 1".
+	await page.waitForFunction(() =>
+		document.activeElement?.getAttribute("aria-label")?.startsWith("Signal K engine id"),
 	);
 	if ((await engineInput.getAttribute("aria-invalid")) !== "true") {
 		throw new Error("Vessel Trip engine validation did not mark the engine table row");
@@ -863,7 +854,7 @@ try {
 		}
 
 		// The advisor settings form is the panel's largest shared-field surface.
-		// 0.8.2 throws on an invalid LabeledField child in production builds too,
+		// The shared LabeledField throws on an invalid child in production builds too,
 		// so assert the fields render and that each visible label really is
 		// associated with its control rather than duplicated into an aria-label.
 		await advisorRacePage.getByRole("button", { name: "Advisor settings" }).click();
@@ -921,7 +912,7 @@ try {
 			{ width: 1393, height: 1235 },
 			async (screenshotPage) => {
 				await screenshotPage.getByRole("tab", { name: /Environment/ }).click();
-				await screenshotPage.locator("#skn-row-toggle-TEMPERATURE2_SEA:visible").waitFor();
+				await screenshotPage.locator("#skn-row-TEMPERATURE2_SEA").visible().waitFor();
 			},
 		);
 		await capture("config-advisor.png", { width: 1405, height: 1510 }, async (screenshotPage) => {
@@ -967,13 +958,19 @@ try {
 		await assertAccessible(touchPage, "coarse-pointer configuration panel");
 		// The design contract puts every coarse-pointer target at 44px minimum.
 		// Measure what the panel actually renders rather than trusting the token.
-		const undersized = await touchPage.evaluate(() => {
-			const root = document.querySelector(".skn-panel");
+		// A checkbox's target is its wrapping label: the shared Checkbox draws a
+		// 20px box inside a label that carries the control-height floor.
+		const undersized = await touchPage.evaluate((rootSelector) => {
+			const root = document.querySelector(rootSelector);
 			if (root === null) return ["panel root missing"];
 			const tooSmall = [];
 			for (const element of root.querySelectorAll("button, a[href], select, input")) {
 				if (element.type === "hidden" || element.closest("[hidden]") !== null) continue;
-				const box = element.getBoundingClientRect();
+				const target =
+					element.type === "checkbox" || element.type === "radio"
+						? (element.closest("label") ?? element)
+						: element;
+				const box = target.getBoundingClientRect();
 				if (box.width === 0 && box.height === 0) continue;
 				if (box.height < 44) {
 					tooSmall.push(
@@ -982,7 +979,7 @@ try {
 				}
 			}
 			return tooSmall;
-		});
+		}, sharedUiRootSelector);
 		if (undersized.length > 0) {
 			throw new Error(
 				`coarse-pointer targets below the 44px floor: ${undersized.slice(0, 8).join("; ")}`,

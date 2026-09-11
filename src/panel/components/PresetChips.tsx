@@ -1,10 +1,9 @@
 import type * as React from "react";
-import type { CSSProperties } from "react";
 import { useEffect, useMemo, useState } from "react";
+import { Button, Cluster, LiveRegion, Stack, StatusIndicator } from "signalk-nearlcrews-ui";
 import type { ConversionMetadata } from "../../api/types.js";
 import { type PresetTag, PresetTags } from "../../config/enums";
 import { plural } from "../recency";
-import { S } from "../styles";
 
 const LABELS: Record<PresetTag, string> = {
 	"basic-nav": "Basic navigation",
@@ -16,19 +15,6 @@ const LABELS: Record<PresetTag, string> = {
 
 // How long the visible "Enabled N conversions" confirmation stays up.
 const ANNOUNCE_VISIBLE_MS = 4000;
-
-// Visible confirmation under the chips. Success-colored so it reads as a
-// result, small so it does not push the catalog around when it appears.
-const ANNOUNCE_TEXT: CSSProperties = {
-	fontSize: "var(--skn-font-small)",
-	fontWeight: 600,
-	color: "var(--skn-success-fg)",
-	margin: "calc(-1 * var(--skn-space-1)) 0 var(--skn-space-1)",
-};
-
-// Zero-width space. Appended/removed on each apply so re-applying the same
-// preset still changes the live-region text, which forces a re-announce.
-const ZWSP = "​";
 
 interface Props {
 	onApply: (preset: PresetTag) => void;
@@ -51,7 +37,8 @@ export default function PresetChips({ onApply, meta }: Props): React.ReactElemen
 	}, [meta]);
 
 	// Message shown (and announced) after a chip is applied. The seq counter
-	// drives the zero-width-space toggle so a repeated apply still re-announces.
+	// keys the announcement, so re-applying the same preset is spoken again
+	// even though the words did not change.
 	const [announce, setAnnounce] = useState<{ text: string; seq: number }>({
 		text: "",
 		seq: 0,
@@ -77,36 +64,20 @@ export default function PresetChips({ onApply, meta }: Props): React.ReactElemen
 	};
 
 	return (
-		<>
-			<div style={S.chipRow}>
-				{PresetTags.map((p) => {
-					const n = countByPreset[p];
-					return (
-						<button
-							key={p}
-							type="button"
-							style={S.chip}
-							title={`${LABELS[p]}: ${plural(n, "conversion")}`}
-							onClick={() => handleApply(p)}
-						>
-							+ {LABELS[p]} ({n})
-						</button>
-					);
-				})}
-			</div>
-			{/* Persistent live region, now visible: sighted users get the same
-			    confirmation screen readers always got. The element must already
-			    exist for a content change to be announced, so it is never
-			    remounted; the trailing zero-width space toggles on each apply so
-			    re-applying the same preset still changes the text and
-			    re-announces. */}
-			<div
-				role="status"
-				aria-live="polite"
-				style={announce.text ? ANNOUNCE_TEXT : S.visuallyHidden}
-			>
-				{announce.text ? announce.text + ZWSP.repeat(announce.seq % 2) : ""}
-			</div>
-		</>
+		<Stack gap={2}>
+			<Cluster gap={2}>
+				{PresetTags.map((p) => (
+					<Button key={p} shape="pill" size="compact" onClick={() => handleApply(p)}>
+						+ {LABELS[p]} ({countByPreset[p]})
+					</Button>
+				))}
+			</Cluster>
+			{/* The announcer is always mounted, so a content change is heard; the
+			    visible confirmation beside it is not live, so the result is spoken
+			    once. The apply counter keys the announcement, so re-applying the
+			    same preset repeats it. */}
+			<LiveRegion announceKey={announce.seq} message={announce.text} />
+			{announce.text ? <StatusIndicator tone="success">{announce.text}</StatusIndicator> : null}
+		</Stack>
 	);
 }

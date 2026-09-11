@@ -1,101 +1,99 @@
 import type * as React from "react";
 import { useState } from "react";
+import { Badge, Button, CollapsibleSection, LiveRegion } from "signalk-nearlcrews-ui";
 import { plural } from "../recency";
-import { S } from "../styles";
-import Disclosure from "./Disclosure";
 
 interface Props {
-	id: string;
 	title: string;
 	count: number;
 	enabledCount: number;
 	expanded: boolean;
-	onToggle: () => void;
+	onOpenChange: (open: boolean) => void;
 	children: React.ReactNode;
 	// Number of conversions in this section reporting an error, shown next to
 	// the enabled count. Optional: omitted or 0 renders nothing.
 	errorCount?: number;
 	// Bulk-toggle handlers. When both are provided, Enable all and Disable all
-	// buttons appear in the section header alongside the toggle.
+	// buttons appear in the section header beside the toggle.
 	onEnableAll?: () => void;
 	onDisableAll?: () => void;
 }
 
 /**
- * A disclosure section grouping conversion cards (Modern or Legacy). The
- * header is a button; the body of cards renders only while expanded.
- *
- * Deliberately NOT the shared CollapsibleSection, and named apart from it so a
- * reader does not mistake one for the other. This groups conversion cards and
- * unmounts them when collapsed, through Disclosure's lazy mode. The shared
- * component's retain strategy keeps a collapsed subtree mounted under React
- * Activity, which re-runs every effect on each expand; adopting it would bring
- * that hazard here for no gain, since this panel wants the cards gone.
+ * A collapsible section grouping conversion rows (Modern or Legacy, or one
+ * category of search results). The rows unmount while the section is closed:
+ * a closed section holds no editor state worth keeping, and unmounting keeps
+ * the effects of dozens of rows from re-running on every reopen. The heading
+ * sits at level 3 under the Conversions section.
  */
 export default function CatalogSection({
-	id,
 	title,
 	count,
 	enabledCount,
 	expanded,
-	onToggle,
+	onOpenChange,
 	children,
 	errorCount,
 	onEnableAll,
 	onDisableAll,
 }: Props): React.ReactElement {
-	const [announce, setAnnounce] = useState("");
-	const trailing =
+	// The press counter keys the announcement, so pressing the same bulk action
+	// twice is spoken twice even though the words did not change.
+	const [announce, setAnnounce] = useState<{ text: string; presses: number }>({
+		text: "",
+		presses: 0,
+	});
+	const say = (text: string): void => setAnnounce((prev) => ({ text, presses: prev.presses + 1 }));
+	const actions =
 		onEnableAll && onDisableAll ? (
 			<>
-				<button
-					type="button"
-					style={S.bulkBtn}
+				<Button
+					size="compact"
 					onClick={() => {
 						onEnableAll();
-						setAnnounce(`Enabled ${count} conversions in ${title}.`);
+						say(`Enabled ${plural(count, "conversion")} in ${title}.`);
 					}}
 				>
 					Enable all
-				</button>
-				<button
-					type="button"
-					style={S.bulkBtn}
+				</Button>
+				<Button
+					size="compact"
 					onClick={() => {
 						onDisableAll();
-						setAnnounce(`Disabled ${count} conversions in ${title}.`);
+						say(`Disabled ${plural(count, "conversion")} in ${title}.`);
 					}}
 				>
 					Disable all
-				</button>
-				<span role="status" style={S.visuallyHidden}>
-					{announce}
-				</span>
+				</Button>
+				<LiveRegion announceKey={announce.presses} message={announce.text} />
 			</>
 		) : undefined;
 	return (
-		<div style={S.section}>
-			<Disclosure
-				id={`${id}-body`}
-				label={title}
-				headerStyle={S.sectionHeader}
-				bodyStyle={S.sectionBody}
-				lazy
-				open={expanded}
-				onToggle={onToggle}
-				headerTrailing={trailing}
-				summary={
-					<>
-						{plural(count, "conversion")}
-						{enabledCount > 0 ? ` · ${enabledCount} enabled` : ""}
-						{errorCount && errorCount > 0 ? (
-							<span style={S.sectionErrorCount}>{plural(errorCount, "error")}</span>
-						) : null}
-					</>
-				}
-			>
-				{children}
-			</Disclosure>
-		</div>
+		<CollapsibleSection
+			title={title}
+			headingLevel={3}
+			mountStrategy="unmount"
+			open={expanded}
+			onOpenChange={onOpenChange}
+			actions={actions}
+			summaryPlacement="header"
+			summaryVisibility="always"
+			summary={
+				<>
+					{plural(count, "conversion")}
+					{enabledCount > 0 ? `, ${enabledCount} enabled` : ""}
+					{errorCount && errorCount > 0 ? (
+						<>
+							{" "}
+							<Badge tone="danger" toneLabel="Errors">
+								{errorCount}
+							</Badge>
+						</>
+					) : null}
+				</>
+			}
+		>
+			{children}
+		</CollapsibleSection>
 	);
 }

@@ -1,8 +1,6 @@
 import type * as React from "react";
-import { MAX_N2K_INSTANCE } from "../../../constants.js";
-import NumberInput from "../NumberInput";
 import { extraRows } from "./extraRows";
-import MappingTable, { instanceIdColumn, signalkIdColumn } from "./MappingTable";
+import MappingTable, { instanceIdColumn, n2kInstanceColumn, signalkIdColumn } from "./MappingTable";
 
 interface Row {
 	signalkId: string;
@@ -42,19 +40,10 @@ export default function ChargerMappingEditor({
 					}),
 				}),
 				instanceIdColumn<Row>({ header: "NMEA 2000 charger instance" }),
-				{
+				n2kInstanceColumn<Row>({
 					header: "NMEA 2000 battery instance",
-					group: "NMEA 2000 output",
-					render: (row, setRow) => (
-						<NumberInput
-							value={row.batteryInstanceId}
-							onChange={(batteryInstanceId) => setRow({ ...row, batteryInstanceId })}
-							min={0}
-							max={MAX_N2K_INSTANCE}
-							ariaLabel="NMEA 2000 battery instance"
-						/>
-					),
-				},
+					field: "batteryInstanceId",
+				}),
 			]}
 		/>
 	);

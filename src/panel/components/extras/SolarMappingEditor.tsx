@@ -1,7 +1,6 @@
 import type * as React from "react";
-import NumberInput from "../NumberInput";
 import { extraRows } from "./extraRows";
-import MappingTable, { instanceIdColumn, signalkIdColumn } from "./MappingTable";
+import MappingTable, { instanceIdColumn, numberColumn, signalkIdColumn } from "./MappingTable";
 
 // signalkId is the final segment of the SK solar charger key (e.g. "0", "1",
 // "mppt-1") under electrical.solar.<id>, not the full SK path. Tank rows use
@@ -47,18 +46,13 @@ export default function SolarMappingEditor({
 					header: "NMEA 2000 charger instance",
 					ariaLabel: "NMEA 2000 solar charger instance",
 				}),
-				{
+				numberColumn<Row>({
 					header: "NMEA 2000 panel instance",
+					field: "panelInstanceId",
 					group: "NMEA 2000 output",
-					render: (r, set) => (
-						<NumberInput
-							value={r.panelInstanceId}
-							onChange={(n) => set({ ...r, panelInstanceId: n })}
-							min={0}
-							ariaLabel="NMEA 2000 solar panel instance"
-						/>
-					),
-				},
+					min: 0,
+					ariaLabel: "NMEA 2000 solar panel instance",
+				}),
 			]}
 		/>
 	);

@@ -1,7 +1,12 @@
 import type * as React from "react";
-import NumberInput from "../NumberInput";
+import { MAX_N2K_ENGINE_SPEED_RPM } from "../../../constants.js";
 import { extraRows } from "./extraRows";
-import MappingTable, { instanceIdColumn, signalkIdColumn, textColumn } from "./MappingTable";
+import MappingTable, {
+	instanceIdColumn,
+	numberColumn,
+	signalkIdColumn,
+	textColumn,
+} from "./MappingTable";
 
 // PGN 127498 (Engine Configuration / Static) carries identity metadata per
 // engine instance: rated speed, VIN, software version. Signal K has no
@@ -50,25 +55,18 @@ export default function EngineStaticMappingEditor({
 				instanceIdColumn<Row>({
 					header: "NMEA 2000 engine instance",
 				}),
-				{
+				numberColumn<Row>({
 					header: "Rated engine speed (RPM)",
+					field: "ratedEngineSpeed",
 					group: "NMEA 2000 output",
-					render: (r, set) => (
-						<NumberInput
-							value={r.ratedEngineSpeed}
-							onChange={(n) => {
-								const next = { ...r };
-								if (n === undefined) delete next.ratedEngineSpeed;
-								else next.ratedEngineSpeed = n;
-								set(next);
-							}}
-							min={0}
-							placeholder="3600"
-							allowEmpty
-							ariaLabel="Rated engine speed in RPM"
-						/>
-					),
-				},
+					min: 0,
+					// Mirrors the validator bound, the way instanceIdColumn mirrors
+					// MAX_N2K_INSTANCE. Above this the PGN 127498 field wraps.
+					max: MAX_N2K_ENGINE_SPEED_RPM,
+					placeholder: "3600",
+					optional: true,
+					ariaLabel: "Rated engine speed in RPM",
+				}),
 				textColumn<Row>({
 					header: "Vehicle identification number",
 					field: "VIN",

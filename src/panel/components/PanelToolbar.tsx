@@ -2,26 +2,20 @@ import type * as React from "react";
 import {
 	Button,
 	formatRelativeAge,
+	RELATIVE_AGE_NARROW,
 	SegmentedControl,
+	StatusIndicator,
+	Text,
 	TextInput,
 	ThemeToggle,
 } from "signalk-nearlcrews-ui";
 import type { StatusSnapshot } from "../../api/types.js";
-import { type OutputState, outputStateFor } from "../outputState";
-import { RELATIVE_AGE_FORMAT } from "../recency";
-import { S } from "../styles";
-import { TOOLBAR_STYLES as T } from "../toolbarStyles";
+import { CONVERSION_STYLES as C } from "../conversionStyles";
+import { OUTPUT_STATE_LABELS, OUTPUT_STATE_TONES, outputStateFor } from "../outputState";
 import ErrorBadgeButton from "./ErrorBadgeButton";
 
 const STALE_AFTER_MS = 10000;
 type PanelView = "configure" | "status";
-
-const OUTPUT_STATE_TITLES: Record<OutputState, string> = {
-	loading: "Loading plugin status",
-	inactive: "Plugin is not running",
-	waiting: "Waiting for NMEA 2000 output",
-	ready: "NMEA 2000 ready",
-};
 
 interface Props {
 	status: StatusSnapshot | null;
@@ -36,6 +30,12 @@ interface Props {
 	search: string;
 	onSearch: (v: string) => void;
 	onClearSearch: () => void;
+	/**
+	 * The search box, which is the panel's first control. The toolbar puts
+	 * focus back on it when Clear removes itself, and the panel uses it as the
+	 * destination for a banner whose retry takes the banner away.
+	 */
+	searchRef: React.RefObject<HTMLInputElement | null>;
 	view: PanelView;
 	onChangeView: (v: PanelView) => void;
 	onOpenWizard: () => void;
@@ -54,60 +54,59 @@ export default function PanelToolbar(props: Props): React.ReactElement {
 			: undefined;
 	const stale = staleAgeMs !== undefined && staleAgeMs > STALE_AFTER_MS;
 	return (
-		<section className="skn-toolbar" style={T.root} aria-label="Panel controls">
-			<TextInput
-				type="search"
-				style={T.searchInput}
-				value={props.search}
-				placeholder="Search conversions by name, PGN, or path"
-				aria-label="Search conversions by name, PGN, or path"
-				onChange={(e) => props.onSearch(e.target.value)}
-				onKeyDown={(e) => {
-					if (e.key === "Escape") props.onClearSearch();
-				}}
-			/>
+		<section style={C.toolbar} aria-label="Panel controls">
+			<div style={C.searchSlot}>
+				<TextInput
+					ref={props.searchRef}
+					type="search"
+					value={props.search}
+					placeholder="Search conversions by name, PGN, or path"
+					aria-label="Search conversions by name, PGN, or path"
+					onChange={(e) => props.onSearch(e.target.value)}
+					onKeyDown={(e) => {
+						if (e.key === "Escape") props.onClearSearch();
+					}}
+				/>
+			</div>
+			{/* Clearing removes this button, so it hands focus back to the search
+			    box first. Escape clears from inside the box and leaves focus
+			    where it already is. */}
 			{props.search ? (
 				<Button
 					size="compact"
 					variant="ghost"
-					style={T.searchClear}
-					onClick={props.onClearSearch}
+					onClick={() => {
+						props.onClearSearch();
+						props.searchRef.current?.focus();
+					}}
 					aria-label="Clear search"
 				>
 					Clear
 				</Button>
 			) : null}
-			<span style={T.statusChip}>
-				<span
-					style={{
-						...S.dot,
-						...(outputState === "ready"
-							? S.dotOk
-							: outputState === "waiting"
-								? S.dotWait
-								: S.dotOff),
-					}}
-					aria-hidden="true"
-					title={OUTPUT_STATE_TITLES[outputState]}
-				/>
-				<span role="status">
-					{s ? `${s.enabledCount} / ${s.totalConversions}` : "..."} {outputState}
-				</span>
-				{stale ? (
-					<span style={T.statusChipStale}>
-						updated {formatRelativeAge(staleAgeMs, RELATIVE_AGE_FORMAT)}
-					</span>
-				) : null}
-			</span>
+			{/* The condensed status chip: enabled over total and the readiness
+			    word. It is the one live region in the toolbar, so each poll that
+			    changes the count is announced once. The stale marker stays
+			    outside it: its age advances on every completed poll including a
+			    failed one, so inside the region it would re-announce every three
+			    seconds for as long as the outage lasted. */}
+			<StatusIndicator live="polite" tone={OUTPUT_STATE_TONES[outputState]}>
+				{s ? `${s.enabledCount} / ${s.totalConversions}` : "..."} {OUTPUT_STATE_LABELS[outputState]}
+			</StatusIndicator>
+			{stale ? (
+				<Text tone="muted" size="sm">
+					(updated {formatRelativeAge(staleAgeMs, RELATIVE_AGE_NARROW)})
+				</Text>
+			) : null}
 			{errors > 0 ? <ErrorBadgeButton count={errors} onClick={props.onErrorBadgeClick} /> : null}
 			<SegmentedControl
-				legend="View"
+				label="View"
 				options={props.viewChoices}
 				value={props.view}
-				onChange={props.onChangeView}
+				onValueChange={props.onChangeView}
 			/>
 			<ThemeToggle />
-			<Button size="compact" style={T.setupButton} onClick={props.onOpenWizard}>
+			<Button size="compact" onClick={props.onOpenWizard}>
 				Setup wizard
 			</Button>
 		</section>

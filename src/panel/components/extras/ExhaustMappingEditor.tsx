@@ -1,7 +1,6 @@
 import type * as React from "react";
-import NumberInput from "../NumberInput";
 import { extraRows } from "./extraRows";
-import MappingTable, { signalkIdColumn } from "./MappingTable";
+import MappingTable, { numberColumn, signalkIdColumn } from "./MappingTable";
 
 // signalkId is the final segment of the SK propulsion key under propulsion.<id>
 // (e.g. "main", "port", "starboard"), not the full SK path. Tank rows use
@@ -45,18 +44,13 @@ export default function ExhaustMappingEditor({
 						alternatives: [["exhaustTemperature"]],
 					}),
 				}),
-				{
+				numberColumn<Row>({
 					header: "NMEA 2000 temperature instance",
+					field: "tempInstanceId",
 					group: "NMEA 2000 output",
-					render: (r, set) => (
-						<NumberInput
-							value={r.tempInstanceId}
-							onChange={(n) => set({ ...r, tempInstanceId: n })}
-							min={0}
-							ariaLabel="NMEA 2000 exhaust temperature instance"
-						/>
-					),
-				},
+					min: 0,
+					ariaLabel: "NMEA 2000 exhaust temperature instance",
+				}),
 			]}
 		/>
 	);

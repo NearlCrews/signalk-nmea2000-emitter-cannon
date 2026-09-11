@@ -1,12 +1,19 @@
 import type * as React from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
+	Badge,
 	Banner,
 	Button,
-	PanelRoot,
-	supportsNativeCssScope,
-	UnsupportedBrowserNotice,
+	CollapsibleSection,
+	LiveRegion,
+	PanelShell,
+	Section,
+	Stack,
+	StatusIndicator,
+	Text,
+	useUnsavedChangesGuard,
 } from "signalk-nearlcrews-ui";
+import { SaveActionBar, Tab, TabList, TabPanel, Tabs } from "signalk-nearlcrews-ui/composites";
 import type { ConversionMetadata, PerConversionStatus } from "../api/types.js";
 import {
 	Categories,
@@ -18,16 +25,13 @@ import { type ConfigIssue, validateConfig } from "../config/validation.js";
 import { stripSubIndex } from "../utils/pathUtils.js";
 import AdvisorPanel from "./components/advisor/AdvisorPanel";
 import CatalogSection from "./components/CatalogSection";
-import CategoryTabs from "./components/CategoryTabs";
 import ConversionRow from "./components/ConversionRow";
-import Disclosure from "./components/Disclosure";
 import FirstRunWizard from "./components/FirstRunWizard";
-import FooterBar from "./components/FooterBar";
 import GlobalSettings from "./components/GlobalSettings";
 import PanelToolbar from "./components/PanelToolbar";
 import PresetChips from "./components/PresetChips";
 import StatusView from "./components/StatusView";
-import { configIssueControls, configIssueRow } from "./configIssueTarget";
+import { configIssueControl, configIssueRow } from "./configIssueTarget";
 import { CONVERSION_STYLES as C } from "./conversionStyles";
 import { shouldShowFirstRunCallout } from "./firstRunState";
 import { useConfig } from "./hooks/useConfig";
@@ -36,8 +40,7 @@ import { usePaths } from "./hooks/usePaths";
 import { useSources } from "./hooks/useSources";
 import { useStatus } from "./hooks/useStatus";
 import { plural } from "./recency";
-import { S } from "./styles";
-import { THEME_STYLE } from "./theme";
+import { conversionRowId, conversionRowToggleId } from "./rowIds";
 
 interface Props {
 	configuration: unknown;
@@ -55,7 +58,7 @@ function ConfigIssueList({
 	metaByKey: Map<string, ConversionMetadata>;
 }): React.ReactElement {
 	return (
-		<ul>
+		<ul style={C.bulletList}>
 			{issues.slice(0, 5).map((issue) => (
 				<li
 					key={`${issue.conversionKey}:${issue.collection ?? "fixed"}:${issue.field}:${issue.rowIndex ?? "all"}:${issue.message}`}
@@ -101,21 +104,33 @@ function matchesQuery(m: ConversionMetadata, needle: string): boolean {
 	return false;
 }
 
-/** @public Module Federation entry point consumed by the Signal K admin UI. */
-export default function PluginConfigurationPanel(props: Props): React.ReactElement {
-	if (typeof window === "undefined" || !supportsNativeCssScope(window)) {
-		return (
-			<UnsupportedBrowserNotice>
-				This panel requires native CSS @scope. Update the browser or embedded WebView before
-				reopening Signal K Admin.
-			</UnsupportedBrowserNotice>
-		);
-	}
-
-	return <SupportedPluginConfigurationPanel {...props} />;
+// A jump scrolls its target into view, which is the only motion the panel
+// produces. Ask for it the way the reader wants it: a smooth scroll is a
+// transition, so a reader who asked for less motion gets the instant one.
+function jumpScrollBehavior(): ScrollBehavior {
+	return window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
 }
 
-function SupportedPluginConfigurationPanel({ configuration, save }: Props): React.ReactElement {
+const reloadPage = (): void => window.location.reload();
+
+/** @public Module Federation entry point consumed by the Signal K admin UI. */
+export default function PluginConfigurationPanel(props: Props): React.ReactElement {
+	const rootRef = useRef<HTMLDivElement>(null);
+	// The shell runs the browser preflight, paints the root, and wraps the body
+	// in an error boundary whose "Try again" remounts the panel in place. The
+	// toolbar carries the theme toggle so it stays visible while scrolling.
+	return (
+		<PanelShell ref={rootRef} themeToggle="none" onReload={reloadPage}>
+			<PanelBody {...props} rootRef={rootRef} />
+		</PanelShell>
+	);
+}
+
+function PanelBody({
+	configuration,
+	save,
+	rootRef,
+}: Props & { rootRef: React.RefObject<HTMLDivElement | null> }): React.ReactElement {
 	const { status, error, lastUpdatedMs, lastAttemptMs } = useStatus();
 	const { state, requestedState, dispatch, markSaveRequested, unconfigured } =
 		useConfig(configuration);
@@ -124,49 +139,50 @@ function SupportedPluginConfigurationPanel({ configuration, save }: Props): Reac
 	const {
 		paths: availablePaths,
 		loading: pathsLoading,
+		refreshing: pathsRefreshing,
 		error: pathsError,
 		reload: reloadPaths,
 	} = usePaths();
+	// The toolbar search box: the panel's first control, and so the focus
+	// destination for a banner whose action takes the banner, and the button
+	// the user pressed, out of the tree.
+	const searchRef = useRef<HTMLInputElement>(null);
 	const [tab, setTab] = useState<ConversionCategory>("navigation");
 	const [view, setView] = useState<PanelView>("configure");
-	const rootRef = useRef<HTMLDivElement>(null);
 	const [saveRequestedAt, setSaveRequestedAt] = useState<number | null>(null);
 	const [wizardOpen, setWizardOpen] = useState(false);
 	const [search, setSearch] = useState("");
-	// Disclosure state, persisted across tab switches within the session. An
+	// Collapsible state, persisted across tab switches within the session. An
 	// absent key falls back to a default (sections to their `defaultExpanded`,
-	// rows to collapsed). Sections are keyed `category:group`.
+	// the rest to collapsed). Sections are keyed `category:group`.
 	const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
 	const [expandedKey, setExpandedKey] = useState<string | null>(null);
 
 	const clearSearch = useCallback(() => setSearch(""), []);
-	// Stable identity so the wizard's document keydown listener (keyed on
-	// onClose) does not detach and reattach on every 3 second status poll
-	// re-render while the wizard is open.
+	// Stable identity so the wizard does not re-render on every 3 second status
+	// poll while it is open. The Dialog owns Escape and focus return, so this is
+	// about render cost, not about a listener detaching.
 	const closeWizard = useCallback(() => setWizardOpen(false), []);
 
 	// Bring the panel top back into view on every switch (see the hidden view
 	// containers below for why both views stay mounted).
-	const changeView = useCallback((v: PanelView): void => {
-		setView(v);
-		rootRef.current?.scrollIntoView({ block: "start" });
-	}, []);
+	const changeView = useCallback(
+		(v: PanelView): void => {
+			setView(v);
+			rootRef.current?.scrollIntoView({ block: "start" });
+		},
+		[rootRef],
+	);
 
-	const toggleSection = (key: string): void => {
-		setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
-	};
+	const setSectionOpen = useCallback((key: string, open: boolean): void => {
+		setOpenSections((prev) => ({ ...prev, [key]: open }));
+	}, []);
 	// Stable identity so the memoized ConversionRow does not re-render every
 	// row when one row toggles. setExpandedKey is a functional update, so no
 	// dependencies are needed.
 	const toggleExpand = useCallback((key: string): void => {
 		setExpandedKey((prev) => (prev === key ? null : key));
 	}, []);
-
-	useEffect(() => {
-		if (saveRequestedAt === null) return;
-		const t = setTimeout(() => setSaveRequestedAt(null), 2500);
-		return () => clearTimeout(t);
-	}, [saveRequestedAt]);
 
 	// Reducer cases always return a new object on change, so identity equality
 	// against the last-requested snapshot is a sound dirty check. Replaces a deep
@@ -176,18 +192,8 @@ function SupportedPluginConfigurationPanel({ configuration, save }: Props): Reac
 	// identity inequality against the baseline is a sound "advisor edited" check.
 	const advisorSettingsDirty = state.advisor !== requestedState.advisor;
 
-	// Warn before a tab close or reload while edits are unsaved. The handler is
-	// only registered while dirty and torn down once clean or unmounted.
-	useEffect(() => {
-		if (!dirty) return;
-		const onBeforeUnload = (e: BeforeUnloadEvent): void => {
-			e.preventDefault();
-			// Legacy browsers require a returnValue to trigger the prompt.
-			e.returnValue = "";
-		};
-		window.addEventListener("beforeunload", onBeforeUnload);
-		return () => window.removeEventListener("beforeunload", onBeforeUnload);
-	}, [dirty]);
+	// Warn before a tab close or reload while edits are unsaved.
+	useUnsavedChangesGuard(dirty);
 
 	const setEnabledForKeys = useCallback(
 		(keys: string[], enabled: boolean): void => {
@@ -250,38 +256,58 @@ function SupportedPluginConfigurationPanel({ configuration, save }: Props): Reac
 		return grouped;
 	}, [configIssues]);
 
-	const jumpToConfigIssue = useCallback(
-		(issue: ConfigIssue): void => {
-			const m = metaByKey.get(issue.conversionKey);
-			if (!m) return;
+	// Reveal a conversion's editor: switch to its tab, open its section, and
+	// expand its row. Clears any active search so the row is reachable in its
+	// tab. The caller scrolls and focuses after React commits.
+	const revealConversion = useCallback(
+		(m: ConversionMetadata): void => {
 			clearSearch();
+			// setView directly, not changeView: changeView scrolls the panel top
+			// into view, but the callers scroll to the revealed row below.
 			setView("configure");
 			setTab(m.category);
 			const group = m.legacy ? "legacy" : "modern";
 			setOpenSections((prev) => ({ ...prev, [`${m.category}:${group}`]: true }));
 			setExpandedKey(m.key);
+		},
+		[clearSearch],
+	);
+
+	const jumpToConfigIssue = useCallback(
+		(issue: ConfigIssue): void => {
+			const m = metaByKey.get(issue.conversionKey);
+			if (!m) return;
+			revealConversion(m);
+			// Scroll after React commits the tab/section/row state above. A double
+			// rAF lets the newly mounted row body land in the DOM first.
 			requestAnimationFrame(() => {
 				requestAnimationFrame(() => {
-					const conversionRow = document.getElementById(`skn-row-${m.key}`);
+					const conversionRow = document.getElementById(conversionRowId(m.key));
 					const mappingRow = conversionRow ? configIssueRow(conversionRow, issue) : undefined;
 					const target =
-						(conversionRow ? configIssueControls(conversionRow, issue)[0] : undefined) ??
+						(conversionRow ? configIssueControl(conversionRow, issue) : undefined) ??
 						mappingRow?.querySelector<HTMLElement>("button") ??
-						document.getElementById(`skn-row-toggle-${m.key}`);
-					(mappingRow ?? conversionRow)?.scrollIntoView({ behavior: "smooth", block: "center" });
-					target?.focus();
+						document.getElementById(conversionRowToggleId(m.key));
+					// The scroll above places the row clear of the sticky toolbar, so
+					// focus must not scroll again and undo that placement.
+					(mappingRow ?? conversionRow)?.scrollIntoView({
+						behavior: jumpScrollBehavior(),
+						block: "center",
+					});
+					target?.focus({ preventScroll: true });
 				});
 			});
 		},
-		[metaByKey, clearSearch],
+		[metaByKey, revealConversion],
 	);
 
+	// Save is only reachable while the config validates: a non-blank
+	// invalidMessage disables the bar's Save button. The "Review first error"
+	// action on the error banner is what carries the user to the first problem.
+	// The host save callback returns void, so the request timestamp is the only
+	// completion cue the panel can truthfully give. The bar owns how long that
+	// message stays up, measured from the timestamp.
 	const handleSave = (): void => {
-		const firstError = validationErrors[0];
-		if (firstError) {
-			jumpToConfigIssue(firstError);
-			return;
-		}
 		save(state);
 		markSaveRequested();
 		setSaveRequestedAt(Date.now());
@@ -289,7 +315,7 @@ function SupportedPluginConfigurationPanel({ configuration, save }: Props): Reac
 
 	// Parent catalog keys currently reporting an error, with sub-conversion
 	// `[N]` suffixes folded onto the parent so a flaky sub-conversion surfaces
-	// on its parent card and category.
+	// on its parent row and category.
 	const errorKeys = useMemo(() => {
 		const s = new Set<string>();
 		if (status) {
@@ -308,54 +334,23 @@ function SupportedPluginConfigurationPanel({ configuration, save }: Props): Reac
 	}, [meta, errorKeys]);
 
 	// Jump from the status error badge to the first conversion reporting an
-	// error: switch to its tab, expand its section and card, and scroll it into
-	// view. Clears any active search so the card is reachable in its tab.
+	// error: reveal its row, then scroll it into view and focus its toggle.
 	const jumpToFirstError = useCallback(() => {
 		if (!status) return;
 		const first = status.perConversion.find((c) => c.lastErrorMessage);
 		if (!first) return;
 		const m = metaByKey.get(stripSubIndex(first.key));
 		if (!m) return;
-		clearSearch();
-		// setView directly, not changeView: changeView scrolls the panel top
-		// into view, but here we want to scroll to the error card below.
-		setView("configure");
-		setTab(m.category);
-		const group = m.legacy ? "legacy" : "modern";
-		setOpenSections((prev) => ({ ...prev, [`${m.category}:${group}`]: true }));
-		setExpandedKey(m.key);
-		// Scroll after React commits the tab/section/row state above. A double
-		// rAF lets the newly mounted row body land in the DOM first.
+		revealConversion(m);
 		requestAnimationFrame(() => {
 			requestAnimationFrame(() => {
 				document
-					.getElementById(`skn-row-${m.key}`)
-					?.scrollIntoView({ behavior: "smooth", block: "center" });
-				document.getElementById(`skn-row-toggle-${m.key}`)?.focus();
+					.getElementById(conversionRowId(m.key))
+					?.scrollIntoView({ behavior: jumpScrollBehavior(), block: "center" });
+				document.getElementById(conversionRowToggleId(m.key))?.focus({ preventScroll: true });
 			});
 		});
-	}, [status, metaByKey, clearSearch]);
-
-	// The active category split into a Modern section (expanded by default)
-	// and a Legacy section (collapsed).
-	const sections = useMemo(() => {
-		const inTab = meta.filter((m) => m.category === tab);
-		return [
-			{
-				group: "modern" as const,
-				title: "Modern",
-				defaultExpanded: true,
-				list: inTab.filter((m) => !m.legacy),
-			},
-			{
-				group: "legacy" as const,
-				title: "Legacy",
-				defaultExpanded: false,
-				list: inTab.filter((m) => m.legacy),
-			},
-		];
-	}, [meta, tab]);
-	const hasConversions = sections.some((s) => s.list.length > 0);
+	}, [status, metaByKey, revealConversion]);
 
 	// When searching, flatten matches across every category, grouped by category
 	// for orientation. Null when the search box is empty.
@@ -383,16 +378,94 @@ function SupportedPluginConfigurationPanel({ configuration, save }: Props): Reac
 			globalResendSeconds={state.globalResendInterval}
 			availablePaths={availablePaths}
 			pathsLoading={pathsLoading}
+			pathsRefreshing={pathsRefreshing}
 			pathsError={pathsError}
 			reloadPaths={reloadPaths}
 		/>
 	);
 
+	// One category split into a Modern section (expanded by default) and a
+	// Legacy section (collapsed).
+	const renderCategory = (category: ConversionCategory): React.ReactElement => {
+		const inCategory = meta.filter((m) => m.category === category);
+		const sections = [
+			{
+				group: "modern" as const,
+				title: "Modern",
+				defaultExpanded: true,
+				list: inCategory.filter((m) => !m.legacy),
+			},
+			{
+				group: "legacy" as const,
+				title: "Legacy",
+				defaultExpanded: false,
+				list: inCategory.filter((m) => m.legacy),
+			},
+		];
+		return (
+			<Stack gap={3}>
+				{inCategory.length === 0 && !metaLoading ? (
+					<Text as="p" tone="muted">
+						No conversions in this category.
+					</Text>
+				) : null}
+				{sections.map((s) => {
+					if (s.list.length === 0) return null;
+					const sectionKey = `${category}:${s.group}`;
+					const tally = sectionCounts(s.list, state.conversions, errorKeys);
+					return (
+						<CatalogSection
+							key={s.group}
+							title={s.title}
+							count={s.list.length}
+							enabledCount={tally.enabled}
+							errorCount={tally.errors}
+							expanded={openSections[sectionKey] ?? s.defaultExpanded}
+							onOpenChange={(open) => setSectionOpen(sectionKey, open)}
+							onEnableAll={() =>
+								setEnabledForKeys(
+									s.list.map((m) => m.key),
+									true,
+								)
+							}
+							onDisableAll={() =>
+								setEnabledForKeys(
+									s.list.map((m) => m.key),
+									false,
+								)
+							}
+						>
+							<div style={C.list}>{s.list.map(renderRow)}</div>
+						</CatalogSection>
+					);
+				})}
+			</Stack>
+		);
+	};
+
 	const showFirstRunCallout = shouldShowFirstRunCallout(meta, state.conversions);
+	const invalidMessage =
+		validationErrors.length > 0
+			? `Fix ${plural(validationErrors.length, "configuration error")} before saving.`
+			: null;
+
+	// One region per urgency, mounted above both view containers before any
+	// message arrives, so a screen reader observes the text change rather than
+	// the region appearing with it, and so the announcement survives a view
+	// switch. The banners below stay as persistent, readable feedback.
+	const panelAlert = metaError
+		? `Conversion catalog failed to load: ${metaError}.`
+		: validationErrors.length > 0
+			? `${plural(validationErrors.length, "configuration error")} must be fixed before saving.`
+			: "";
+	const panelStatus = error
+		? `Status unavailable: ${error}.`
+		: metaLoading && meta.length === 0 && !metaError
+			? "Loading conversions..."
+			: "";
 
 	return (
-		<PanelRoot className="skn-panel" style={S.root} width="full" ref={rootRef}>
-			<style>{THEME_STYLE}</style>
+		<>
 			{/* The toolbar holds the search, status chip, Configure/Status toggle,
 			    theme toggle, and wizard shortcut. It sits above both view containers
 			    so it is always visible regardless of which view is active. */}
@@ -404,11 +477,14 @@ function SupportedPluginConfigurationPanel({ configuration, save }: Props): Reac
 				search={search}
 				onSearch={setSearch}
 				onClearSearch={clearSearch}
+				searchRef={searchRef}
 				view={view}
 				onChangeView={changeView}
 				onOpenWizard={() => setWizardOpen(true)}
 				viewChoices={VIEW_CHOICES}
 			/>
+			<LiveRegion live="assertive" message={panelAlert} />
+			<LiveRegion live="polite" message={panelStatus} />
 
 			{/* Both views stay mounted; the inactive one is hidden. Unmounting on
 			    every switch dropped AdvisorPanel state and refetched its pending
@@ -419,172 +495,174 @@ function SupportedPluginConfigurationPanel({ configuration, save }: Props): Reac
 				<StatusView status={status} metaByKey={metaByKey} onErrorClick={jumpToFirstError} />
 			</div>
 			<div hidden={view !== "configure"}>
-				{validationErrors.length > 0 ? (
-					<Banner
-						actions={
-							<Button onClick={() => validationErrors[0] && jumpToConfigIssue(validationErrors[0])}>
-								Review first error
-							</Button>
-						}
-						live="assertive"
-						title={`${plural(validationErrors.length, "configuration error")} must be fixed`}
-						tone="danger"
-					>
-						<ConfigIssueList issues={validationErrors} metaByKey={metaByKey} />
-					</Banner>
-				) : validationWarnings.length > 0 ? (
-					<Banner
-						actions={
-							<Button
-								onClick={() => validationWarnings[0] && jumpToConfigIssue(validationWarnings[0])}
-							>
-								Review first warning
-							</Button>
-						}
-						title={`${plural(validationWarnings.length, "configuration warning")}`}
-						tone="warning"
-					>
-						Warnings do not block Save. They identify disabled draft errors or linked NMEA 2000
-						instances that should be verified.
-						<ConfigIssueList issues={validationWarnings} metaByKey={metaByKey} />
-					</Banner>
-				) : null}
-				{error ? (
-					<Banner live="polite" title="Status unavailable" tone="danger">
-						{error}. The next poll will retry automatically.
-					</Banner>
-				) : null}
-				{metaError ? (
-					<Banner
-						actions={<Button onClick={reloadMeta}>Retry</Button>}
-						live="assertive"
-						title="Conversion catalog failed to load"
-						tone="danger"
-					>
-						{metaError}.
-					</Banner>
-				) : null}
-				{metaLoading && meta.length === 0 && !metaError ? (
-					<p role="status" style={S.loadingText}>
-						Loading conversions...
-					</p>
-				) : null}
-				{showFirstRunCallout ? (
-					<Banner
-						actions={<Button onClick={() => setWizardOpen(true)}>Open setup wizard</Button>}
-						title="Nothing is emitting yet"
-						tone="info"
-					>
-						Apply a preset below, open the setup wizard, or let the Config Advisor scan your boat's
-						live data.
-					</Banner>
-				) : null}
-				<Disclosure
-					id="skn-panel-presets"
-					label="Quick presets"
-					lazy
-					open={openSections["panel:presets"] ?? false}
-					onToggle={() => toggleSection("panel:presets")}
-				>
-					<PresetChips
-						onApply={(p) => dispatch({ type: "applyPreset", preset: p, meta })}
-						meta={meta}
-					/>
-				</Disclosure>
-				{/* AdvisorPanel and GlobalSettings each render their own collapsible
-				    section titled the same as a wrapper would be, so they are placed
-				    directly here without an extra disclosure that would duplicate the
-				    title. AdvisorPanel keeps its pending review state because the
-				    configure view is never unmounted. */}
-				<AdvisorPanel
-					advisor={state.advisor}
-					onChangeAdvisor={(advisor) => dispatch({ type: "setAdvisor", advisor })}
-					dirty={dirty}
-					advisorSettingsDirty={advisorSettingsDirty}
-					metaByKey={metaByKey}
-				/>
-				<GlobalSettings
-					value={state.globalResendInterval}
-					onChange={(ms) => dispatch({ type: "setGlobalResend", ms })}
-				/>
-
-				{searchResult ? (
-					<div>
-						<p style={S.searchSummary} role="status">
-							{plural(searchResult.matchCount, "match")} across all categories
-						</p>
-						{searchResult.matchCount === 0 ? (
-							<p style={S.loadingText}>No conversions match "{search.trim()}".</p>
-						) : null}
-						{searchResult.groups.map((g) => {
-							const counts = sectionCounts(g.list, state.conversions, errorKeys);
-							return (
-								<CatalogSection
-									key={g.cat}
-									id={`skn-search-${g.cat}`}
-									title={CategoryLabels[g.cat]}
-									count={g.list.length}
-									enabledCount={counts.enabled}
-									errorCount={counts.errors}
-									expanded={openSections[`search:${g.cat}`] ?? true}
-									onToggle={() => toggleSection(`search:${g.cat}`)}
+				<Stack gap={4}>
+					{validationErrors.length > 0 ? (
+						<Banner
+							actions={
+								<Button
+									onClick={() => validationErrors[0] && jumpToConfigIssue(validationErrors[0])}
 								>
-									<div style={C.list}>{g.list.map(renderRow)}</div>
-								</CatalogSection>
-							);
-						})}
-					</div>
-				) : (
-					<>
-						<CategoryTabs
-							active={tab}
-							onChange={setTab}
-							countsByCategory={counts}
-							errorCountByCategory={errorCountByCategory}
+									Review first error
+								</Button>
+							}
+							title={`${plural(validationErrors.length, "configuration error")} must be fixed`}
+							tone="danger"
+						>
+							<ConfigIssueList issues={validationErrors} metaByKey={metaByKey} />
+						</Banner>
+					) : validationWarnings.length > 0 ? (
+						<Banner
+							actions={
+								<Button
+									onClick={() => validationWarnings[0] && jumpToConfigIssue(validationWarnings[0])}
+								>
+									Review first warning
+								</Button>
+							}
+							title={`${plural(validationWarnings.length, "configuration warning")}`}
+							tone="warning"
+						>
+							Warnings do not block Save. They identify disabled draft errors or linked NMEA 2000
+							instances that should be verified.
+							<ConfigIssueList issues={validationWarnings} metaByKey={metaByKey} />
+						</Banner>
+					) : null}
+					{error ? (
+						<Banner title="Status unavailable" tone="danger">
+							{error}. The next poll will retry automatically.
+						</Banner>
+					) : null}
+					{metaError ? (
+						// A successful retry clears the error and takes this banner, and
+						// the Retry the user pressed, with it. Focus goes to the search
+						// box rather than to the document body, so the panel it just
+						// loaded is reachable from its first control.
+						<Banner
+							actions={<Button onClick={reloadMeta}>Retry</Button>}
+							dismissFocusRef={searchRef}
+							title="Conversion catalog failed to load"
+							tone="danger"
+						>
+							{metaError}.
+						</Banner>
+					) : null}
+					{metaLoading && meta.length === 0 && !metaError ? (
+						<StatusIndicator>Loading conversions...</StatusIndicator>
+					) : null}
+					{showFirstRunCallout ? (
+						<Banner
+							actions={<Button onClick={() => setWizardOpen(true)}>Open setup wizard</Button>}
+							title="Nothing is emitting yet"
+							tone="info"
+						>
+							Apply a preset below, open the setup wizard, or let the Config Advisor scan your
+							boat's live data.
+						</Banner>
+					) : null}
+					<CollapsibleSection
+						title="Quick presets"
+						mountStrategy="unmount"
+						open={openSections["panel:presets"] ?? false}
+						onOpenChange={(open) => setSectionOpen("panel:presets", open)}
+					>
+						<PresetChips
+							onApply={(p) => dispatch({ type: "applyPreset", preset: p, meta })}
+							meta={meta}
 						/>
-						<div role="tabpanel" id={`skn-panel-${tab}`} aria-labelledby={`skn-tab-${tab}`}>
-							{!hasConversions && !metaLoading ? (
-								<p style={S.loadingText}>No conversions in this category.</p>
-							) : null}
-							{sections.map((s) => {
-								if (s.list.length === 0) return null;
-								const sectionKey = `${tab}:${s.group}`;
-								const counts = sectionCounts(s.list, state.conversions, errorKeys);
-								return (
-									<CatalogSection
-										key={s.group}
-										id={`skn-section-${tab}-${s.group}`}
-										title={s.title}
-										count={s.list.length}
-										enabledCount={counts.enabled}
-										errorCount={counts.errors}
-										expanded={openSections[sectionKey] ?? s.defaultExpanded}
-										onToggle={() => toggleSection(sectionKey)}
-										onEnableAll={() =>
-											setEnabledForKeys(
-												s.list.map((m) => m.key),
-												true,
-											)
-										}
-										onDisableAll={() =>
-											setEnabledForKeys(
-												s.list.map((m) => m.key),
-												false,
-											)
-										}
-									>
-										<div style={C.list}>{s.list.map(renderRow)}</div>
-									</CatalogSection>
-								);
-							})}
-						</div>
-					</>
-				)}
+					</CollapsibleSection>
+					{/* AdvisorPanel and GlobalSettings each render their own collapsible
+					    section, so they are placed directly here. AdvisorPanel keeps its
+					    pending review state because the configure view is never
+					    unmounted. */}
+					<AdvisorPanel
+						advisor={state.advisor}
+						onChangeAdvisor={(advisor) => dispatch({ type: "setAdvisor", advisor })}
+						dirty={dirty}
+						advisorSettingsDirty={advisorSettingsDirty}
+						metaByKey={metaByKey}
+					/>
+					<GlobalSettings
+						value={state.globalResendInterval}
+						onChange={(ms) => dispatch({ type: "setGlobalResend", ms })}
+					/>
+
+					<Section title="Conversions">
+						<Stack gap={3}>
+							{/* Mounted whether or not a search is running, so a screen reader
+							    observes the count changing rather than the region appearing
+							    with its first count. An empty one takes no space. */}
+							<StatusIndicator live="polite">
+								{searchResult
+									? `${plural(searchResult.matchCount, "match")} across all categories`
+									: null}
+							</StatusIndicator>
+							{searchResult ? (
+								<>
+									{searchResult.matchCount === 0 ? (
+										<Text as="p" tone="muted">
+											No conversions match "{search.trim()}".
+										</Text>
+									) : null}
+									{searchResult.groups.map((g) => {
+										const tally = sectionCounts(g.list, state.conversions, errorKeys);
+										return (
+											<CatalogSection
+												key={g.cat}
+												title={CategoryLabels[g.cat]}
+												count={g.list.length}
+												enabledCount={tally.enabled}
+												errorCount={tally.errors}
+												expanded={openSections[`search:${g.cat}`] ?? true}
+												onOpenChange={(open) => setSectionOpen(`search:${g.cat}`, open)}
+											>
+												<div style={C.list}>{g.list.map(renderRow)}</div>
+											</CatalogSection>
+										);
+									})}
+								</>
+							) : (
+								<Tabs value={tab} onValueChange={setTab}>
+									<TabList aria-label="Conversion categories">
+										{Categories.map((c) => {
+											const errorCount = errorCountByCategory[c] ?? 0;
+											return (
+												<Tab<ConversionCategory>
+													key={c}
+													value={c}
+													badge={
+														errorCount > 0 ? (
+															// The badge joins the tab's accessible name, so the tone
+															// label replaces the default "Error" and the count stands
+															// alone: "Electrical (12) Errors 2".
+															<Badge tone="danger" toneLabel="Errors">
+																{errorCount}
+															</Badge>
+														) : undefined
+													}
+												>
+													{CategoryLabels[c]} <Text tone="muted">({counts[c]})</Text>
+												</Tab>
+											);
+										})}
+									</TabList>
+									{/* A function child builds a category only where the panel
+									    renders it, so the unselected tabs cost nothing. */}
+									{Categories.map((c) => (
+										<TabPanel<ConversionCategory> key={c} value={c} mountStrategy="unmount">
+											{() => renderCategory(c)}
+										</TabPanel>
+									))}
+								</Tabs>
+							)}
+						</Stack>
+					</Section>
+				</Stack>
 			</div>
-			<FooterBar
+			<SaveActionBar
+				data-panel-action-bar=""
 				dirty={dirty}
 				unconfigured={unconfigured}
-				validationErrorCount={validationErrors.length}
+				invalidMessage={invalidMessage}
 				saveRequestedAt={saveRequestedAt}
 				onSave={handleSave}
 				onDiscard={() => dispatch({ type: "discard", config: requestedState })}
@@ -598,6 +676,6 @@ function SupportedPluginConfigurationPanel({ configuration, save }: Props): Reac
 					onClose={closeWizard}
 				/>
 			) : null}
-		</PanelRoot>
+		</>
 	);
 }

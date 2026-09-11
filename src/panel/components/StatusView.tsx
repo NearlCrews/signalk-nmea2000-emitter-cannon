@@ -1,25 +1,32 @@
 import type * as React from "react";
-import { formatRelativeAge } from "signalk-nearlcrews-ui";
+import { memo } from "react";
+import {
+	Cluster,
+	Code,
+	formatRelativeAge,
+	Metric,
+	MetricGrid,
+	Section,
+	Stack,
+	StatusIndicator,
+	Text,
+	VisuallyHidden,
+} from "signalk-nearlcrews-ui";
+import {
+	Table,
+	TableCell,
+	TableHeaderCell,
+	TableScrollRegion,
+} from "signalk-nearlcrews-ui/composites";
 import type { ConversionMetadata, PerConversionStatus, StatusSnapshot } from "../../api/types.js";
 import { stripSubIndex } from "../../utils/pathUtils.js";
 import { extractPgnsFromTitle } from "../../utils/pgnUtils.js";
-import { outputStateFor } from "../outputState";
-import { RELATIVE_AGE_FORMAT } from "../recency";
+import { CONVERSION_STYLES as C } from "../conversionStyles";
+import { OUTPUT_STATE_LABELS, OUTPUT_STATE_TONES, outputStateFor } from "../outputState";
 import { conversionHealth } from "../rowStatus.js";
-import { STATUS_VIEW_STYLES as V } from "../statusStyles";
-import { S } from "../styles";
-import { TABLE_STYLES as T } from "../tableStyles";
 import ErrorBadgeButton from "./ErrorBadgeButton";
 
-// Placeholder shown before the first status poll resolves.
-function StatusLoading(): React.ReactElement {
-	return (
-		<div style={S.statusBar} role="status">
-			<span style={{ ...S.dot, ...S.dotOff }} aria-hidden="true" />
-			<span>Loading status...</span>
-		</div>
-	);
-}
+const STATUS_CAPTION_ID = "skn-status-table-caption";
 
 interface Props {
 	// Live status snapshot, or null before the first poll resolves.
@@ -41,11 +48,11 @@ function pgnsFor(row: PerConversionStatus, byKey: Map<string, ConversionMetadata
 	return pgns.join(", ");
 }
 
-export default function StatusView({ status, metaByKey, onErrorClick }: Props): React.ReactElement {
-	if (!status) {
-		return <StatusLoading />;
-	}
-
+function LoadedStatus({
+	status,
+	metaByKey,
+	onErrorClick,
+}: Props & { status: StatusSnapshot }): React.ReactElement {
 	const enabledRows = status.perConversion.filter((c) => c.enabled && c.parentKey === undefined);
 	const errorCount = enabledRows.filter((c) => c.lastErrorMessage).length;
 	const totalEmits = enabledRows.reduce((n, c) => n + c.emitCount, 0);
@@ -59,123 +66,139 @@ export default function StatusView({ status, metaByKey, onErrorClick }: Props): 
 	for (const children of childrenByParent.values()) {
 		children.sort((a, b) => (a.mappingIndex ?? 0) - (b.mappingIndex ?? 0));
 	}
+	// Each mapping row travels with the conversion that owns it: the visual cue
+	// is an indent, which says nothing when the table is read row by row.
 	const displayRows = enabledRows.flatMap((parent) => [
-		parent,
-		...(childrenByParent.get(parent.key) ?? []),
+		{ row: parent, parentTitle: null },
+		...(childrenByParent.get(parent.key) ?? []).map((child) => ({
+			row: child,
+			parentTitle: parent.title,
+		})),
 	]);
 	const outputState = outputStateFor(status);
 	const running = outputState === "waiting" || outputState === "ready";
-	const readyDot =
-		outputState === "ready" ? S.dotOk : outputState === "waiting" ? S.dotWait : S.dotOff;
 
-	// Plain container, not S.root: this view is already nested inside the
-	// panel root, and doubling the root padding made the view toggle jump.
 	return (
-		<div>
-			<div style={V.headerRow}>
-				<span role="status">
-					<span style={{ ...S.dot, ...readyDot, ...V.readyDot }} aria-hidden="true" />
-					<span style={S.statLabel}>NMEA 2000 </span>
-					<span style={S.statValue}>{outputState}</span>
-				</span>
-				<span>
-					<span style={S.statLabel}>Enabled </span>
-					<span style={S.statValue}>
-						{status.enabledCount} / {status.totalConversions}
-					</span>
-				</span>
-				<span>
-					<span style={S.statLabel}>Total emits </span>
-					<span style={S.statValue}>{totalEmits}</span>
-				</span>
-				{errorCount > 0 ? <ErrorBadgeButton count={errorCount} onClick={onErrorClick} /> : null}
-			</div>
+		<Stack gap={4}>
+			<MetricGrid>
+				{/* Not a live region: the toolbar chip carries the same output state
+				    from a region that is mounted before the first poll and stays
+				    mounted whichever view is on screen, so announcing it here as
+				    well would read the same change out twice. */}
+				<Metric
+					label="NMEA 2000"
+					value={OUTPUT_STATE_LABELS[outputState]}
+					tone={OUTPUT_STATE_TONES[outputState]}
+				/>
+				<Metric label="Enabled" value={`${status.enabledCount} / ${status.totalConversions}`} />
+				<Metric label="Total emits" value={totalEmits} />
+			</MetricGrid>
+			{errorCount > 0 ? (
+				<Cluster>
+					<ErrorBadgeButton count={errorCount} onClick={onErrorClick} />
+				</Cluster>
+			) : null}
 
 			{!running ? (
-				<p style={V.emptyText}>
+				<Text as="p" tone="muted">
 					The plugin is not running. Enable it in the Signal K plugin list if it is disabled. If it
 					is already enabled, check the plugin and server logs for its startup error.
-				</p>
+				</Text>
 			) : enabledRows.length === 0 ? (
-				<p style={V.emptyText}>
+				<Text as="p" tone="muted">
 					No conversions enabled. Enable conversions in the Configure view to see live output here.
-				</p>
+				</Text>
 			) : (
-				<section
-					style={T.wrap}
-					// biome-ignore lint/a11y/noNoninteractiveTabindex: the horizontally scrollable table region must be keyboard focusable.
-					tabIndex={0}
-					aria-label="Conversion runtime status table"
-				>
-					<table style={T.table}>
+				<TableScrollRegion aria-labelledby={STATUS_CAPTION_ID}>
+					<Table caption={<span id={STATUS_CAPTION_ID}>Conversion runtime status</span>} zebra>
 						<thead>
-							<tr style={T.headRow}>
-								<th scope="col" style={V.headCell}>
-									Conversion
-								</th>
-								<th scope="col" style={V.headCell}>
-									PGNs
-								</th>
-								<th scope="col" style={{ ...V.headCell, textAlign: "right" }}>
-									Inputs
-								</th>
-								<th scope="col" style={{ ...V.headCell, textAlign: "right" }}>
-									Emits
-								</th>
-								<th scope="col" style={V.headCell}>
-									Last emit
-								</th>
-								<th scope="col" style={V.headCell}>
-									Status
-								</th>
+							<tr>
+								<TableHeaderCell>Conversion</TableHeaderCell>
+								<TableHeaderCell>PGNs</TableHeaderCell>
+								<TableHeaderCell numeric>Inputs</TableHeaderCell>
+								<TableHeaderCell numeric>Emits</TableHeaderCell>
+								<TableHeaderCell>Last emit</TableHeaderCell>
+								<TableHeaderCell>Status</TableHeaderCell>
 							</tr>
 						</thead>
 						<tbody>
-							{displayRows.map((row) => {
+							{displayRows.map(({ row, parentTitle }) => {
 								const recency =
-									row.emitCount > 0
-										? formatRelativeAge(row.lastEmitMs, RELATIVE_AGE_FORMAT)
-										: "no recent output";
+									row.emitCount > 0 ? formatRelativeAge(row.lastEmitMs) : "no recent output";
 								const health = conversionHealth(row);
-								const isChild = row.parentKey !== undefined;
+								const waitingForBus = !status.nmea2000Ready && (row.inputCount ?? 0) > 0;
 								return (
 									<tr key={row.key}>
-										<td style={isChild ? V.childCell : V.cell}>
-											{isChild ? `Mapping row ${(row.mappingIndex ?? 0) + 1}` : row.title}
-											{isChild && (row.inputPaths?.length ?? 0) > 0 ? (
-												<div style={V.inputPaths}>{row.inputPaths?.join(", ")}</div>
-											) : null}
-										</td>
-										<td style={V.pgnCell}>{pgnsFor(row, metaByKey) || "-"}</td>
-										<td style={V.numberCell}>{row.inputCount ?? 0}</td>
-										<td style={V.numberCell}>{row.emitCount}</td>
-										<td style={V.cell}>
-											{row.emitCount > 0 ? recency : <span style={S.textFaint}>{recency}</span>}
-										</td>
-										<td style={V.cell}>
+										<TableHeaderCell scope="row">
+											{parentTitle !== null ? (
+												<div style={C.childRow}>
+													<VisuallyHidden>Under {parentTitle}: </VisuallyHidden>
+													Mapping row {(row.mappingIndex ?? 0) + 1}
+													{(row.inputPaths?.length ?? 0) > 0 ? (
+														<div>
+															<Code>{row.inputPaths?.join(", ")}</Code>
+														</div>
+													) : null}
+												</div>
+											) : (
+												row.title
+											)}
+										</TableHeaderCell>
+										<TableCell>
+											<Text tone="muted">{pgnsFor(row, metaByKey) || "-"}</Text>
+										</TableCell>
+										<TableCell numeric>{row.inputCount ?? 0}</TableCell>
+										<TableCell numeric>{row.emitCount}</TableCell>
+										<TableCell>
+											{row.emitCount > 0 ? recency : <Text tone="muted">{recency}</Text>}
+										</TableCell>
+										<TableCell>
 											{row.lastErrorMessage ? (
-												<span style={S.textDanger}>
-													<span aria-hidden="true">⚠ </span>
+												<StatusIndicator tone="danger">
 													{row.lastErrorMessage}
 													{row.lastErrorAgeMs !== undefined
-														? ` (${formatRelativeAge(row.lastErrorAgeMs, RELATIVE_AGE_FORMAT)})`
+														? ` (${formatRelativeAge(row.lastErrorAgeMs)})`
 														: ""}
-												</span>
+												</StatusIndicator>
 											) : (
-												<span style={health.state === "emitting" ? S.textFaint : S.textWarning}>
-													{!status.nmea2000Ready && (row.inputCount ?? 0) > 0
-														? "Waiting for NMEA 2000 output"
-														: health.label}
-												</span>
+												<StatusIndicator
+													tone={
+														health.state === "emitting" && !waitingForBus ? "success" : "warning"
+													}
+												>
+													{waitingForBus ? "Waiting for NMEA 2000 output" : health.label}
+												</StatusIndicator>
 											)}
-										</td>
+										</TableCell>
 									</tr>
 								);
 							})}
 						</tbody>
-					</table>
-				</section>
+					</Table>
+				</TableScrollRegion>
 			)}
-		</div>
+		</Stack>
 	);
 }
+
+/**
+ * The read-only live-emit view behind the Status toggle. Memoized because it
+ * stays mounted while the Configure view is on screen, so without it every
+ * keystroke there re-ran the row grouping and re-rendered the whole table.
+ */
+function StatusView(props: Props): React.ReactElement {
+	return (
+		<Section title="Runtime status">
+			{props.status ? (
+				<LoadedStatus {...props} status={props.status} />
+			) : (
+				// Visible only. This renders in the panel's first commit, so there is
+				// nothing for a live region to interrupt, and the toolbar chip is
+				// what announces the poll landing.
+				<StatusIndicator>Loading status...</StatusIndicator>
+			)}
+		</Section>
+	);
+}
+
+export default memo(StatusView);

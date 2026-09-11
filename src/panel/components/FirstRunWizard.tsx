@@ -1,6 +1,15 @@
 import type * as React from "react";
-import { useEffect, useMemo, useState } from "react";
-import { Banner, Button, Checkbox } from "signalk-nearlcrews-ui";
+import { useEffect, useId, useMemo, useState } from "react";
+import {
+	Banner,
+	Button,
+	LiveRegion,
+	Section,
+	Stack,
+	StatusIndicator,
+	Text,
+} from "signalk-nearlcrews-ui";
+import { CheckboxGroup } from "signalk-nearlcrews-ui/composites";
 import { Dialog } from "signalk-nearlcrews-ui/overlays";
 import type { ConversionMetadata, PathsResponse } from "../../api/types.js";
 import { CategoryLabels, groupByCategory, type PresetTag } from "../../config/enums.js";
@@ -10,8 +19,6 @@ import type { PathInventory } from "../../recommendation/types.js";
 import { errMessage } from "../../utils/errorUtils.js";
 import { fetchJson, isAbortError } from "../api-base";
 import { plural } from "../recency";
-import { S } from "../styles";
-import { WIZARD_STYLES as W } from "../wizardStyles";
 import PresetChips from "./PresetChips";
 
 interface Props {
@@ -48,13 +55,14 @@ export default function FirstRunWizard({
 	onApplyPreset,
 	onClose,
 }: Props): React.ReactElement {
+	const applyHintId = useId();
 	const [paths, setPaths] = useState<string[] | null>(null);
 	const [loadError, setLoadError] = useState<string | null>(null);
 	// Unchecked-by-the-user overrides; every proposed conversion is checked
 	// unless overridden, so no state sync with the proposal list is needed.
 	const [overrides, setOverrides] = useState<Record<string, boolean>>({});
 	// Footer hint, updated after an Apply or a preset-chip apply so the
-	// role="status" region reflects what just happened.
+	// status region reflects what just happened.
 	const [hint, setHint] = useState<string | null>(null);
 
 	useEffect(() => {
@@ -97,7 +105,8 @@ export default function FirstRunWizard({
 	}, [paths, meta, config.conversions]);
 	const grouped = useMemo(() => groupByCategory(proposed), [proposed]);
 
-	const checkedKeys = proposed.filter((m) => overrides[m.key] ?? true).map((m) => m.key);
+	const isChecked = (key: string): boolean => overrides[key] ?? true;
+	const checkedKeys = proposed.filter((m) => isChecked(m.key)).map((m) => m.key);
 
 	const handleApply = (): void => {
 		if (checkedKeys.length > 0) onEnableKeys(checkedKeys);
@@ -105,6 +114,24 @@ export default function FirstRunWizard({
 	};
 
 	const scanning = paths === null && loadError === null;
+	// The scan is the wizard's opening act and it finishes without any control
+	// changing, so the chip that reports it has to be there before the result
+	// is. It stays mounted and its text changes; a failed scan says nothing
+	// here, because the assertive region below interrupts with that instead.
+	const scanStatus = scanning
+		? "Scanning live Signal K paths..."
+		: loadError !== null
+			? ""
+			: `${plural(proposed.length, "conversion")} proposed from the live path scan.`;
+	// Why Apply is blocked, stated where the button can point at it. A natively
+	// disabled button is skipped by keyboard, so the reason would otherwise be
+	// unreachable from the control it explains.
+	const applyBlockedReason =
+		checkedKeys.length > 0
+			? null
+			: proposed.length === 0
+				? "No conversions were proposed, so there is nothing to apply."
+				: "Check at least one conversion to apply it.";
 
 	return (
 		<Dialog
@@ -117,60 +144,79 @@ export default function FirstRunWizard({
 			description="This scans the Signal K paths your boat is publishing right now and proposes the not-yet-enabled conversions that have live data. Review the pre-checked list, then Apply to stage them. Nothing is sent to Signal K until you Save in the main panel."
 			actions={
 				<>
-					<Button variant="primary" onClick={handleApply} disabled={checkedKeys.length === 0}>
-						Apply {checkedKeys.length > 0 ? `(${checkedKeys.length})` : ""}
+					<Button
+						variant="primary"
+						onClick={handleApply}
+						ariaDisabled={applyBlockedReason !== null}
+						aria-describedby={applyBlockedReason === null ? undefined : applyHintId}
+					>
+						Apply{checkedKeys.length > 0 ? ` (${checkedKeys.length})` : ""}
 					</Button>
 					<Button onClick={onClose}>Close</Button>
 				</>
 			}
 		>
-			{scanning ? <p style={S.loadingText}>Scanning live Signal K paths...</p> : null}
+			<Stack gap={4}>
+				<StatusIndicator live="polite">{scanStatus}</StatusIndicator>
 
-			{loadError ? (
-				<Banner live="assertive" title="Live path scan failed" tone="danger">
-					{loadError}. You can still apply a preset below.
-				</Banner>
-			) : null}
+				{/* Mounted before any message so a screen reader observes the text
+				    change rather than the region appearing with it. */}
+				<LiveRegion
+					live="assertive"
+					message={loadError ? `Live path scan failed: ${loadError}.` : ""}
+				/>
+				{loadError ? (
+					<Banner title="Live path scan failed" tone="danger">
+						{loadError}. You can still apply a preset below.
+					</Banner>
+				) : null}
 
-			{paths !== null && grouped.length === 0 && !loadError ? (
-				<p style={S.helpHint}>
-					No new conversions matched live data; conversions already enabled are not listed. Apply a
-					preset below, or close this wizard and enable conversions manually.
-				</p>
-			) : null}
+				{paths !== null && grouped.length === 0 && !loadError ? (
+					<Text as="p" tone="muted" size="sm">
+						No new conversions matched live data; conversions already enabled are not listed. Apply
+						a preset below, or close this wizard and enable conversions manually.
+					</Text>
+				) : null}
 
-			{grouped.map((g) => (
-				<div key={g.cat} style={W.group}>
-					<h3 style={W.groupTitle}>{CategoryLabels[g.cat]}</h3>
-					{g.list.map((m) => (
-						<Checkbox
-							key={m.key}
-							label={m.title}
-							checked={overrides[m.key] ?? true}
-							onChange={(e) =>
-								setOverrides((c) => ({
-									...c,
-									[m.key]: e.target.checked,
-								}))
-							}
-						/>
-					))}
-				</div>
-			))}
+				{grouped.map((g) => (
+					<CheckboxGroup
+						key={g.cat}
+						legend={CategoryLabels[g.cat]}
+						layout="stack"
+						options={g.list.map((m) => ({ value: m.key, label: m.title }))}
+						value={g.list.filter((m) => isChecked(m.key)).map((m) => m.key)}
+						onValueChange={(values) => {
+							const selected = new Set(values);
+							setOverrides((current) => {
+								const next = { ...current };
+								for (const m of g.list) next[m.key] = selected.has(m.key);
+								return next;
+							});
+						}}
+					/>
+				))}
 
-			<h3 style={W.subhead}>Or apply a preset now</h3>
-			<p style={S.helpHint}>
-				Preset chips stage their conversions the moment you tap one; there is no separate Apply
-				step.
-			</p>
-			{/* Preset chips show their own "Enabled N conversions, not yet
-			    sent to Signal K." confirmation, so a chip tap does not also rewrite the
-			    status hint below. */}
-			<PresetChips onApply={onApplyPreset} meta={meta} />
+				<Section
+					title="Or apply a preset now"
+					headingLevel={3}
+					landmark={false}
+					description="Preset chips stage their conversions the moment you tap one; there is no separate Apply step."
+				>
+					{/* Preset chips show their own "Enabled N conversions, not yet
+					    sent to Signal K." confirmation, so a chip tap does not also
+					    rewrite the status hint below. */}
+					<PresetChips onApply={onApplyPreset} meta={meta} />
+				</Section>
 
-			<p style={W.footerHint} role="status">
-				{hint ?? `Apply stages your selection; preset chips stage instantly. ${REVIEW_THEN_SAVE}`}
-			</p>
+				{applyBlockedReason === null ? null : (
+					<Text as="p" id={applyHintId} tone="muted" size="sm">
+						{applyBlockedReason}
+					</Text>
+				)}
+				<StatusIndicator live="polite">
+					{hint ?? `Apply stages your selection; preset chips stage instantly. ${REVIEW_THEN_SAVE}`}
+				</StatusIndicator>
+			</Stack>
 		</Dialog>
 	);
 }

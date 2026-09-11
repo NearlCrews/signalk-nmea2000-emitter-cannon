@@ -1,10 +1,16 @@
 import type * as React from "react";
-import InstanceMappingEditor from "./InstanceMappingEditor";
+import { extraRows } from "./extraRows";
+import MappingTable, { instanceIdColumn, signalkIdColumn } from "./MappingTable";
 
 // signalkId is the final segment of the SK battery key (e.g. "house",
 // "starter", "0") under electrical.batteries.<id>, not the full SK path.
 // Tank rows by contrast use the full SK path because tanks.<type>.<id> is
 // not a single identifier. Do not rename this to signalkPath.
+interface Row {
+	signalkId: string;
+	instanceId: number;
+}
+
 interface Props {
 	value: Record<string, unknown>;
 	onChange: (next: Record<string, unknown>) => void;
@@ -16,33 +22,40 @@ export default function BatteryMappingEditor({
 	onChange,
 	availablePaths,
 }: Props): React.ReactElement {
+	const { rows, setRows } = extraRows<Row>(value, "batteries", onChange);
 	return (
-		<InstanceMappingEditor
-			value={value}
-			onChange={onChange}
-			availablePaths={availablePaths}
-			pathPrefix="electrical.batteries"
-			storageKey="batteries"
-			collection="batteries"
+		<MappingTable<Row>
 			title="Battery mapping"
+			collection="batteries"
 			helpText="Enter only the instance id between electrical.batteries and the measurement name. For electrical.batteries.258-second.voltage, enter 258-second."
-			idHeader="Signal K battery id"
-			idPlaceholder="house, starter, 258-second"
-			instanceHeader="NMEA 2000 instance"
-			instanceAriaLabel="NMEA 2000 battery instance"
-			requiredInput={{
-				label: "at least one battery measurement",
-				alternatives: [
-					["voltage"],
-					["current"],
-					["temperature"],
-					["capacity.stateOfCharge"],
-					["capacity.timeRemaining"],
-					["capacity.remaining"],
-					["capacity.actual"],
-					["capacity.stateOfHealth"],
-				],
-			}}
+			rows={rows}
+			available={availablePaths}
+			emptyRow={() => ({ signalkId: "", instanceId: 0 })}
+			onChange={setRows}
+			columns={[
+				signalkIdColumn<Row>({
+					header: "Signal K battery id",
+					placeholder: "house, starter, 258-second",
+					pathPrefix: "electrical.batteries",
+					requiredInput: () => ({
+						label: "at least one battery measurement",
+						alternatives: [
+							["voltage"],
+							["current"],
+							["temperature"],
+							["capacity.stateOfCharge"],
+							["capacity.timeRemaining"],
+							["capacity.remaining"],
+							["capacity.actual"],
+							["capacity.stateOfHealth"],
+						],
+					}),
+				}),
+				instanceIdColumn<Row>({
+					header: "NMEA 2000 instance",
+					ariaLabel: "NMEA 2000 battery instance",
+				}),
+			]}
 		/>
 	);
 }

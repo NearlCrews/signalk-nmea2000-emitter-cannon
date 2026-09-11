@@ -1,6 +1,5 @@
-import { formatRelativeAge } from "signalk-nearlcrews-ui";
+import { formatRelativeAge, RELATIVE_AGE_NARROW } from "signalk-nearlcrews-ui";
 import type { PerConversionStatus } from "../api/types.js";
-import { RELATIVE_AGE_FORMAT } from "./recency";
 
 export type RailState = "emitting" | "silent" | "error" | "disabled";
 
@@ -60,7 +59,10 @@ export function conversionHealth(status: PerConversionStatus | undefined): {
  * text still reports the emit count, so an erroring-yet-emitting conversion
  * reads as both. An enabled conversion never has a blank recency: a quiet one
  * reads "no recent output", which is the load-bearing emitting-versus-silent
- * cue in the night theme where the rail hue cannot carry it.
+ * cue in the night theme where the rail hue cannot carry it. The age uses the
+ * compact wording: an actively emitting conversion emits faster than the three
+ * second status poll, so the long form reads "last now", and the dense row
+ * ellipsizes "3 seconds ago" to nothing at phone widths.
  */
 export function rowStatus(status: PerConversionStatus | undefined, enabled: boolean): RowStatus {
 	const health = conversionHealth(status);
@@ -73,7 +75,7 @@ export function rowStatus(status: PerConversionStatus | undefined, enabled: bool
 				: "disabled";
 	let recency: string | null = null;
 	if (health.state === "emitting" && status && status.emitCount > 0) {
-		recency = `${status.emitCount} emits, last ${formatRelativeAge(status.lastEmitMs, RELATIVE_AGE_FORMAT)}`;
+		recency = `${status.emitCount} emits, last ${formatRelativeAge(status.lastEmitMs, RELATIVE_AGE_NARROW)}`;
 	} else if (enabled) {
 		recency = health.label.toLowerCase();
 	}

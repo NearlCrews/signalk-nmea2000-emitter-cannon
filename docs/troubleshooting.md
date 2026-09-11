@@ -45,6 +45,77 @@ The conversion row and Status view narrow this down further:
   each mapping row and each path's last-seen age. The NMEA 2000 readiness
   indicator must be ready for output to reach the bus.
 
+## The plugin reports that NMEA 2000 output has no listener
+
+The plugin status reads "NMEA 2000 output has no listener: the last 20 PGN
+writes were not delivered." Nothing the plugin emits is reaching the bus.
+
+Signal K's NMEA 2000 output is an event the plugin writes to, and the server
+tells it whether anything was listening. Twenty consecutive writes with no
+listener, a couple of seconds of continuous failure at a typical emit rate,
+raise this error. A provider restarting tears the listener down and rebuilds it,
+which is too brief to trip it.
+
+Open **Server, then Connections** and confirm an NMEA 2000 connection exists, is
+enabled, and is running. A connection that was disabled or deleted after the
+plugin started is the usual cause: the server reports output as available only
+once and never withdraws it, so without this check the plugin would keep
+reporting "Running". The error clears by itself on the first delivered write.
+
+## A value is visible in Signal K but its field is blank on the display
+
+The plugin drops a value that cannot be represented in its NMEA 2000 field
+rather than letting it wrap into a different, believable number. A blank field
+usually means the published value is outside what the wire can carry, and the
+most common reason is a unit mismatch at the source.
+
+Signal K is an SI data model. Check that the publisher sends:
+
+- temperatures in kelvin, not Celsius,
+- currents in amperes, not milliamperes,
+- voltages in volts,
+- pressures in pascals,
+- ratios such as state of charge, state of health, engine load, engine torque,
+  and trim state as a fraction from 0 to 1, not a percentage,
+- fuel volumes in cubic meters and fuel rates in cubic meters per second,
+- speeds in meters per second,
+- depth and heave in meters, not millimeters,
+- engine revolutions in hertz, not RPM,
+- rate of turn in radians per second, not degrees per minute,
+- angles in radians, not degrees, and
+- the magnetic variation age of service in epoch seconds, not milliseconds.
+
+A wrong reading that is still in range is not caught, and will not go blank.
+The plugin bounds a value against what the field can carry; it does not know
+what unit a publisher used. A battery temperature published as +20 Celsius
+encodes as 20 kelvin and renders on the display as -253 C, because 20 is a
+perfectly legal value in that field. Only the out-of-range half of a unit
+mistake shows up as a blank, so a reading that is present but absurd points at
+the same checklist above.
+
+One blank field is not a unit mistake. Signal K permits a negative
+`propulsion.<id>.revolutions` for a shaft turning astern, and the NMEA 2000
+engine speed field is unsigned, so it cannot carry one. Engine speed is left
+not-available while the shaft turns astern, and boost pressure and trim state
+still ride the same frame. Nothing is wrong with the installation.
+
+An angle is the exception to the blank field. Because an angle is circular,
+a heading, attitude, variation, or leeway value outside the field range wraps
+to the same direction rather than being dropped, so a unit mistake there shows
+as a wrong direction rather than a missing one. A leeway published in degrees
+is the clearest case: a small crab to starboard renders as a large one to
+port.
+
+A rated engine speed typed into a mapping editor is validated in the panel and
+reports its ceiling. Every other case is a publisher-side fix: correct the units
+at the source, or put `signalk-synthetic-values` or another transform in front
+of the conversion.
+
+The conversion row does not always flag this. A dropped field usually leaves the
+rest of the frame intact, so the row keeps reading **Emitting** while the one
+field stays blank on the display. The row reads **Input received; no encodable
+output** only when nothing in the frame survives.
+
 ## A Signal K path was entered as the publisher, and the conversion is silent
 
 The input path and publisher are different Signal K concepts. The conversion's

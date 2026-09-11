@@ -2,6 +2,7 @@ const path = require("node:path");
 const MinimizerPlugin = require("minimizer-webpack-plugin");
 const webpack = require("webpack");
 const pkg = require("./package.json");
+const { shared } = require("signalk-nearlcrews-ui/federation");
 
 const safeName = pkg.name.replace(/[-@/]/g, "_");
 
@@ -70,26 +71,11 @@ module.exports = {
 			exposes: {
 				"./PluginConfigurationPanel": "./src/panel/PluginConfigurationPanel",
 			},
-			shared: {
-				// React and React DOM are supplied by Signal K Admin. The shared UI
-				// package remains bundled in this remote and must not be added to the
-				// share map. Never set strictVersion on these shares: the Admin
-				// registers them with a hardcoded 19.0.0 while actually shipping a
-				// newer React (2.24.0 bundles 19.2.4), so a strict ^19.2.0 check
-				// rejects a fully compatible host and, with import: false, the panel
-				// never mounts there. The version-range warning on such hosts is
-				// expected and harmless.
-				react: {
-					singleton: true,
-					requiredVersion: "^19.2.0",
-					import: false,
-				},
-				"react-dom": {
-					singleton: true,
-					requiredVersion: "^19.2.0",
-					import: false,
-				},
-			},
+			// React and React DOM are supplied by Signal K Admin. The shared UI
+			// package publishes the share map it was verified with, including the
+			// reason the shares are non-strict singletons (read `hostNotes` from
+			// the same entry). The shared UI itself stays bundled in this remote.
+			shared,
 		}),
 	],
 };

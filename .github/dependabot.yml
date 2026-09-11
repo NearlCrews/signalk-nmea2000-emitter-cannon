@@ -9,6 +9,12 @@ updates:
       default-days: 7
     open-pull-requests-limit: 10
     groups:
+      # The shared panel library ships breaking changes in 0.x minors and is
+      # pinned exactly, so its bump must arrive alone with the migration notes
+      # open rather than buried in the weekly development batch.
+      signalk-nearlcrews-ui:
+        patterns:
+          - "signalk-nearlcrews-ui"
       dev-dependencies:
         dependency-type: development
         update-types:

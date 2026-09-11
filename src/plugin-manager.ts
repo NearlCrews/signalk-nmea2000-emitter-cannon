@@ -223,6 +223,26 @@ export class PluginManager {
 		options: ConversionOptions;
 	}> = [];
 	private nmea2000Ready = false;
+	/**
+	 * False once a run of consecutive `nmea2000JsonOut` writes came back with no
+	 * listener attached. signalk-server's wrapped emitter returns false from
+	 * `emit` when nothing is listening for the event, which is what a torn-down
+	 * or disabled NMEA 2000 connection looks like from here. A true value means
+	 * a listener ran, not that the frame reached the physical CAN bus.
+	 */
+	private busWriterAttached = true;
+	private consecutiveUndeliveredWrites = 0;
+	/**
+	 * Consecutive undelivered writes before the plugin reports a detached bus
+	 * writer. A provider restart tears the listener down and rebuilds it, and
+	 * frames emitted inside that window come back undelivered without anything
+	 * being wrong; a typical enabled configuration puts several frames per
+	 * second on the bus, so this run is a couple of seconds of continuous
+	 * failure rather than one blip. A genuinely detached writer never recovers,
+	 * so it trips on the next frames either way. The state clears on the first
+	 * delivered write.
+	 */
+	private static readonly UNDELIVERED_WRITE_RUN = 20;
 	private globalResendInterval = DEFAULT_GLOBAL_RESEND_SECONDS;
 	private configuredOptions: Record<string, ConversionOptions> = {};
 	/** Flipped by stop() so callbacks already in flight leave this manager idle. */
@@ -384,12 +404,10 @@ export class PluginManager {
 		}
 
 		// If start() completed while output was unavailable, refresh the status
-		// now that emission and any deferred identity messages are active.
-		if (this.lastConfigurationErrorCount > 0) {
-			this.setConfigurationErrorStatus();
-		} else if (this.lastEnabledCount > 0) {
-			this.app.setPluginStatus(this.runningStatus(this.lastEnabledCount));
-		}
+		// now that emission and any deferred identity messages are active. The
+		// readiness clause setConfigurationErrorStatus appends is dropped on this
+		// re-emit because nmea2000Ready is already true above.
+		this.refreshSteadyStateStatus();
 	}
 
 	private moduleLabel(conversion: ConversionModule): string {
@@ -418,8 +436,15 @@ export class PluginManager {
 	private setConfigurationErrorStatus(): void {
 		const errorNoun = this.lastConfigurationErrorCount === 1 ? "conversion" : "conversions";
 		const wiredNoun = this.lastEnabledCount === 1 ? "conversion is" : "conversions are";
+		// The status ladder in start() is exclusive, so a configuration error
+		// short-circuits before the waiting-for-output branch. Append the
+		// readiness state here instead: an operator with both problems would
+		// otherwise chase the configuration conflict while nothing at all can
+		// reach the bus. notifyNmea2000Ready re-emits through this method with
+		// nmea2000Ready already true, which drops the clause.
+		const readiness = this.nmea2000Ready ? "" : " NMEA 2000 output is not available yet.";
 		this.app.setPluginError(
-			`Configuration error: ${this.lastConfigurationErrorCount} enabled ${errorNoun} could not be safely wired. ${this.lastEnabledCount} ${wiredNoun} wired.`,
+			`Configuration error: ${this.lastConfigurationErrorCount} enabled ${errorNoun} could not be safely wired. ${this.lastEnabledCount} ${wiredNoun} wired.${readiness}`,
 		);
 	}
 
@@ -707,6 +732,8 @@ export class PluginManager {
 			this.perConversion.clear();
 			this.runtimeStatusDescriptors.clear();
 			this.deferredImmediateRuns = [];
+			this.busWriterAttached = true;
+			this.consecutiveUndeliveredWrites = 0;
 			this.startTime = Date.now();
 			// Sync readiness check via the factory flag (see index.ts): it folds
 			// the registration-time `app.isNmea2000OutAvailable` snapshot together
@@ -1417,7 +1444,10 @@ export class PluginManager {
 					if (debugEnabled) {
 						this.app.debug(`emit nmea2000JsonOut ${formatN2KMessage(validatedPgn)}`);
 					}
-					this.app.emit("nmea2000JsonOut", validatedPgn);
+					// Only an explicit false means no listener was attached. An older
+					// server (or a host that returns nothing) must not be read as a
+					// detached bus writer.
+					this.noteBusWrite(this.app.emit("nmea2000JsonOut", validatedPgn) !== false);
 					emitted++;
 					// An emit listener can synchronously stop this manager. Count the
 					// frame that physically emitted, but do not recreate runtime status
@@ -1439,6 +1469,51 @@ export class PluginManager {
 				this.processBucketKey(optionKey),
 				`Error processing N2K values: ${errMessage(err)}`,
 			);
+		}
+	}
+
+	/**
+	 * Track whether `nmea2000JsonOut` still has a listener. Called once per
+	 * emit, so the delivered path is a compare and a store and the undelivered
+	 * path is one increment; nothing allocates.
+	 *
+	 * A detached writer is otherwise invisible: signalk-server sets
+	 * `isNmea2000OutAvailable` once and never resets it, and the plugin latches
+	 * its own readiness the same way, so disabling the NMEA 2000 connection
+	 * leaves the status reading "Running" while every frame goes nowhere.
+	 */
+	private noteBusWrite(delivered: boolean): void {
+		// An emit listener can synchronously stop this manager. Leave the status
+		// stop() just cleared alone; start() resets this bookkeeping anyway.
+		if (this.stopped) return;
+		if (delivered) {
+			this.consecutiveUndeliveredWrites = 0;
+			if (!this.busWriterAttached) {
+				this.busWriterAttached = true;
+				this.refreshSteadyStateStatus();
+			}
+			return;
+		}
+		if (!this.busWriterAttached) return;
+		this.consecutiveUndeliveredWrites++;
+		if (this.consecutiveUndeliveredWrites < PluginManager.UNDELIVERED_WRITE_RUN) return;
+		this.busWriterAttached = false;
+		this.app.setPluginError(
+			`NMEA 2000 output has no listener: the last ${PluginManager.UNDELIVERED_WRITE_RUN} PGN writes were not delivered. Check that an NMEA 2000 connection is enabled and running under Server, Connections.`,
+		);
+	}
+
+	/**
+	 * Restore the plugin status a late readiness event or a recovered bus
+	 * writer should show. Only reached once emission is possible and at least
+	 * one conversion is wired, so the waiting and nothing-enabled forms that
+	 * start() can report do not apply here.
+	 */
+	private refreshSteadyStateStatus(): void {
+		if (this.lastConfigurationErrorCount > 0) {
+			this.setConfigurationErrorStatus();
+		} else if (this.lastEnabledCount > 0) {
+			this.app.setPluginStatus(this.runningStatus(this.lastEnabledCount));
 		}
 	}
 
@@ -1618,6 +1693,7 @@ export class PluginManager {
 		return {
 			pluginRunning: this.running,
 			nmea2000Ready: this.nmea2000Ready,
+			busWriterAttached: this.busWriterAttached,
 			enabledCount: this.lastEnabledCount,
 			totalConversions: this.conversions.length,
 			perConversion,

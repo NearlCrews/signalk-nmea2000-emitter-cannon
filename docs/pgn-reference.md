@@ -152,10 +152,10 @@ support and prerequisites for the chartplotter model and firmware in use.
 
 | PGN | Description | Module | Status |
 | -------- | ------------- | -------- | -------- |
-| 130306 | Wind Data (apparent, true ground, true water, weather-forecast apparent, and model-specific Garmin forecast compatibility) | `wind.ts`, `windTrueGround.ts`, `windTrueWater.ts`, `windWeatherApparent.ts`, `windWeatherTrue.ts` | Current |
+| 130306 | Wind Data (apparent, true ground, true water, weather-forecast apparent, and model-specific Garmin forecast compatibility) | `wind.ts`, `windTrueGround.ts`, `windTrueWater.ts`, `windWeatherApparent.ts`, `windWeatherTrue.ts`, `windData.ts` | Current |
 | 130310 | Environmental Parameters (obsolete) | `seaTemp.ts` | Obsolete, retained for compatible legacy instruments |
 | 130311 | Environmental Parameters (temperature, humidity, and pressure) | `environmentParameters.ts` | Deprecated, retained for Raymarine i70 and i70s compatibility |
-| 130312 | Temperature (exhaust + general-purpose sources) | `engineParameters.ts`, `temperature.ts` | Deprecated, replaced by 130316 |
+| 130312 | Temperature (exhaust and general-purpose sources) | `engineParameters.ts`, `temperature.ts` | Deprecated, replaced by 130316 |
 | 130313 | Humidity (inside/outside) | `humidity.ts` | Current |
 | 130314 | Actual Pressure (atmospheric) | `pressure.ts` | Current |
 | 130316 | Temperature, Extended Range | `temperature.ts` | Current (preferred by modern Garmin) |
@@ -247,24 +247,25 @@ conflicting forecast producers if a manually edited configuration mixes them.
 | 127503 | AC Input Status | `acStatus.ts` | Deprecated, retained for compatible receivers |
 | 127504 | AC Output Status | `acStatus.ts` | Deprecated, retained for compatible receivers |
 | 127505 | Fluid/Tank Level | `tanks.ts` | Current |
-| 127506 | DC Detailed Status (state of charge) | `battery.ts`, `solar.ts` | Current |
+| 127506 | DC Detailed Status (state of charge) | `battery.ts` | Current |
 | 127507 | Charger Status | `chargerStatus.ts` | Deprecated, retained for compatible receivers |
 | 127508 | Battery Status (voltage/current) | `battery.ts`, `solar.ts` | Current |
 | 127509 | Inverter Status | `inverterStatus.ts` | Deprecated, retained for compatible receivers |
 
 The NMEA 3.002 Network Message Database marks PGNs 127503, 127504, 127507, and
-127509 deprecated. They
-remain available because current Garmin ECHOMAP UHD2 and B&G Zeus S receive
-lists still include them, while the newer electrical PGN families are not yet
-complete in the bundled Canboat database. Enable them only when the receiving
-equipment requires them.
+127509 deprecated. They remain available because current Garmin ECHOMAP UHD2 and
+B&G Zeus S receive lists still include them, while the newer electrical PGN
+families are not yet complete in the bundled Canboat database. Enable them only
+when the receiving equipment requires them.
 
-The `BATTERY` and `SOLAR` modules emit both PGN 127506 and PGN 127508 by
-design. Current ECHOMAP UHD2 documentation lists both PGNs as received, while
-older Garmin models and other vendors vary. PGN 127508 carries voltage,
-current, and temperature. PGN 127506 carries state-of-charge,
-state-of-health, and time-remaining. Leave both enabled unless the exact
-receiving device documentation says otherwise.
+The `BATTERY` module emits both PGN 127506 and PGN 127508 by design. Current
+ECHOMAP UHD2 documentation lists both PGNs as received, while older Garmin
+models and other vendors vary. PGN 127508 carries voltage, current, and
+temperature. PGN 127506 carries state-of-charge, state-of-health, and
+time-remaining. Leave both `BATTERY` PGNs enabled unless the exact receiving
+device documentation says otherwise. `SOLAR` emits PGN 127508 only, one frame
+for the charger instance and one for the panel instance; it has no
+state-of-charge frame.
 
 `AC_STATUS` maps `electrical.ac.<id>.phase.<single|A|B|C>` to input or output
 status. Input rows require an explicit acceptability setting because PGN

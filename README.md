@@ -16,15 +16,64 @@ reviewed against model-specific chartplotter receive lists.
 > Built on the foundation of [`signalk-to-nmea2000`](https://github.com/SignalK/signalk-to-nmea2000)
 > by Scott Bender and the Signal K community.
 
-## What's new in 1.10.9
+## What's new in 1.11.0
 
-- **The configuration panel loads again on Signal K 2.24.x hosts.** Those hosts
-  report an understated React version for the shares the Admin provides, and a
-  strict version check added in 1.10.8 rejected them even though the React they
-  actually ship is compatible, so the panel never mounted there. The check is
-  removed.
+- **A direction a hair short of north is no longer dropped by the receiver.**
+  A value in the last 0.002 degrees below a full turn rounded past the ceiling
+  the receiving display enforces, so the display discarded the field: a compass
+  reading 359.999 degrees arrived as heading not available rather than as
+  north. It now clamps, moving the reading by at most 0.005 degrees. This
+  covers heading, course over ground, set, wind angle, the waypoint bearings,
+  and satellite azimuth. It is the one fix here that corrects a dropout on
+  correctly configured hardware.
+- **A reading that cannot fit its NMEA 2000 field no longer arrives as a
+  believable wrong number.** A wrapped value is worse than a missing one: the
+  receiving display has no way to tell it is wrong. Attitude, compass, and
+  leeway angles now wrap to the direction the wire can carry instead of
+  truncating to a different one, and an out-of-range rate of turn, heave,
+  rudder angle, depth, battery, solar, engine, transmission, or speed value is
+  left as not-available. A starboard turn no longer reaches the autopilot as a
+  port turn, a vessel dropping into a trough is no longer reported as rising, a
+  93 percent battery no longer reads as 84 percent, a shaft turning astern no
+  longer reports 14584 RPM, a shunt publishing milliamperes no longer turns a
+  23 A charge into a 3114 A discharge with no time remaining, and 700 m/s
+  through the water no longer reads as a believable 87 knots. A reading that
+  goes blank after this upgrade is one of these: the publisher is sending
+  something the field cannot carry, and the troubleshooting guide in the
+  repository's docs directory has the unit checklist. These guards catch a
+  value that wraps, not every unit mistake, so a wrong reading that still fits
+  its field is unchanged.
+- **The plugin tells you when NMEA 2000 output has no listener.** A disabled or
+  torn-down NMEA 2000 connection used to leave the status on "Running" while
+  every frame went nowhere. After a short run of undelivered writes the plugin
+  raises an error naming Server, Connections, and clears it as soon as one
+  frame gets through.
+- **A scheduled Config Advisor review runs only while the advisor is on.**
+  Switching the advisor off used to leave a saved review schedule armed, and a
+  scheduled review can enable conversions by itself, so an installation that
+  had tried the advisor and then switched it off could start transmitting PGNs
+  nobody approved with no one at the panel. A review set to use QuestDB history
+  but with no usable URL now says so instead of quietly reporting on live data
+  only.
+- **A configuration panel that keeps up with typing, on one shared component
+  set.** The runtime status table no longer re-renders behind the Configure
+  view on every keystroke, and a mapping table builds each column's path
+  suggestions once per render instead of once per cell, so editing a large
+  table stays responsive. The category tabs, the collapsible sections, the
+  setup wizard, the mapping tables, every number field, and the Save and
+  Discard footer now come from the shared `signalk-nearlcrews-ui` library. The
+  configure view has a real heading outline from Quick presets through
+  Conversions, status text carries a glyph
+  beside its color rather than relying on hue, removing a mapping-table row
+  asks for confirmation in a labeled region beneath it instead of the Remove
+  button briefly renaming itself, and a render failure offers Try again in
+  place rather than replacing the plugin card with Signal K Admin's generic
+  unavailable notice. A button that removes itself on success now hands
+  keyboard focus to the search box instead of dropping it to the page, three
+  status messages that were never announced now are, and jumping to a
+  validation error honors `prefers-reduced-motion`.
 
-See the [v1.10.9 changelog entry](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/blob/main/CHANGELOG.md#v1109)
+See the [v1.11.0 changelog entry](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/blob/main/CHANGELOG.md#v1110)
 and [full release history](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/blob/main/CHANGELOG.md).
 
 ## What it does
@@ -64,11 +113,12 @@ priorities follow the current stable Canboat 7.1 database. It pairs well with se
   provider or a re-enumerated sensor), with optional QuestDB history
 - **A React configuration panel** with dense one-line conversion rows, a
   single-open inline editor, a compact sticky toolbar carrying catalog search
-  and live status, category tabs with per-category Enable all and Disable all,
-  preset chips, a first-run setup wizard, and shared `signalk-nearlcrews-ui`
-  controls with Auto, System, Light, Dark, and red-preserving Night themes.
-  Auto follows an explicit host theme and otherwise uses Light, while System
-  follows the operating-system color scheme.
+  and live status, category tabs split into Modern and Legacy sections with
+  their own Enable all and Disable all controls, preset chips, a first-run
+  setup wizard, and shared `signalk-nearlcrews-ui` controls with Auto, System,
+  Light, Dark, and red-preserving Night themes. Auto follows an explicit host
+  theme and otherwise uses Light, while System follows the operating-system
+  color scheme.
 - **NMEA 2000 echo guards** that use authoritative source metadata to reject
   known bus-origin input instead of re-emitting it onto the same bus. Unknown
   origins remain compatible, a numeric publisher suffix alone is not treated
@@ -122,26 +172,29 @@ In the Signal K admin UI, open **Server, then Plugin Config**, find
 config panel that the Signal K admin loads via webpack 5 Module Federation.
 The panel has these areas:
 
-1. **Sticky toolbar**: catalog search, a condensed status chip (NMEA 2000
-   output readiness, count of enabled vs total conversions, a stale-poll
-   marker, and a jump-to-error button), the Configure and Status toggle, the
-   theme toggle, and the Setup wizard shortcut. It stays pinned as you scroll.
-2. **Config Advisor** (optional, collapsed by default): reviews the Signal K
+1. **Sticky toolbar**: catalog search, a live status chip carrying the enabled
+   over total count and the NMEA 2000 output readiness, a stale-poll marker and
+   a jump-to-error button beside it, the Configure and Status toggle, the theme
+   toggle, and the Setup wizard shortcut. It stays pinned as you scroll.
+2. **Quick presets** (collapsed by default): Basic navigation, Engine set, Full
+   AIS, Environmental, Raymarine. Click a chip to enable the tagged conversions
+   in one action; presets are additive.
+3. **Config Advisor** (optional, collapsed by default): reviews the Signal K
    paths your boat publishes, recommends which conversions to enable or
    disable, and flags enabled conversions whose pinned `$source` has gone
    stale. Its settings sub-panel covers QuestDB history and a periodic review
    schedule, each control with inline help.
-3. **Preset chips** (collapsed by default): Basic Navigation, Engine Set, Full
-   AIS, Environmental, Raymarine. Click a chip to enable the tagged conversions
-   in one action; presets are additive.
-4. **Global resend interval** (seconds, collapsed by default): default cadence
-   for every conversion whose own resend is 0. Default `5`; set to `0` to
-   disable global resend.
+4. **Global settings** (collapsed by default): the resend interval in seconds,
+   the default cadence for every conversion whose own resend is 0. Default `5`;
+   set to `0` to disable global resend.
 5. **Category tabs** (Navigation, Engine, Electrical, Tanks, Environment, AIS,
-   Comms, System), each listing its conversions as dense one-line rows with
-   per-category Enable all and Disable all controls. The toolbar's catalog
-   search filters by title, PGN number, and Signal K path across all
-   categories.
+   Comms, System). Each category splits its conversions into a Modern section,
+   open by default, and a collapsed Legacy section holding the superseded ones,
+   listed as dense one-line rows. Each section has its own Enable all and
+   Disable all controls, so a bulk action never reaches the legacy conversions
+   unless you open that section. The toolbar's catalog search filters by title,
+   PGN number, and Signal K path across all categories; search results group by
+   category and carry no bulk controls.
 
 Each conversion row shows an enable checkbox, the title and PGN run, an error
 glyph, and a specific live state such as waiting for Signal K input, publisher
@@ -155,12 +208,12 @@ for the measurements each conversion needs, and block Save when an enabled
 mapping is invalid. The inventory refreshes automatically and also provides
 visible Refresh and Retry controls. Optional per-path publisher pins follow the
 mapping in a collapsed **Advanced publisher filters** section. Mapping editors
-cover conversions
-that need explicit Signal K paths, identifiers, NMEA 2000 instances, or field
-options (`BATTERY`, `ENGINE_PARAMETERS`,
-`EXHAUST_TEMPERATURE`, `TANKS`, `SOLAR`, `AC_STATUS`, `CHARGER_STATUS`,
-`INVERTER_STATUS`, `VESSEL_TRIP`, `RAYMARINE_BRIGHTNESS`, `NOTIFICATIONS`,
-`TEMPERATURE_*`).
+cover the conversions that need explicit Signal K paths, identifiers, NMEA 2000
+instances, or field options: `AC_STATUS`, `BATTERY`, `CHARGER_STATUS`,
+`ENGINE_PARAMETERS`, `ENGINE_STATIC`, `ENGINE_TRIP`, `ENVIRONMENT_PARAMETERS`,
+`EXHAUST_TEMPERATURE`, `INVERTER_STATUS`, `NOTIFICATIONS`,
+`RAYMARINE_BRIGHTNESS`, `SOLAR`, `TANKS`, `VESSEL_TRIP`, and every
+`TEMPERATURE_*`, `TEMPERATURE2_*`, and `HUMIDITY_*` conversion.
 
 Signal K paths are schema-defined data identities, not user-facing labels. For
 example, `environment.outside.temperature` is outside air temperature, while
@@ -211,7 +264,7 @@ separately in `devEngines`: Node 22 from 22.22.2, Node 24 from 24.15.0, or Node
 verifies on that toolchain floor and the current Node 24 release rather than on
 the lower runtime floor, because CI installs the full development tree.
 CanboatJS and `@canboat/ts-pgns` are exercised in the test suite and are not
-runtime dependencies. `signalk-nearlcrews-ui` 0.8.2 is bundled into the panel
+runtime dependencies. `signalk-nearlcrews-ui` 0.10.1 is bundled into the panel
 as a pinned development dependency, while React and React DOM `^19.2.0` are
 supplied by Signal K Admin.
 
@@ -219,7 +272,7 @@ supplied by Signal K Admin.
 git clone https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon.git
 cd signalk-nmea2000-emitter-cannon
 npm install
-npm run hooks        # one-time: enable the pre-commit hook
+npm run hooks        # one-time: enable the repository-owned Git hooks
 npm run build        # esbuild plugin bundle plus webpack panel
 npm test             # Vitest suite
 npm run check        # type-check the plugin, the panel, and the tests
@@ -231,7 +284,9 @@ npm run verify       # local full verification gate
 
 The repository-owned pre-commit hook runs formatting, lint, architecture, and
 dead-code gates. The pre-push hook runs `npm run verify` serially. Run
-`npm run verify:release` before preparing a release.
+`npm run verify:release` before preparing a release. `npm run verify` drives
+Chromium and WebKit through Playwright, so run
+`npx playwright install chromium webkit` once after cloning.
 See `docs/development.md` for the full workflow.
 
 ## License
@@ -253,10 +308,16 @@ Emitter Cannon is written and maintained by
 - [Canboat Project](https://github.com/canboat/canboat) for the NMEA 2000
   protocol implementation that the canboatjs encoder is built on
 
-NMEA 2000 Emitter Cannon pairs well with sibling plugins such as
-[`signalk-virtual-weather-sensors`](https://github.com/NearlCrews/signalk-virtual-weather-sensors),
-[`signalk-openrouter-companion`](https://github.com/NearlCrews/signalk-openrouter-companion),
-and [`signalk-crows-nest`](https://github.com/NearlCrews/signalk-crows-nest).
+NMEA 2000 Emitter Cannon pairs well with sibling plugins that feed it Signal K
+data:
+[`signalk-virtual-weather-sensors`](https://github.com/NearlCrews/signalk-virtual-weather-sensors)
+publishes the environment paths the weather conversions read,
+[`signalk-synthetic-values`](https://github.com/NearlCrews/signalk-synthetic-values)
+combines redundant sensors onto one path before a conversion emits it, and
+[`signalk-crows-nest`](https://github.com/NearlCrews/signalk-crows-nest) and
+[`signalk-openrouter-companion`](https://github.com/NearlCrews/signalk-openrouter-companion)
+raise Signal K notifications that the `NOTIFICATIONS` conversion puts on a
+chartplotter's alarm screen.
 
 ## Support
 

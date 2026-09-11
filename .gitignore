@@ -6,8 +6,9 @@ dist/
 public/
 *.tsbuildinfo
 
-# Coverage (Vitest v8 default output)
+# Coverage (Vitest v8 default output) and the Vitest 5 report directory
 coverage/
+.vitest/
 
 # Tool caches
 .cache/
@@ -66,8 +67,10 @@ tmp/
 # Signal K dev install layout (we are usually symlinked from ~/.signalk)
 .signalk/
 
-# npm pack tarball
+# npm pack tarball, and the release artifact directory
+# scripts/create-release-tarball.mjs writes it and publish.yml reads it.
 *.tgz
+artifacts/
 
 # Superpowers brainstorming companion
 .superpowers/

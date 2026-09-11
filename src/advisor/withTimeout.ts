@@ -5,6 +5,14 @@
  * always clears the timer. Used by the advisor's QuestDB client so the
  * controller/timer/clear scaffold lives in one place. Retry and backoff policy
  * stay with each caller.
+ *
+ * Deliberately NOT a `Promise.race` against a rejecting timer. The loser of a
+ * race keeps running, and when the timer arm wins, the request arm rejects
+ * later with nobody attached: that is an unhandled rejection. The reusable
+ * SignalK plugin-ci workflow fails the build on any unhandled rejection within
+ * 1500 ms of `start()` resolving, and the advisor can be armed by `start()`, so
+ * a race here would be a build failure as well as a process-level hazard. Keep
+ * the abort-and-clear shape.
  */
 export async function withTimeout<T>(
 	ms: number,

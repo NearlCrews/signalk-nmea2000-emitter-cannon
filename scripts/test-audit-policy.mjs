@@ -6,54 +6,18 @@ const emptyReport = {
 	vulnerabilities: {},
 };
 
-const allowedReport = {
+const findingReport = {
 	auditReportVersion: 2,
 	vulnerabilities: {
-		"@canboat/canboatjs": {
-			severity: "high",
-			via: ["mqtt"],
-			effects: [],
-			nodes: ["node_modules/@canboat/canboatjs"],
-		},
-		"brace-expansion": {
+		lodash: {
 			severity: "high",
 			via: [
 				{
-					url: "https://github.com/advisories/GHSA-mh99-v99m-4gvg",
+					url: "https://github.com/advisories/GHSA-example",
 				},
 			],
-			effects: ["minimatch"],
-			nodes: ["node_modules/brace-expansion"],
-		},
-		glob: {
-			severity: "high",
-			via: ["minimatch"],
-			effects: ["glob-stream"],
-			nodes: ["node_modules/glob"],
-		},
-		"glob-stream": {
-			severity: "high",
-			via: ["glob"],
-			effects: ["help-me"],
-			nodes: ["node_modules/glob-stream"],
-		},
-		"help-me": {
-			severity: "high",
-			via: ["glob-stream"],
-			effects: ["mqtt"],
-			nodes: ["node_modules/help-me"],
-		},
-		minimatch: {
-			severity: "high",
-			via: ["brace-expansion"],
-			effects: ["glob"],
-			nodes: ["node_modules/glob/node_modules/minimatch"],
-		},
-		mqtt: {
-			severity: "high",
-			via: ["help-me"],
-			effects: ["@canboat/canboatjs"],
-			nodes: ["node_modules/mqtt"],
+			effects: [],
+			nodes: ["node_modules/lodash"],
 		},
 	},
 };
@@ -63,41 +27,16 @@ assert.deepEqual(assertAllowedDevAudit(emptyReport), {
 	advisoryCount: 0,
 });
 assert.doesNotThrow(() => assertRuntimeAuditClean(emptyReport));
-assert.deepEqual(assertAllowedDevAudit(allowedReport), {
-	vulnerabilityCount: 7,
-	advisoryCount: 1,
-});
-assert.throws(() => assertRuntimeAuditClean(allowedReport), /Runtime audit reported/);
-assert.throws(
-	() =>
-		assertAllowedDevAudit({
-			...allowedReport,
-			vulnerabilities: {
-				...allowedReport.vulnerabilities,
-				lodash: {
-					severity: "high",
-					via: [],
-					effects: [],
-					nodes: ["node_modules/lodash"],
-				},
-			},
-		}),
-	/Unexpected audited package: lodash/,
-);
-assert.throws(
-	() =>
-		assertAllowedDevAudit({
-			...allowedReport,
-			vulnerabilities: {
-				...allowedReport.vulnerabilities,
-				"brace-expansion": {
-					...allowedReport.vulnerabilities["brace-expansion"],
-					via: [{ url: "https://github.com/advisories/GHSA-unknown" }],
-				},
-			},
-		}),
-	/Unexpected advisory/,
-);
+
+// The allowlist is empty, so every audited package is unexpected.
+assert.throws(() => assertAllowedDevAudit(findingReport), /Unexpected audited package: lodash/);
+assert.throws(() => assertRuntimeAuditClean(findingReport), /Runtime audit reported: lodash/);
+
 assert.throws(() => assertAllowedDevAudit({}), /unsupported report/);
+assert.throws(() => assertRuntimeAuditClean({}), /unsupported report/);
+assert.throws(
+	() => assertAllowedDevAudit({ auditReportVersion: 2, vulnerabilities: [] }),
+	/unsupported report/,
+);
 
 process.stdout.write("Audit policy tests passed.\n");

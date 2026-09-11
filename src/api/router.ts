@@ -16,6 +16,7 @@ import type {
 	ConversionsResponse,
 	PathsResponse,
 	SourcesResponse,
+	StatusSnapshot,
 } from "./types.js";
 
 const HTTP_STATUS = {
@@ -98,14 +99,19 @@ export function createApiRouter(
 		router.get("/api/status", (_req: Request, res: Response) => {
 			const pm = getManager();
 			if (!pm) {
-				res.json({
+				// No manager means nothing has been written, so there is no
+				// detached-writer condition to report. `pluginRunning` carries the
+				// not-started state on its own.
+				const body: StatusSnapshot = {
 					pluginRunning: false,
 					nmea2000Ready: false,
+					busWriterAttached: true,
 					enabledCount: 0,
 					totalConversions: getMetadata().length,
 					perConversion: [],
 					startTime: 0,
-				});
+				};
+				res.json(body);
 				return;
 			}
 			const snapshot = pm.getStatusSnapshot();
@@ -173,6 +179,10 @@ export function createApiRouter(
 				}
 			};
 
+		// Deliberately not gated on `advisor.enabled`: that flag arms only the
+		// unattended periodic review (see startManager in index.ts). A user
+		// pressing Review now is present and asking for this run, which is what
+		// the panel's toggle description promises.
 		router.post(
 			"/api/advisor/review",
 			advisorRoute(async (advisor, _req, res) => {
@@ -221,7 +231,10 @@ export function createApiRouter(
 			}),
 		);
 
-		router.get(
+		// POST, not GET: the handler makes an outbound request to an
+		// operator-supplied URL, so it is not the safe, idempotent read a GET
+		// promises and must not be reachable by a prefetch or a link.
+		router.post(
 			"/api/advisor/questdb-test",
 			advisorRoute(async (advisor, _req, res) => {
 				const body: AdvisorQuestDbTestResponse = await advisor.testQuestDB();

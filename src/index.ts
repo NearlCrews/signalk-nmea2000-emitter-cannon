@@ -282,9 +282,14 @@ export default function createPlugin(app: SignalKApp): SignalKPlugin {
 			// startup. JavaScript runs start() without interleaving unrelated deltas.
 			pluginManager = candidate;
 			candidate.start(migrated);
-			const schedule = migrated.advisor?.schedule;
+			// Both flags gate the timer. `advisor.enabled` is the master switch the
+			// panel presents, and an unattended scheduled review can auto-apply
+			// enables, putting PGNs on the bus the operator never approved. Arming
+			// on `schedule.periodic` alone would do that with the master switch off.
+			const advisorSettings = migrated.advisor;
+			const schedule = advisorSettings?.schedule;
 			advisorScheduler.configure(
-				schedule?.periodic === true,
+				advisorSettings?.enabled === true && schedule?.periodic === true,
 				isValidNumber(schedule?.intervalDays) ? schedule.intervalDays : 7,
 			);
 		} catch (error) {

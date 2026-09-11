@@ -12,8 +12,8 @@ const accepted = assertAllowedDevAudit(fullReport);
 
 if (accepted.vulnerabilityCount > 0) {
 	process.stdout.write(
-		`Accepted ${accepted.vulnerabilityCount} development-only findings from the pinned ` +
-			"canboatjs advisory chain (GHSA-mh99-v99m-4gvg).\n",
+		`Accepted ${accepted.vulnerabilityCount} development-only findings from ` +
+			`${accepted.advisoryCount} allowlisted advisories.\n`,
 	);
 } else {
 	process.stdout.write("Full dependency audit is clean.\n");

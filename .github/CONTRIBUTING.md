@@ -51,6 +51,25 @@ See [CLAUDE.md](../CLAUDE.md) for the full set of project conventions and
 [docs/development.md](../docs/development.md) for the conversion-module
 walkthrough and project structure.
 
+## Toolchain notes
+
+- `devDependencies` carries TypeScript twice on purpose. `@typescript/native`
+  (`npm:typescript@^7`) is the compiler `npm run check` runs, while the bare
+  `typescript` specifier resolves to `@typescript/typescript6`, the TypeScript 6
+  compiler API that typescript-eslint, knip, and dependency-cruiser load,
+  because typescript-eslint does not yet support TypeScript 7. The shim pulls in
+  the real TypeScript 6 compiler as `@typescript/old`, which declares a `tsc` bin
+  of its own, so `node_modules/.bin/tsc` points at whichever of the two npm
+  linked last; `npm run check` therefore launches the TypeScript 7 compiler by
+  path (`npm run tsc7`) instead of trusting that link. `npm run check:ts6`
+  type-checks with the shim's `tsc6` so the two compilers cannot drift silently;
+  `npm run verify:fast` runs both. Collapse back to one `typescript` entry once
+  typescript-eslint supports TypeScript 7. Dependabot does not bump aliased
+  ranges, so review both entries by hand when updating dependencies.
+- `@types/node` stays on the major of the `engines.node` floor (22), even when a
+  newer major is published, so the types describe the lowest runtime the plugin
+  advertises. `npm run package:check` enforces this.
+
 ## Architecture rule
 
 One plugin, modular TypeScript files under `src/`, never split into multiple

@@ -6,18 +6,16 @@ We actively support the following versions with security updates:
 
 | Version | Supported |
 | ------- | --------- |
-| 1.10.x  | Yes       |
-| < 1.10  | No        |
+| 1.11.x  | Yes       |
+| < 1.11  | No        |
 
 ## Reporting a Vulnerability
 
-We take the security of Signal K NMEA 2000 Emitter Cannon seriously. If you discover a security vulnerability, please follow these guidelines:
+Report security vulnerabilities privately, not through public GitHub issues.
 
 ### How to Report
 
-**Please do NOT report security vulnerabilities through public GitHub issues.**
-
-Instead, please report them via one of these methods:
+Use one of these methods:
 
 1. **GitHub Security Advisory**: Use the [GitHub Security Advisory](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/security/advisories/new) feature (preferred)
 2. **GitHub Issues**: For non-sensitive security concerns, open an [issue](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/issues)

@@ -54,14 +54,18 @@ function toStats(row: unknown[]): { samples: number; lastSeen: string } {
  * Distinct Signal K paths recorded in QuestDB within the last `lookbackDays`
  * days, with a sample count and last-seen timestamp per path. Reads the
  * numeric `signalk` and string `signalk_str` tables, and treats any rows in
- * `signalk_position` as the `navigation.position` path. `lookbackDays` is a
- * validated positive integer from config, so it is safe to interpolate.
+ * `signalk_position` as the `navigation.position` path. `lookbackDays` is
+ * floored to a positive integer here, so it is safe to interpolate. The floor
+ * is not just belt and braces: truncating a fractional value on its own yields
+ * `dateadd('d', -0, now())`, which QuestDB answers with an empty window rather
+ * than an error, so the caller would see no history and no failure.
  */
 export async function fetchHistoricPaths(
 	client: QuestDBClient,
 	lookbackDays: number,
 ): Promise<HistoricPaths> {
-	const since = `dateadd('d', -${Math.trunc(lookbackDays)}, now())`;
+	const days = Number.isFinite(lookbackDays) ? Math.max(1, Math.trunc(lookbackDays)) : 1;
+	const since = `dateadd('d', -${days}, now())`;
 	const out: HistoricPaths = new Map();
 
 	// The three queries are independent; run them concurrently so a slow

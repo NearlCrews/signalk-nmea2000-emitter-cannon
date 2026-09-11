@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { assertSharedUiVersion } from "./shared-ui-version.mjs";
+import { sharedUiVersion } from "./shared-ui-version.mjs";
 
 /**
  * The panel remote bundles its dependency tree into public/*.js, so the
@@ -21,7 +21,6 @@ import { assertSharedUiVersion } from "./shared-ui-version.mjs";
 const repositoryDir = new URL("../", import.meta.url);
 const noticesUrl = new URL("THIRD_PARTY_NOTICES.md", repositoryDir);
 const checkOnly = process.argv.includes("--check");
-const sharedUiVersion = assertSharedUiVersion(repositoryDir);
 
 const HEADER_MARKER = "<!-- generated-for-signalk-nearlcrews-ui:";
 

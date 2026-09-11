@@ -61,6 +61,28 @@ export class AdvisorOperationError extends Error {
 // unvalidated config and cannot import the validated schema default.
 const DEFAULT_LOOKBACK_DAYS = 7;
 
+/**
+ * Outcome of reading the `advisor.questdb` block.
+ *
+ * - `ok`: the block carries a usable absolute http or https URL.
+ * - `no-url`: the block is absent, or carries no URL at all.
+ * - `bad-url`: a URL is saved but is not an absolute http or https URL.
+ */
+type QuestDbConfigResult =
+	| { status: "ok"; enabled: boolean; url: string; lookbackDays: number }
+	| { status: "no-url"; enabled: boolean }
+	| { status: "bad-url"; enabled: boolean };
+
+/** True for a value that parses as an absolute http or https URL. */
+function isHttpUrl(value: string): boolean {
+	try {
+		const parsed = new URL(value);
+		return parsed.protocol === "http:" || parsed.protocol === "https:";
+	} catch {
+		return false;
+	}
+}
+
 type ApplicableAction = "enable" | "disable" | "clear-source";
 
 interface ApplicableDecision {
@@ -170,13 +192,23 @@ export class Advisor {
 		let inventory = this.deps.buildInventory();
 
 		const questdb = this.questdbConfig(config);
-		if (questdb?.enabled && this.deps.fetchHistoric) {
-			try {
-				const historic = await this.deps.fetchHistoric(questdb.url, questdb.lookbackDays);
-				inventory = mergeHistoric(inventory, historic);
-			} catch (err) {
-				const detail = errMessage(err);
-				notes.push(`QuestDB history unavailable (${detail}); reviewed live data only.`);
+		if (questdb.enabled) {
+			if (questdb.status !== "ok") {
+				// The user asked for history and will not get it. Saying so beats a
+				// review that silently reports on live data only.
+				notes.push(
+					questdb.status === "no-url"
+						? "QuestDB history is switched on but no QuestDB URL is saved; reviewed live data only."
+						: "QuestDB history is switched on but the saved QuestDB URL is not a valid http or https address; reviewed live data only.",
+				);
+			} else if (this.deps.fetchHistoric) {
+				try {
+					const historic = await this.deps.fetchHistoric(questdb.url, questdb.lookbackDays);
+					inventory = mergeHistoric(inventory, historic);
+				} catch (err) {
+					const detail = errMessage(err);
+					notes.push(`QuestDB history unavailable (${detail}); reviewed live data only.`);
+				}
 			}
 		}
 
@@ -274,13 +306,19 @@ export class Advisor {
 	}
 
 	/**
-	 * Probe QuestDB using the configured url. Reports `ok: false` if the
-	 * probe is unavailable or QuestDB is unreachable.
+	 * Probe QuestDB using the saved URL. Probes whether or not the feature is
+	 * switched on, so the panel can test a URL before enabling it.
+	 *
+	 * `configured` separates the two failures the panel would otherwise have to
+	 * report identically: false means there is no usable saved URL to probe,
+	 * true means a real URL was tried and did not answer.
 	 */
-	async testQuestDB(): Promise<{ ok: boolean }> {
+	async testQuestDB(): Promise<{ ok: boolean; configured: boolean }> {
 		const questdb = this.questdbConfig(this.deps.readConfig());
-		if (!questdb || !this.deps.probeQuestDB) return { ok: false };
-		return { ok: await this.deps.probeQuestDB(questdb.url) };
+		if (questdb.status !== "ok" || !this.deps.probeQuestDB) {
+			return { ok: false, configured: false };
+		}
+		return { ok: await this.deps.probeQuestDB(questdb.url), configured: true };
 	}
 
 	/**
@@ -491,16 +529,31 @@ export class Advisor {
 		return advisor ? advisor.autoApply !== false : true;
 	}
 
-	private questdbConfig(
-		config: Record<string, unknown>,
-	): { enabled: boolean; url: string; lookbackDays: number } | null {
+	/**
+	 * Read and validate the `advisor.questdb` block. `enabled` is reported for
+	 * every outcome so a caller can tell an unusable URL the user asked us to
+	 * use from one that is simply switched off, and so the panel's connection
+	 * test can still probe a saved URL before the feature is turned on.
+	 *
+	 * The URL is checked here rather than at the fetch: an unparseable value
+	 * reaches `fetch` as a relative URL, and the resulting "Failed to parse URL
+	 * from /exec?query=SELECT..." puts the whole SQL statement in a panel note.
+	 */
+	private questdbConfig(config: Record<string, unknown>): QuestDbConfigResult {
 		const q = this.advisorSection(config)?.questdb;
-		if (!isPlainObject(q)) return null;
+		if (!isPlainObject(q)) return { status: "no-url", enabled: false };
 		const { enabled, url, lookbackDays } = q;
-		if (typeof url !== "string") return null;
-		const days =
-			isValidNumber(lookbackDays) && lookbackDays > 0 ? lookbackDays : DEFAULT_LOOKBACK_DAYS;
-		return { enabled: enabled === true, url, lookbackDays: days };
+		const isEnabled = enabled === true;
+		const trimmed = typeof url === "string" ? url.trim() : "";
+		if (trimmed.length === 0) return { status: "no-url", enabled: isEnabled };
+		if (!isHttpUrl(trimmed)) return { status: "bad-url", enabled: isEnabled };
+		// Floor as well as default: a fractional look-back truncates to zero in
+		// the SQL `dateadd` expression, which QuestDB accepts and answers with a
+		// zero-day window, so the review would silently see no history at all.
+		const days = isValidNumber(lookbackDays)
+			? Math.max(1, Math.trunc(lookbackDays))
+			: DEFAULT_LOOKBACK_DAYS;
+		return { status: "ok", enabled: isEnabled, url: trimmed, lookbackDays: days };
 	}
 
 	private entryOf(map: ConversionMap, key: string): ConversionConfig {

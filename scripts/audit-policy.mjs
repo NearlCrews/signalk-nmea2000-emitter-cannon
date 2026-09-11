@@ -1,14 +1,11 @@
-const ALLOWED_ADVISORY_URLS = new Set(["https://github.com/advisories/GHSA-mh99-v99m-4gvg"]);
+// Development-only advisories this repository has reviewed and accepted, with
+// the packages they are allowed to reach. Both sets are empty today, so the full
+// dependency audit fails closed on every finding. Add an advisory URL and its
+// package chain here only after reviewing the advisory, and empty them again
+// once that chain leaves the tree.
+const ALLOWED_ADVISORY_URLS = new Set();
 
-const ALLOWED_DEV_PACKAGES = new Set([
-	"@canboat/canboatjs",
-	"brace-expansion",
-	"glob",
-	"glob-stream",
-	"help-me",
-	"minimatch",
-	"mqtt",
-]);
+const ALLOWED_DEV_PACKAGES = new Set();
 
 function vulnerabilitiesFrom(report) {
 	if (
@@ -31,6 +28,17 @@ export function assertRuntimeAuditClean(report) {
 	}
 }
 
+/**
+ * Accept an audit report only if every finding in it is allowlisted above.
+ *
+ * DO NOT DELETE THE CHECKS BELOW AS DEAD CODE. While both allowlists are empty
+ * the first one rejects every package, so nothing after it can run and no test
+ * can reach it. That is the correct resting state of a safety valve, not
+ * evidence it is unused: the checks re-arm the moment an entry is added, and
+ * they are what keeps an allowlisted advisory from quietly widening its blast
+ * radius. A single upstream advisory blocked every release in this portfolio on
+ * 2026-09-09, which is the case this exists for.
+ */
 export function assertAllowedDevAudit(report) {
 	const vulnerabilities = vulnerabilitiesFrom(report);
 	const names = Object.keys(vulnerabilities);
@@ -78,15 +86,6 @@ export function assertAllowedDevAudit(report) {
 			)
 		) {
 			throw new Error(`Unexpected audit node for ${name}`);
-		}
-	}
-
-	if (advisoryUrls.size !== ALLOWED_ADVISORY_URLS.size) {
-		throw new Error("The expected canboatjs development advisory was not present");
-	}
-	for (const url of ALLOWED_ADVISORY_URLS) {
-		if (!advisoryUrls.has(url)) {
-			throw new Error(`The expected development advisory was not present: ${url}`);
 		}
 	}
 

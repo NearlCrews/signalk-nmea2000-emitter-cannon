@@ -4,6 +4,13 @@ import type { ApplyDecision, PendingReviewResult, ReviewResult } from "../recomm
 export interface StatusSnapshot {
 	pluginRunning: boolean;
 	nmea2000Ready: boolean;
+	/**
+	 * False once a run of consecutive PGN writes found no listener on the
+	 * `nmea2000JsonOut` event, which is what a disabled or torn-down NMEA 2000
+	 * connection looks like to the plugin. True means the last write reached a
+	 * listener, not that the frame reached the physical CAN bus.
+	 */
+	busWriterAttached: boolean;
 	enabledCount: number;
 	totalConversions: number;
 	perConversion: PerConversionStatus[];
@@ -171,5 +178,5 @@ export interface AdvisorApplyResponse {
 // flows through to the API contract without a manual second declaration.
 type AdvisorApi = import("../advisor/advisor.js").Advisor;
 
-/** Body of `GET /api/advisor/questdb-test`. */
+/** Body of `POST /api/advisor/questdb-test`. */
 export type AdvisorQuestDbTestResponse = Awaited<ReturnType<AdvisorApi["testQuestDB"]>>;

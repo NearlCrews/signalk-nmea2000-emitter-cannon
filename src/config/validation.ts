@@ -1,4 +1,4 @@
-import { MAX_N2K_INSTANCE, MAX_TANK_INSTANCE } from "../constants.js";
+import { MAX_N2K_ENGINE_SPEED_RPM, MAX_N2K_INSTANCE, MAX_TANK_INSTANCE } from "../constants.js";
 import { pathToPropName } from "../utils/pathUtils.js";
 import { isPlainObject, isValidNumber, isValidSignalKId } from "../utils/validation.js";
 import { SEATALK_NETWORK_GROUPS } from "./enums.js";
@@ -436,17 +436,24 @@ function validateMapping(
 				rule.collection,
 			);
 		}
+		// The PGN 127498 field is unsigned 16-bit at 0.25 rpm, so a value above
+		// MAX_N2K_ENGINE_SPEED_RPM wraps on the wire. The conversion drops it
+		// rather than emitting the wrapped value, but a silently missing field
+		// gives no hint that a digit was mistyped, so the ceiling is reported here
+		// too.
 		if (
 			conversionKey === "ENGINE_STATIC" &&
 			candidate.ratedEngineSpeed !== undefined &&
-			(!isValidNumber(candidate.ratedEngineSpeed) || candidate.ratedEngineSpeed < 0)
+			(!isValidNumber(candidate.ratedEngineSpeed) ||
+				candidate.ratedEngineSpeed < 0 ||
+				candidate.ratedEngineSpeed > MAX_N2K_ENGINE_SPEED_RPM)
 		) {
 			addIssue(
 				issues,
 				config,
 				conversionKey,
 				"ratedEngineSpeed",
-				"Rated engine speed must be zero or a positive number.",
+				`Rated engine speed must be between zero and ${MAX_N2K_ENGINE_SPEED_RPM} RPM.`,
 				rowIndex,
 				rule.collection,
 			);
@@ -630,18 +637,21 @@ function validatePublisherFilters(
 	}
 }
 
-function configuredEngineInstances(config: ConversionConfig | undefined): Map<string, number> {
-	const result = new Map<string, number>();
+/** Each engine id's configured instance, with the row that carries it. */
+function configuredEngineInstances(
+	config: ConversionConfig | undefined,
+): Map<string, { instance: number; rowIndex: number }> {
+	const result = new Map<string, { instance: number; rowIndex: number }>();
 	const rows = config?.extras.engines;
 	if (!Array.isArray(rows)) return result;
-	for (const row of rows) {
+	for (const [rowIndex, row] of rows.entries()) {
 		if (
 			isPlainObject(row) &&
 			validId(row.signalkId, true) &&
 			isValidNumber(row.instanceId) &&
 			Number.isInteger(row.instanceId)
 		) {
-			result.set(String(row.signalkId), row.instanceId);
+			result.set(String(row.signalkId), { instance: row.instanceId, rowIndex });
 		}
 	}
 	return result;
@@ -659,7 +669,7 @@ function validateEngineConsistency(
 	}));
 	const firstById = new Map<string, { key: string; instance: number; enabled: boolean }>();
 	for (const registry of registries) {
-		for (const [id, instance] of registry.instances) {
+		for (const [id, { instance, rowIndex }] of registry.instances) {
 			const first = firstById.get(id);
 			if (!first) {
 				firstById.set(id, {
@@ -673,10 +683,14 @@ function validateEngineConsistency(
 			const config = registry.config;
 			const severity: ConfigIssueSeverity =
 				first.enabled && (config?.enabled ?? false) ? "error" : "warning";
+			// The offending row is named, so the panel can mark that engine row
+			// rather than every row that happens to carry an instance field.
 			issues.push({
 				severity,
 				conversionKey: registry.key,
 				field: "instanceId",
+				collection: "engines",
+				rowIndex,
 				message: `Engine ${id} uses NMEA 2000 instance ${instance}, but ${first.key} uses ${first.instance}. Use the same instance across engine conversions.`,
 			});
 		}

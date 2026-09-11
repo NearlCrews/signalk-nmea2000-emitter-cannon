@@ -5,6 +5,236 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+<a id="v1110"></a>
+
+## [1.11.0] - 2026-09-11
+
+### Added
+
+- **The plugin reports when NMEA 2000 output has no listener.** A disabled or
+  torn-down NMEA 2000 connection was invisible from inside the plugin: the
+  server sets its output-available flag once and never clears it, and the plugin
+  latched its own readiness the same way, so the status read "Running" while
+  every frame went nowhere. After 20 consecutive undelivered writes, a couple of
+  seconds of continuous failure at a typical emit rate, the plugin raises an
+  error naming Server, Connections. A provider restart is too brief to trip it,
+  and the first delivered write clears the state. The status API carries the
+  same state as `busWriterAttached`.
+
+### Changed
+
+- **A scheduled Config Advisor review can no longer run while the Config
+  Advisor is switched off.** Switching the advisor off left any saved review
+  schedule armed, because the timer read only the schedule. A scheduled review
+  can enable conversions by itself, so an installation that had tried the
+  advisor, saved a schedule, and then switched the advisor off could begin
+  transmitting PGNs onto the vessel's NMEA 2000 backbone that nobody had
+  approved, days or weeks later, with no one at the panel. The timer now
+  requires the advisor's own switch as well as the schedule. Review now is
+  unchanged: someone pressing it is present and asking for that one run.
+- A review set to use QuestDB history but with no saved URL, or with a URL that
+  is not a valid http or https address, says so in the review notes instead of
+  quietly reporting on live data only. A look-back shorter than a day is floored
+  at one day rather than truncating to a zero-day window that returns no history
+  at all.
+- The panel's QuestDB connection test is a POST rather than a GET. It makes an
+  outbound request to an operator-supplied URL, so it is not the safe,
+  idempotent read a GET promises and must not be reachable by a prefetch or a
+  link.
+- PGN 127506 carries the remaining charge derived from battery capacity and
+  state of charge when `capacity.remaining` is not published. The plugin already
+  broadcast the time remaining computed from that same derived charge, so
+  withholding the charge itself was the odder choice.
+- The configuration panel is built on `signalk-nearlcrews-ui` 0.10.1 and uses its
+  shared components throughout: the category tabs, the Modern and Legacy
+  sections, the Quick presets, Config Advisor, Global settings, and Advanced
+  publisher filters collapsibles, the setup wizard's proposal lists, the
+  mapping tables, every number field, and the Save and Discard footer. The
+  configure view now has a heading outline (Quick presets, Config Advisor with
+  its Advisor settings and their QuestDB and schedule groups, Global settings,
+  and Conversions with its Modern and Legacy sections), so screen-reader
+  heading navigation reaches every part of the long page.
+- Removing a mapping-table row asks for confirmation in a labeled region
+  beneath the row, and focus lands on Add row once the row is gone. The Remove
+  button keeps its name; previously it rewrote itself to "Confirm remove" for
+  four seconds after the first tap.
+- Conversion rows sit at the shared control height, 40 pixels with a mouse and
+  44 on a touch screen, so the enable checkbox and the row toggle share the
+  target floor of every other control.
+- Status text carries a tone glyph beside its color wherever it did not before:
+  the toolbar chip, the mapping-table asset and required-input lines, the
+  mapping activity rows, the runtime status table, the Garmin compatibility
+  badge, and the advisor connection test.
+- The panel no longer overrides the shared library's focus ring, disabled state,
+  or hover response, and no longer carries a private token scale or a private
+  relative-age format: its remaining styles read the public library tokens
+  directly.
+- Field labels in the extras editors, the resend interval, and the source
+  filters are real labels that focus their control when clicked, and the Signal
+  K input path and identifiers render in the monospace stack.
+- The panel checks are one command, the library's own `snui-check-consumer`,
+  run after the build. It asserts the exact pin, the version stamp, no bundled
+  React, the published share map, and gzip size within
+  `scripts/panel-size-baseline.json`, and its `--runtime` mode then renders the
+  built remote through a host-equivalent share scope. The local pin module, its
+  tests, the bundle assertions they duplicated, and a local render harness are
+  all removed. That harness had asserted the compatibility notice by matching
+  the literal string "Browser update required", which is the library's own
+  user-facing copy hand-copied into this repository and would have gone stale
+  the moment the library reworded it; the library now asserts a structural
+  marker it owns. The render is anchored with `--expect "Setup wizard"`,
+  deliberately a string the browser check already asserts, so the two gates
+  share one contract and renaming that button fails both. The panel
+  component-chunk budget moves out of `size-limit`, which measured brotli, into
+  that gzip baseline. `size-limit` keeps the plugin bundle and the federation
+  runtime entry, the latter now measured as gzip as well.
+- `webpack.config.cjs` spreads the Module Federation share map from
+  `signalk-nearlcrews-ui/federation` instead of copying it, and Dependabot
+  groups `signalk-nearlcrews-ui` on its own so a 0.x minor arrives as a
+  separate pull request.
+- The development toolchain was refreshed, including two major upgrades.
+  TypeScript 7.0.2 is the compiler `npm run check` runs, installed as the
+  `@typescript/native` alias and launched by path because it shares the `tsc`
+  bin name with the TypeScript 6 compiler API that the bare `typescript`
+  specifier keeps for typescript-eslint through `@typescript/typescript6`. A new
+  `check:ts6` script type-checks with that compiler too, and both run in
+  `npm run verify:fast`. Vitest 5.0.0 with its coverage and UI packages clears
+  mocks before every test and writes reports under `.vitest/`. `@types/node`
+  stays on 22 by design, matching the runtime floor. Playwright 1.63.0 needs a
+  new WebKit build (`npx playwright install webkit`), and the browser check uses
+  its `locator.visible()` in place of the `:visible` pseudo-class.
+
+### Fixed
+
+- **A direction a hair short of north is no longer discarded by the receiver.**
+  Every unsigned direction field has a ceiling the receiver enforces, and a
+  value in the last 0.002 degrees below a full turn rounded past it, so the
+  receiver threw the field away: a compass reading 359.999 degrees arrived at
+  the chartplotter as heading not available rather than as north. The value now
+  clamps to the largest encodable angle, which moves it by at most 0.005
+  degrees. This covers heading (PGN 127250), course over ground and heading
+  (PGNs 129026 and 130577), set (PGN 129291), wind angle (PGN 130306), the
+  waypoint bearings (PGNs 129284 and 129302), and satellite azimuth (PGN
+  129540). It is the only fix in this release that corrects a dropout on
+  correctly configured hardware. Everything else below catches a value that was
+  already wrong before it reached the plugin.
+- **An angle field no longer reports a different direction.** Attitude pitch,
+  roll, and yaw, the heading message's deviation and variation, magnetic
+  variation, and leeway all ride the signed 0.0001 radian field, which truncates
+  an out-of-range input rather than wrapping it. A compass-style yaw of 4 radians
+  reached the receiver as -2.5536 radians, a heading 15 degrees off the true one,
+  and a leeway value of 5 arrived as -1.5536 radians, showing a crab to starboard
+  as 89 degrees to port. Every one of these now wraps to the direction the field
+  can carry, so the encoded angle is faithful to what the publisher sent. A
+  reading of exactly 180 degrees lands on the largest encodable angle instead of
+  being discarded at the far end.
+- **A bounded physical quantity past its field ceiling is dropped rather than
+  sent.** Unlike an angle, a rudder deflection, a rate of turn, a heave, or a
+  depth is not circular, so a value past the ceiling is bad data rather than a
+  direction the wire states differently. Each wrapped into a believable reading
+  before: a rate of turn published in degrees per minute sent 100 to the
+  receiver as -34.217728 radians per second, reporting a starboard swing to
+  every autopilot on the bus as a port one; a 1.5 metre heave published in
+  millimetres arrived as 189.28 metres, and a negative value arrived positive,
+  so a vessel dropping into a trough was reported as rising; and a rudder angle
+  between 3.1415 radians and pi passed the old guard, went onto the bus, and was
+  then thrown away by the receiver. Rudder position and angle order are bounded
+  separately, so one bad reading no longer costs the other: the frame is sent
+  with the surviving field and is dropped only when neither remains. Depth was
+  guarded at the shallow end only, though its comment claimed both, so an absurd
+  1e9 metre reading arrived as 12157521.92 metres.
+- **More values that cannot fit their NMEA 2000 field are dropped instead of
+  wrapping into a believable wrong reading**, continuing the pass that began in
+  1.10.8. A wrapped value is worse than a missing one, because the receiver has
+  no way to tell it is wrong and renders it on the chartplotter beside good
+  data. The fields now bounded are battery voltage, current, temperature, state
+  of charge, state of health, and remaining capacity; solar charger and panel
+  voltage and current; engine speed, boost pressure, trim state, oil pressure
+  and temperature, coolant temperature and pressure, fuel pressure, alternator
+  voltage, fuel rate, total engine hours, load, and torque; rated engine speed;
+  transmission oil pressure and temperature; trip fuel used and the three trip
+  fuel rates; and speed through water. The
+  cases this covers are real ones. A state of charge published as a percentage
+  rather than the ratio the Signal K specification calls for showed a 93 percent
+  battery as 84 percent. A negative `propulsion.<id>.revolutions`, which Signal
+  K permits for astern rotation and the unsigned field cannot carry, put a shaft
+  turning astern on the bus at 14584 RPM, past any marine engine's redline. A
+  battery temperature published in Celsius rather than kelvin arrived as 377 C
+  on a cold morning. A shunt publishing milliamperes turned a 23 A charge into a
+  3114 A discharge and drove the derived time remaining to 00:00:00 on a full
+  battery. A negative boost pressure from a failing sensor arrived as 65 bar,
+  and a failing gearbox oil pressure sender arrived as 64 bar. A gearbox
+  temperature published in Celsius sent -5 to the receiver as 6548.6 K. Seven
+  hundred meters per second through the water arrived as a believable 87 knots.
+  These guards catch a value that wraps, not every unit mistake: a battery
+  temperature published as +20 Celsius still encodes as 20 K and renders as
+  -253 C, because 20 is a legal value in the kelvin field. The plugin does not
+  detect the unit a publisher used; it stops an out-of-range value from
+  arriving as a plausible in-range one.
+- A reading that was previously wrong may now be absent instead, and that is
+  worth knowing before chasing it. Several fields are bounded to the Signal K
+  ratio range of 0 to 1, so a publisher sending a percentage where the
+  specification calls for a ratio used to show a wrapped number and now shows
+  nothing at all: battery state of charge and state of health, engine load and
+  torque, and trim state. An engine load published as 50, meaning fifty
+  percent, used to arrive as -120 percent and is now left not-available. Both
+  are wrong, but a blank gauge reads as a fault, so a value that disappears
+  after this upgrade points at the publisher rather than at the plugin or the
+  display. The troubleshooting guide in the repository's docs directory carries
+  the unit checklist for tracking it down, under the heading for a value that
+  is visible in Signal K but blank on the display.
+- A magnetic variation age of service published in epoch milliseconds is omitted
+  instead of wrapping onto the bus as 2011-05-31, a plausible date that is
+  quietly 14 years wrong.
+- Engine parameters with no encodable field left no longer emit a frame carrying
+  nothing.
+- Rated engine speed states its ceiling. The panel rejected a negative value but
+  not an oversized one, and a trailing zero on 3600 reached a chartplotter as a
+  3232 RPM redline the engine cannot reach.
+- An engine instance conflict marks the row that carries it instead of every row
+  that happens to have an instance field.
+- A configuration error and unavailable NMEA 2000 output are reported together.
+  The status ladder stopped at the configuration error, so an operator with both
+  problems would chase the configuration conflict while nothing at all could
+  reach the bus.
+- The mapping tables' path inventory refreshes in the background without marking
+  Refresh busy or rewriting the status text, so a user who did nothing no longer
+  watches it flicker once a minute.
+- Typing in the Configure view no longer redraws the runtime status table. The
+  Status view stays mounted behind the hidden Configure view, so every keystroke
+  re-ran its row grouping and re-rendered the whole table. It is memoized now.
+- A mapping table derives each column's suggestion list once per render instead
+  of once per cell. It had been filtering and sorting the entire Signal K path
+  inventory separately for every row, on every keystroke, which is what made
+  typing in a large mapping table feel heavy.
+- The preset confirmation announced twice on some screen readers because it
+  paired `role="status"` with `aria-live="polite"`. The footer separately
+  carried two status regions, the save state and the blocking validation
+  message, and could announce both. The NMEA 2000 output state was likewise
+  announced by two regions carrying the same value. Each region now announces
+  once.
+- A control that removes itself no longer drops keyboard focus to the page. Two
+  retry banners and the toolbar's Clear button unmounted under the user's own
+  focus on success, which leaves a keyboard or screen-reader user at the top of
+  the document with no position in the panel. Each now hands focus to the search
+  box first.
+- Three status messages were never announced at all. The catalog search result
+  count, the setup wizard's scan chip, and a panel status chip were each built
+  inside the conditional that produced their first message, so the live region
+  arrived already carrying its text and a screen reader saw nothing change.
+  Each region is now mounted before the message it will carry.
+- Pressing the same bulk action twice announces twice. Enable all followed by
+  Enable all produced an identical string, which a live region treats as no
+  change, so the second press was silent.
+- Jumping to a validation error honors `prefers-reduced-motion` instead of
+  always animating the scroll, and no longer scrolls twice: moving focus to the
+  target used to re-scroll and undo the placement the jump had just made.
+- A render error inside the panel no longer replaces the whole plugin card with
+  Signal K Admin's generic unavailable notice: the panel offers Try again in
+  place, with Reload page as the second action.
+- The Retry button for a failed publisher lookup is a styled shared button
+  instead of an unstyled browser default.
+
 <a id="v1109"></a>
 
 ## [1.10.9] - 2026-08-24
@@ -1700,5 +1930,8 @@ This plugin builds upon the excellent foundation of [signalk-to-nmea2000](https:
 - **Comprehensive Documentation** - Self-documenting code with type definitions
 - **Future-Proof** - Built with latest standards for long-term maintainability
 
-[Unreleased]: https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/compare/v1.10.7...HEAD
+[Unreleased]: https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/compare/v1.11.0...HEAD
+[1.11.0]: https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/compare/v1.10.9...v1.11.0
+[1.10.9]: https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/compare/v1.10.8...v1.10.9
+[1.10.8]: https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/compare/v1.10.7...v1.10.8
 [1.10.7]: https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/compare/v1.10.6...v1.10.7

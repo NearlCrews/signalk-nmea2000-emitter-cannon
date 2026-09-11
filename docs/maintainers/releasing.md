@@ -35,16 +35,33 @@ GitHub release, and npm publication. Then:
    the new version.
 4. If the configuration panel changed materially, run `npm run screenshots`.
    The command rebuilds the production panel, exercises it in Chromium, and
-   regenerates the App Store images. It keeps the first declared image, the
-   App Store hero, at a deterministic 1280 by 800 pixels. Inspect every image
-   before committing it.
+   regenerates the App Store images. Each is captured at a size hardcoded in
+   `scripts/check-panel-browser.mjs`, so a capture is reproducible. Inspect
+   every image before committing it.
+
+   **A package auditor warning about screenshot dimensions is expected and is
+   not a finding.** Do not resize the images or re-raise this each release. The
+   App Store recommendation is 1280 by 800, and a per-file dimension check
+   cannot tell the hero from a content shot:
+
+   | Image | Size | Why |
+   | --- | --- | --- |
+   | `config-panel.png` | 1280 by 800 | The App Store hero, the first entry in `signalk.screenshots`. Held at exactly the recommendation so consumers and review tooling see the same composition on every capture. |
+   | `environment-conversions.png` | 1393 by 1235 | Sized to its content, captured after the Environment category renders. |
+   | `config-advisor.png` | 1405 by 1510 | Sized to its content, captured after the advisor's Review now button appears. |
+
+   The hero already meets the recommendation. Cropping the other two to 1280 by
+   800 would cut off the thing each screenshot exists to show, and all three are
+   well under the 500 KB size guidance at 90, 175, and 181 KB.
 5. Run `npm ci` to prove the lockfile installs from a clean dependency tree.
 6. Run `npm run verify:release`. This covers formatting, linting, spelling,
    module boundaries, dead code, strict types, coverage, production builds,
-   the panel runtime smoke test, bundle budgets, package contents, publint, and
-   security audits. Runtime dependencies must have zero findings. The full
-   dependency audit permits only the documented canboatjs development chain for
-   `GHSA-mh99-v99m-4gvg` and fails closed for any other advisory.
+   the panel runtime smoke test, the Chromium and WebKit browser check, bundle
+   budgets, package contents, publint, and security audits. Runtime
+   dependencies must have zero findings. The full dependency audit allowlist in
+   `scripts/audit-policy.mjs` is empty, so it fails closed on every advisory;
+   add an entry there only after reviewing the advisory, and remove it once the
+   chain leaves the tree.
 7. Run `npm outdated --long` and resolve unexpected output. A newer TypeScript
    or `@types/node` major is expected only when it is outside the typed-lint or
    supported-Node compatibility range. Also ask npm's resolver whether the

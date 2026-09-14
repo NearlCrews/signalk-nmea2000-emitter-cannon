@@ -6,7 +6,7 @@
 		"useIgnoreFile": true
 	},
 	"files": {
-		"includes": ["**", "!**/*.svg", "!docs/superpowers"],
+		"includes": ["**", "!**/*.svg"],
 		"ignoreUnknown": true
 	},
 	"formatter": {

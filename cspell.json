@@ -7,7 +7,7 @@
 	"ignorePaths": [
 		"assets/**",
 		"coverage/**",
-		"docs/superpowers/**",
+		"docs/decisions/**",
 		"node_modules/**",
 		"package-lock.json",
 		"public/**"

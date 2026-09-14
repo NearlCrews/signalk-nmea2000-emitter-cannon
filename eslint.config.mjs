@@ -15,7 +15,6 @@ export default tseslint.config(
 			".remember/**",
 			"coverage/**",
 			"dist/**",
-			"docs/superpowers/**",
 			"public/**",
 			"temp/**",
 			"tmp/**",

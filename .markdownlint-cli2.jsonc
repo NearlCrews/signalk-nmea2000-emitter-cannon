@@ -7,5 +7,7 @@
 		},
 		"MD033": false
 	},
-	"ignores": ["docs/superpowers/**", "public/**"]
+	// The dated design memos under docs/decisions are historical records, kept
+	// as written rather than edited to current house style.
+	"ignores": ["docs/decisions/**", "public/**"]
 }

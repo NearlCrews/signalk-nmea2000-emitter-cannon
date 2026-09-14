@@ -1,16 +1,18 @@
 import type * as React from "react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
 	Badge,
 	Banner,
 	Button,
 	CollapsibleSection,
-	LiveRegion,
+	formatCount,
 	PanelShell,
+	revealElement,
 	Section,
 	Stack,
 	StatusIndicator,
 	Text,
+	usePanelAnnouncer,
 	useUnsavedChangesGuard,
 } from "signalk-nearlcrews-ui";
 import { SaveActionBar, Tab, TabList, TabPanel, Tabs } from "signalk-nearlcrews-ui/composites";
@@ -39,7 +41,6 @@ import { useMeta } from "./hooks/useMeta";
 import { usePaths } from "./hooks/usePaths";
 import { useSources } from "./hooks/useSources";
 import { useStatus } from "./hooks/useStatus";
-import { plural } from "./recency";
 import { conversionRowId, conversionRowToggleId } from "./rowIds";
 
 interface Props {
@@ -104,21 +105,14 @@ function matchesQuery(m: ConversionMetadata, needle: string): boolean {
 	return false;
 }
 
-// A jump scrolls its target into view, which is the only motion the panel
-// produces. Ask for it the way the reader wants it: a smooth scroll is a
-// transition, so a reader who asked for less motion gets the instant one.
-function jumpScrollBehavior(): ScrollBehavior {
-	return window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
-}
-
 const reloadPage = (): void => window.location.reload();
 
 /** @public Module Federation entry point consumed by the Signal K admin UI. */
 export default function PluginConfigurationPanel(props: Props): React.ReactElement {
 	const rootRef = useRef<HTMLDivElement>(null);
-	// The shell runs the browser preflight, paints the root, and wraps the body
-	// in an error boundary whose "Try again" remounts the panel in place. The
-	// toolbar carries the theme toggle so it stays visible while scrolling.
+	// The shell runs the browser preflight, paints the root, wraps the body in
+	// an error boundary whose "Try again" remounts the panel in place, and
+	// renders the theme selector at the foot of the panel, below the body.
 	return (
 		<PanelShell ref={rootRef} themeToggle="end" onReload={reloadPage}>
 			<PanelBody {...props} rootRef={rootRef} />
@@ -143,6 +137,9 @@ function PanelBody({
 		error: pathsError,
 		reload: reloadPaths,
 	} = usePaths();
+	// The shell's own announcer, so state changes are spoken through the two
+	// regions it mounted with the panel rather than through regions of ours.
+	const announce = usePanelAnnouncer();
 	// The toolbar search box: the panel's first control, and so the focus
 	// destination for a banner whose action takes the banner, and the button
 	// the user pressed, out of the tree.
@@ -288,12 +285,10 @@ function PanelBody({
 						(conversionRow ? configIssueControl(conversionRow, issue) : undefined) ??
 						mappingRow?.querySelector<HTMLElement>("button") ??
 						document.getElementById(conversionRowToggleId(m.key));
+					const reveal = mappingRow ?? conversionRow;
 					// The scroll above places the row clear of the sticky toolbar, so
 					// focus must not scroll again and undo that placement.
-					(mappingRow ?? conversionRow)?.scrollIntoView({
-						behavior: jumpScrollBehavior(),
-						block: "center",
-					});
+					if (reveal) revealElement(reveal, { block: "center" });
 					target?.focus({ preventScroll: true });
 				});
 			});
@@ -315,15 +310,20 @@ function PanelBody({
 
 	// Parent catalog keys currently reporting an error, with sub-conversion
 	// `[N]` suffixes folded onto the parent so a flaky sub-conversion surfaces
-	// on its parent row and category.
-	const errorKeys = useMemo(() => {
-		const s = new Set<string>();
+	// on its parent row and category. The same pass counts the parent rows
+	// reporting an error of their own, which is what the toolbar badge shows,
+	// so the poll walks the list once for both.
+	const { errorKeys, parentErrorCount } = useMemo(() => {
+		const keys = new Set<string>();
+		let parentErrors = 0;
 		if (status) {
 			for (const c of status.perConversion) {
-				if (c.lastErrorMessage) s.add(stripSubIndex(c.key));
+				if (!c.lastErrorMessage) continue;
+				keys.add(stripSubIndex(c.key));
+				if (c.parentKey === undefined) parentErrors++;
 			}
 		}
-		return s;
+		return { errorKeys: keys, parentErrorCount: parentErrors };
 	}, [status]);
 	const errorCountByCategory = useMemo(() => {
 		const c: Record<string, number> = {};
@@ -344,9 +344,8 @@ function PanelBody({
 		revealConversion(m);
 		requestAnimationFrame(() => {
 			requestAnimationFrame(() => {
-				document
-					.getElementById(conversionRowId(m.key))
-					?.scrollIntoView({ behavior: jumpScrollBehavior(), block: "center" });
+				const row = document.getElementById(conversionRowId(m.key));
+				if (row) revealElement(row, { block: "center" });
 				document.getElementById(conversionRowToggleId(m.key))?.focus({ preventScroll: true });
 			});
 		});
@@ -446,33 +445,40 @@ function PanelBody({
 	const showFirstRunCallout = shouldShowFirstRunCallout(meta, state.conversions);
 	const invalidMessage =
 		validationErrors.length > 0
-			? `Fix ${plural(validationErrors.length, "configuration error")} before saving.`
+			? `Fix ${formatCount(validationErrors.length, "configuration error")} before saving.`
 			: null;
 
-	// One region per urgency, mounted above both view containers before any
-	// message arrives, so a screen reader observes the text change rather than
-	// the region appearing with it, and so the announcement survives a view
-	// switch. The banners below stay as persistent, readable feedback.
+	// The shell mounts one polite and one assertive region before any message
+	// exists, which is the property a region mounted beside its first message
+	// does not have, so the panel speaks through those rather than adding a
+	// pair of its own. The banners below stay as persistent, readable feedback.
 	const panelAlert = metaError
 		? `Conversion catalog failed to load: ${metaError}.`
 		: validationErrors.length > 0
-			? `${plural(validationErrors.length, "configuration error")} must be fixed before saving.`
+			? `${formatCount(validationErrors.length, "configuration error")} must be fixed before saving.`
 			: "";
 	const panelStatus = error
 		? `Status unavailable: ${error}.`
 		: metaLoading && meta.length === 0 && !metaError
 			? "Loading conversions..."
 			: "";
+	useEffect(() => {
+		if (panelAlert !== "") announce(panelAlert, { assertive: true });
+	}, [announce, panelAlert]);
+	useEffect(() => {
+		if (panelStatus !== "") announce(panelStatus);
+	}, [announce, panelStatus]);
 
 	return (
 		<>
 			{/* The toolbar holds the search, status chip, Configure/Status toggle,
-			    theme toggle, and wizard shortcut. It sits above both view containers
-			    so it is always visible regardless of which view is active. */}
+			    and wizard shortcut. It sits above both view containers so it is
+			    always visible regardless of which view is active. */}
 			<PanelToolbar
 				status={status}
 				lastUpdatedMs={lastUpdatedMs ?? undefined}
 				lastAttemptMs={lastAttemptMs ?? undefined}
+				errorCount={parentErrorCount}
 				onErrorBadgeClick={jumpToFirstError}
 				search={search}
 				onSearch={setSearch}
@@ -483,8 +489,6 @@ function PanelBody({
 				onOpenWizard={() => setWizardOpen(true)}
 				viewChoices={VIEW_CHOICES}
 			/>
-			<LiveRegion live="assertive" message={panelAlert} />
-			<LiveRegion live="polite" message={panelStatus} />
 
 			{/* Both views stay mounted; the inactive one is hidden. Unmounting on
 			    every switch dropped AdvisorPanel state and refetched its pending
@@ -505,7 +509,7 @@ function PanelBody({
 									Review first error
 								</Button>
 							}
-							title={`${plural(validationErrors.length, "configuration error")} must be fixed`}
+							title={`${formatCount(validationErrors.length, "configuration error")} must be fixed`}
 							tone="danger"
 						>
 							<ConfigIssueList issues={validationErrors} metaByKey={metaByKey} />
@@ -519,7 +523,7 @@ function PanelBody({
 									Review first warning
 								</Button>
 							}
-							title={`${plural(validationWarnings.length, "configuration warning")}`}
+							title={`${formatCount(validationWarnings.length, "configuration warning")}`}
 							tone="warning"
 						>
 							Warnings do not block Save. They identify disabled draft errors or linked NMEA 2000
@@ -593,7 +597,7 @@ function PanelBody({
 							    with its first count. An empty one takes no space. */}
 							<StatusIndicator live="polite">
 								{searchResult
-									? `${plural(searchResult.matchCount, "match")} across all categories`
+									? `${formatCount(searchResult.matchCount, "match", "matches")} across all categories`
 									: null}
 							</StatusIndicator>
 							{searchResult ? (

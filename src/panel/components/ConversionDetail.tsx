@@ -9,6 +9,7 @@ import {
 	Code,
 	CollapsibleSection,
 	FieldGroup,
+	formatCount,
 	formatRelativeAge,
 	LiveRegion,
 	NumberField,
@@ -25,7 +26,6 @@ import type { ConfigIssue } from "../../config/validation.js";
 import { pathToPropName } from "../../utils/pathUtils.js";
 import { ConfigIssueContext, type RenderedConfigIssue } from "../configIssues";
 import { CONVERSION_STYLES as C } from "../conversionStyles";
-import { plural } from "../recency";
 import { conversionHealth } from "../rowStatus.js";
 import ExtrasEditor from "./ExtrasEditor";
 import SourceField from "./SourceField";
@@ -146,11 +146,11 @@ export default function ConversionDetail(props: Props): React.ReactElement {
 	const alertMessage = status?.lastErrorMessage
 		? `Emit error: ${status.lastErrorMessage}`
 		: hasValidationError
-			? `${plural(props.validationIssues.length, "configuration issue")} in ${meta.title}.`
+			? `${formatCount(props.validationIssues.length, "configuration issue")} in ${meta.title}.`
 			: "";
 	const statusMessage =
 		alertMessage === "" && props.validationIssues.length > 0
-			? `${plural(props.validationIssues.length, "configuration issue")} in ${meta.title}.`
+			? `${formatCount(props.validationIssues.length, "configuration issue")} in ${meta.title}.`
 			: alertMessage === "" && cfg.enabled && healthMessage
 				? healthMessage
 				: "";

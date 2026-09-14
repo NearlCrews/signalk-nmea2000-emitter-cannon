@@ -3,6 +3,7 @@ import { useEffect, useId, useMemo, useState } from "react";
 import {
 	Banner,
 	Button,
+	formatCount,
 	LiveRegion,
 	Section,
 	Stack,
@@ -18,7 +19,6 @@ import { recommend } from "../../recommendation/recommender.js";
 import type { PathInventory } from "../../recommendation/types.js";
 import { errMessage } from "../../utils/errorUtils.js";
 import { fetchJson, isAbortError } from "../api-base";
-import { plural } from "../recency";
 import PresetChips from "./PresetChips";
 
 interface Props {
@@ -110,7 +110,7 @@ export default function FirstRunWizard({
 
 	const handleApply = (): void => {
 		if (checkedKeys.length > 0) onEnableKeys(checkedKeys);
-		setHint(`Staged ${plural(checkedKeys.length, "conversion")}. ${REVIEW_THEN_SAVE}`);
+		setHint(`Staged ${formatCount(checkedKeys.length, "conversion")}. ${REVIEW_THEN_SAVE}`);
 	};
 
 	const scanning = paths === null && loadError === null;
@@ -122,7 +122,7 @@ export default function FirstRunWizard({
 		? "Scanning live Signal K paths..."
 		: loadError !== null
 			? ""
-			: `${plural(proposed.length, "conversion")} proposed from the live path scan.`;
+			: `${formatCount(proposed.length, "conversion")} proposed from the live path scan.`;
 	// Why Apply is blocked, stated where the button can point at it. A natively
 	// disabled button is skipped by keyboard, so the reason would otherwise be
 	// unreachable from the control it explains.

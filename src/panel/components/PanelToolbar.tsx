@@ -3,6 +3,7 @@ import {
 	Button,
 	formatRelativeAge,
 	RELATIVE_AGE_NARROW,
+	resolveFreshness,
 	SegmentedControl,
 	StatusIndicator,
 	Text,
@@ -25,6 +26,9 @@ interface Props {
 	// Timestamp of the latest poll completion, used as the render clock for the
 	// staleness label when consecutive polls fail.
 	lastAttemptMs: number | undefined;
+	// Parent conversions reporting an error of their own, counted by the panel
+	// in the pass it already makes over the status rows.
+	errorCount: number;
 	onErrorBadgeClick: () => void;
 	search: string;
 	onSearch: (v: string) => void;
@@ -44,14 +48,13 @@ interface Props {
 export default function PanelToolbar(props: Props): React.ReactElement {
 	const s = props.status;
 	const outputState = outputStateFor(s);
-	const errors = s
-		? s.perConversion.filter((c) => c.parentKey === undefined && c.lastErrorMessage).length
-		: 0;
-	const staleAgeMs =
-		props.lastUpdatedMs !== undefined
-			? (props.lastAttemptMs ?? Date.now()) - props.lastUpdatedMs
-			: undefined;
-	const stale = staleAgeMs !== undefined && staleAgeMs > STALE_AFTER_MS;
+	// The poll clock, not a live one: the marker is meant to move when a poll
+	// lands, not to tick on its own between polls.
+	const { ageMs, stale } = resolveFreshness(
+		props.lastUpdatedMs,
+		props.lastAttemptMs ?? Date.now(),
+		STALE_AFTER_MS,
+	);
 	return (
 		<section style={C.toolbar} aria-label="Panel controls">
 			<div style={C.searchSlot}>
@@ -94,10 +97,12 @@ export default function PanelToolbar(props: Props): React.ReactElement {
 			</StatusIndicator>
 			{stale ? (
 				<Text tone="muted" size="sm">
-					(updated {formatRelativeAge(staleAgeMs, RELATIVE_AGE_NARROW)})
+					(updated {formatRelativeAge(ageMs, RELATIVE_AGE_NARROW)})
 				</Text>
 			) : null}
-			{errors > 0 ? <ErrorBadgeButton count={errors} onClick={props.onErrorBadgeClick} /> : null}
+			{props.errorCount > 0 ? (
+				<ErrorBadgeButton count={props.errorCount} onClick={props.onErrorBadgeClick} />
+			) : null}
 			<SegmentedControl
 				label="View"
 				options={props.viewChoices}

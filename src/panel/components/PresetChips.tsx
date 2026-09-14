@@ -1,9 +1,15 @@
 import type * as React from "react";
 import { useEffect, useMemo, useState } from "react";
-import { Button, Cluster, LiveRegion, Stack, StatusIndicator } from "signalk-nearlcrews-ui";
+import {
+	Button,
+	Cluster,
+	formatCount,
+	LiveRegion,
+	Stack,
+	StatusIndicator,
+} from "signalk-nearlcrews-ui";
 import type { ConversionMetadata } from "../../api/types.js";
 import { type PresetTag, PresetTags } from "../../config/enums";
-import { plural } from "../recency";
 
 const LABELS: Record<PresetTag, string> = {
 	"basic-nav": "Basic navigation",
@@ -59,7 +65,7 @@ export default function PresetChips({ onApply, meta }: Props): React.ReactElemen
 
 	const handleApply = (p: PresetTag): void => {
 		onApply(p);
-		const text = `Enabled ${plural(countByPreset[p], "conversion")}, not yet sent to Signal K.`;
+		const text = `Enabled ${formatCount(countByPreset[p], "conversion")}, not yet sent to Signal K.`;
 		setAnnounce((prev) => ({ text, seq: prev.seq + 1 }));
 	};
 

@@ -1,7 +1,6 @@
 import type * as React from "react";
 import { useState } from "react";
-import { Badge, Button, CollapsibleSection, LiveRegion } from "signalk-nearlcrews-ui";
-import { plural } from "../recency";
+import { Badge, Button, CollapsibleSection, formatCount, LiveRegion } from "signalk-nearlcrews-ui";
 
 interface Props {
 	title: string;
@@ -51,7 +50,7 @@ export default function CatalogSection({
 					size="compact"
 					onClick={() => {
 						onEnableAll();
-						say(`Enabled ${plural(count, "conversion")} in ${title}.`);
+						say(`Enabled ${formatCount(count, "conversion")} in ${title}.`);
 					}}
 				>
 					Enable all
@@ -60,7 +59,7 @@ export default function CatalogSection({
 					size="compact"
 					onClick={() => {
 						onDisableAll();
-						say(`Disabled ${plural(count, "conversion")} in ${title}.`);
+						say(`Disabled ${formatCount(count, "conversion")} in ${title}.`);
 					}}
 				>
 					Disable all
@@ -80,7 +79,7 @@ export default function CatalogSection({
 			summaryVisibility="always"
 			summary={
 				<>
-					{plural(count, "conversion")}
+					{formatCount(count, "conversion")}
 					{enabledCount > 0 ? `, ${enabledCount} enabled` : ""}
 					{errorCount && errorCount > 0 ? (
 						<>

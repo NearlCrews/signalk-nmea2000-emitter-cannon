@@ -1,3 +1,4 @@
+import { readdirSync } from "node:fs";
 import { FromPgn, pgnToActisenseSerialFormat } from "@canboat/canboatjs";
 import { beforeEach, describe, expect, it } from "vitest";
 import { PGN_SUMMARIES } from "../api/pgnSummaries.js";
@@ -83,6 +84,25 @@ describe("Conversion modules", () => {
 		// a test failure rather than a silent drop. Update this constant
 		// intentionally when adding or removing modules.
 		expect(conversions.length).toBe(83);
+	});
+
+	it("has one source module per documented conversion factory", () => {
+		// CLAUDE.md states this count in three places. Pinning it here makes the
+		// documented figure a checked one, so adding a factory fails a gate
+		// instead of quietly leaving the prose behind. The five modules excluded
+		// here are shared helpers and the transmit-list module, not conversion
+		// families.
+		const shared = new Set([
+			"index.ts",
+			"instanceOptions.ts",
+			"pgnList.ts",
+			"routeTypes.ts",
+			"windData.ts",
+		]);
+		const factories = readdirSync(new URL("../conversions/", import.meta.url)).filter(
+			(name) => name.endsWith(".ts") && !shared.has(name),
+		);
+		expect(factories.length).toBe(52);
 	});
 
 	it("has a PGN summary for every emitted PGN", () => {

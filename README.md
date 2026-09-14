@@ -115,10 +115,10 @@ priorities follow the current stable Canboat 7.1 database. It pairs well with se
   single-open inline editor, a compact sticky toolbar carrying catalog search
   and live status, category tabs split into Modern and Legacy sections with
   their own Enable all and Disable all controls, preset chips, a first-run
-  setup wizard, and shared `signalk-nearlcrews-ui` controls with Auto, System,
-  Light, Dark, and red-preserving Night themes. Auto follows an explicit host
-  theme and otherwise uses Light, while System follows the operating-system
-  color scheme.
+  setup wizard, and shared `signalk-nearlcrews-ui` controls with Match Admin,
+  Match device, Light, Dark, and red-preserving Night themes. Match Admin
+  follows an explicit host theme and otherwise uses Light, while Match device
+  follows the operating-system color scheme.
 - **NMEA 2000 echo guards** that use authoritative source metadata to reject
   known bus-origin input instead of re-emitting it onto the same bus. Unknown
   origins remain compatible, a numeric publisher suffix alone is not treated
@@ -264,7 +264,7 @@ separately in `devEngines`: Node 22 from 22.22.2, Node 24 from 24.15.0, or Node
 verifies on that toolchain floor and the current Node 24 release rather than on
 the lower runtime floor, because CI installs the full development tree.
 CanboatJS and `@canboat/ts-pgns` are exercised in the test suite and are not
-runtime dependencies. `signalk-nearlcrews-ui` 0.10.1 is bundled into the panel
+runtime dependencies. `signalk-nearlcrews-ui` 0.11.1 is bundled into the panel
 as a pinned development dependency, while React and React DOM `^19.2.0` are
 supplied by Signal K Admin.
 

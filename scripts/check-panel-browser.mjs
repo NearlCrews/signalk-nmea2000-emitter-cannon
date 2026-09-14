@@ -550,10 +550,13 @@ try {
 	const root = page.locator(sharedUiRootSelector);
 	await root.waitFor();
 	if ((await root.getAttribute("data-snui-theme")) !== null) {
-		throw new Error("fresh shared UI theme was pinned instead of following Auto");
+		throw new Error("fresh shared UI theme was pinned instead of following the host");
 	}
-	if (!(await page.getByRole("radio", { name: "Auto", exact: true }).isChecked())) {
-		throw new Error("fresh shared UI theme did not select Auto");
+	// The shared UI names its two automatic choices after what they follow:
+	// "Match Admin" is the host-theme default, "Match device" the operating
+	// system preference.
+	if (!(await page.getByRole("radio", { name: "Match Admin", exact: true }).isChecked())) {
+		throw new Error("fresh shared UI theme did not select Match Admin");
 	}
 	await assertAccessible(page, "initial configuration panel");
 	const setupButton = page.getByRole("button", { name: "Setup wizard" });
@@ -701,7 +704,7 @@ try {
 		throw new Error("publisher lookup retry did not issue a request");
 
 	for (const [label, value] of [
-		["System", "system"],
+		["Match device", "system"],
 		["Light", "light"],
 		["Dark", "dark"],
 		["Night", "night"],
@@ -773,7 +776,7 @@ try {
 	}
 	await engineInput.fill("port");
 	await page.getByRole("button", { name: "Save", exact: true }).click();
-	await page.getByText("Save requested", { exact: true }).waitFor();
+	await page.getByText("Save sent to the server", { exact: true }).waitFor();
 	await page.waitForFunction(() => {
 		const status = document.querySelector('[data-panel-action-bar] [tabindex="-1"]');
 		return status !== null && document.activeElement === status;

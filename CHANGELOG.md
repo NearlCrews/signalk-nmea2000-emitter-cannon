@@ -5,6 +5,29 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **The configuration panel now builds on signalk-nearlcrews-ui 0.11.1.** The
+  theme selector names its two automatic choices for what they follow: Match
+  Admin replaces Auto and follows the Signal K Admin theme, showing Light where
+  the host sets none, and Match device replaces System and follows the operating
+  system preference. The selector also carries its own group label and a line
+  saying what Match Admin follows, so the two no longer read as one offer
+  written twice.
+- Save and Discard keep their place in the tab order while a validation error
+  blocks saving, so a keyboard or screen reader user standing on Save is no
+  longer dropped onto the page body when an edit turns invalid. The save bar
+  reports "All changes saved", "Save to enable the plugin", and "Save sent to
+  the server".
+- Every field, group, checkbox, radio group, and segmented-control error leads
+  with a danger tone mark and a spoken tone word, so an error no longer rests on
+  the danger color alone, which in the Night theme shares a hue with the text
+  above it.
+- A focused number field gives up focus before a wheel or trackpad scroll can
+  spin its value, so scrolling past a resend interval or an instance field no
+  longer rewrites it. Ages a day and older are counted in numbers, so a reading
+  from yesterday says "1 day ago".
+
 <a id="v1110"></a>
 
 ## [1.11.0] - 2026-09-11

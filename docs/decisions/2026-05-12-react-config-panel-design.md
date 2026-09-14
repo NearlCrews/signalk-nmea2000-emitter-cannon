@@ -57,7 +57,7 @@ public/                  // Webpack federation output; shipped in npm tarball vi
   (chunked dependency files)
 webpack.config.cjs
 tsconfig.panel.json
-docs/superpowers/specs/2026-05-12-react-config-panel-design.md  // this file
+docs/decisions/2026-05-12-react-config-panel-design.md  // this file
 ```
 
 As built: the presets list is inline in `src/config/schema.ts` (`PresetTags`), so there is no separate presets module. The status snapshot builder is a `getStatusSnapshot()` method on `PluginManager` rather than a standalone status module under `src/api/`.

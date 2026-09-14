@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   plugin-ci:
-    uses: SignalK/signalk-server/.github/workflows/plugin-ci.yml@5612cf40785f8c3be2bc918750caec163e5bd7b1 # master 2026-09-02
+    uses: SignalK/signalk-server/.github/workflows/plugin-ci.yml@5612cf40785f8c3be2bc918750caec163e5bd7b1 # master 2026-09-13
     with:
       build-command: npm run build
       test-command: npm test

@@ -55,23 +55,25 @@ reviewed against model-specific chartplotter receive lists.
   nobody approved with no one at the panel. A review set to use QuestDB history
   but with no usable URL now says so instead of quietly reporting on live data
   only.
-- **A configuration panel that keeps up with typing, on one shared component
-  set.** The runtime status table no longer re-renders behind the Configure
-  view on every keystroke, and a mapping table builds each column's path
-  suggestions once per render instead of once per cell, so editing a large
-  table stays responsive. The category tabs, the collapsible sections, the
-  setup wizard, the mapping tables, every number field, and the Save and
-  Discard footer now come from the shared `signalk-nearlcrews-ui` library. The
-  configure view has a real heading outline from Quick presets through
-  Conversions, status text carries a glyph
-  beside its color rather than relying on hue, removing a mapping-table row
-  asks for confirmation in a labeled region beneath it instead of the Remove
-  button briefly renaming itself, and a render failure offers Try again in
-  place rather than replacing the plugin card with Signal K Admin's generic
-  unavailable notice. A button that removes itself on success now hands
-  keyboard focus to the search box instead of dropping it to the page, three
-  status messages that were never announced now are, and jumping to a
-  validation error honors `prefers-reduced-motion`.
+- **A configuration panel rebuilt on one shared component set.** The runtime
+  status table no longer re-renders behind the Configure view on every
+  keystroke, and a mapping table builds each column's path suggestions once per
+  render instead of once per cell, so editing a large table stays responsive.
+  The category tabs, the collapsible sections, the setup wizard, the mapping
+  tables, every number field, and the Save and Discard footer now come from the
+  shared `signalk-nearlcrews-ui` library, and the configure view has a real
+  heading outline from Quick presets through Conversions. The theme selector
+  moved to the foot of the panel and names what its two automatic choices
+  follow: Match Admin follows the Signal K Admin theme, and Match device
+  follows the operating system preference. Status text carries a glyph beside
+  its color rather than relying on hue, every field and group error leads with
+  a tone mark and a spoken tone word, a focused number field gives up focus
+  before a wheel or trackpad scroll can spin its value, Save and Discard keep
+  their place in the tab order while a validation error blocks saving, removing
+  a mapping-table row asks for confirmation in a labeled region beneath it
+  instead of the Remove button briefly renaming itself, and a render failure
+  offers Try again in place rather than replacing the plugin card with Signal K
+  Admin's generic unavailable notice.
 
 See the [v1.11.0 changelog entry](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/blob/main/CHANGELOG.md#v1110)
 and [full release history](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/blob/main/CHANGELOG.md).

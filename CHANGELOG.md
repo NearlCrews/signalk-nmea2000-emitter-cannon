@@ -5,47 +5,9 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-### Changed
-
-- **The configuration panel now builds on signalk-nearlcrews-ui 0.11.1.** The
-  theme selector names its two automatic choices for what they follow: Match
-  Admin replaces Auto and follows the Signal K Admin theme, showing Light where
-  the host sets none, and Match device replaces System and follows the operating
-  system preference. The selector also carries its own group label and a line
-  saying what Match Admin follows, so the two no longer read as one offer
-  written twice.
-- **The theme selector moved to the foot of the panel**, below the
-  conversions, and out of the sticky toolbar. It is chrome over the panel
-  rather than one of its settings, so the toolbar now opens on the catalog
-  search, and every Signal K plugin panel built on these controls carries the
-  selector in the same place.
-- Save and Discard keep their place in the tab order while a validation error
-  blocks saving, so a keyboard or screen reader user standing on Save is no
-  longer dropped onto the page body when an edit turns invalid. The save bar
-  reports "All changes saved", "Save to enable the plugin", and "Save sent to
-  the server".
-- Every field, group, checkbox, radio group, and segmented-control error leads
-  with a danger tone mark and a spoken tone word, so an error no longer rests on
-  the danger color alone, which in the Night theme shares a hue with the text
-  above it.
-- A focused number field gives up focus before a wheel or trackpad scroll can
-  spin its value, so scrolling past a resend interval or an instance field no
-  longer rewrites it. Ages a day and older are counted in numbers, so a reading
-  from yesterday says "1 day ago".
-- The panel announces through the two live regions the panel frame already
-  mounts instead of adding a second pair of its own, so a screen reader tracks
-  one polite and one assertive region rather than four. Catalog load failures,
-  blocking validation errors, and status outages read as before.
-- The panel's scroll-into-view, staleness, and count wording now come from the
-  shared controls rather than from local copies, so a jump to a flagged row,
-  the "updated Xs ago" marker, and every "3 conversions" phrase behave the same
-  here as in the other Signal K plugin panels built on them. A status timestamp
-  that runs slightly ahead of the browser clock now reads as fresh instead of
-  as a negative age.
-
 <a id="v1110"></a>
 
-## [1.11.0] - 2026-09-11
+## [1.11.0] - 2026-09-14
 
 ### Added
 
@@ -83,15 +45,49 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   state of charge when `capacity.remaining` is not published. The plugin already
   broadcast the time remaining computed from that same derived charge, so
   withholding the charge itself was the odder choice.
-- The configuration panel is built on `signalk-nearlcrews-ui` 0.10.1 and uses its
-  shared components throughout: the category tabs, the Modern and Legacy
-  sections, the Quick presets, Config Advisor, Global settings, and Advanced
-  publisher filters collapsibles, the setup wizard's proposal lists, the
-  mapping tables, every number field, and the Save and Discard footer. The
+- **The configuration panel is rebuilt on `signalk-nearlcrews-ui` 0.11.1** and
+  uses its shared components throughout: the category tabs, the Modern and
+  Legacy sections, the Quick presets, Config Advisor, Global settings, and
+  Advanced publisher filters collapsibles, the setup wizard's proposal lists,
+  the mapping tables, every number field, and the Save and Discard footer. The
   configure view now has a heading outline (Quick presets, Config Advisor with
   its Advisor settings and their QuestDB and schedule groups, Global settings,
   and Conversions with its Modern and Legacy sections), so screen-reader
   heading navigation reaches every part of the long page.
+- **The theme selector names its two automatic choices for what they follow.**
+  Match Admin replaces Auto and follows the Signal K Admin theme, showing Light
+  where the host sets none, and Match device replaces System and follows the
+  operating system preference. The selector also carries its own group label
+  and a line saying what Match Admin follows, so the two no longer read as one
+  offer written twice.
+- **The theme selector moved to the foot of the panel**, below the
+  conversions, and out of the sticky toolbar. It is chrome over the panel
+  rather than one of its settings, so the toolbar now opens on the catalog
+  search, and every Signal K plugin panel built on these controls carries the
+  selector in the same place.
+- Save and Discard keep their place in the tab order while a validation error
+  blocks saving, so a keyboard or screen reader user standing on Save is no
+  longer dropped onto the page body when an edit turns invalid. The save bar
+  reports "All changes saved", "Save to enable the plugin", and "Save sent to
+  the server".
+- Every field, group, checkbox, radio group, and segmented-control error leads
+  with a danger tone mark and a spoken tone word, so an error no longer rests on
+  the danger color alone, which in the Night theme shares a hue with the text
+  above it.
+- A focused number field gives up focus before a wheel or trackpad scroll can
+  spin its value, so scrolling past a resend interval or an instance field no
+  longer rewrites it. Ages a day and older are counted in numbers, so a reading
+  from yesterday says "1 day ago".
+- The panel announces through the two live regions the panel frame already
+  mounts instead of adding a second pair of its own, so a screen reader tracks
+  one polite and one assertive region rather than four. Catalog load failures,
+  blocking validation errors, and status outages read as before.
+- The panel's scroll-into-view, staleness, and count wording now come from the
+  shared controls rather than from local copies, so a jump to a flagged row,
+  the "updated Xs ago" marker, and every "3 conversions" phrase behave the same
+  here as in the other Signal K plugin panels built on them. A status timestamp
+  that runs slightly ahead of the browser clock now reads as fresh instead of
+  as a negative age.
 - Removing a mapping-table row asks for confirmation in a labeled region
   beneath the row, and focus lands on Add row once the row is gone. The Remove
   button keeps its name; previously it rewrote itself to "Confirm remove" for

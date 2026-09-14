@@ -85,17 +85,22 @@ src/
 ├── plugin-manager.ts     # Core lifecycle (subscriptions, resend, status snapshot, emit counters)
 ├── constants.ts          # Conversion fallback priority, dst, SID, and resend defaults
 ├── config/
-│   ├── schema.ts         # TypeBox RootConfig (single source of truth)
-│   ├── defaults.ts       # Lightweight runtime conversion defaults
-│   ├── migrate.ts        # Load-time migration from v1.4.x legacy config
-│   ├── validation.ts     # Cross-field and mapping validation
-│   └── windConflicts.ts  # Shared competing wind-producer rules
+│   ├── schema.ts              # TypeBox RootConfig (single source of truth)
+│   ├── enums.ts               # Category and preset lists, free of TypeBox so the panel can import them
+│   ├── defaults.ts            # Lightweight runtime conversion defaults
+│   ├── environmentSources.ts  # Canboat temperature and humidity source enums shared by conversions and panel
+│   ├── migrate.ts             # Load-time migration from v1.4.x legacy config
+│   ├── pluginOptions.ts       # Flattens typed config onto the runtime conversion option shape
+│   ├── raymarinePreset.ts     # Inside-family source and instance remap behind the one-click Raymarine preset
+│   ├── validation.ts          # Cross-field and mapping validation
+│   └── windConflicts.ts       # Shared competing wind-producer rules
 ├── api/
-│   ├── router.ts         # Express router (status, conversions, paths, sources)
-│   ├── discovery.ts      # Path / source enumeration helpers
-│   ├── extras-meta.ts    # ExtrasMeta discriminator per optionKey
-│   ├── pgnSummaries.ts   # Per-PGN human-readable summary strings
-│   └── types.ts          # API response shapes
+│   ├── router.ts              # Express router (status, conversions, paths, sources)
+│   ├── conversion-metadata.ts # Catalog builder, served even while the plugin is disabled
+│   ├── discovery.ts           # Path / source enumeration helpers
+│   ├── extras-meta.ts         # ExtrasMeta discriminator per optionKey
+│   ├── pgnSummaries.ts        # Per-PGN human-readable summary strings
+│   └── types.ts               # API response shapes
 ├── advisor/              # Server-side orchestration, inventory, QuestDB, and scheduling
 ├── recommendation/       # Runtime-neutral recommendation matcher and shared types
 ├── panel/                # Federated React config panel (webpack module federation)
@@ -103,7 +108,7 @@ src/
 │   ├── conversionStyles.ts # Dense conversion list and editor styles, the only panel style module; every value reads a public signalk-nearlcrews-ui token
 │   ├── components/       # ConversionRow, ConversionDetail, PanelToolbar, CatalogSection, etc.
 │   │   └── extras/       # MappingTable + per-family editors
-│   └── hooks/            # useStatus (3s poll), useConfig (reducer), useSources (lazy cache)
+│   └── hooks/            # useStatus (3s poll), useConfig (reducer), useMeta (catalog), usePaths (30s poll), useSources (lazy cache), useAdvisor
 ├── types/
 │   ├── signalk.ts        # SignalKApp (extends ServerAPI)
 │   ├── nmea2000.ts       # NMEA 2000 message types
@@ -116,6 +121,7 @@ src/
 │   ├── errorUtils.ts         # errMessage() coercion helper
 │   ├── validation.ts         # Input validation (NaN/Infinity checks)
 │   ├── smoothing.ts          # Exponential smoothing for sensor data
+│   ├── refreshInterval.ts    # Usable stream-refresh interval, or undefined
 │   ├── debugUtils.ts         # Debug-flag check
 │   ├── aisUtils.ts           # AIS helpers: starboardOffset, parseMmsi, parseImo, AisShipType, string-length caps
 │   ├── pgnUtils.ts           # extractPgnsFromTitle, splitPgnTitle (shared by conversions and panel)
@@ -124,6 +130,8 @@ src/
 ├── conversions/          # 51 data conversion factory modules plus the PGN list module
 │   ├── index.ts          # Module loader / registry
 │   ├── routeTypes.ts     # Shared position and route-mark helpers
+│   ├── instanceOptions.ts # Per-instance config array reader (engines, batteries, tanks, ...)
+│   ├── windData.ts       # Shared PGN 130306 factory and field layout
 │   ├── wind.ts           # Wind data conversion
 │   ├── depth.ts          # Depth conversion
 │   ├── battery.ts        # Battery status conversion

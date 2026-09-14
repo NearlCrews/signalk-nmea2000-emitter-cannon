@@ -10,8 +10,18 @@ for (const path of workflowPaths) {
 	const workflow = await readFile(path, "utf8");
 	for (const [index, line] of workflow.split("\n").entries()) {
 		const action = /\buses:\s+([^\s#]+)@([^\s#]+)/.exec(line);
-		if (action !== null && !/^[0-9a-f]{40}$/.test(action[2] ?? "")) {
+		if (action === null) continue;
+		if (!/^[0-9a-f]{40}$/.test(action[2] ?? "")) {
 			failures.push(`${path}:${index + 1} must pin ${action[1]} to a full commit SHA.`);
+		}
+		// A pin's trailing comment names the tag or branch the SHA came from.
+		// A date there cannot be maintained: Dependabot rewrites the SHA and
+		// leaves the comment alone, so the date then names the wrong commit and
+		// only a hand-resolved lookup catches it. The SHA is the single truth.
+		if (/#[^\n]*\b\d{4}-\d{2}-\d{2}\b/.test(line)) {
+			failures.push(
+				`${path}:${index + 1} must not date the pin comment for ${action[1]}: the SHA is the record.`,
+			);
 		}
 	}
 }

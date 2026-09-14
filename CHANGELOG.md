@@ -14,6 +14,11 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   system preference. The selector also carries its own group label and a line
   saying what Match Admin follows, so the two no longer read as one offer
   written twice.
+- **The theme selector moved to the foot of the panel**, below the
+  conversions, and out of the sticky toolbar. It is chrome over the panel
+  rather than one of its settings, so the toolbar now opens on the catalog
+  search, and every Signal K plugin panel built on these controls carries the
+  selector in the same place.
 - Save and Discard keep their place in the tab order while a validation error
   blocks saving, so a keyboard or screen reader user standing on Save is no
   longer dropped onto the page body when an edit turns invalid. The save bar

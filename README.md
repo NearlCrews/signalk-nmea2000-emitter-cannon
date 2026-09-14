@@ -174,8 +174,8 @@ The panel has these areas:
 
 1. **Sticky toolbar**: catalog search, a live status chip carrying the enabled
    over total count and the NMEA 2000 output readiness, a stale-poll marker and
-   a jump-to-error button beside it, the Configure and Status toggle, the theme
-   toggle, and the Setup wizard shortcut. It stays pinned as you scroll.
+   a jump-to-error button beside it, the Configure and Status toggle, and the
+   Setup wizard shortcut. It stays pinned as you scroll.
 2. **Quick presets** (collapsed by default): Basic navigation, Engine set, Full
    AIS, Environmental, Raymarine. Click a chip to enable the tagged conversions
    in one action; presets are additive.
@@ -195,6 +195,10 @@ The panel has these areas:
    unless you open that section. The toolbar's catalog search filters by title,
    PGN number, and Signal K path across all categories; search results group by
    category and carry no bulk controls.
+6. **Theme selector**: at the foot of the panel, below the conversions. It is
+   chrome over the panel rather than one of its settings, so it sits after
+   them, and the preference it writes is shared with the other Signal K
+   plugin panels built on the same controls.
 
 Each conversion row shows an enable checkbox, the title and PGN run, an error
 glyph, and a specific live state such as waiting for Signal K input, publisher

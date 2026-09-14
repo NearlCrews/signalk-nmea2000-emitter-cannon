@@ -7,7 +7,6 @@ import {
 	StatusIndicator,
 	Text,
 	TextInput,
-	ThemeToggle,
 } from "signalk-nearlcrews-ui";
 import type { StatusSnapshot } from "../../api/types.js";
 import { CONVERSION_STYLES as C } from "../conversionStyles";
@@ -105,7 +104,6 @@ export default function PanelToolbar(props: Props): React.ReactElement {
 				value={props.view}
 				onValueChange={props.onChangeView}
 			/>
-			<ThemeToggle />
 			<Button size="compact" onClick={props.onOpenWizard}>
 				Setup wizard
 			</Button>

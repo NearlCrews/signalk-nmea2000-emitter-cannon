@@ -120,7 +120,7 @@ export default function PluginConfigurationPanel(props: Props): React.ReactEleme
 	// in an error boundary whose "Try again" remounts the panel in place. The
 	// toolbar carries the theme toggle so it stays visible while scrolling.
 	return (
-		<PanelShell ref={rootRef} themeToggle="none" onReload={reloadPage}>
+		<PanelShell ref={rootRef} themeToggle="end" onReload={reloadPage}>
 			<PanelBody {...props} rootRef={rootRef} />
 		</PanelShell>
 	);

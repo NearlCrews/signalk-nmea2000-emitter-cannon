@@ -32,6 +32,16 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   spin its value, so scrolling past a resend interval or an instance field no
   longer rewrites it. Ages a day and older are counted in numbers, so a reading
   from yesterday says "1 day ago".
+- The panel announces through the two live regions the panel frame already
+  mounts instead of adding a second pair of its own, so a screen reader tracks
+  one polite and one assertive region rather than four. Catalog load failures,
+  blocking validation errors, and status outages read as before.
+- The panel's scroll-into-view, staleness, and count wording now come from the
+  shared controls rather than from local copies, so a jump to a flagged row,
+  the "updated Xs ago" marker, and every "3 conversions" phrase behave the same
+  here as in the other Signal K plugin panels built on them. A status timestamp
+  that runs slightly ahead of the browser clock now reads as fresh instead of
+  as a negative age.
 
 <a id="v1110"></a>
 

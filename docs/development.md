@@ -79,6 +79,14 @@ NMEA 2000 output messages follow the CanboatJS format: required `prio`, `pgn`,
 
 ## Project structure
 
+The tree lists the modules a contributor needs to find by name. The conversion
+factories are one module per conversion family and are not listed individually:
+`src/conversions/index.ts` is the register for those, and the panel catalog is
+the reader-facing index. Module counts are left to the gates that check them,
+which is `src/test/index.test.ts` for both the factory modules and the runtime
+conversions they expand into. Each entry gives a module's role in one line;
+CLAUDE.md carries the fuller description of what a shared module does.
+
 ```text
 src/
 ├── index.ts              # Plugin entry point (registerWithRouter, lifecycle)
@@ -91,7 +99,7 @@ src/
 │   ├── environmentSources.ts  # Canboat temperature and humidity source enums shared by conversions and panel
 │   ├── migrate.ts             # Load-time migration from v1.4.x legacy config
 │   ├── pluginOptions.ts       # Flattens typed config onto the runtime conversion option shape
-│   ├── raymarinePreset.ts     # Inside-family source and instance remap behind the one-click Raymarine preset
+│   ├── raymarinePreset.ts     # Raymarine preset remap
 │   ├── validation.ts          # Cross-field and mapping validation
 │   └── windConflicts.ts       # Shared competing wind-producer rules
 ├── api/
@@ -127,15 +135,13 @@ src/
 │   ├── pgnUtils.ts           # extractPgnsFromTitle, splitPgnTitle (shared by conversions and panel)
 │   ├── pgnPriorities.ts      # Canboat priority table and emit-boundary normalization
 │   └── notificationUtils.ts  # isClearState: true for non-alert SK states (normal, nominal)
-├── conversions/          # 51 data conversion factory modules plus the PGN list module
+├── conversions/          # One factory module per conversion family
 │   ├── index.ts          # Module loader / registry
+│   ├── pgnList.ts        # Transmit-list PGN (126464), built from the registry
 │   ├── routeTypes.ts     # Shared position and route-mark helpers
-│   ├── instanceOptions.ts # Per-instance config array reader (engines, batteries, tanks, ...)
-│   ├── windData.ts       # Shared PGN 130306 factory and field layout
-│   ├── wind.ts           # Wind data conversion
-│   ├── depth.ts          # Depth conversion
-│   ├── battery.ts        # Battery status conversion
-│   └── ...               # 48 more conversion factories
+│   ├── instanceOptions.ts # Per-instance config array reader
+│   ├── windData.ts       # Shared PGN 130306 factory
+│   └── ...               # The conversion factories themselves
 └── test/                 # Vitest test suites
     ├── index.test.ts          # All conversion-module test cases (round-trip via canboatjs)
     ├── advisor.test.ts        # Config Advisor: recommender, inventory, QuestDB, stale-source, orchestrator
@@ -155,7 +161,7 @@ src/
     ├── temperature.test.ts    # Temperature default-instance uniqueness
     ├── useAdvisor.test.ts     # Advisor panel state and async apply lifecycle
     ├── useConfig.test.ts      # Panel useConfig reducer (setAdvisor, preset apply)
-    └── ...                    # 16 more focused suites (AIS ranges, DSC, vessel trip, PGN priorities, and others)
+    └── ...                    # More focused suites (AIS ranges, DSC, vessel trip, PGN priorities, and others)
 public/                   # Webpack module federation output (shipped via "files" array)
 ├── remoteEntry.js        # Federation entry script (classic var-type container)
 └── *.js / *.LICENSE.txt  # Federation chunks

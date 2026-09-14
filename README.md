@@ -115,10 +115,8 @@ priorities follow the current stable Canboat 7.1 database. It pairs well with se
   single-open inline editor, a compact sticky toolbar carrying catalog search
   and live status, category tabs split into Modern and Legacy sections with
   their own Enable all and Disable all controls, preset chips, a first-run
-  setup wizard, and shared `signalk-nearlcrews-ui` controls with Match Admin,
-  Match device, Light, Dark, and red-preserving Night themes. Match Admin
-  follows an explicit host theme and otherwise uses Light, while Match device
-  follows the operating-system color scheme.
+  setup wizard, and shared `signalk-nearlcrews-ui` controls with five themes,
+  two of them automatic.
 - **NMEA 2000 echo guards** that use authoritative source metadata to reject
   known bus-origin input instead of re-emitting it onto the same bus. Unknown
   origins remain compatible, a numeric publisher suffix alone is not treated
@@ -198,7 +196,10 @@ The panel has these areas:
 6. **Theme selector**: at the foot of the panel, below the conversions. It is
    chrome over the panel rather than one of its settings, so it sits after
    them, and the preference it writes is shared with the other Signal K
-   plugin panels built on the same controls.
+   plugin panels built on the same controls. The choices are Match Admin,
+   Match device, Light, Dark, and a red-preserving Night mode. Match Admin
+   follows an explicit host theme and otherwise uses Light, while Match device
+   follows the operating-system color scheme.
 
 Each conversion row shows an enable checkbox, the title and PGN run, an error
 glyph, and a specific live state such as waiting for Signal K input, publisher

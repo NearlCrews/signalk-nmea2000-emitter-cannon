@@ -538,25 +538,36 @@ try {
 	const errors = [];
 	page.on("pageerror", (error) => errors.push(error.message));
 	page.on("console", (message) => {
+		// Only an error can reach the list, so the text and the expected-failure
+		// comparison are read for those alone rather than for every log, warning,
+		// and info message the polling panel emits.
+		if (message.type() !== "error") return;
 		const text = message.text();
 		const isExpectedInventoryFailure =
 			pathRequestCount >= 2 &&
 			text ===
 				"Failed to load resource: the server responded with a status of 503 (Service Unavailable)";
-		if (message.type() === "error" && !isExpectedInventoryFailure) errors.push(text);
+		if (!isExpectedInventoryFailure) errors.push(text);
 	});
 
-	await page.goto(`http://127.0.0.1:${address.port}/`, { waitUntil: "networkidle" });
+	// Readiness comes from the explicit waits that follow each load rather than
+	// from network quiescence, which this panel never reaches: it polls status
+	// every three seconds and the path inventory every thirty.
+	await page.goto(`http://127.0.0.1:${address.port}/`, { waitUntil: "domcontentloaded" });
 	const root = page.locator(sharedUiRootSelector);
 	await root.waitFor();
+	// The shared UI names its two automatic choices after what they follow:
+	// "Match Admin" is the host-theme default, "Match device" the operating
+	// system preference. Which theme each choice commits is the library's own
+	// contract, covered by its own suite; what this panel owns is that the shell
+	// renders the selector and that a chosen theme reaches this panel's root.
+	const themeRadio = (name) => page.getByRole("radio", { name, exact: true });
+	const HOST_THEME_CHOICE = "Match Admin";
 	if ((await root.getAttribute("data-snui-theme")) !== null) {
 		throw new Error("fresh shared UI theme was pinned instead of following the host");
 	}
-	// The shared UI names its two automatic choices after what they follow:
-	// "Match Admin" is the host-theme default, "Match device" the operating
-	// system preference.
-	if (!(await page.getByRole("radio", { name: "Match Admin", exact: true }).isChecked())) {
-		throw new Error("fresh shared UI theme did not select Match Admin");
+	if (!(await themeRadio(HOST_THEME_CHOICE).isChecked())) {
+		throw new Error(`fresh shared UI theme did not select ${HOST_THEME_CHOICE}`);
 	}
 	await assertAccessible(page, "initial configuration panel");
 	const setupButton = page.getByRole("button", { name: "Setup wizard" });
@@ -703,16 +714,13 @@ try {
 	if (seaSourceRequestCount !== 2)
 		throw new Error("publisher lookup retry did not issue a request");
 
-	for (const [label, value] of [
-		["Match device", "system"],
-		["Light", "light"],
-		["Dark", "dark"],
-		["Night", "night"],
-	]) {
-		await page.getByRole("radio", { name: label, exact: true }).click();
-		if ((await root.getAttribute("data-snui-theme")) !== value) {
-			throw new Error(`${label} theme did not update the panel root`);
-		}
+	// One explicit choice proves the selector the shell renders commits a theme
+	// to this panel's root. Night is the one this panel cares about most: it is
+	// the red-preserving theme a helm reads after dark.
+	const NIGHT_THEME_CHOICE = "Night";
+	await themeRadio(NIGHT_THEME_CHOICE).click();
+	if ((await root.getAttribute("data-snui-theme")) !== "night") {
+		throw new Error(`${NIGHT_THEME_CHOICE} theme did not update the panel root`);
 	}
 
 	await page.setViewportSize({ width: 320, height: 800 });
@@ -771,7 +779,11 @@ try {
 	if ((await fuelTankInput.getAttribute("aria-invalid")) === "true") {
 		throw new Error("Vessel Trip engine validation marked the fuel-tank table row");
 	}
-	if (!(await page.getByRole("button", { name: "Save", exact: true }).isDisabled())) {
+	// Assert the refusal by what it protects rather than by how the shared bar
+	// spells it: force past the button's own blocked state and require that no
+	// save reached the host.
+	await page.getByRole("button", { name: "Save", exact: true }).click({ force: true });
+	if ((await page.evaluate(() => globalThis.__panelSaveCount ?? 0)) !== 0) {
 		throw new Error("invalid Vessel Trip engine row did not block Save");
 	}
 	await engineInput.fill("port");
@@ -888,7 +900,7 @@ try {
 				const screenshotPage = await screenshotContext.newPage();
 				await screenshotPage.emulateMedia({ reducedMotion: "reduce", colorScheme: "light" });
 				await screenshotPage.goto(`http://127.0.0.1:${address.port}/?screenshots=1`, {
-					waitUntil: "networkidle",
+					waitUntil: "domcontentloaded",
 				});
 				await screenshotPage.locator(sharedUiRootSelector).waitFor();
 				await prepare(screenshotPage);
@@ -936,7 +948,7 @@ try {
 		const webkitPage = await webkitContext.newPage();
 		const webkitErrors = [];
 		webkitPage.on("pageerror", (error) => webkitErrors.push(error.message));
-		await webkitPage.goto(`http://127.0.0.1:${address.port}/`, { waitUntil: "networkidle" });
+		await webkitPage.goto(`http://127.0.0.1:${address.port}/`, { waitUntil: "domcontentloaded" });
 		await webkitPage.locator(sharedUiRootSelector).waitFor();
 		await webkitPage.getByRole("button", { name: "Setup wizard" }).waitFor();
 		await assertAccessible(webkitPage, "WebKit configuration panel");
@@ -956,7 +968,7 @@ try {
 	touchContext.setDefaultTimeout(ACTION_TIMEOUT_MS);
 	try {
 		const touchPage = await touchContext.newPage();
-		await touchPage.goto(`http://127.0.0.1:${address.port}/`, { waitUntil: "networkidle" });
+		await touchPage.goto(`http://127.0.0.1:${address.port}/`, { waitUntil: "domcontentloaded" });
 		await touchPage.locator(sharedUiRootSelector).waitFor();
 		await assertAccessible(touchPage, "coarse-pointer configuration panel");
 		// The design contract puts every coarse-pointer target at 44px minimum.

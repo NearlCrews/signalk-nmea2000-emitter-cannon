@@ -85,13 +85,13 @@ jobs:
         run: |
           EXPECTED_GIT_HEAD="$(git rev-parse HEAD)"
           VERSION="$(node -p "require('./package.json').version")"
-          for attempt in $(seq 1 12); do
+          for attempt in $(seq 1 24); do
             ACTUAL_GIT_HEAD="$(npm view "signalk-nmea2000-emitter-cannon@${VERSION}" gitHead --json 2>/dev/null | tr -d '"' || true)"
             if [ "$ACTUAL_GIT_HEAD" = "$EXPECTED_GIT_HEAD" ]; then
               exit 0
             fi
-            echo "Waiting for registry metadata (attempt ${attempt}/12)." >&2
-            sleep 5
+            echo "Waiting for registry metadata (attempt ${attempt}/24)." >&2
+            sleep 10
           done
           echo "Published gitHead ($ACTUAL_GIT_HEAD) does not match release commit ($EXPECTED_GIT_HEAD)." >&2
           exit 1

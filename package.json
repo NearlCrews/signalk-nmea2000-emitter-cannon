@@ -138,7 +138,7 @@
 		"eslint": "10.10.0",
 		"express": "^5.2.1",
 		"knip": "6.35.1",
-		"markdownlint-cli2": "0.23.2",
+		"markdownlint-cli2": "0.23.3",
 		"minimizer-webpack-plugin": "5.10.1",
 		"publint": "0.3.24",
 		"react": "^19.3.0",

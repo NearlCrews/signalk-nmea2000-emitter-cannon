@@ -78,13 +78,14 @@ if (!typesMajor || typesMajor[1] !== engineFloor[1]) {
 	);
 }
 
-// npm 10, which ships with the Node 22 lanes, still executes a prepare script
-// during `npm pack --ignore-scripts`. That prints the script banner and its
-// output on stdout, so any consumer that captures the pack result reads a
-// corrupted tarball name. npm 11 does not, which is exactly what makes the trap
-// easy to miss locally and only visible on the older CI lane. prepack stays
-// allowed because both majors keep it out of the pack capture, and git hooks
-// belong in the non-lifecycle `hooks` script instead.
+// npm 10, which Node 22 bundles, still executes a prepare script during
+// `npm pack --ignore-scripts`. That prints the script banner and its output on
+// stdout, so any consumer that captures the pack result reads a corrupted
+// tarball name. npm 11 does not, and Signal K Plugin CI replaces npm 10.9 with
+// npm 11 on its Node 22 lanes, so the trap stays hidden in CI and surfaces only
+// where the bundled npm 10 still runs, such as a contributor's Node 22 install.
+// prepack stays allowed because both majors keep it out of the pack capture,
+// and git hooks belong in the non-lifecycle `hooks` script instead.
 if (packageJson.scripts?.prepare) {
 	throw new Error(
 		"package.json must not define a prepare script: npm 10 runs it during `npm pack --ignore-scripts`",

@@ -20,15 +20,12 @@ permissions:
 
 jobs:
   plugin-ci:
-    uses: SignalK/signalk-server/.github/workflows/plugin-ci.yml@dd87569c6425789799eb83e83f0d6edc06cbc9fe # master
+    uses: SignalK/signalk-server/.github/workflows/plugin-ci.yml@faab2be886fa7d52f926e7d2acf91c910623d4d7 # master
     with:
       build-command: npm run build
       test-command: npm test
       # Pinned rather than inherited: the reusable workflow's defaults can move,
       # and this matrix is the one engines.node advertises.
       node-versions: '["22", "24"]'
-      # Formatting/lint is already enforced on Linux by ci.yml; skipping it
-      # here avoids a CRLF false-positive on the Windows runner.
-      # The plugin requires Node >= 22.0.0 (see package.json engines), so the
-      # armv7 / Cerbo GX lane (Node 20, Venus OS) is not a supported target.
-      enable-armv7: false
+      # format-check-command stays unset: ci.yml already enforces formatting on
+      # Linux, and setting it here would report a CRLF false positive on Windows.

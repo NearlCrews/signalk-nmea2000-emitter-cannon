@@ -4,19 +4,30 @@ name: SignalK Plugin CI
 # (https://signalk.org/signalk-plugin-registry/, scored from
 # SignalK/signalk-plugin-registry) looks for a workflow run that references
 # SignalK/signalk-server/.github/workflows/plugin-ci.yml on the published
-# version's commit; without one it applies a scoring penalty. The tag trigger
-# guarantees a run exists on the exact commit each release is published from.
+# version's commit; without one it applies a scoring penalty. A release tags a
+# commit on main, so the push run on main is the one the registry credits, and
+# the weekly schedule below keeps a run in the window the registry reads.
 
 on:
   push:
     branches: [main]
-    tags: ["v*"]
   pull_request:
     branches: [main]
+  # The registry reads only the newest 20 Actions runs for the release commit,
+  # so scheduled and Dependabot runs on main HEAD can push the release's run
+  # out of view. A weekly run keeps a fresh one there. It sits after the Monday
+  # Workflow Security and Dependabot runs and the Thursday CodeQL default setup
+  # scan (about 07:50 UTC, configured in repository settings, not a file here).
+  schedule:
+    - cron: '17 10 * * 4'
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   plugin-ci:

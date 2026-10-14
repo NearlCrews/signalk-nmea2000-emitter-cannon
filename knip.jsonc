@@ -2,6 +2,9 @@
 	"$schema": "https://unpkg.com/knip@6/schema.json",
 	"entry": ["src/panel/PluginConfigurationPanel.tsx"],
 	"includeEntryExports": true,
+	// scripts/link-signalk-admin.mjs resolves these from the Signal K test host
+	// the signalk-admin CI job installs, not from this package's own tree.
+	"ignoreDependencies": ["signalk-server", "@signalk/server-admin-ui"],
 	"treatConfigHintsAsErrors": true,
 	"cycles": {
 		"dynamicImports": true

@@ -1,7 +1,8 @@
 #!/bin/sh
-# Full verification before a push. Commands run serially to respect small
-# Signal K host memory budgets. Set EMITTER_CANNON_SKIP_PREPUSH=1 only for a
-# deliberate, documented exception.
+# `npm run verify` before a push. Browser suites run in `npm run verify:browser`
+# and CI, and the full dependency audit in `npm run verify:release`. Commands
+# run serially to respect small Signal K host memory budgets. Set
+# EMITTER_CANNON_SKIP_PREPUSH=1 only for a deliberate, documented exception.
 set -e
 
 if [ "$EMITTER_CANNON_SKIP_PREPUSH" = "1" ]; then
@@ -24,7 +25,7 @@ if [ -n "$STRAY_BRANCHES" ]; then
 	echo "$STRAY_BRANCHES" | sed 's/^/    /'
 fi
 
-echo "[pre-push] full verification"
+echo "[pre-push] verification"
 npm run --silent verify
 
 echo "[pre-push] all gates green"

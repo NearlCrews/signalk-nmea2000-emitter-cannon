@@ -1,5 +1,6 @@
 #!/bin/sh
-# Fast gate on every commit: formatting, lint, module boundaries, and dead code.
+# Fast gate on every commit: formatting, lint, docs, workflow and federation
+# guards, module boundaries, and dead code.
 set -e
 
 echo "[pre-commit] commit verification"

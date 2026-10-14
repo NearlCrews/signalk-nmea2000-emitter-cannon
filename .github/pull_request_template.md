@@ -15,7 +15,8 @@
 
 ## Verification
 
-- [ ] `npm run verify` passes
+- [ ] `npm run verify` passes (the pre-push hook runs it)
+- [ ] `npm run verify:browser` passes, if the configuration panel changed
 - [ ] Documentation and package metadata are updated where needed
 
 ## PGN / Signal K paths affected

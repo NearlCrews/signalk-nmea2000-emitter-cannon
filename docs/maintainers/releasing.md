@@ -30,9 +30,13 @@ GitHub release, and npm publication. Then:
 3. **Overwrite the README "What's new" section.** It carries only the most
    recent release, never an accumulating list. Replace its body with 3 to 5
    bolded bullets sourced from the new CHANGELOG entry, then a closing line
-   that links the CHANGELOG anchor (`CHANGELOG.md#vXYZ`) and the full release
-   history (`CHANGELOG.md`). Update the `## What's new in X.Y.Z` heading to
-   the new version.
+   that links the CHANGELOG anchor and the full release history through
+   absolute GitHub URLs:
+   `https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/blob/main/CHANGELOG.md#vXYZ`
+   and the same URL without the anchor. Never use a relative `CHANGELOG.md`
+   link in the README: the Signal K App Store renders link targets unmodified,
+   so a relative link is dead there, and `npm run lint:docs` rejects it. Update
+   the `## What's new in X.Y.Z` heading to the new version.
 4. If the configuration panel changed materially, run `npm run screenshots`.
    The command rebuilds the production panel, exercises it in Chromium, and
    regenerates the App Store images. Each is captured at a size hardcoded in
@@ -58,10 +62,12 @@ GitHub release, and npm publication. Then:
    module boundaries, dead code, strict types, coverage, production builds,
    the panel runtime smoke test, the Chromium and WebKit browser check, bundle
    budgets, package contents, publint, and security audits. Runtime
-   dependencies must have zero findings. The full dependency audit allowlist in
-   `scripts/audit-policy.mjs` is empty, so it fails closed on every advisory;
-   add an entry there only after reviewing the advisory, and remove it once the
-   chain leaves the tree.
+   dependencies must have zero findings. The full dependency audit covers the
+   development tree, which push CI does not audit, so this is where its
+   findings block a release (the weekly Workflow Security run reports them
+   earlier). Its allowlist in `scripts/audit-policy.mjs` is empty, so it fails
+   closed on every advisory; add an entry there only after reviewing the
+   advisory, and remove it once the chain leaves the tree.
 7. Run `npm outdated --long` and resolve unexpected output. A newer TypeScript
    or `@types/node` major is expected only when it is outside the typed-lint or
    supported-Node compatibility range. Also ask npm's resolver whether the
@@ -87,22 +93,26 @@ GitHub release, and npm publication. Then:
    This uses npm's own hoisting and range resolution, so shared transitive
    packages are not falsely reported as stale when one installed version is
    the resolver's optimal fit for multiple parent ranges.
-8. Commit, run `npm run release -- --check` to exercise the release preflight,
-   then run `npm run release`.
+8. Commit and push the release commit to `main`. Confirm CI and
+   SignalK Plugin CI are green on that commit
+   (`gh run list --commit "$(git rev-parse HEAD)"`); the Plugin CI push run on
+   `main` is the run the plugin registry credits, because no workflow runs on
+   the tag. Then run `npm run release -- --check` to exercise the release
+   preflight, and `npm run release`.
 
 After `npm run release`:
 
 1. Confirm `gh release view vX.Y.Z` reports the expected tag and release notes.
 2. Find the release commit's workflow runs with
    `gh run list --commit "$(git rev-list -n 1 vX.Y.Z)" --limit 30` and watch the
-   Publish to npm, CI, and SignalK Plugin CI runs to completion.
+   Publish to npm run to completion.
 3. Confirm `npm view signalk-nmea2000-emitter-cannon version` and
    `npm view signalk-nmea2000-emitter-cannon dist-tags.latest` both report the
    released version.
 4. Confirm `npm view signalk-nmea2000-emitter-cannon gitHead` reports the
    tagged commit.
-5. Confirm SignalK Plugin CI ran on the tagged commit. The plugin registry uses
-   that exact run as an app-store scoring input.
+5. Confirm SignalK Plugin CI ran on the tagged commit (its push run on
+   `main`). The plugin registry uses that run as an App Store scoring input.
 
 ## Troubleshooting
 

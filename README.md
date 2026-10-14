@@ -284,14 +284,16 @@ npm run build        # esbuild plugin bundle plus webpack panel
 npm test             # Vitest suite
 npm run check        # type-check the plugin, the panel, and the tests
 npm run lint         # code, Markdown, and spelling checks
-npm run ci:workflows # action pins and release-workflow invariants
+npm run ci:workflows # action pins, pipeline shape, and browser installs
 npm run format       # Biome auto-format
-npm run verify       # local full verification gate
+npm run verify       # local verification gate, run by the pre-push hook
+npm run verify:browser # verify plus the Chromium and WebKit panel checks
 ```
 
-The repository-owned pre-commit hook runs formatting, lint, architecture, and
-dead-code gates. The pre-push hook runs `npm run verify` serially. Run
-`npm run verify:release` before preparing a release. `npm run verify` drives
+The repository-owned pre-commit hook runs `npm run verify:commit`: formatting,
+lint, architecture, and dead-code gates. The pre-push hook runs
+`npm run verify` serially. Run `npm run verify:browser` after a panel change and
+`npm run verify:release` before preparing a release. The browser checks drive
 Chromium and WebKit through Playwright, so run
 `npx playwright install chromium webkit` once after cloning.
 See `docs/development.md` for the full workflow.

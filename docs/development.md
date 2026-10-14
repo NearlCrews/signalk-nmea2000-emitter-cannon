@@ -13,9 +13,11 @@
 The `devEngines` compatibility floor admits npm 10.9.7 because setup-node and
 the official Signal K Plugin CI begin with the npm bundled by their selected
 Node release. Repository-owned CI invokes npm 12.0.2 directly without replacing
-the runner's bundled npm installation, and it runs the complete release gate on
-Node 22.22.2 and the current Node 24 release. Signal K Plugin CI separately
-verifies its supported installation matrix.
+the runner's bundled npm installation. It runs the Node-independent gates once
+on the current Node 24 release, builds and unit tests on the Node 22.22.2
+toolchain floor, and mounts the packed panel in the Admin of Signal K 2.24.0
+and the latest release. Signal K Plugin CI separately verifies its supported
+installation matrix.
 
 ## Setup
 
@@ -29,12 +31,14 @@ npx playwright install chromium webkit
 
 Git hooks are not auto-installed on `npm install`, because lifecycle hooks can
 interfere with Signal K's package-install checks. Run `npm run hooks` once after
-cloning. The pre-commit hook runs the fast code-quality gates, and the pre-push
-hook runs full verification serially for predictable memory use on small hosts.
+cloning. The pre-commit hook runs `npm run verify:commit`, the fast code-quality
+gates, and the pre-push hook runs `npm run verify` serially for predictable
+memory use on small hosts. Neither runs a browser.
 
-The panel browser check drives Chromium and WebKit through Playwright, so
-install both engines once after cloning and again after a Playwright major or
-minor bump. Without them `npm run verify` fails on a missing browser build.
+The panel browser check (`npm run verify:browser`) drives Chromium and WebKit
+through Playwright, so install both engines once after cloning and again after
+a Playwright major or minor bump. Without them the browser check fails on a
+missing browser build.
 
 ## Build commands
 
@@ -51,17 +55,19 @@ npm run cruise         # Module-boundary and cycle checks
 npm run deadcode       # Unused file, dependency, and export checks
 npm run format         # Biome auto-format with --write
 npm run format:check   # Formatting check without writes
-npm run verify         # Coverage, build, panel smoke, and size gates
-npm run verify:release # Verify plus package contents and security audits
+npm run verify:commit  # Pre-commit gates: lint, docs, workflow and federation guards, boundaries, and dead code
+npm run verify         # Pre-push gates: verify:commit plus types, coverage, builds, panel smoke, and size
+npm run verify:browser # verify plus the Chromium and WebKit panel checks
+npm run verify:release # verify:browser plus package contents and security audits
 npm run audit          # Separate runtime and policy-aware full dependency audits
 ```
 
-The release audit requires zero runtime findings. The latest canboatjs test
-dependency still inherits `GHSA-mh99-v99m-4gvg` through its legacy MQTT
-toolchain, so `scripts/check-audit.mjs` permits only that exact development-only
-chain. Any additional package, advisory, severity change, or runtime finding
-fails closed. Remove the exception when canboatjs publishes a clean dependency
-tree.
+The runtime audit (`npm run audit:runtime`) must report zero findings and runs
+on every push. The full audit also covers the development tree; it runs in
+`npm run verify:release` and weekly in the Workflow Security workflow, never on
+a push or pull request. Its allowlist in `scripts/audit-policy.mjs` is empty, so
+it fails closed on every advisory. Add an entry there only after reviewing the
+advisory, and remove it once the chain leaves the tree.
 
 ## Architecture
 
@@ -170,10 +176,10 @@ tsconfig.panel.json       # Panel-specific TypeScript config (jsx: react-jsx)
 tsconfig.test.json        # TypeScript config for the src/test/ suite
 .github/
 └── workflows/
-    ├── ci.yml            # Complete release verification on Node 22.22.2 and 24
-    ├── plugin-ci.yml     # Official SignalK reusable plugin-ci workflow (cross-platform)
+    ├── ci.yml            # Gates on Node 24, the 22.22.2 floor, and Signal K Admin mounts
+    ├── plugin-ci.yml     # Official SignalK reusable plugin-ci workflow (cross-platform, weekly too)
     ├── publish.yml       # Auto-publish to npm on GitHub release (with provenance)
-    └── workflow-security.yml # Pinned actionlint and zizmor checks
+    └── workflow-security.yml # Pinned actionlint and zizmor checks, plus the weekly full dependency audit
 ```
 
 GitHub's repository-managed CodeQL default setup scans JavaScript, TypeScript,
@@ -197,8 +203,23 @@ npm run test:ui        # Run tests with UI
 npm run test:coverage  # Run tests with coverage
 npm run test:panel     # Render the production federation bundle in a VM
 npm run test:panel:browser # Chromium and WebKit interactions, layouts, themes, and Axe
-npm run ci:workflows      # Action pins and release-workflow invariants
+npm run test:integration  # Mount the panel in a running Signal K Admin (see below)
+npm run ci:workflows      # Action pins, pipeline shape, and browser installs
+npm run check:federation  # No strictVersion in the Module Federation share map
 ```
+
+`npm run test:integration` drives a real Signal K Admin, so it needs a running
+server with the packed plugin installed. The `signalk-admin` job in `ci.yml` is
+the reference setup: `npm run build`, `npm run pack:release`, install
+`signalk-server` and `artifacts/*.tgz` into an empty directory, run
+`node scripts/link-signalk-admin.mjs` on that directory, enable the plugin in
+its `plugin-config-data`, and start the server with `SIGNALK_NODE_CONFIG_DIR`
+and `PORT` pointing at that directory and a free port. Then run the check with
+`SIGNALK_URL` set to the server. Never point it at a live boat server. On a
+host that already runs Signal K, also write
+`{"interfaces": {"nmea-tcp": false, "tcp": false}, "mdns": false}` to that
+directory's `settings.json` so the test server does not compete for the live
+server's ports or advertise itself on the network.
 
 ## Adding new conversions
 
@@ -223,7 +244,7 @@ npm run ci:workflows      # Action pins and release-workflow invariants
    case must use an input the previous bound admitted; one the old code already
    rejected is a green test that proves nothing.
 6. Run `npm run verify:fast` while iterating, then `npm run verify` before the
-   change is ready.
+   change is ready (the pre-push hook runs it too).
 
 The title must carry its PGN run as `(PGN 12345)` or `(PGNs 12345, 12346)`.
 `extractPgnsFromTitle` reads that shape to build the PGN 126464 transmit list

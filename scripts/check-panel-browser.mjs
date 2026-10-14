@@ -3,6 +3,7 @@ import { createServer } from "node:http";
 import AxeBuilder from "@axe-core/playwright";
 import { chromium, devices, webkit } from "@playwright/test";
 import { build } from "esbuild";
+import { chromiumLaunchOptions } from "./chromium-launch.mjs";
 import { sharedUiRootSelector } from "./shared-ui-version.mjs";
 
 const repositoryDir = new URL("../", import.meta.url);
@@ -513,14 +514,7 @@ try {
 		throw new Error("browser server did not bind");
 	}
 
-	const systemChromium = "/usr/bin/chromium";
-	const executablePath =
-		process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ??
-		(existsSync(systemChromium) ? systemChromium : undefined);
-	browser = await chromium.launch({
-		headless: true,
-		...(executablePath === undefined ? {} : { executablePath }),
-	});
+	browser = await chromium.launch(chromiumLaunchOptions());
 	browserContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
 	browserContext.setDefaultTimeout(ACTION_TIMEOUT_MS);
 	const page = await browserContext.newPage();

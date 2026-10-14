@@ -1,5 +1,9 @@
 name: CI
 
+# Node-independent gates run once, on Node 24. The engines-floor job repeats
+# only what can vary by Node. The full development-tree audit is not a push or
+# pull request gate: it runs weekly in workflow-security.yml and in the release
+# gate. The runtime audit, which the plugin registry scores, runs here.
 on:
   push:
     branches: [main]
@@ -10,42 +14,124 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   verify:
-    name: Verify on Node ${{ matrix.node-version }}
+    name: Verify on Node 24
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    strategy:
-      fail-fast: false
-      matrix:
-        node-version: [22.22.2, 24]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 24
           cache: npm
       - run: npx --yes npm@12.0.2 ci
       - run: npx playwright install --with-deps chromium webkit
-      - run: npx --yes npm@12.0.2 run verify:release
+      - run: npx --yes npm@12.0.2 run verify:browser
+      - run: npx --yes npm@12.0.2 run package:check
+      - run: npx --yes npm@12.0.2 run audit:runtime
+      - run: npx --yes npm@12.0.2 run audit:policy
+
+  engines-floor:
+    name: Build and test on Node 22.22.2
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.22.2
+          cache: npm
+      - run: npx --yes npm@12.0.2 ci
+      - run: npx --yes npm@12.0.2 run build
+      - run: npx --yes npm@12.0.2 test
+
+  signalk-admin:
+    name: Signal K ${{ matrix.signalk-server }} Admin mounts the panel
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # 2.24.0 registers its React share as 19.0.0, the host a strictVersion
+        # share broke in 1.10.8. latest is the host most installs run.
+        signalk-server: ['2.24.0', latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npx --yes npm@12.0.2 ci
+      - run: npx playwright install --with-deps chromium
+      - run: npx --yes npm@12.0.2 run build
+      - run: npx --yes npm@12.0.2 run pack:release
+      - name: Install the packed plugin in Signal K ${{ matrix.signalk-server }}
+        env:
+          SIGNALK_SERVER_VERSION: ${{ matrix.signalk-server }}
+        # zizmor: ignore[adhoc-packages] This job must install the matrix server version and the
+        # locally packed tarball because those artifacts are what the integration check validates.
+        run: |
+          set -euo pipefail
+          host="$RUNNER_TEMP/signalk-host"
+          tarball="$(echo "$PWD"/artifacts/*.tgz)"
+          mkdir -p "$host/plugin-config-data"
+          (
+            cd "$host"
+            npm init --yes > /dev/null
+            npm install "signalk-server@${SIGNALK_SERVER_VERSION}"
+            npm install "$tarball" --ignore-scripts
+          )
+          node scripts/link-signalk-admin.mjs "$host"
+          echo '{"enabled":true,"configuration":{}}' > "$host/plugin-config-data/signalk-nmea2000-emitter-cannon.json"
+      - name: Start Signal K and mount the production panel in its Admin
+        env:
+          PORT: 3000
+          SIGNALK_URL: http://127.0.0.1:3000
+        run: |
+          set -euo pipefail
+          export SIGNALK_NODE_CONFIG_DIR="$RUNNER_TEMP/signalk-host"
+          cd "$SIGNALK_NODE_CONFIG_DIR"
+          npx --no-install signalk-server > "$RUNNER_TEMP/signalk.log" 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          cd "$GITHUB_WORKSPACE"
+          ready=false
+          for _ in $(seq 1 45); do
+            if curl --fail --silent "$SIGNALK_URL/signalk/v1/api/" > /dev/null; then
+              ready=true
+              break
+            fi
+            sleep 2
+          done
+          if [ "$ready" != true ] || ! npx --yes npm@12.0.2 run test:integration; then
+            cat "$RUNNER_TEMP/signalk.log"
+            exit 1
+          fi
 
   ci-status:
     name: CI Status
     if: always()
-    needs: [verify]
+    needs: [verify, engines-floor, signalk-admin]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Confirm the verification matrix passed
+      - name: Confirm every CI job passed
         env:
-          VERIFY_RESULT: ${{ needs.verify.result }}
+          RESULTS: ${{ join(needs.*.result, ' ') }}
         run: |
-          if [[ "$VERIFY_RESULT" != "success" ]]; then
-            echo "Verification matrix result: $VERIFY_RESULT"
-            exit 1
-          fi
+          for result in $RESULTS; do
+            if [[ "$result" != "success" ]]; then
+              echo "CI job results: $RESULTS"
+              exit 1
+            fi
+          done

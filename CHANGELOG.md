@@ -5,6 +5,39 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- CI runs the lint, type, coverage, browser, package, and runtime audit gates
+  once, on Node 24, and the Node 22.22.2 job only builds and runs the unit
+  tests. The full dependency audit, which covers development tools no user
+  installs, no longer gates pushes and pull requests: it runs weekly with the
+  workflow security checks and still gates every release.
+- Signal K Plugin CI no longer runs on release tags, which point at a commit
+  already tested on main, and now also runs weekly so a recent run on the
+  release commit stays within the plugin registry's view.
+- A new CI job installs the packed plugin into Signal K 2.24.0 and the latest
+  Signal K and mounts the production configuration panel in each server's
+  Admin. It fails on the defect that kept the 1.10.8 panel from mounting on
+  Signal K 2.24.
+- `npm run verify`, which the pre-push hook runs, no longer drives browsers.
+  `npm run verify:browser` adds the Chromium and WebKit panel checks, and
+  `npm run verify:release` still runs everything.
+- The build now fails on a relative link in the README, which is dead in the
+  Signal K App Store, on a `strictVersion` Module Federation share, and on a
+  workflow that runs a Playwright suite without installing every browser
+  engine it launches.
+- Development dependencies carry no known advisories. The Markdown check
+  calls the markdownlint library directly instead of its command-line
+  wrapper, whose file-matching dependencies carried an advisory with no fixed
+  release, and katex and smol-toml are held at patched versions.
+
+### Fixed
+
+- `THIRD_PARTY_NOTICES.md` now also covers the packages the plugin bundle
+  carries, starting with `@sinclair/typebox`, whose MIT notice the published
+  package was missing. They are read from the bundler's own output, and
+  `npm run package:check` fails if one is left out.
+
 <a id="v1110"></a>
 
 ## [1.11.0] - 2026-09-14

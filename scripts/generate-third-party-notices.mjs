@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { pluginBundlePackages } from "./plugin-bundle-packages.mjs";
 import { sharedUiVersion } from "./shared-ui-version.mjs";
 
 /**
@@ -10,12 +11,14 @@ import { sharedUiVersion } from "./shared-ui-version.mjs";
  * carry an @license or @preserve marker, and most of this tree ships none, so
  * the emitted sidecar alone does not discharge either obligation.
  *
- * The plugin bundle needs no entry here: dist/index.mjs is built with
- * --external:rxjs and bundles no third-party code at all, and rxjs reaches the
- * user through npm with its own license intact.
+ * The plugin bundle dist/index.mjs inlines whatever it imports except rxjs,
+ * which stays external and reaches the user through npm with its own license.
+ * Its inlined packages are read from an esbuild metafile of the exact
+ * build:plugin command, so a new import is attributed without a hand list.
  *
  * Run `npm run licenses` to regenerate. `--check` verifies the committed file
- * still matches the tree without paying for a second webpack build.
+ * still matches the tree without paying for a second webpack build; the plugin
+ * bundle is cheap to rebuild, so the check confirms every package it inlines.
  */
 
 const repositoryDir = new URL("../", import.meta.url);
@@ -23,6 +26,11 @@ const noticesUrl = new URL("THIRD_PARTY_NOTICES.md", repositoryDir);
 const checkOnly = process.argv.includes("--check");
 
 const HEADER_MARKER = "<!-- generated-for-signalk-nearlcrews-ui:";
+const PANEL = "the configuration panel (`public/*.js`)";
+const PLUGIN = "the plugin (`dist/index.mjs`)";
+const packageJson = JSON.parse(readFileSync(new URL("package.json", repositoryDir), "utf8"));
+const pluginPackages = () =>
+	pluginBundlePackages(packageJson.scripts["build:plugin"], new URL(".", repositoryDir).pathname);
 
 /** Ask webpack which packages it actually bundles, rather than guessing. */
 function bundledPackageNames() {
@@ -76,15 +84,16 @@ function licenseIdFor(name) {
 	return typeof manifest.license === "string" ? manifest.license : "see below";
 }
 
-function render(names) {
-	const sections = names.map((name) => {
+function render(placements) {
+	const sections = [...placements.keys()].sort().map((name) => {
 		const id = licenseIdFor(name);
 		const text = licenseTextFor(name);
 		const body =
 			text === null
 				? `This package ships no license file. Its manifest declares ${id}.`
 				: `\`\`\`text\n${text}\n\`\`\``;
-		return `## ${name}\n\nLicense: ${id}\n\n${body}`;
+		const where = placements.get(name).join(" and ");
+		return `## ${name}\n\nLicense: ${id}\n\nBundled in ${where}.\n\n${body}`;
 	});
 	return [
 		"# Third-party notices",
@@ -94,17 +103,19 @@ function render(names) {
 		// One element per PARAGRAPH, not per source line: the join below puts a
 		// blank line between elements, so a line-per-element shape would render
 		// every wrapped line as its own one-line paragraph.
-		"The configuration panel is a Module Federation remote, so the packages below " +
-			"are bundled into `public/*.js` and redistributed with this plugin. Their " +
-			"licenses follow. Regenerate with `npm run licenses` after any change to " +
-			"the panel's dependency tree.",
+		"The configuration panel is a Module Federation remote bundled into " +
+			"`public/*.js`, and the plugin itself is bundled into `dist/index.mjs`, so " +
+			"the packages below are redistributed with this plugin. Each section names " +
+			"the bundle that carries it, and the licenses follow. Regenerate with " +
+			"`npm run licenses` after any change to either dependency tree.",
 		"React and React DOM are supplied by the Signal K admin host as singletons and " +
 			"are not bundled here; the React entry that does appear is the JSX runtime. " +
-			"The plugin bundle `dist/index.mjs` is built with `--external:rxjs` and " +
-			"carries no third-party code.",
+			"rxjs stays external to the plugin bundle and installs from npm with its own " +
+			"license.",
 		...sections,
 	]
 		.join("\n\n")
+		.replace(/[ \t]+$/gm, "")
 		.replace(/\n{3,}/g, "\n\n");
 }
 
@@ -131,10 +142,26 @@ if (checkOnly) {
 			throw new Error(`${name} now declares ${declared}; run npm run licenses`);
 		}
 	}
+	// The plugin bundle rebuilds in well under a second, so confirm every package
+	// it inlines today is attributed to it.
+	for (const name of pluginPackages()) {
+		const section = current.split(`\n## ${name}\n`)[1]?.split("\n## ")[0] ?? "";
+		if (!section.includes(PLUGIN)) {
+			throw new Error(
+				`${name} is inlined into dist/index.mjs but not attributed; run npm run licenses`,
+			);
+		}
+	}
 	process.stdout.write(`Third-party notices cover ${listed.length} bundled packages.\n`);
 } else {
-	const names = bundledPackageNames();
-	if (names.length === 0) throw new Error("webpack reported no bundled packages");
-	writeFileSync(noticesUrl, `${render(names)}\n`);
-	process.stdout.write(`Wrote THIRD_PARTY_NOTICES.md for ${names.length} bundled packages.\n`);
+	const placements = new Map();
+	const place = (names, bundle) => {
+		for (const name of names) placements.set(name, [...(placements.get(name) ?? []), bundle]);
+	};
+	const panelNames = bundledPackageNames();
+	if (panelNames.length === 0) throw new Error("webpack reported no bundled packages");
+	place(panelNames, PANEL);
+	place(pluginPackages(), PLUGIN);
+	writeFileSync(noticesUrl, `${render(placements)}\n`);
+	process.stdout.write(`Wrote THIRD_PARTY_NOTICES.md for ${placements.size} bundled packages.\n`);
 }

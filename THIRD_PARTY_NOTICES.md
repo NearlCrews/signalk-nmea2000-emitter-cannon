@@ -2,13 +2,15 @@
 
 <!-- generated-for-signalk-nearlcrews-ui:0.11.1 -->
 
-The configuration panel is a Module Federation remote, so the packages below are bundled into `public/*.js` and redistributed with this plugin. Their licenses follow. Regenerate with `npm run licenses` after any change to the panel's dependency tree.
+The configuration panel is a Module Federation remote bundled into `public/*.js`, and the plugin itself is bundled into `dist/index.mjs`, so the packages below are redistributed with this plugin. Each section names the bundle that carries it, and the licenses follow. Regenerate with `npm run licenses` after any change to either dependency tree.
 
-React and React DOM are supplied by the Signal K admin host as singletons and are not bundled here; the React entry that does appear is the JSX runtime. The plugin bundle `dist/index.mjs` is built with `--external:rxjs` and carries no third-party code.
+React and React DOM are supplied by the Signal K admin host as singletons and are not bundled here; the React entry that does appear is the JSX runtime. rxjs stays external to the plugin bundle and installs from npm with its own license.
 
 ## @internationalized/date
 
 License: Apache-2.0
+
+Bundled in the configuration panel (`public/*.js`).
 
 ```text
 Apache License
@@ -218,6 +220,8 @@ Apache License
 
 License: Apache-2.0
 
+Bundled in the configuration panel (`public/*.js`).
+
 ```text
 Apache License
                            Version 2.0, January 2004
@@ -426,6 +430,8 @@ Apache License
 
 License: Apache-2.0
 
+Bundled in the configuration panel (`public/*.js`).
+
 ```text
 Apache License
                            Version 2.0, January 2004
@@ -630,15 +636,53 @@ Apache License
    limitations under the License.
 ```
 
+## @sinclair/typebox
+
+License: MIT
+
+Bundled in the plugin (`dist/index.mjs`).
+
+```text
+TypeBox
+
+Json Schema Type Builder with Static Type Resolution for TypeScript
+
+The MIT License (MIT)
+
+Copyright (c) 2017-2026 Haydn Paterson
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+```
+
 ## client-only
 
 License: MIT
+
+Bundled in the configuration panel (`public/*.js`).
 
 This package ships no license file. Its manifest declares MIT.
 
 ## clsx
 
 License: MIT
+
+Bundled in the configuration panel (`public/*.js`).
 
 ```text
 MIT License
@@ -655,6 +699,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 ## react
 
 License: MIT
+
+Bundled in the configuration panel (`public/*.js`).
 
 ```text
 MIT License
@@ -683,6 +729,8 @@ SOFTWARE.
 ## react-aria
 
 License: Apache-2.0
+
+Bundled in the configuration panel (`public/*.js`).
 
 ```text
 Apache License
@@ -892,6 +940,8 @@ Apache License
 
 License: Apache-2.0
 
+Bundled in the configuration panel (`public/*.js`).
+
 ```text
 Apache License
                            Version 2.0, January 2004
@@ -1099,6 +1149,8 @@ Apache License
 ## react-stately
 
 License: Apache-2.0
+
+Bundled in the configuration panel (`public/*.js`).
 
 ```text
 Apache License
@@ -1308,6 +1360,8 @@ Apache License
 
 License: Apache-2.0
 
+Bundled in the configuration panel (`public/*.js`).
+
 ```text
 Apache License
                            Version 2.0, January 2004
@@ -1505,6 +1559,8 @@ Apache License
 
 License: MIT
 
+Bundled in the configuration panel (`public/*.js`).
+
 ```text
 MIT License
 
@@ -1532,6 +1588,8 @@ SOFTWARE.
 ## webpack
 
 License: MIT
+
+Bundled in the configuration panel (`public/*.js`).
 
 ```text
 Copyright JS Foundation and other contributors

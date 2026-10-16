@@ -5,6 +5,8 @@ node_modules/
 dist/
 public/
 *.tsbuildinfo
+# The panel build's Webpack module graph, read by snui-check-consumer --stats
+.panel-stats.json
 
 # Coverage (Vitest v8 default output) and the Vitest 5 report directory
 coverage/

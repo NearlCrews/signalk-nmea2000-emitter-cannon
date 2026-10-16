@@ -1,5 +1,5 @@
 import type * as React from "react";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useState } from "react";
 import {
 	Badge,
 	Banner,
@@ -60,7 +60,6 @@ export default function AdvisorPanel({
 	// The recommendation whose Approve was pressed, so ReviewResultView can show
 	// the progress on that control rather than on all of them.
 	const [applyingKey, setApplyingKey] = useState<string | null>(null);
-	const dirtyHintId = useId();
 	const { state, review, apply, loadPending, dismissPending } = useAdvisor();
 
 	// Load any parked decisions from a prior (e.g. scheduled) review on mount so
@@ -124,7 +123,7 @@ export default function AdvisorPanel({
 				</Text>
 				<Cluster>
 					{/* Blocked, not removed from the tab order: a natively disabled
-					    button is skipped by keyboard, so the reason below it would
+					    button is skipped by keyboard, so its blocked reason would
 					    never be reached from the control it explains. */}
 					<Button
 						variant="primary"
@@ -132,13 +131,13 @@ export default function AdvisorPanel({
 						loading={busy}
 						loadingLabel={busyLabel}
 						ariaDisabled={dirty}
-						aria-describedby={dirty ? dirtyHintId : undefined}
+						disabledReason={dirty ? "Save or discard your changes first." : undefined}
 					>
 						Review now
 					</Button>
 				</Cluster>
 				{dirty && (
-					<Banner id={dirtyHintId} tone="warning" title="Save or discard your changes first">
+					<Banner tone="warning" title="Save or discard your changes first">
 						A review may update the saved configuration, so Review now waits until the panel is
 						clean.
 					</Banner>

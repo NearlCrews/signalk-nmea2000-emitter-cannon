@@ -7,6 +7,13 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- The configuration panel uses signalk-nearlcrews-ui 0.14.0. Invalid checkboxes,
+  radio groups, sliders, and switches now draw a dashed outline beside the
+  error text, container outlines and dividers are fainter, and the Light
+  theme's borders and disabled text are slightly darker.
+- A blocked Review now, Test connection, Approve, Reject, or Apply button now
+  carries its reason in its own accessible description, and the Setup wizard
+  shows why Apply is blocked directly under the button.
 - CI runs the lint, type, coverage, browser, package, and runtime audit gates
   once, on Node 24, and the Node 22.22.2 job only builds and runs the unit
   tests. The full dependency audit, which covers development tools no user

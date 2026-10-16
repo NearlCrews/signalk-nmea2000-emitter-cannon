@@ -109,6 +109,7 @@ export default function ReviewResultView({
 												loading={applying}
 												loadingLabel="Applying"
 												ariaDisabled={busy && !applying}
+												disabledReason="Available when the current action finishes."
 											>
 												Approve
 											</Button>
@@ -116,6 +117,7 @@ export default function ReviewResultView({
 												size="compact"
 												onClick={() => onReject(r.optionKey)}
 												ariaDisabled={busy}
+												disabledReason="Available when the current action finishes."
 											>
 												Reject
 											</Button>

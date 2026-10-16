@@ -1,5 +1,5 @@
 import type * as React from "react";
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
 	Banner,
 	Button,
@@ -55,7 +55,6 @@ export default function FirstRunWizard({
 	onApplyPreset,
 	onClose,
 }: Props): React.ReactElement {
-	const applyHintId = useId();
 	const [paths, setPaths] = useState<string[] | null>(null);
 	const [loadError, setLoadError] = useState<string | null>(null);
 	// Unchecked-by-the-user overrides; every proposed conversion is checked
@@ -148,7 +147,8 @@ export default function FirstRunWizard({
 						variant="primary"
 						onClick={handleApply}
 						ariaDisabled={applyBlockedReason !== null}
-						aria-describedby={applyBlockedReason === null ? undefined : applyHintId}
+						disabledReason={applyBlockedReason ?? undefined}
+						disabledReasonVisibility="visible"
 					>
 						Apply{checkedKeys.length > 0 ? ` (${checkedKeys.length})` : ""}
 					</Button>
@@ -208,11 +208,6 @@ export default function FirstRunWizard({
 					<PresetChips onApply={onApplyPreset} meta={meta} />
 				</Section>
 
-				{applyBlockedReason === null ? null : (
-					<Text as="p" id={applyHintId} tone="muted" size="sm">
-						{applyBlockedReason}
-					</Text>
-				)}
 				<StatusIndicator live="polite">
 					{hint ?? `Apply stages your selection; preset chips stage instantly. ${REVIEW_THEN_SAVE}`}
 				</StatusIndicator>

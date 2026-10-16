@@ -550,13 +550,13 @@ try {
 	await page.goto(`http://127.0.0.1:${address.port}/`, { waitUntil: "domcontentloaded" });
 	const root = page.locator(sharedUiRootSelector);
 	await root.waitFor();
-	// The shared UI names its two automatic choices after what they follow:
-	// "Match Admin" is the host-theme default, "Match device" the operating
-	// system preference. Which theme each choice commits is the library's own
-	// contract, covered by its own suite; what this panel owns is that the shell
-	// renders the selector and that a chosen theme reaches this panel's root.
-	const themeRadio = (name) => page.getByRole("radio", { name, exact: true });
-	const HOST_THEME_CHOICE = "Match Admin";
+	// The shared UI marks each theme radio with the theme it selects. "auto" is
+	// the host-theme default and "night" the red-preserving theme. Which theme
+	// each choice commits is the library's own contract, covered by its own
+	// suite; what this panel owns is that the shell renders the selector and
+	// that a chosen theme reaches this panel's root.
+	const themeRadio = (choice) => page.locator(`[data-snui-theme-choice="${choice}"]`);
+	const HOST_THEME_CHOICE = "auto";
 	if ((await root.getAttribute("data-snui-theme")) !== null) {
 		throw new Error("fresh shared UI theme was pinned instead of following the host");
 	}
@@ -711,7 +711,7 @@ try {
 	// One explicit choice proves the selector the shell renders commits a theme
 	// to this panel's root. Night is the one this panel cares about most: it is
 	// the red-preserving theme a helm reads after dark.
-	const NIGHT_THEME_CHOICE = "Night";
+	const NIGHT_THEME_CHOICE = "night";
 	await themeRadio(NIGHT_THEME_CHOICE).click();
 	if ((await root.getAttribute("data-snui-theme")) !== "night") {
 		throw new Error(`${NIGHT_THEME_CHOICE} theme did not update the panel root`);

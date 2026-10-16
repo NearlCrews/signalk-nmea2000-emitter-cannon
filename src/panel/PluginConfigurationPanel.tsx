@@ -105,8 +105,6 @@ function matchesQuery(m: ConversionMetadata, needle: string): boolean {
 	return false;
 }
 
-const reloadPage = (): void => window.location.reload();
-
 /** @public Module Federation entry point consumed by the Signal K admin UI. */
 export default function PluginConfigurationPanel(props: Props): React.ReactElement {
 	const rootRef = useRef<HTMLDivElement>(null);
@@ -114,7 +112,7 @@ export default function PluginConfigurationPanel(props: Props): React.ReactEleme
 	// an error boundary whose "Try again" remounts the panel in place, and
 	// renders the theme selector at the foot of the panel, below the body.
 	return (
-		<PanelShell ref={rootRef} themeToggle="end" onReload={reloadPage}>
+		<PanelShell ref={rootRef} themeToggle="end">
 			<PanelBody {...props} rootRef={rootRef} />
 		</PanelShell>
 	);

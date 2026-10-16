@@ -39,19 +39,19 @@ export const CONVERSION_STYLES = {
 		minHeight: TOOLBAR_HEIGHT,
 		padding: "var(--snui-space-2) var(--snui-space-3)",
 		background: "var(--snui-color-surface)",
-		borderBottom: "1px solid var(--snui-color-border)",
+		borderBottom: "1px solid var(--snui-color-border-subtle)",
 	},
 	// The search field takes the free width of the toolbar row and shrinks to
 	// zero before it forces the row to overflow.
 	searchSlot: { flex: "1 1 200px", minWidth: 0 },
 	list: {
-		border: "1px solid var(--snui-color-border)",
+		border: "1px solid var(--snui-color-border-subtle)",
 		borderRadius: "var(--snui-radius-sm)",
 		background: "var(--snui-color-surface)",
 		overflow: "hidden",
 	},
 	outer: {
-		borderBottom: "1px solid var(--snui-color-border)",
+		borderBottom: "1px solid var(--snui-color-border-subtle)",
 		scrollMarginTop: TOOLBAR_CLEARANCE,
 	},
 	// A mapping row is its own jump target, so it clears the toolbar on the
@@ -176,7 +176,7 @@ export const CONVERSION_STYLES = {
 	},
 	detail: {
 		background: "var(--snui-color-background)",
-		borderTop: "1px solid var(--snui-color-border)",
+		borderTop: "1px solid var(--snui-color-border-subtle)",
 		padding: "var(--snui-space-3) var(--snui-space-4)",
 		paddingInlineStart: "var(--snui-space-8)",
 	},

@@ -530,7 +530,6 @@ export default function MappingTable<T>(props: Props<T>): React.ReactElement {
 											<TableCell colSpan={props.columns.length + 1}>
 												<InlineConfirm
 													open
-													headingLevel={4}
 													title={`Remove row ${rowNumber} from ${props.title}?`}
 													message="The row leaves this table now and the saved configuration when you Save."
 													confirmLabel="Remove row"

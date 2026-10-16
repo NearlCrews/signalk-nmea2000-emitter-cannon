@@ -1,5 +1,5 @@
 import type * as React from "react";
-import { useId, useState } from "react";
+import { useState } from "react";
 import {
 	Button,
 	Checkbox,
@@ -73,7 +73,6 @@ export default function AdvisorSettings({
 	advisorSettingsDirty,
 }: Props): React.ReactElement {
 	const cfg: AdvisorCfg = value ?? DEFAULT_ADVISOR_CONFIG;
-	const questdbTestHintId = useId();
 	const [questdbTest, setQuestdbTest] = useState<ProbeState>({ phase: "idle" });
 
 	const patch = (part: Partial<AdvisorCfg>): void => {
@@ -169,23 +168,21 @@ export default function AdvisorSettings({
 					</LabeledField>
 					<Cluster gap={2}>
 						{/* Blocked, not removed from the tab order: a natively disabled
-						    button is skipped by keyboard, so the hint below explaining
-						    the block would never be reached from the control it
-						    explains. The hint describes the button rather than the URL
-						    field, which is what it is actually about. */}
+						    button is skipped by keyboard, so its blocked reason would
+						    never be reached from the control it explains. */}
 						<Button
 							size="compact"
 							onClick={() => void runQuestdbTest()}
 							loading={questdbTest.phase === "testing"}
 							loadingLabel="Testing"
 							ariaDisabled={advisorSettingsDirty}
-							aria-describedby={questdbTestHintId}
+							disabledReason={advisorSettingsDirty ? "Save your changes first." : undefined}
 						>
 							Test connection
 						</Button>
 						<ProbeStatus probe={questdbTest} />
 					</Cluster>
-					<Text as="p" id={questdbTestHintId} tone="muted" size="sm">
+					<Text as="p" tone="muted" size="sm">
 						Test connection checks the saved URL. If you just changed it, Save first.
 					</Text>
 					<NumberField

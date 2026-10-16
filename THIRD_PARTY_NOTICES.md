@@ -1,6 +1,6 @@
 # Third-party notices
 
-<!-- generated-for-signalk-nearlcrews-ui:0.11.1 -->
+<!-- generated-for-signalk-nearlcrews-ui:0.14.0 -->
 
 The configuration panel is a Module Federation remote bundled into `public/*.js`, and the plugin itself is bundled into `dist/index.mjs`, so the packages below are redistributed with this plugin. Each section names the bundle that carries it, and the licenses follow. Regenerate with `npm run licenses` after any change to either dependency tree.
 

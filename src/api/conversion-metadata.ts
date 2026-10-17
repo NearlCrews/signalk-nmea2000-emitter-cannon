@@ -2,14 +2,9 @@ import { SOURCE_TYPE } from "../constants.js";
 import type { ConversionModule, ConversionOptions, SubConversionModule } from "../types/index.js";
 import { extractPgnsFromTitle } from "../utils/pgnUtils.js";
 import { resolveRefreshInterval } from "../utils/refreshInterval.js";
-import {
-	compatibilityFor,
-	descriptionFor,
-	lifecycleFor,
-	metaFor,
-	purposeFor,
-} from "./extras-meta.js";
+import { descriptionFor, lifecycleFor, metaFor, purposeFor } from "./extras-meta.js";
 import type { ConversionMetadata } from "./types.js";
+import { compatibilityFor } from "./vendorSupport.js";
 
 export type ConversionOptionsByKey = Readonly<Record<string, ConversionOptions | undefined>>;
 
@@ -93,7 +88,7 @@ export function buildConversionMetadata(
 		if (purpose !== undefined) {
 			entry.purpose = purpose;
 		}
-		const compatibility = compatibilityFor(c.optionKey);
+		const compatibility = compatibilityFor(c.optionKey, entry.pgns);
 		if (compatibility !== undefined) {
 			entry.compatibility = compatibility;
 		}

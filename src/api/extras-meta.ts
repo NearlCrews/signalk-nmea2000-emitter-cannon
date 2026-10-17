@@ -2,6 +2,7 @@ import { HUMIDITY_SOURCE_VALUES, TEMPERATURE_SOURCE_VALUES } from "../config/env
 import { MAX_N2K_INSTANCE } from "../constants.js";
 import type { ConversionModule } from "../types/index.js";
 import type { ConversionLifecycle, ExtrasMeta } from "./types.js";
+import { CONVERSION_OVERRIDES } from "./vendorSupport.js";
 
 function sourceOptions(
 	values: readonly string[],
@@ -115,54 +116,6 @@ export function purposeFor(optionKey: string): string | undefined {
 	return CONVERSION_PURPOSES[optionKey];
 }
 
-// Hint of how the most common MFD vendor (Garmin) treats each PGN. Used to
-// render a small badge on the card so a Garmin-only install knows which
-// enabled conversions actually display vs which are emitted for other
-// marine instruments. Missing entries render no badge; populate only cases
-// with useful model-specific evidence or cautions.
-const CONVERSION_COMPATIBILITY: Record<
-	string,
-	{ garmin: "consumes" | "ignores" | "partial"; note?: string }
-> = {
-	// Current ECHOMAP UHD2 documentation lists both PGNs. Older models vary,
-	// so this remains partial rather than claiming product-line-wide support.
-	BATTERY: {
-		garmin: "partial",
-		note: "Current ECHOMAP UHD2 models list 127506 and 127508; older model support varies.",
-	},
-	// Seatalk proprietary; Raymarine-only.
-	RAYMARINE_ALARMS: { garmin: "ignores", note: "Seatalk proprietary." },
-	RAYMARINE_BRIGHTNESS: { garmin: "ignores", note: "Seatalk proprietary." },
-	ATTITUDE: {
-		garmin: "partial",
-		note: "Current ECHOMAP UHD2 models list 127257; older model support varies.",
-	},
-	HEAVE: {
-		garmin: "partial",
-		note: "Current ECHOMAP UHD2 models list 127252; older model support varies.",
-	},
-	TIME_DATE: {
-		garmin: "partial",
-		note: "Current ECHOMAP UHD2 models omit 129033; support varies by model.",
-	},
-	VESSEL_SPEED_COMPONENTS: {
-		garmin: "partial",
-		note: "Current ECHOMAP UHD2 models list 130578; older model support varies.",
-	},
-	// AIS safety broadcast: regulated. Many MFDs accept inbound but a
-	// software-only emit is non-compliant; some firmwares drop the frame.
-	AIS_SAFETY_MESSAGE: {
-		garmin: "partial",
-		note: "Garmin GPSMAP reads inbound 129802 (2025-04 firmware); software emission is regulated.",
-	},
-};
-
-export function compatibilityFor(
-	optionKey: string,
-): { garmin: "consumes" | "ignores" | "partial"; note?: string } | undefined {
-	return CONVERSION_COMPATIBILITY[optionKey];
-}
-
 // Per-optionKey legacy-PGN metadata. PGN 130312 (the TEMPERATURE_* keys) is
 // handled by prefix in lifecycleFor, not listed here, because it spans many
 // per-source optionKeys.
@@ -187,7 +140,7 @@ const CONVERSION_LIFECYCLE: Record<string, ConversionLifecycle> = {
 	// PGN 130311: canboat notes it "should no longer be generated".
 	ENVIRONMENT_PARAMETERS: {
 		supersededBy: "PGNs 130312 to 130316 (dedicated environmental data)",
-		note: "PGN 130311 is deprecated in the NMEA 2000 spec in favor of the dedicated PGNs 130312 to 130316. Raymarine lists it as received by i70 and i70s instruments, and field testing shows it can be required for outside temperature, humidity, and pressure. Enable it only for receivers that need this combined frame.",
+		note: "PGN 130311 is deprecated in the NMEA 2000 spec in favor of the dedicated PGNs 130312 to 130316. The Raymarine i70s receive list includes it but not PGN 130313 or 130314, so it is that instrument's only path for outside humidity and pressure. Enable it only for receivers that need this combined frame.",
 	},
 };
 
@@ -265,7 +218,7 @@ export function metaFor(conversion: ConversionModule): ExtrasMeta {
 /**
  * Pure sanity check: every literal optionKey used by the per-conversion
  * metadata maps (EXTRAS_BY_OPTION_KEY, CONVERSION_DESCRIPTIONS,
- * CONVERSION_PURPOSES, CONVERSION_COMPATIBILITY, CONVERSION_LIFECYCLE) must
+ * CONVERSION_PURPOSES, CONVERSION_LIFECYCLE, and the vendor CONVERSION_OVERRIDES) must
  * match a loaded conversion's optionKey. Returns the list of orphaned keys
  * for the caller to log via whatever channel it prefers (debug, error, test
  * harness). Prefix-matched entries (TEMPERATURE_*) are intentionally not
@@ -277,7 +230,7 @@ export function findOrphanExtrasMetaKeys(loaded: readonly ConversionModule[]): s
 		...Object.keys(EXTRAS_BY_OPTION_KEY),
 		...Object.keys(CONVERSION_DESCRIPTIONS),
 		...Object.keys(CONVERSION_PURPOSES),
-		...Object.keys(CONVERSION_COMPATIBILITY),
+		...Object.keys(CONVERSION_OVERRIDES),
 		...Object.keys(CONVERSION_LIFECYCLE),
 	]);
 	return [...checked].filter((key) => !loadedKeys.has(key));

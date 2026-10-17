@@ -125,16 +125,26 @@ export interface ConversionMetadata {
 	// Rendered below the title so a non-NMEA reader can tell e.g. PGN 127498
 	// (static identity) apart from 127489 (dynamic params).
 	purpose?: string;
-	// Optional hint for which major MFD vendors actually consume the PGN.
-	// "consumes": Garmin reads and displays. "ignores": Garmin drops the
-	// PGN (keep enabled for other receivers when required).
-	// "partial": some Garmin models read, others do not.
-	compatibility?: {
-		garmin: "consumes" | "ignores" | "partial";
-		note?: string;
-	};
+	// What the major vendors' published receive lists say about the emitted
+	// PGNs, plus an optional note. See src/api/vendorSupport.ts.
+	compatibility?: ConversionCompatibility;
 	// Drives the "Legacy" badge on the card. See ConversionLifecycle.
 	legacy?: ConversionLifecycle;
+}
+
+/** The display vendors whose published NMEA 2000 receive lists were checked. */
+export type VendorId = "garmin" | "raymarine" | "bandg" | "furuno";
+
+/**
+ * "listed": every documented model of the vendor lists the PGN as received.
+ * "limited": some models do, or the vendor reads only part of its data.
+ * "not-listed": no documented model does.
+ */
+export type VendorSupport = "listed" | "limited" | "not-listed";
+
+export interface ConversionCompatibility {
+	vendors: Partial<Record<VendorId, VendorSupport>>;
+	note?: string;
 }
 
 export interface ConversionsResponse {

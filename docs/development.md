@@ -114,7 +114,8 @@ src/
 │   ├── discovery.ts           # Path / source enumeration helpers
 │   ├── extras-meta.ts         # ExtrasMeta discriminator per optionKey
 │   ├── pgnSummaries.ts        # Per-PGN human-readable summary strings
-│   └── types.ts               # API response shapes
+│   ├── types.ts               # API response shapes
+│   └── vendorSupport.ts       # Vendor receive-list table behind the panel's vendor badges
 ├── advisor/              # Server-side orchestration, inventory, QuestDB, and scheduling
 ├── recommendation/       # Runtime-neutral recommendation matcher and shared types
 ├── panel/                # Federated React config panel (webpack module federation)
@@ -243,7 +244,11 @@ server's ports or advertise itself on the network.
 5. Include embedded test cases in the module's `tests` array. A range regression
    case must use an input the previous bound admitted; one the old code already
    rejected is a green test that proves nothing.
-6. Run `npm run verify:fast` while iterating, then `npm run verify` before the
+6. If the conversion emits a PGN the plugin did not emit before, check it
+   against the vendor receive lists in the PGN reference and classify it in
+   `src/api/vendorSupport.ts`. `vendorSupport.test.ts` fails until every
+   emitted PGN is classified.
+7. Run `npm run verify:fast` while iterating, then `npm run verify` before the
    change is ready (the pre-push hook runs it too).
 
 The title must carry its PGN run as `(PGN 12345)` or `(PGNs 12345, 12346)`.

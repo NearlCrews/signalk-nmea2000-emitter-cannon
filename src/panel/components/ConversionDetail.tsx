@@ -20,7 +20,12 @@ import {
 	Text,
 } from "signalk-nearlcrews-ui";
 import { pgnSummaryFor } from "../../api/pgnSummaries.js";
-import type { ConversionMetadata, PerConversionStatus } from "../../api/types.js";
+import type {
+	ConversionMetadata,
+	PerConversionStatus,
+	VendorId,
+	VendorSupport,
+} from "../../api/types.js";
 import type { ConversionConfig } from "../../config/schema.js";
 import type { ConfigIssue } from "../../config/validation.js";
 import { pathToPropName } from "../../utils/pathUtils.js";
@@ -30,15 +35,19 @@ import { conversionHealth } from "../rowStatus.js";
 import ExtrasEditor from "./ExtrasEditor";
 import SourceField from "./SourceField";
 
-// The Garmin compatibility hint as a toned badge: the label carries the
-// meaning and the tone glyph and color reinforce it.
-const COMPATIBILITY: Record<
-	"consumes" | "ignores" | "partial",
-	{ tone: StatusTone; label: string }
-> = {
-	consumes: { tone: "success", label: "Garmin: displays" },
-	partial: { tone: "warning", label: "Garmin: partial" },
-	ignores: { tone: "neutral", label: "Garmin: ignores" },
+// One toned badge per vendor receive list: the label carries the meaning and
+// the tone glyph and color reinforce it. The wording reports what the
+// published list says, not what a display does with the PGN.
+const VENDOR_LABELS: Record<VendorId, string> = {
+	garmin: "Garmin",
+	raymarine: "Raymarine",
+	bandg: "B&G",
+	furuno: "Furuno",
+};
+const VENDOR_SUPPORT: Record<VendorSupport, { tone: StatusTone; label: string }> = {
+	listed: { tone: "success", label: "listed" },
+	limited: { tone: "warning", label: "limited" },
+	"not-listed": { tone: "neutral", label: "not listed" },
 };
 
 /**
@@ -98,7 +107,9 @@ export default function ConversionDetail(props: Props): React.ReactElement {
 	const hasValidationError = props.validationIssues.some((issue) => issue.severity === "error");
 
 	const compatibility = meta.compatibility;
-	const compat = compatibility ? COMPATIBILITY[compatibility.garmin] : null;
+	const vendorSupport = compatibility
+		? (Object.entries(compatibility.vendors) as Array<[VendorId, VendorSupport]>)
+		: [];
 	const health = conversionHealth(status);
 	const healthMessage =
 		health.state === "publisher-filter-mismatch"
@@ -321,15 +332,22 @@ export default function ConversionDetail(props: Props): React.ReactElement {
 				) : null}
 				{/* Compatibility and legacy notes as visible body text so the
 				    information is reachable without a mouse hover. */}
-				{compat ? (
+				{vendorSupport.length > 0 ? (
 					<Cluster gap={2}>
-						<Badge tone={compat.tone}>{compat.label}</Badge>
-						{compatibility?.note ? (
-							<Text tone="muted" size="sm">
-								{compatibility.note}
-							</Text>
-						) : null}
+						<Text tone="muted" size="sm">
+							Vendor receive lists:
+						</Text>
+						{vendorSupport.map(([vendor, support]) => (
+							<Badge key={vendor} tone={VENDOR_SUPPORT[support].tone}>
+								{VENDOR_LABELS[vendor]}: {VENDOR_SUPPORT[support].label}
+							</Badge>
+						))}
 					</Cluster>
+				) : null}
+				{compatibility?.note ? (
+					<Text as="p" tone="muted" size="sm">
+						{compatibility.note}
+					</Text>
 				) : null}
 				{meta.legacy ? (
 					<Text as="p" tone="muted" size="sm">

@@ -37,6 +37,20 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   calls the markdownlint library directly instead of its command-line
   wrapper, whose file-matching dependencies carried an advisory with no fixed
   release, and katex and smol-toml are held at patched versions.
+- Each conversion's editor now shows what the Garmin, Raymarine, B&G, and
+  Furuno published receive lists say about its PGNs, one badge per vendor
+  reading listed, limited, or not listed. This replaces the single Garmin
+  badge, whose "displays" and "ignores" labels claimed more than a receive
+  list shows. Notes cover what a list cannot express: Garmin's NMEA 2000
+  technical reference reads water temperature from PGN 130310, 130311, or
+  130312 rather than 130316 and sets the clock from PGN 129029 rather than
+  129033 or 126992, and current Garmin chartplotters transmit rather than
+  receive PGN 127497.
+- The PGN reference gains a vendor receive list section with every source
+  document and revision, records the i70s lacking PGN 130313 and 130314 as
+  Raymarine's own list rather than field testing, and points Axiom owners to
+  the standard alert PGNs, which LightHouse 4.8.164 documents, ahead of the
+  proprietary SeaTalk alarm.
 
 ### Fixed
 

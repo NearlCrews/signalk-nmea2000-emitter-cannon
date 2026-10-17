@@ -7,7 +7,7 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- The configuration panel uses signalk-nearlcrews-ui 0.14.0. Invalid checkboxes,
+- The configuration panel uses signalk-nearlcrews-ui 0.14.1. Invalid checkboxes,
   radio groups, sliders, and switches now draw a dashed outline beside the
   error text, container outlines and dividers are fainter, and the Light
   theme's borders and disabled text are slightly darker.
@@ -44,6 +44,8 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   carries, starting with `@sinclair/typebox`, whose MIT notice the published
   package was missing. They are read from the bundler's own output, and
   `npm run package:check` fails if one is left out.
+- `THIRD_PARTY_NOTICES.md` no longer lists `@internationalized/date` and
+  `client-only`. The panel build resolved both but never shipped their code.
 
 <a id="v1110"></a>
 

@@ -59,6 +59,28 @@ export const SEATALK_NETWORK_GROUPS: readonly string[] = [
 	"Group 5",
 ];
 
+// The canboat TANK_TYPE label PGN 127505 carries for each Signal K tank type.
+// Shared by the tank conversion and the mapping validation so the accepted
+// set cannot drift between them. Signal K gas tanks (LPG and propane) are
+// absent on purpose: the field has no gas value, and a gas tank labelled Fuel
+// would join a display's fuel totals and range estimate.
+const TANK_FLUID_TYPES: Readonly<Record<string, string>> = {
+	fuel: "Fuel",
+	blackWater: "Black water",
+	freshWater: "Water",
+	wasteWater: "Gray water",
+	greyWater: "Gray water",
+	grayWater: "Gray water",
+	liveWell: "Live well",
+	baitWell: "Live well",
+	lubrication: "Oil",
+};
+
+/** The PGN 127505 fluid type for a Signal K tank type, or undefined. */
+export function tankFluidType(signalkType: string): string | undefined {
+	return Object.hasOwn(TANK_FLUID_TYPES, signalkType) ? TANK_FLUID_TYPES[signalkType] : undefined;
+}
+
 export const PresetTags = [
 	"basic-nav",
 	"engine-set",

@@ -171,6 +171,20 @@ describe("malformed mapped extras", () => {
 		expect(
 			conversions({ enabled: true, tanks: [{ signalkPath: "tanks.unknown.0", instanceId: 1 }] }),
 		).toBeNull();
+		// A gas tank has no PGN 127505 fluid type, and an inherited object key
+		// must not resolve to a prototype member.
+		expect(
+			conversions({ enabled: true, tanks: [{ signalkPath: "tanks.gas.0", instanceId: 1 }] }),
+		).toBeNull();
+		expect(
+			conversions({
+				enabled: true,
+				tanks: [{ signalkPath: "tanks.constructor.0", instanceId: 1 }],
+			}),
+		).toBeNull();
+		expect(
+			conversions({ enabled: true, tanks: [{ signalkPath: "tanks.baitWell.0", instanceId: 1 }] }),
+		).toHaveLength(1);
 		expect(
 			conversions({
 				enabled: true,

@@ -1,3 +1,4 @@
+import { tankFluidType } from "../config/enums.js";
 import {
 	MAX_TANK_INSTANCE,
 	N2K_BROADCAST_DST,
@@ -13,19 +14,6 @@ import { instanceList, normalizedN2kInstance, parseSignalKTankPath } from "./ins
 // 429,496,729.2 L. Signal K publishes cubic metres, hence the /1000.
 const MAX_TANK_CAPACITY_M3 = 429_496.7292;
 
-const typeMapping: Record<string, string> = {
-	fuel: "Fuel",
-	blackWater: "Black water",
-	freshWater: "Water",
-	wasteWater: "Gray water",
-	greyWater: "Gray water",
-	grayWater: "Gray water",
-	liveWell: "Live well",
-	baitWell: "Live well",
-	lubrication: "Oil",
-	gas: "Fuel",
-};
-
 interface TankConfig {
 	signalkPath: string;
 	instanceId: number;
@@ -36,7 +24,7 @@ function normalizedTankConfig(config: unknown): TankConfig | null {
 	if (!isPlainObject(config) || typeof config.signalkPath !== "string") return null;
 	const tankPath = parseSignalKTankPath(config.signalkPath);
 	if (tankPath === null) return null;
-	const type = typeMapping[tankPath.type];
+	const type = tankFluidType(tankPath.type);
 	// normalizedN2kInstance takes a max precisely so a caller can pass its own
 	// field width; seven sibling modules already use it.
 	const instanceId = normalizedN2kInstance(config.instanceId, MAX_TANK_INSTANCE);

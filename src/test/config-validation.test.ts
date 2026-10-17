@@ -178,6 +178,30 @@ describe("configuration validation", () => {
 		);
 	});
 
+	it("rejects gas tanks, which PGN 127505 cannot type, and accepts bait wells", () => {
+		const issues = validateConfig({
+			conversions: {
+				TANKS: conversion(true, {
+					tanks: [
+						{ signalkPath: "tanks.gas.0", instanceId: 0 },
+						{ signalkPath: "tanks.baitWell.0", instanceId: 1 },
+						{ signalkPath: "tanks.constructor.0", instanceId: 2 },
+					],
+				}),
+			},
+		});
+
+		expect(issues).toEqual([
+			expect.objectContaining({
+				conversionKey: "TANKS",
+				field: "signalkPath",
+				rowIndex: 0,
+				message: expect.stringContaining("no NMEA 2000 fluid type for gas"),
+			}),
+			expect.objectContaining({ conversionKey: "TANKS", field: "signalkPath", rowIndex: 2 }),
+		]);
+	});
+
 	it("validates environmental instances and source enums", () => {
 		const issues = validateConfig({
 			conversions: {

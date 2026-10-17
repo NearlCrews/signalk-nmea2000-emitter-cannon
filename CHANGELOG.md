@@ -40,6 +40,11 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Signal K gas tanks (LPG and propane) are no longer sent on PGN 127505 as
+  Fuel, which added them to a display's fuel total and range. PGN 127505 has
+  no gas fluid type, so the tank editor now rejects a gas row and says why.
+- Bait well tanks, which the plugin already sent as Live well, no longer fail
+  the tank editor's validation.
 - `THIRD_PARTY_NOTICES.md` now also covers the packages the plugin bundle
   carries, starting with `@sinclair/typebox`, whose MIT notice the published
   package was missing. They are read from the bundler's own output, and

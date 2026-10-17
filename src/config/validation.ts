@@ -1,7 +1,7 @@
 import { MAX_N2K_ENGINE_SPEED_RPM, MAX_N2K_INSTANCE, MAX_TANK_INSTANCE } from "../constants.js";
 import { pathToPropName } from "../utils/pathUtils.js";
 import { isPlainObject, isValidNumber, isValidSignalKId } from "../utils/validation.js";
-import { SEATALK_NETWORK_GROUPS } from "./enums.js";
+import { SEATALK_NETWORK_GROUPS, tankFluidType } from "./enums.js";
 import {
 	HUMIDITY_DEFAULT_IDENTITIES,
 	HUMIDITY_SOURCE_VALUES,
@@ -149,17 +149,6 @@ const MAPPING_RULES: Readonly<Record<string, RowRule>> = {
 	},
 };
 
-const SUPPORTED_TANK_TYPES = new Set([
-	"fuel",
-	"blackWater",
-	"freshWater",
-	"wasteWater",
-	"greyWater",
-	"grayWater",
-	"liveWell",
-	"lubrication",
-	"gas",
-]);
 const TEMPERATURE_SOURCES = new Set<string>(TEMPERATURE_SOURCE_VALUES);
 const HUMIDITY_SOURCES = new Set<string>(HUMIDITY_SOURCE_VALUES);
 const BRIGHTNESS_GROUPS = new Set<string>(SEATALK_NETWORK_GROUPS);
@@ -306,13 +295,15 @@ function validateMapping(
 		const id = candidate[rule.idField];
 		if (rule.idField === "signalkPath") {
 			const parsed = parseTankPath(id);
-			if (parsed === null || !SUPPORTED_TANK_TYPES.has(parsed.type)) {
+			if (parsed === null || tankFluidType(parsed.type) === undefined) {
 				addIssue(
 					issues,
 					config,
 					conversionKey,
 					rule.idField,
-					`${rule.idLabel} must be a supported path such as tanks.fuel.0.`,
+					parsed?.type === "gas"
+						? "PGN 127505 has no NMEA 2000 fluid type for gas, and reporting a gas tank as fuel would add it to a display's fuel total and range. Remove this row."
+						: `${rule.idLabel} must be a supported path such as tanks.fuel.0.`,
 					rowIndex,
 					rule.collection,
 				);

@@ -5,6 +5,10 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+<a id="v1120"></a>
+
+## [1.12.0] - 2026-10-18
+
 ### Added
 
 - AIS base stations are relayed on PGN 129793, which the B&G Zeus3S and
@@ -13,9 +17,10 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   does not carry them.
 - Switch Bank Status (PGN 127501) reports the on and off state of switches
   under `electrical.switches`, grouped into banks by the instance and channel
-  set in its editor. It only reports states and never switches anything.
-  Garmin and B&G list the PGN; neither documents whether a display shows a
-  bank from another sender.
+  set in its editor. A state keeps going out until it changes, because many
+  switch providers publish only on a change. It only reports states and never
+  switches anything. Garmin and B&G list the PGN; neither documents whether a
+  display shows a bank from another sender.
 - DC Voltage and Current (PGN 127751) reports an alternator, DC-DC converter,
   DC bus, or other non-battery DC source from `electrical.<group>.<id>`, for
   the Raymarine Axiom and the Maretron DSM410.
@@ -27,7 +32,6 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The Environmental preset also enables Sea Temperature on PGN 130312,
   because Garmin's NMEA 2000 technical reference reads water temperature from
   PGN 130310, 130311, or 130312 and lists PGN 130316 for air temperature only.
-
 - The configuration panel uses signalk-nearlcrews-ui 0.14.1. Invalid checkboxes,
   radio groups, sliders, and switches now draw a dashed outline beside the
   error text, container outlines and dividers are fainter, and the Light
@@ -76,7 +80,8 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 
 - AIS base stations from an NMEA 0183 AIS receiver, which Signal K files under
-  `atons`, are no longer sent to displays as aids to navigation on PGN 129041.
+  `atons` (or `vessels` before nmea0183-signalk 3.18.0), are no longer sent to
+  displays as aids to navigation on PGN 129041.
 - Signal K gas tanks (LPG and propane) are no longer sent on PGN 127505 as
   Fuel, which added them to a display's fuel total and range. PGN 127505 has
   no gas fluid type, so the tank editor now rejects a gas row and says why.
@@ -84,6 +89,9 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   the tank editor's validation.
 - A mapping table's Remove button keeps its label on one line instead of
   breaking it mid-word in tables with three or more columns.
+- A tank mapping row the plugin skips, such as a gas tank kept from an older
+  configuration, no longer renumbers the rows after it in the panel's mapping
+  activity.
 - `THIRD_PARTY_NOTICES.md` now also covers the packages the plugin bundle
   carries, starting with `@sinclair/typebox`, whose MIT notice the published
   package was missing. They are read from the bundler's own output, and
@@ -2050,7 +2058,8 @@ This plugin builds upon the excellent foundation of [signalk-to-nmea2000](https:
 - **Comprehensive Documentation** - Self-documenting code with type definitions
 - **Future-Proof** - Built with latest standards for long-term maintainability
 
-[Unreleased]: https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/compare/v1.11.0...HEAD
+[Unreleased]: https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/compare/v1.12.0...HEAD
+[1.12.0]: https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/compare/v1.10.9...v1.11.0
 [1.10.9]: https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/compare/v1.10.8...v1.10.9
 [1.10.8]: https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/compare/v1.10.7...v1.10.8

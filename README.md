@@ -16,66 +16,30 @@ reviewed against model-specific chartplotter receive lists.
 > Built on the foundation of [`signalk-to-nmea2000`](https://github.com/SignalK/signalk-to-nmea2000)
 > by Scott Bender and the Signal K community.
 
-## What's new in 1.11.0
+## What's new in 1.12.0
 
-- **A direction a hair short of north is no longer dropped by the receiver.**
-  A value in the last 0.002 degrees below a full turn rounded past the ceiling
-  the receiving display enforces, so the display discarded the field: a compass
-  reading 359.999 degrees arrived as heading not available rather than as
-  north. It now clamps, moving the reading by at most 0.005 degrees. This
-  covers heading, course over ground, set, wind angle, the waypoint bearings,
-  and satellite azimuth. It is the one fix here that corrects a dropout on
-  correctly configured hardware.
-- **A reading that cannot fit its NMEA 2000 field no longer arrives as a
-  believable wrong number.** A wrapped value is worse than a missing one: the
-  receiving display has no way to tell it is wrong. Attitude, compass, and
-  leeway angles now wrap to the direction the wire can carry instead of
-  truncating to a different one, and an out-of-range rate of turn, heave,
-  rudder angle, depth, battery, solar, engine, transmission, or speed value is
-  left as not-available. A starboard turn no longer reaches the autopilot as a
-  port turn, a vessel dropping into a trough is no longer reported as rising, a
-  93 percent battery no longer reads as 84 percent, a shaft turning astern no
-  longer reports 14584 RPM, a shunt publishing milliamperes no longer turns a
-  23 A charge into a 3114 A discharge with no time remaining, and 700 m/s
-  through the water no longer reads as a believable 87 knots. A reading that
-  goes blank after this upgrade is one of these: the publisher is sending
-  something the field cannot carry, and the troubleshooting guide in the
-  repository's docs directory has the unit checklist. These guards catch a
-  value that wraps, not every unit mistake, so a wrong reading that still fits
-  its field is unchanged.
-- **The plugin tells you when NMEA 2000 output has no listener.** A disabled or
-  torn-down NMEA 2000 connection used to leave the status on "Running" while
-  every frame went nowhere. After a short run of undelivered writes the plugin
-  raises an error naming Server, Connections, and clears it as soon as one
-  frame gets through.
-- **A scheduled Config Advisor review runs only while the advisor is on.**
-  Switching the advisor off used to leave a saved review schedule armed, and a
-  scheduled review can enable conversions by itself, so an installation that
-  had tried the advisor and then switched it off could start transmitting PGNs
-  nobody approved with no one at the panel. A review set to use QuestDB history
-  but with no usable URL now says so instead of quietly reporting on live data
-  only.
-- **A configuration panel rebuilt on one shared component set.** The runtime
-  status table no longer re-renders behind the Configure view on every
-  keystroke, and a mapping table builds each column's path suggestions once per
-  render instead of once per cell, so editing a large table stays responsive.
-  The category tabs, the collapsible sections, the setup wizard, the mapping
-  tables, every number field, and the Save and Discard footer now come from the
-  shared `signalk-nearlcrews-ui` library, and the configure view has a real
-  heading outline from Quick presets through Conversions. The theme selector
-  moved to the foot of the panel and names what its two automatic choices
-  follow: Match Admin follows the Signal K Admin theme, and Match device
-  follows the operating system preference. Status text carries a glyph beside
-  its color rather than relying on hue, every field and group error leads with
-  a tone mark and a spoken tone word, a focused number field gives up focus
-  before a wheel or trackpad scroll can spin its value, Save and Discard keep
-  their place in the tab order while a validation error blocks saving, removing
-  a mapping-table row asks for confirmation in a labeled region beneath it
-  instead of the Remove button briefly renaming itself, and a render failure
-  offers Try again in place rather than replacing the plugin card with Signal K
-  Admin's generic unavailable notice.
+- **Each conversion shows what the major vendors' receive lists say.** Its
+  editor carries one badge each for Garmin, Raymarine, B&G, and Furuno,
+  reading listed, limited, or not listed from their published NMEA 2000
+  lists, with notes for what a list cannot show. The PGN reference names
+  every source document and revision.
+- **Garmin chartplotters get water temperature from the Environmental
+  preset.** Garmin's NMEA 2000 technical reference reads water temperature
+  from PGN 130310, 130311, or 130312 and not from 130316, so the preset now
+  also sends sea temperature on PGN 130312.
+- **AIS base stations are relayed, and no longer as aids to navigation.**
+  Base stations go out on PGN 129793 whichever way Signal K received them.
+  One from an NMEA 0183 AIS receiver used to reach displays as an AtoN report.
+- **Switch bank, DC source, and well temperature output.** Switch Bank Status
+  (PGN 127501) reports switch states from `electrical.switches`, DC Voltage
+  and Current (PGN 127751) reports alternators and other DC sources that are
+  not batteries, and live well and bait well temperatures join the
+  temperature conversions.
+- **Propane tanks no longer count as fuel.** A Signal K gas tank went out as
+  Fuel on PGN 127505, which added it to a display's fuel total and range. The
+  tank editor now rejects a gas row and says why, and bait well tanks pass.
 
-See the [v1.11.0 changelog entry](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/blob/main/CHANGELOG.md#v1110)
+See the [v1.12.0 changelog entry](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/blob/main/CHANGELOG.md#v1120)
 and [full release history](https://github.com/NearlCrews/signalk-nmea2000-emitter-cannon/blob/main/CHANGELOG.md).
 
 ## What it does

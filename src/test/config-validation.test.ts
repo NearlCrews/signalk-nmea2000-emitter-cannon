@@ -202,6 +202,67 @@ describe("configuration validation", () => {
 		]);
 	});
 
+	it("validates switch paths, channels, and repeated bank channels", () => {
+		const issues = validateConfig({
+			conversions: {
+				SWITCH_BANK: conversion(true, {
+					switches: [
+						{ signalkPath: "electrical.switches.anchorLight", instanceId: 7, channel: 1 },
+						{ signalkPath: "electrical.batteries.house", instanceId: 7, channel: 2 },
+						{ signalkPath: "electrical.switches.deckLight", instanceId: 7, channel: 29 },
+						{ signalkPath: "electrical.switches.cabinLight", instanceId: 7, channel: 1 },
+						// The same channel in another bank is a different switch.
+						{ signalkPath: "electrical.switches.bilgePump", instanceId: 8, channel: 1 },
+					],
+				}),
+			},
+		});
+
+		expect(issues).toEqual([
+			expect.objectContaining({ conversionKey: "SWITCH_BANK", field: "signalkPath", rowIndex: 1 }),
+			expect.objectContaining({
+				conversionKey: "SWITCH_BANK",
+				field: "channel",
+				rowIndex: 2,
+				message: "NMEA 2000 channel must be a whole number from 1 to 28.",
+			}),
+			expect.objectContaining({
+				conversionKey: "SWITCH_BANK",
+				field: "channel",
+				rowIndex: 3,
+				message: "Bank 7 channel 1 duplicates row 1.",
+			}),
+		]);
+	});
+
+	it("validates DC source paths and connection numbers", () => {
+		const issues = validateConfig({
+			conversions: {
+				DC_VOLTAGE_CURRENT: conversion(true, {
+					dcSources: [
+						{ signalkPath: "electrical.alternators.main", instanceId: 1 },
+						{ signalkPath: "electrical.alternators", instanceId: 2 },
+						{ signalkPath: "electrical.dcdc.aft", instanceId: 1 },
+					],
+				}),
+			},
+		});
+
+		expect(issues).toEqual([
+			expect.objectContaining({
+				conversionKey: "DC_VOLTAGE_CURRENT",
+				field: "signalkPath",
+				rowIndex: 1,
+			}),
+			expect.objectContaining({
+				conversionKey: "DC_VOLTAGE_CURRENT",
+				field: "instanceId",
+				rowIndex: 2,
+				message: "NMEA 2000 connection number duplicates NMEA 2000 connection number in row 1.",
+			}),
+		]);
+	});
+
 	it("validates environmental instances and source enums", () => {
 		const issues = validateConfig({
 			conversions: {

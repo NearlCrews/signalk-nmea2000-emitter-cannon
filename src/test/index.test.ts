@@ -83,7 +83,7 @@ describe("Conversion modules", () => {
 		// (silently caught in createConversionModules and returning []) is
 		// a test failure rather than a silent drop. Update this constant
 		// intentionally when adding or removing modules.
-		expect(conversions.length).toBe(83);
+		expect(conversions.length).toBe(89);
 	});
 
 	it("has one source module per documented conversion factory", () => {
@@ -102,7 +102,7 @@ describe("Conversion modules", () => {
 		const factories = readdirSync(new URL("../conversions/", import.meta.url)).filter(
 			(name) => name.endsWith(".ts") && !shared.has(name),
 		);
-		expect(factories.length).toBe(52);
+		expect(factories.length).toBe(54);
 	});
 
 	it("has a PGN summary for every emitted PGN", () => {

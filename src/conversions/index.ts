@@ -15,6 +15,7 @@ import createBatteryConversion from "./battery.js";
 import createBearingDistanceBetweenMarksConversion from "./bearingDistanceBetweenMarks.js";
 import createChargerStatusConversion from "./chargerStatus.js";
 import createCogSogConversion from "./cogSOG.js";
+import createDcVoltageCurrentConversion from "./dcVoltageCurrent.js";
 import createDepthConversion from "./depth.js";
 import createDirectionDataConversion from "./directionData.js";
 import createDistanceLogConversion from "./distanceLog.js";
@@ -45,6 +46,7 @@ import createSetDriftConversion from "./setdrift.js";
 import createSmallCraftStatusConversion from "./smallCraftStatus.js";
 import createSolarConversion from "./solar.js";
 import createSpeedConversion from "./speed.js";
+import createSwitchBankConversion from "./switchBank.js";
 import createSystemTimeConversion from "./systemTime.js";
 import createTanksConversion from "./tanks.js";
 import createTemperatureConversion from "./temperature.js";
@@ -96,6 +98,7 @@ export function createConversionModules(
 		createBearingDistanceBetweenMarksConversion,
 		createChargerStatusConversion,
 		createCogSogConversion,
+		createDcVoltageCurrentConversion,
 		createDepthConversion,
 		createDirectionDataConversion,
 		createDistanceLogConversion,
@@ -125,6 +128,7 @@ export function createConversionModules(
 		createSmallCraftStatusConversion,
 		createSolarConversion,
 		createSpeedConversion,
+		createSwitchBankConversion,
 		createSystemTimeConversion,
 		createTanksConversion,
 		createTemperatureConversion,

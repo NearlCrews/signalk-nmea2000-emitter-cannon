@@ -1,7 +1,7 @@
 # PGN Reference
 
-The plugin has 82 configurable data conversions covering 60 data PGNs, plus an
-83rd module that broadcasts PGN 126464. Its transmit list advertises only PGNs
+The plugin has 88 configurable data conversions covering 63 data PGNs, plus an
+89th module that broadcasts PGN 126464. Its transmit list advertises only PGNs
 owned by this plugin. Standard fields, ranges, and enum values are validated
 against the bundled Canboat definitions.
 Display support remains model-specific and should be checked against the
@@ -81,6 +81,7 @@ that command to this plugin. Reset the trip path at its upstream source instead.
 | 129039 | Class B Position Report | `ais.ts`, `aisExtended.ts` |
 | 129040 | Class B Extended Position Report | `aisExtended.ts` |
 | 129041 | AtoN (Aids to Navigation) | `ais.ts` |
+| 129793 | UTC and Date Report (base stations) | `ais.ts` |
 | 129794 | Static and Voyage Data | `ais.ts` |
 | 129798 | SAR Aircraft Position | `aisExtended.ts` |
 | 129802 | Safety Related Broadcast (regulated transmission, see note below) | `aisExtended.ts` |
@@ -90,7 +91,15 @@ that command to this plugin. Reset the trip path at its upstream source instead.
 The remote-target relay in `ais.ts` recognizes canonical `updates[].$source`,
 structured source data, and the server sources tree. It removes only NMEA
 2000-origin updates, preventing received AIS targets from being echoed while
-retaining safe plugin updates carried in the same delta. The own-vessel
+retaining safe plugin updates carried in the same delta. AIS base stations
+leave as PGN 129793 whichever way Signal K files them: the NMEA 2000 decoder
+puts them under `shore.basestations`, while the NMEA 0183 parser puts message 4
+under `atons` with `sensors.ais.class` set to `BASE`. Before this, a base
+station from an NMEA 0183 AIS receiver reached the bus as an aid to navigation.
+The station's own UTC time and date go out as not available, because Signal K
+keeps only its position and the reception time is this server's clock. The B&G
+Zeus3S and Vulcan, the Raymarine Axiom, and the Furuno TZtouch displays list
+PGN 129793; Garmin's lists do not. The own-vessel
 conversions in `aisExtended.ts` use the normal per-path source filters available
 in the configuration panel.
 
@@ -167,9 +176,10 @@ prerequisites for the receiver model and firmware in use.
 
 **Recommended for new installs**: enable the `TEMPERATURE2_*` (PGN
 130316), `HUMIDITY_OUTSIDE` (PGN 130313), `PRESSURE` (PGN 130314), `WIND` /
-`WIND_TRUE_GROUND` / `WIND_TRUE` (PGN 130306) conversions and leave the
-deprecated `TEMPERATURE_*` (130312) and `ENVIRONMENT_PARAMETERS` (130311)
-disabled. Confirm the exact received-PGN list for the chartplotter model and
+`WIND_TRUE_GROUND` / `WIND_TRUE` (PGN 130306) conversions, plus
+`TEMPERATURE_SEA` (PGN 130312) for a Garmin chartplotter, and leave the other
+deprecated `TEMPERATURE_*` (130312) conversions and `ENVIRONMENT_PARAMETERS`
+(130311) disabled. Confirm the exact received-PGN list for the chartplotter model and
 firmware in use. The legacy and deprecated variants remain available for older
 displays that do not read the newer PGNs.
 
@@ -177,16 +187,24 @@ Water temperature uses the canonical Signal K path
 `environment.water.temperature`. Select `TEMPERATURE2_SEA` for PGN 130316 on a
 modern receiver. `TEMPERATURE_SEA` emits the same path on the superseded PGN
 130312 for a receiver that still requires it, and obsolete `SEA_TEMP` emits PGN
-130310 only when enabled manually. The Environmental preset selects the modern
-PGN 130316 conversion and does not automatically enable either legacy frame.
+130310 only when enabled manually. The Environmental preset selects both
+`TEMPERATURE2_SEA` and `TEMPERATURE_SEA`, for the Garmin reason below, and
+leaves PGN 130310 off.
+
+Live well and bait well temperatures read `tanks.liveWell.0.temperature` and
+`tanks.baitWell.0.temperature`, the tank paths Signal K defines for them, and
+leave with the `Live Well Temperature` and `Bait Well Temperature` source
+types.
 
 **Garmin water temperature**: Garmin's Technical Reference for NMEA 2000
 Products (September 2021) reads water temperature from PGN 130310, 130311, or
 130312, and lists PGN 130316 for air temperature only. If a Garmin display
-shows no water temperature from `TEMPERATURE2_SEA`, also enable
-`TEMPERATURE_SEA`. Current Garmin receive lists include PGN 130316 without
+would otherwise show no water temperature from `TEMPERATURE2_SEA`, so the
+Environmental preset also enables `TEMPERATURE_SEA`, the one PGN 130312
+conversion it turns on. Current Garmin receive lists include PGN 130316 without
 saying which temperature sources each model renders, so confirm the behavior
-on the model and firmware in use.
+on the model and firmware in use. Configuring conversions one at a time,
+enable `TEMPERATURE_SEA` by hand for a Garmin display.
 
 **Raymarine i70 and i70s environmental data**: Raymarine's
 [supported-PGN list](https://docs.raymarine.com/87425/en-US/latest/SupportedNMEA2000PGNlist-AA8295AC.html)
@@ -265,11 +283,13 @@ conflicting forecast producers if a manually edited configuration mixes them.
 | -------- | ------------- | -------- | -------- |
 | 127503 | AC Input Status | `acStatus.ts` | Deprecated, retained for compatible receivers |
 | 127504 | AC Output Status | `acStatus.ts` | Deprecated, retained for compatible receivers |
+| 127501 | Binary Switch Bank Status | `switchBank.ts` | Current |
 | 127505 | Fluid/Tank Level | `tanks.ts` | Current |
 | 127506 | DC Detailed Status (state of charge) | `battery.ts` | Current |
 | 127507 | Charger Status | `chargerStatus.ts` | Deprecated, retained for compatible receivers |
 | 127508 | Battery Status (voltage/current) | `battery.ts`, `solar.ts` | Current |
 | 127509 | Inverter Status | `inverterStatus.ts` | Deprecated, retained for compatible receivers |
+| 127751 | DC Voltage/Current | `dcVoltageCurrent.ts` | Current |
 
 The NMEA 3.002 Network Message Database marks PGNs 127503, 127504, 127507, and
 127509 deprecated. They remain available because the current Garmin
@@ -297,6 +317,26 @@ Signal K `chargingMode` and `chargerRole` values and links each charger to its
 configured battery instance. `INVERTER_STATUS` maps the unambiguous
 `inverting`, `disabled`, and `faulted` Signal K modes and leaves other modes
 unavailable instead of guessing at an NMEA 2000 state.
+
+`SWITCH_BANK` reports switch states on PGN 127501. Each mapping row names a
+switch under `electrical.switches.<id>`, the path Signal K's NMEA 2000 decoder
+writes for a received bank and the one switch provider plugins publish to, plus
+a bank instance and a channel from 1 to 28. Rows that share a bank instance
+leave as one frame. A state of `1` or `true` is On and `0` or `false` is Off;
+anything else, including a state older than a minute, goes out as not
+available. The conversion only reports: it sends no PGN 127502 switch command.
+Every current Garmin chartplotter list and the B&G Zeus3S and Vulcan list PGN
+127501, as part of their own digital switching. No vendor documents whether a
+display shows a bank from another sender, so confirm on the display, and give
+each bank an instance no switching device on the bus already uses.
+
+`DC_VOLTAGE_CURRENT` reports a DC source that is not a battery, such as an
+alternator, a DC-DC converter, or a DC bus, on PGN 127751. Each row names
+`electrical.<group>.<id>` and a connection number, and the conversion reads
+its `voltage` and `current`. The Raymarine Axiom and the Maretron DSM410 list
+PGN 127751. Signal K's own decoder keys a received PGN 127751 by the sender's
+bus address rather than by connection number, so another Signal K server
+reading these frames files them under `electrical.dc.<address>.<connection>`.
 
 ## Safety and Communications
 
@@ -400,17 +440,18 @@ What the lists show:
 - Every vendor lists the core navigation, engine, tank, AIS position, wind,
   and temperature PGNs.
 - Garmin lists none of PGNs 127496, 127497 (its chartplotters transmit it),
-  129033, 129291, 129301, and 129302. The newest three Garmin lists move PGN
+  127751, 129033, 129291, 129301, 129302, and 129793. The newest three Garmin lists move PGN
   127258 to the transmit table, drop PGN 130577, and add PGN 130578.
-- Raymarine lists none of PGNs 127252, 128000, 129302, and 129799. The Axiom
-  lists PGN 127258 as transmit only, and the i70s lacks PGNs 126983, 126985,
-  126992, 130313, and 130314.
-- B&G lists none of PGNs 126983, 126985, 127496, 127497, 127498, 128000,
-  129291, 129301, 129302, and 129799. The Simrad and Lowrance lists for the
+- Raymarine lists none of PGNs 127252, 127501, 128000, 129302, and 129799.
+  The Axiom lists PGN 127258 as transmit only and is the only Raymarine list
+  with PGNs 127751 and 129793, and the i70s lacks PGNs 126983, 126985, 126992,
+  130313, and 130314.
+- B&G lists none of PGNs 126983, 126985, 127496, 127497, 127498, 127751,
+  128000, 129291, 129301, 129302, and 129799. The Simrad and Lowrance lists for the
   same platform could not be read and are not verified.
-- Furuno lists none of PGNs 126983, 126985, 127496, 127504, 127507, 127509,
-  128000, 128275, 129301, 129302, 129539, and 129799. The FI-70 lacks PGN
-  130314.
+- Furuno lists none of PGNs 126983, 126985, 127496, 127501, 127504, 127507,
+  127509, 127751, 128000, 128275, 129301, 129302, 129539, and 129799. The FI-70
+  lacks PGNs 129793 and 130314.
 - The Maretron DSM410 list includes no AIS PGNs and no standard alerts; its
   alerts are proprietary.
 - No receive list was found for Garmin GNX instruments, GHC autopilots, or the
@@ -421,17 +462,9 @@ What the lists show:
 
 ## Evaluated but Deferred
 
-- **PGN 127501, Binary Switch Bank Status** is received by every current Garmin
-  chartplotter list, the B&G Zeus3S and Vulcan, and the Maretron DSM410.
-  Canboat's field layout is complete and only its transmit interval is
-  unspecified. Signal K's own NMEA 2000 decoder writes received banks to
-  `electrical.switches.bank.<instance>.<channel>.state`, a workable input
-  convention, but the specification defines no switch schema or labels, and no
-  vendor documents whether a display renders a generic bank outside its own
-  digital switching setup. Bench test a receiver before building a mapper.
-- **PGN 130060, Label** could name switch-bank channels, but its Canboat
-  definition is also incomplete. It should be implemented together with a
-  future configurable switch-bank mapper, not emitted as an isolated frame.
+- **PGN 130060, Label** could name the `SWITCH_BANK` channels, but Canboat
+  lacks its fields, field lengths, and resolution, so there is no wire layout to
+  encode.
 - **PGN 127233, Man Overboard Notification** is deliberately deferred. It is
   safety-critical and needs emitter identity, position-source provenance,
   lifecycle handling, and directed request behavior that the current plugin
@@ -457,21 +490,16 @@ What the lists show:
 - **PGN 129801, AIS Addressed Safety Related Message**, needs a destination,
   sequence lifecycle, source provenance, and licensed-transmitter controls that
   this plugin does not provide.
-- **PGNs 127744 to 127751**, the per-phase AC, converter status, and DC voltage
-  and current frames, are all received by the Raymarine Axiom, and the Maretron
-  DSM410 receives PGN 127751. Victron has moved its own output from PGNs 127503
-  and 127507 to PGNs 127744 and 127750. Canboat lacks only their transmit
-  intervals, but Signal K's decoder keys PGN 127751 by the sending address
-  rather than a canonical asset id, and PGNs 127503, 127504, 127506, and 127509
-  already carry the same data to those receivers.
+- **PGNs 127744 to 127750**, the per-phase AC and converter status frames,
+  are received by the Raymarine Axiom, and Victron has moved its own output
+  from PGNs 127503 and 127507 to PGNs 127744 and 127750. Canboat lacks only
+  their transmit intervals, but the Axiom also receives PGNs 127503, 127504,
+  127507, and 127509, which the plugin already sends with the same data, and no
+  other vendor list includes the newer frames. They would add a second copy of
+  each reading for one receiver.
 - **PGN 129044, Datum**, is complete in Canboat and listed by the older Garmin
   chartplotters and Raymarine. Every position this plugin emits is WGS 84,
   which receivers assume without the frame, so it adds little.
-- **PGN 129793, AIS UTC and Date Report**, is complete in Canboat and received
-  by the B&G Zeus3S and Vulcan, the Raymarine Axiom, and every Furuno TZtouch
-  display. Relaying base stations would need a `shore.basestations` context in
-  the AIS relay, which handles vessel contexts only, and whether an NMEA 0183
-  base-station report reaches Signal K with its UTC time is not verified.
 - **PGNs 129538, 129542, 129545, 129547, 129550, and 129551**, the GNSS control,
   integrity, and differential correction frames, are received by several
   displays, but Signal K has no source for their fields.

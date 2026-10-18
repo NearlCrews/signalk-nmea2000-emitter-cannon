@@ -110,6 +110,26 @@ export const MAX_N2K_VOLTAGE_V = 327.63;
 // signed 16-bit at 0.1, but they measure different quantities and are named
 // separately so neither bound drifts with the other.
 export const MAX_N2K_CURRENT_A = 3276.4;
+// The unsigned 16-bit 0.1 V dcVoltage field on PGN 127751. canboat states a
+// RangeMax of 6553.2, but 6553.2 / 0.1 is 65531.99999999999 in IEEE 754, so the
+// decoder drops raw 65532 as well: 6553.1 is the largest value that round-trips
+// (the MAX_OIL_TEMPERATURE_K artifact).
+export const MAX_N2K_DC_VOLTAGE_V = 6553.1;
+// The signed 24-bit 0.01 A dcCurrent field on PGN 127751. canboat states
+// 83886.04, which the decoder discards for the same floating-point reason; the
+// negative side is kept symmetric so one number describes the field.
+export const MAX_N2K_DC_CURRENT_A = 83886.03;
+// PGN 127501 carries 28 two-bit indicators per bank, numbered from 1.
+export const MAX_SWITCH_BANK_CHANNEL = 28;
+// Switches live under electrical.switches.<id>, the path n2k-signalk writes for
+// a received bank (electrical.switches.bank.<instance>.<channel>) and the one
+// switch provider plugins publish to. Shared by the PGN 127501 conversion and
+// the panel's mapping validation.
+export const SWITCH_PATH_ROOT = "electrical.switches";
+// A PGN 127751 DC source is electrical.<group>.<id>: an alternator, a DC-DC
+// converter, a charger, or a DC bus.
+export const DC_PATH_ROOT = "electrical";
+export const DC_PATH_MIN_SEGMENTS = 2;
 export const DEFAULT_DATA_TIMEOUT_MS = 10000;
 // 1-minute freshness window for slow-cadence data sources where the
 // data-path is expected to update much less often than the 10s default.

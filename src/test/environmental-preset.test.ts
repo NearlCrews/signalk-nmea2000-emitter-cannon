@@ -11,8 +11,12 @@ describe("environmental temperature preset", () => {
 	});
 
 	it("leaves PGN 130312 temperature conversions available for manual compatibility", () => {
-		expect(raymarinePresetsFor("TEMPERATURE_SEA")).toEqual([]);
 		expect(raymarinePresetsFor("TEMPERATURE_OUTSIDE")).toEqual([]);
+		expect(raymarinePresetsFor("TEMPERATURE_INSIDE")).toEqual([]);
+	});
+
+	it("also sends sea temperature on PGN 130312, the frame Garmin reads it from", () => {
+		expect(raymarinePresetsFor("TEMPERATURE_SEA")).toEqual(["environmental"]);
 	});
 
 	it("keeps humidity in the environmental preset", () => {

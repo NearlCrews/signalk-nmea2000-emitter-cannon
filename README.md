@@ -9,7 +9,7 @@
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?logo=buymeacoffee&logoColor=black)](https://www.buymeacoffee.com/nearlcrews)
 
 A [Signal K](https://signalk.org) plugin that converts Signal K deltas into
-NMEA 2000 messages: 82 configurable data conversions covering 60 data PGNs,
+NMEA 2000 messages: 88 configurable data conversions covering 63 data PGNs,
 plus the configurable PGN 126464 list broadcast, validated against Canboat definitions and
 reviewed against model-specific chartplotter receive lists.
 
@@ -95,7 +95,7 @@ priorities follow the current stable Canboat 7.1 database. It pairs well with se
 
 ## Features
 
-- **82 configurable data conversions emitting 60 data PGNs**, plus the plugin's
+- **88 configurable data conversions emitting 63 data PGNs**, plus the plugin's
   configurable PGN 126464 transmit-list broadcast at startup and every five
   minutes. The list advertises only PGNs owned by this plugin.
 - **Chartplotter-oriented** PGN priorities, SID fields, temperature-source
@@ -253,7 +253,7 @@ calculation, freshness behavior, limitations, and current compatibility notes.
 
 ## Documentation
 
-- PGN reference in `docs/pgn-reference.md`: all 61 plugin PGNs, conversion
+- PGN reference in `docs/pgn-reference.md`: all 64 plugin PGNs, conversion
   modules, bus-layer PGNs, and chartplotter guidance
 - Troubleshooting in `docs/troubleshooting.md`
 - Development guide in `docs/development.md`

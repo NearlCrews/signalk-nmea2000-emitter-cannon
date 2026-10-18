@@ -28,6 +28,8 @@ export const PGN_SUMMARIES: Record<number, string> = {
 	127496: "Vessel fuel range: estimated fuel remaining, time to empty, and distance to empty",
 	127497: "Engine trip totals: fuel used, average fuel rate, and fuel economy for the trip",
 	127498: "Fixed engine information: rated RPM, serial/VIN number, and software version",
+	127501:
+		"Switch bank status: whether each of up to 28 switches or circuits in a bank is on or off",
 	127503: "AC input status by line: voltage, current, frequency, power, and power factor",
 	127504: "AC output status by line: voltage, current, frequency, power, and power factor",
 	127505: "Tank level: how full a fuel, water, holding, or other tank is, plus its total capacity",
@@ -35,6 +37,7 @@ export const PGN_SUMMARIES: Record<number, string> = {
 	127507: "Battery charger state and role, linked to the battery instance being charged",
 	127508: "Battery basics: voltage, current draw or charge, and battery temperature",
 	127509: "Inverter operating state and its linked AC and DC system instances",
+	127751: "DC voltage and current for one DC connection, such as an alternator, charger, or DC bus",
 	128000: "Leeway angle: how far the boat is slipping sideways off its heading",
 	128259: "Boat speed through the water and over the ground from the speed sensor",
 	128267: "Water depth below the transducer, plus the configured keel or surface offset",
@@ -56,6 +59,8 @@ export const PGN_SUMMARIES: Record<number, string> = {
 	129539: "GPS accuracy figures (dilution of precision) showing how reliable the current fix is",
 	129540:
 		"GPS satellites currently in view, with each satellite's elevation, bearing, and signal strength",
+	129793:
+		"AIS base station report: position of a shore-based AIS station, so it can be shown on the chart",
 	129794:
 		"AIS static and voyage data for a Class A vessel: name, callsign, size, destination, draft",
 	129798:

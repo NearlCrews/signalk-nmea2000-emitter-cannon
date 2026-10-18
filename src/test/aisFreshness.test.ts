@@ -420,3 +420,54 @@ describe("Signal K navigation.state to Canboat NAV_STATUS", () => {
 		expect(output[0]?.fields.navStatus).toBe(expected);
 	});
 });
+
+describe("AIS base stations", () => {
+	const basePosition = { longitude: -122.4194, latitude: 37.8077 };
+
+	it("relays an NMEA 0183 base station as PGN 129793, never as an AtoN report", async () => {
+		const conversion = createAisConversion(appForAis(), plugin);
+		const context = "atons.urn:mrn:imo:mmsi:003669702";
+
+		const first = await invoke(conversion, {
+			context,
+			updates: [
+				{
+					values: [
+						{ path: "", value: { mmsi: "003669702" } },
+						{ path: "navigation.position", value: basePosition },
+						{ path: "sensors.ais.class", value: "BASE" },
+					],
+				},
+			],
+		});
+		const next = await invoke(conversion, {
+			context,
+			updates: [{ values: [{ path: "navigation.position", value: basePosition }] }],
+		});
+
+		expect(first.map(({ pgn }) => pgn)).toEqual([129793]);
+		expect(next.map(({ pgn }) => pgn)).toEqual([129793]);
+		expect(first[0]?.fields).toMatchObject({ userId: 3669702, ...basePosition });
+	});
+
+	it("does not echo a base station that arrived over NMEA 2000", async () => {
+		const conversion = createAisConversion(appForAis(), plugin);
+
+		const output = await invoke(conversion, {
+			context: "shore.basestations.urn:mrn:imo:mmsi:003669703",
+			updates: [
+				{
+					$source: "can0.43",
+					source: { label: "can0", type: "NMEA2000", pgn: 129793, src: "43" },
+					values: [
+						{ path: "", value: { mmsi: "003669703" } },
+						{ path: "navigation.position", value: basePosition },
+						{ path: "sensors.ais.class", value: "BASE" },
+					],
+				},
+			],
+		});
+
+		expect(output).toEqual([]);
+	});
+});

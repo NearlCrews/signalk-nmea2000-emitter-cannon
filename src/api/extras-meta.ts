@@ -32,6 +32,8 @@ const EXTRAS_BY_OPTION_KEY: Record<string, ExtrasMeta> = {
 	SOLAR: { type: "solarMapping", minRows: 0 },
 	RAYMARINE_BRIGHTNESS: { type: "brightnessMapping", minRows: 0 },
 	EXHAUST_TEMPERATURE: { type: "exhaustMapping", minRows: 0 },
+	SWITCH_BANK: { type: "switchBankMapping", minRows: 0 },
+	DC_VOLTAGE_CURRENT: { type: "dcMapping", minRows: 0 },
 	NOTIFICATIONS: {
 		type: "field",
 		key: "excludePaths",
@@ -77,6 +79,8 @@ const CONVERSION_DESCRIPTIONS: Record<string, string> = {
 		"Encodes ground-referenced forecast wind with the True (water referenced) value that populated True Wind fields on a tested ECHOMAP UHD2 setup. This is a model-specific display approximation, not a water-referenced wind calculation. Leave disabled with real wind or water-speed sensors, and verify behavior on the exact chartplotter model and firmware.",
 	DSC_CALLS:
 		"Rejects inputs that Signal K identifies as NMEA 2000 by using canonical $source values with available structured metadata and the server sources tree. You can also pin all DSC paths to a specific off-bus VHF or DSC provider. Leave disabled when no non-NMEA 2000 DSC provider publishes the required paths.",
+	SWITCH_BANK:
+		"Status only: this reports switch states and never switches anything. Give each bank an instance no other device on the bus uses, because a digital switching system that hears two senders for one bank can show the wrong state for its own circuits.",
 	VESSEL_TRIP:
 		"Fuel range is an estimate, not a voyage-planning or safety value. Configure every fuel tank and propulsion consumer; other consumers, unusable reserve, cross-feed limits, weather, and tide are not included. Raymarine also requires Fuel Manager setup, fuel data from PGN 127489 or 127497, and PGN 129026 with GNSS for distance. Current Garmin documentation does not list PGN 127496.",
 };
@@ -108,6 +112,10 @@ const CONVERSION_PURPOSES: Record<string, string> = {
 		"Battery charger operating state and role from electrical.chargers.<id>, linked to a configured battery instance.",
 	INVERTER_STATUS:
 		"Unambiguous inverter operating states from electrical.inverters.<id>, linked to configured AC and DC instances.",
+	SWITCH_BANK:
+		"On and off states of up to 28 switches per bank, read from electrical.switches.<id>.state and grouped into banks by the NMEA 2000 instance and channel you assign.",
+	DC_VOLTAGE_CURRENT:
+		"Voltage and current of a DC source that is not a battery, such as an alternator, DC-DC converter, or DC bus, read from electrical.<group>.<id>.voltage and current.",
 	DISTANCE_LOG:
 		"Total and trip distance logs from navigation.log and navigation.trip.log, kept in Signal K SI meters. Directed trip-reset commands are not handled.",
 };
@@ -146,17 +154,26 @@ const CONVERSION_LIFECYCLE: Record<string, ConversionLifecycle> = {
 
 // PGN 130312 is a softer legacy case than 130310/130311: canboat does not
 // flag it obsolete, but PGN 130316 (Temperature, Extended Range) supersedes
-// it with wider range and resolution. The environmental preset enables only
-// the modern PGN 130316; PGN 130312 remains a manual compatibility option.
+// it with wider range and resolution. The environmental preset enables the
+// modern PGN 130316, plus PGN 130312 for sea temperature only, because Garmin
+// reads water temperature from that frame; every other PGN 130312 conversion
+// remains a manual compatibility option.
 const TEMPERATURE_LEGACY: ConversionLifecycle = {
 	supersededBy: "PGN 130316 (the TEMPERATURE2_* conversions)",
 	note: "PGN 130312 is superseded by the extended-range PGN 130316. Enable it only when an older receiver does not read PGN 130316.",
+};
+const SEA_TEMPERATURE_LEGACY: ConversionLifecycle = {
+	...TEMPERATURE_LEGACY,
+	note: "PGN 130312 is superseded by the extended-range PGN 130316, but Garmin chartplotters read water temperature from this PGN and not from 130316, so the Environmental preset enables both.",
 };
 
 export function lifecycleFor(optionKey: string): ConversionLifecycle | undefined {
 	// TEMPERATURE_* keys emit the legacy PGN 130312. TEMPERATURE2_* keys emit
 	// the modern PGN 130316 and must not match: startsWith("TEMPERATURE_")
 	// already excludes them because "TEMPERATURE2_" differs at the "2".
+	if (optionKey === "TEMPERATURE_SEA") {
+		return SEA_TEMPERATURE_LEGACY;
+	}
 	if (optionKey.startsWith("TEMPERATURE_")) {
 		return TEMPERATURE_LEGACY;
 	}

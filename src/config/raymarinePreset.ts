@@ -38,17 +38,26 @@ export const RAYMARINE_EXTRAS_PATCH: Record<string, RaymarinePatch> = {
 	HUMIDITY_INSIDE: { n2kSource: "Inside", instance: 0 },
 };
 
+// The one PGN 130312 conversion the environmental preset enables. Garmin's
+// NMEA 2000 technical reference reads water temperature from PGN 130310,
+// 130311, or 130312 and lists 130316 for air temperature only, so without it a
+// Garmin chartplotter shows no water temperature from this plugin.
+const ENVIRONMENTAL_LEGACY_KEYS: ReadonlySet<string> = new Set(["TEMPERATURE_SEA"]);
+
 // The preset tags for a temperature or humidity conversion. PGN 130316 is the
 // canonical temperature frame for the general environmental preset. PGN
 // 130312 remains available for receivers that require it, but must be enabled
 // explicitly so a preset does not publish the same sensor through both the
-// modern and legacy temperature frames.
+// modern and legacy temperature frames, except for ENVIRONMENTAL_LEGACY_KEYS.
 //
 // A key the Raymarine remap touches also carries the "raymarine" tag, so the
 // preset enables it and the panel counts it. Shared by temperature.ts and
 // humidity.ts so the tag set stays derived from this one patch table.
 export function raymarinePresetsFor(optionKey: string): PresetTag[] {
-	const environmental = optionKey.startsWith("TEMPERATURE2_") || optionKey.startsWith("HUMIDITY_");
+	const environmental =
+		optionKey.startsWith("TEMPERATURE2_") ||
+		optionKey.startsWith("HUMIDITY_") ||
+		ENVIRONMENTAL_LEGACY_KEYS.has(optionKey);
 	const raymarine = optionKey in RAYMARINE_EXTRAS_PATCH;
 
 	if (environmental && raymarine) return ["environmental", "raymarine"];

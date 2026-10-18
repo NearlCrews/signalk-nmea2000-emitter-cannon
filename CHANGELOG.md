@@ -5,7 +5,28 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- AIS base stations are relayed on PGN 129793, which the B&G Zeus3S and
+  Vulcan, the Raymarine Axiom, and the Furuno TZtouch displays list. The
+  station's own UTC time and date are sent as not available, because Signal K
+  does not carry them.
+- Switch Bank Status (PGN 127501) reports the on and off state of switches
+  under `electrical.switches`, grouped into banks by the instance and channel
+  set in its editor. It only reports states and never switches anything.
+  Garmin and B&G list the PGN; neither documents whether a display shows a
+  bank from another sender.
+- DC Voltage and Current (PGN 127751) reports an alternator, DC-DC converter,
+  DC bus, or other non-battery DC source from `electrical.<group>.<id>`, for
+  the Raymarine Axiom and the Maretron DSM410.
+- Live well and bait well temperatures from `tanks.liveWell.0.temperature`
+  and `tanks.baitWell.0.temperature`, on PGN 130316 and PGN 130312.
+
 ### Changed
+
+- The Environmental preset also enables Sea Temperature on PGN 130312,
+  because Garmin's NMEA 2000 technical reference reads water temperature from
+  PGN 130310, 130311, or 130312 and lists PGN 130316 for air temperature only.
 
 - The configuration panel uses signalk-nearlcrews-ui 0.14.1. Invalid checkboxes,
   radio groups, sliders, and switches now draw a dashed outline beside the
@@ -54,6 +75,8 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- AIS base stations from an NMEA 0183 AIS receiver, which Signal K files under
+  `atons`, are no longer sent to displays as aids to navigation on PGN 129041.
 - Signal K gas tanks (LPG and propane) are no longer sent on PGN 127505 as
   Fuel, which added them to a display's fuel total and range. PGN 127505 has
   no gas fluid type, so the tank editor now rejects a gas row and says why.

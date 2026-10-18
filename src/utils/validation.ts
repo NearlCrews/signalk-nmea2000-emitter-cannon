@@ -49,6 +49,22 @@ export function isValidSignalKId(value: unknown): value is string {
 	return typeof value === "string" && SIGNALK_ID_SEGMENT_REGEX.test(value);
 }
 
+/**
+ * The path itself when `value` names an asset below `root` (such as a switch
+ * under electrical.switches) with at least `minSegments` safe id segments after
+ * the root, else null. Shared by the conversions and the panel's mapping
+ * validation so the accepted paths cannot drift between them.
+ */
+export function parseSignalKAssetPath(
+	value: unknown,
+	root: string,
+	minSegments = 1,
+): string | null {
+	if (typeof value !== "string" || !value.startsWith(`${root}.`)) return null;
+	const segments = value.slice(root.length + 1).split(".");
+	return segments.length >= minSegments && segments.every(isValidSignalKId) ? value : null;
+}
+
 export function toValidNumber(value: unknown): number | null {
 	return isValidNumber(value) ? value : null;
 }

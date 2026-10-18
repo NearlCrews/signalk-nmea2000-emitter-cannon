@@ -4,12 +4,14 @@ import AcMappingEditor from "./extras/AcMappingEditor";
 import BatteryMappingEditor from "./extras/BatteryMappingEditor";
 import BrightnessMappingEditor from "./extras/BrightnessMappingEditor";
 import ChargerMappingEditor from "./extras/ChargerMappingEditor";
+import DcMappingEditor from "./extras/DcMappingEditor";
 import EngineMappingEditor from "./extras/EngineMappingEditor";
 import EngineStaticMappingEditor from "./extras/EngineStaticMappingEditor";
 import ExhaustMappingEditor from "./extras/ExhaustMappingEditor";
 import FieldEditor from "./extras/FieldEditor";
 import InverterMappingEditor from "./extras/InverterMappingEditor";
 import SolarMappingEditor from "./extras/SolarMappingEditor";
+import SwitchBankMappingEditor from "./extras/SwitchBankMappingEditor";
 import TankMappingEditor from "./extras/TankMappingEditor";
 import VesselTripMappingEditor from "./extras/VesselTripMappingEditor";
 
@@ -90,6 +92,16 @@ export default function ExtrasEditor({
 			return (
 				<ExhaustMappingEditor value={value} onChange={onChange} availablePaths={availablePaths} />
 			);
+		case "switchBankMapping":
+			return (
+				<SwitchBankMappingEditor
+					value={value}
+					onChange={onChange}
+					availablePaths={availablePaths}
+				/>
+			);
+		case "dcMapping":
+			return <DcMappingEditor value={value} onChange={onChange} availablePaths={availablePaths} />;
 		case "field":
 		case "fields":
 			return <FieldEditor meta={meta} value={value} onChange={onChange} />;

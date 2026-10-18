@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 import createAcStatusConversion from "../conversions/acStatus.js";
 import createBatteryConversion from "../conversions/battery.js";
 import createChargerStatusConversion from "../conversions/chargerStatus.js";
+import createDcVoltageCurrentConversion from "../conversions/dcVoltageCurrent.js";
 import createEngineParametersConversions from "../conversions/engineParameters.js";
 import createEngineStaticConversion from "../conversions/engineStatic.js";
 import createEngineTripConversion from "../conversions/engineTrip.js";
 import createInverterStatusConversion from "../conversions/inverterStatus.js";
 import createSolarConversion from "../conversions/solar.js";
+import createSwitchBankConversion from "../conversions/switchBank.js";
 import createTanksConversion from "../conversions/tanks.js";
 import createVesselTripConversion from "../conversions/vesselTrip.js";
 import type { ConversionModule, SignalKApp, SignalKPlugin } from "../types/index.js";
@@ -193,6 +195,60 @@ describe("malformed mapped extras", () => {
 		).toHaveLength(1);
 	});
 
+	it("ignores switch rows outside electrical.switches or off the channel range", () => {
+		const conversions = createSwitchBankConversion({} as SignalKApp).conversions;
+		expect(typeof conversions).toBe("function");
+		if (typeof conversions !== "function") return;
+
+		const row = { signalkPath: "electrical.switches.anchorLight", instanceId: 7, channel: 1 };
+		for (const bad of [
+			{ ...row, signalkPath: "electrical.switches" },
+			{ ...row, signalkPath: "electrical.batteries.house" },
+			{ ...row, signalkPath: "electrical.switches.anchor light" },
+			{ ...row, channel: 0 },
+			{ ...row, channel: 29 },
+			{ ...row, channel: 1.5 },
+			{ ...row, instanceId: "seven" },
+		]) {
+			expect(conversions({ enabled: true, switches: [bad] }), JSON.stringify(bad)).toBeNull();
+		}
+
+		// Rows group into one bank per instance, and a repeated channel keeps
+		// the first row rather than reporting two switches on one indicator.
+		const banks = conversions({
+			enabled: true,
+			switches: [
+				row,
+				{ ...row, signalkPath: "electrical.switches.cabinLight" },
+				{ ...row, signalkPath: "electrical.switches.deckLight", channel: 2 },
+				{ ...row, signalkPath: "electrical.switches.bank.0.4", instanceId: 8 },
+			],
+		});
+		expect(banks?.map((bank) => bank.keys)).toEqual([
+			["electrical.switches.anchorLight.state", "electrical.switches.deckLight.state"],
+			["electrical.switches.bank.0.4.state"],
+		]);
+	});
+
+	it("ignores DC source rows that do not name an electrical asset", () => {
+		const conversions = createDcVoltageCurrentConversion({} as SignalKApp).conversions;
+		expect(typeof conversions).toBe("function");
+		if (typeof conversions !== "function") return;
+
+		for (const signalkPath of ["electrical", "electrical.alternators", "propulsion.main.x", 3]) {
+			expect(
+				conversions({ enabled: true, dcSources: [{ signalkPath, instanceId: 1 }] }),
+				String(signalkPath),
+			).toBeNull();
+		}
+		expect(
+			conversions({
+				enabled: true,
+				dcSources: [{ signalkPath: "electrical.alternators.main", instanceId: 1 }],
+			})?.[0]?.keys,
+		).toEqual(["electrical.alternators.main.voltage", "electrical.alternators.main.current"]);
+	});
+
 	it("ignores malformed established factory rows", () => {
 		const app = {} as SignalKApp;
 		const plugin = {} as SignalKPlugin;
@@ -201,6 +257,8 @@ describe("malformed mapped extras", () => {
 			[createSolarConversion(app), "chargers"],
 			[createEngineStaticConversion(app), "engines"],
 			[createEngineTripConversion(app), "engines"],
+			[createSwitchBankConversion(app), "switches"],
+			[createDcVoltageCurrentConversion(app), "dcSources"],
 			...createEngineParametersConversions(app).map((conversion): [ConversionModule, string] => [
 				conversion,
 				"engines",

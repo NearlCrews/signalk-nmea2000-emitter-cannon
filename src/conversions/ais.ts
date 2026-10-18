@@ -86,6 +86,12 @@ const staticKeys = [
 
 const positionKeys = ["navigation.position"];
 const atonTriggerKeys = [...staticKeys, ...positionKeys, "mmsi", "atonType"];
+const baseStationTriggerKeys = [...positionKeys, "mmsi"];
+// Signal K files AIS base stations under two contexts. n2k-signalk decodes PGN
+// 129793 into shore.basestations, while the NMEA 0183 parser files message 4
+// under atons with sensors.ais.class BASE. Both become PGN 129793 here, so a
+// base station never reaches a display as an aid to navigation.
+const BASE_STATION_CONTEXT_PREFIX = "shore.basestations.";
 const dynamicKeys = [
 	"navigation.courseOverGroundTrue",
 	"navigation.speedOverGround",
@@ -211,7 +217,7 @@ export default function createAisConversion(
 	const safeStateByContext = new Map<string, AisStateIndex>();
 
 	return {
-		title: "AIS (PGNs 129038, 129039, 129041, 129794, 129809, 129810)",
+		title: "AIS (PGNs 129038, 129039, 129041, 129793, 129794, 129809, 129810)",
 		sourceType: SOURCE_TYPE.ON_DELTA,
 		optionKey: "AIS",
 		category: "ais",
@@ -225,7 +231,8 @@ export default function createAisConversion(
 			const ctx = delta.context;
 			const isVessel = ctx.startsWith("vessels.");
 			const isAton = ctx.startsWith("atons.");
-			if (!isVessel && !isAton) {
+			const isBaseStation = ctx.startsWith(BASE_STATION_CONTEXT_PREFIX);
+			if (!isVessel && !isAton && !isBaseStation) {
 				return [];
 			}
 
@@ -289,6 +296,19 @@ export default function createAisConversion(
 					if (staticMsg) res.push(staticMsg);
 				}
 				return res;
+			}
+
+			if (isBaseStation || indexedFindValue<string>(index, "sensors.ais.class") === "BASE") {
+				if (!indexHasAnyKeys(currentIndex, baseStationTriggerKeys)) return [];
+				const mmsiValue = indexedFindValue(index, "mmsi");
+				if (!mmsiValue || typeof mmsiValue !== "string") return [];
+				const baseStationMsg = generateBaseStation(
+					mmsiValue,
+					index,
+					nowMs,
+					indexHasAnyKeys(currentIndex, positionKeys),
+				);
+				return baseStationMsg ? [baseStationMsg] : [];
 			}
 
 			if (!indexHasAnyKeys(currentIndex, atonTriggerKeys)) return [];
@@ -907,6 +927,82 @@ export default function createAisConversion(
 					},
 				],
 			},
+			{
+				// The NMEA 0183 parser files AIS message 4 under atons with class
+				// BASE. It must leave as PGN 129793, never as an AtoN report.
+				input: [
+					{
+						context: "atons.urn:mrn:imo:mmsi:003669702",
+						updates: [
+							{
+								values: [
+									{ path: "", value: { mmsi: "003669702" } },
+									{
+										path: "navigation.position",
+										value: { longitude: -122.4194, latitude: 37.8077 },
+									},
+									{ path: "sensors.ais.class", value: "BASE" },
+								],
+							},
+						],
+					},
+				],
+				expected: [
+					{
+						prio: 7,
+						pgn: 129793,
+						dst: 255,
+						fields: {
+							messageId: "Base station report",
+							repeatIndicator: "Initial",
+							userId: 3669702,
+							longitude: -122.4194,
+							latitude: 37.8077,
+							positionAccuracy: "Low",
+							raim: "not in use",
+							aisTransceiverInformation: "Channel A VDL reception",
+							gnssType: "Default: undefined",
+						},
+					},
+				],
+			},
+			{
+				// The context n2k-signalk uses, here from a publisher off the bus.
+				input: [
+					{
+						context: "shore.basestations.urn:mrn:imo:mmsi:003669703",
+						updates: [
+							{
+								values: [
+									{ path: "", value: { mmsi: "003669703" } },
+									{
+										path: "navigation.position",
+										value: { longitude: -122.3, latitude: 37.7 },
+									},
+								],
+							},
+						],
+					},
+				],
+				expected: [
+					{
+						prio: 7,
+						pgn: 129793,
+						dst: 255,
+						fields: {
+							messageId: "Base station report",
+							repeatIndicator: "Initial",
+							userId: 3669703,
+							longitude: -122.3,
+							latitude: 37.7,
+							positionAccuracy: "Low",
+							raim: "not in use",
+							aisTransceiverInformation: "Channel A VDL reception",
+							gnssType: "Default: undefined",
+						},
+					},
+				],
+			},
 		],
 	};
 }
@@ -1209,6 +1305,50 @@ function generateAtoN(
 	};
 }
 
+// PGN 129793 carries the base station's own UTC time and date. Signal K keeps
+// only its position, and the reception timestamp is this server's clock, not
+// the station's, so both fields go out as not available rather than as a time
+// a receiver might trust.
+function generateBaseStation(
+	mmsi: string,
+	index: AisStateIndex,
+	nowMs: number,
+	positionIsCurrent: boolean,
+): N2KMessage | null {
+	const position = indexedFindFreshValue<Position>(
+		index,
+		"navigation.position",
+		nowMs,
+		positionIsCurrent,
+	);
+	const userId = parseMmsi(mmsi);
+	if (
+		userId === undefined ||
+		!position ||
+		!isValidLatitude(position.latitude) ||
+		!isValidLongitude(position.longitude)
+	) {
+		return null;
+	}
+
+	return {
+		prio: N2K_DEFAULT_PRIORITY,
+		pgn: 129793,
+		dst: N2K_BROADCAST_DST,
+		fields: {
+			messageId: "Base station report",
+			repeatIndicator: "Initial",
+			userId,
+			longitude: position.longitude,
+			latitude: position.latitude,
+			positionAccuracy: "Low",
+			raim: "not in use",
+			aisTransceiverInformation: "Channel A VDL reception",
+			gnssType: "Default: undefined",
+		},
+	};
+}
+
 function deletePathAndChildren<T>(index: Map<string, T>, path: string): void {
 	index.delete(path);
 	const prefix = `${path}.`;
@@ -1234,7 +1374,7 @@ function normalizeAisRelevantValue(path: string, value: unknown): unknown | unde
 		case "mmsi":
 			return typeof value === "string" && value.length <= 9 ? value : undefined;
 		case "sensors.ais.class":
-			return value === "A" || value === "B" ? value : undefined;
+			return value === "A" || value === "B" || value === "BASE" ? value : undefined;
 		case "name":
 			return clampString(value, AIS_NAME_CHARS);
 		case "communication.callsignVhf":

@@ -109,6 +109,18 @@ export const TEMPERATURE_DEFINITIONS: readonly TemperatureDefinition[] = [
 		instance: 111,
 		option: "FREEZER",
 	},
+	{
+		n2kSource: "Live Well Temperature",
+		source: "tanks.liveWell.0.temperature",
+		instance: 112,
+		option: "LIVEWELL",
+	},
+	{
+		n2kSource: "Bait Well Temperature",
+		source: "tanks.baitWell.0.temperature",
+		instance: 113,
+		option: "BAITWELL",
+	},
 ];
 
 // The single source of truth for both the humidity runtime defaults and the

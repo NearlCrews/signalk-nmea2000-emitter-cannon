@@ -88,7 +88,9 @@ export type ExtrasMeta =
 				| "tankMapping"
 				| "solarMapping"
 				| "brightnessMapping"
-				| "exhaustMapping";
+				| "exhaustMapping"
+				| "switchBankMapping"
+				| "dcMapping";
 			minRows: 0;
 	  }
 	| ({ type: "field" } & ExtrasFieldSpec)

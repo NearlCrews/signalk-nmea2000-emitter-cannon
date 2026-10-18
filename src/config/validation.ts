@@ -1,6 +1,19 @@
-import { MAX_N2K_ENGINE_SPEED_RPM, MAX_N2K_INSTANCE, MAX_TANK_INSTANCE } from "../constants.js";
+import {
+	DC_PATH_MIN_SEGMENTS,
+	DC_PATH_ROOT,
+	MAX_N2K_ENGINE_SPEED_RPM,
+	MAX_N2K_INSTANCE,
+	MAX_SWITCH_BANK_CHANNEL,
+	MAX_TANK_INSTANCE,
+	SWITCH_PATH_ROOT,
+} from "../constants.js";
 import { pathToPropName } from "../utils/pathUtils.js";
-import { isPlainObject, isValidNumber, isValidSignalKId } from "../utils/validation.js";
+import {
+	isPlainObject,
+	isValidNumber,
+	isValidSignalKId,
+	parseSignalKAssetPath,
+} from "../utils/validation.js";
 import { SEATALK_NETWORK_GROUPS, tankFluidType } from "./enums.js";
 import {
 	HUMIDITY_DEFAULT_IDENTITIES,
@@ -30,6 +43,8 @@ interface RowRule {
 	label: string;
 	idField: "signalkId" | "signalkPath";
 	idLabel: string;
+	/** For a signalkPath row: the message for an unacceptable path, else undefined. */
+	pathIssue?: (value: unknown) => string | undefined;
 	allowNumericId?: boolean;
 	instanceFields?: ReadonlyArray<{ key: string; label: string; max?: number }>;
 	/** Scalar wire identities that must be unique across rows in this mapping. */
@@ -142,10 +157,36 @@ const MAPPING_RULES: Readonly<Record<string, RowRule>> = {
 		label: "tank",
 		idField: "signalkPath",
 		idLabel: "Signal K tank path",
+		pathIssue: tankPathIssue,
 		instanceFields: [
 			{ key: "instanceId", label: "NMEA 2000 tank instance", max: MAX_TANK_INSTANCE },
 		],
 		outputIdentities: [{ key: "instanceId", label: "NMEA 2000 tank instance" }],
+	},
+	SWITCH_BANK: {
+		collection: "switches",
+		label: "switch",
+		idField: "signalkPath",
+		idLabel: "Signal K switch path",
+		pathIssue: (value) =>
+			parseSignalKAssetPath(value, SWITCH_PATH_ROOT) === null
+				? "Signal K switch path must be a path such as electrical.switches.anchorLight."
+				: undefined,
+		// Several rows share a bank, so the bank and channel pair is checked in
+		// validateSwitchChannels rather than as a scalar output identity.
+		instanceFields: [{ key: "instanceId", label: "NMEA 2000 bank instance" }],
+	},
+	DC_VOLTAGE_CURRENT: {
+		collection: "dcSources",
+		label: "DC source",
+		idField: "signalkPath",
+		idLabel: "Signal K DC source path",
+		pathIssue: (value) =>
+			parseSignalKAssetPath(value, DC_PATH_ROOT, DC_PATH_MIN_SEGMENTS) === null
+				? "Signal K DC source path must be a path such as electrical.alternators.main."
+				: undefined,
+		instanceFields: [{ key: "instanceId", label: "NMEA 2000 connection number" }],
+		outputIdentities: [{ key: "instanceId", label: "NMEA 2000 connection number" }],
 	},
 };
 
@@ -210,6 +251,61 @@ function parseTankPath(value: unknown): { type: string; path: string } | null {
 	const type = segments[1];
 	if (segments.length !== 3 || segments[0] !== "tanks" || !type || !segments[2]) return null;
 	return { type, path: value };
+}
+
+function tankPathIssue(value: unknown): string | undefined {
+	const parsed = parseTankPath(value);
+	if (parsed !== null && tankFluidType(parsed.type) !== undefined) return undefined;
+	return parsed?.type === "gas"
+		? "PGN 127505 has no NMEA 2000 fluid type for gas, and reporting a gas tank as fuel would add it to a display's fuel total and range. Remove this row."
+		: "Signal K tank path must be a supported path such as tanks.fuel.0.";
+}
+
+// PGN 127501 numbers its indicators 1 to 28, and one bank and channel pair can
+// carry only one switch, so a repeated pair would hide one of the two states.
+function validateSwitchChannels(
+	issues: ConfigIssue[],
+	config: ConversionConfig,
+	rows: readonly unknown[],
+): void {
+	const seen = new Map<string, number>();
+	for (const [rowIndex, row] of rows.entries()) {
+		if (!isPlainObject(row)) continue;
+		const channel = row.channel;
+		if (
+			!isValidNumber(channel) ||
+			!Number.isInteger(channel) ||
+			channel < 1 ||
+			channel > MAX_SWITCH_BANK_CHANNEL
+		) {
+			addIssue(
+				issues,
+				config,
+				"SWITCH_BANK",
+				"channel",
+				`NMEA 2000 channel must be a whole number from 1 to ${MAX_SWITCH_BANK_CHANNEL}.`,
+				rowIndex,
+				"switches",
+			);
+			continue;
+		}
+		if (!isValidNumber(row.instanceId) || !Number.isInteger(row.instanceId)) continue;
+		const pair = `${row.instanceId}:${channel}`;
+		const first = seen.get(pair);
+		if (first === undefined) {
+			seen.set(pair, rowIndex);
+		} else {
+			addIssue(
+				issues,
+				config,
+				"SWITCH_BANK",
+				"channel",
+				`Bank ${row.instanceId} channel ${channel} duplicates row ${first + 1}.`,
+				rowIndex,
+				"switches",
+			);
+		}
+	}
 }
 
 function validateInstance(
@@ -294,19 +390,9 @@ function validateMapping(
 
 		const id = candidate[rule.idField];
 		if (rule.idField === "signalkPath") {
-			const parsed = parseTankPath(id);
-			if (parsed === null || tankFluidType(parsed.type) === undefined) {
-				addIssue(
-					issues,
-					config,
-					conversionKey,
-					rule.idField,
-					parsed?.type === "gas"
-						? "PGN 127505 has no NMEA 2000 fluid type for gas, and reporting a gas tank as fuel would add it to a display's fuel total and range. Remove this row."
-						: `${rule.idLabel} must be a supported path such as tanks.fuel.0.`,
-					rowIndex,
-					rule.collection,
-				);
+			const message = rule.pathIssue?.(id);
+			if (message !== undefined) {
+				addIssue(issues, config, conversionKey, rule.idField, message, rowIndex, rule.collection);
 			}
 		} else if (!validId(id, rule.allowNumericId ?? false)) {
 			addIssue(
@@ -999,6 +1085,10 @@ export function validateConfig(config: Pick<Config, "conversions">): ConfigIssue
 	validateCompetingWindProducers(issues, config.conversions);
 	for (const [conversionKey, rule] of Object.entries(MAPPING_RULES)) {
 		validateMapping(issues, conversionKey, config.conversions[conversionKey], rule);
+	}
+	const switchBank = config.conversions.SWITCH_BANK;
+	if (switchBank !== undefined && Array.isArray(switchBank.extras.switches)) {
+		validateSwitchChannels(issues, switchBank, switchBank.extras.switches);
 	}
 	validateVesselTrip(issues, config.conversions.VESSEL_TRIP);
 	for (const [conversionKey, conversion] of Object.entries(config.conversions)) {

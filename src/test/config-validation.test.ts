@@ -230,7 +230,7 @@ describe("configuration validation", () => {
 				conversionKey: "SWITCH_BANK",
 				field: "channel",
 				rowIndex: 3,
-				message: "Bank 7 channel 1 duplicates row 1.",
+				message: "NMEA 2000 bank channel duplicates NMEA 2000 bank channel in row 1.",
 			}),
 		]);
 	});

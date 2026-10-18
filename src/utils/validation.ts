@@ -65,6 +65,11 @@ export function parseSignalKAssetPath(
 	return segments.length >= minSegments && segments.every(isValidSignalKId) ? value : null;
 }
 
+/** True for a whole number from `min` to `max` inclusive. */
+export function isIntegerInRange(value: unknown, min: number, max: number): value is number {
+	return typeof value === "number" && Number.isInteger(value) && value >= min && value <= max;
+}
+
 export function toValidNumber(value: unknown): number | null {
 	return isValidNumber(value) ? value : null;
 }

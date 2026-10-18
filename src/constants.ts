@@ -120,6 +120,7 @@ export const MAX_N2K_DC_VOLTAGE_V = 6553.1;
 // negative side is kept symmetric so one number describes the field.
 export const MAX_N2K_DC_CURRENT_A = 83886.03;
 // PGN 127501 carries 28 two-bit indicators per bank, numbered from 1.
+export const MIN_SWITCH_BANK_CHANNEL = 1;
 export const MAX_SWITCH_BANK_CHANNEL = 28;
 // Switches live under electrical.switches.<id>, the path n2k-signalk writes for
 // a received bank (electrical.switches.bank.<instance>.<channel>) and the one

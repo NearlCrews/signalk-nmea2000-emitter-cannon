@@ -5,10 +5,12 @@ import {
 	MAX_N2K_INSTANCE,
 	MAX_SWITCH_BANK_CHANNEL,
 	MAX_TANK_INSTANCE,
+	MIN_SWITCH_BANK_CHANNEL,
 	SWITCH_PATH_ROOT,
 } from "../constants.js";
 import { pathToPropName } from "../utils/pathUtils.js";
 import {
+	isIntegerInRange,
 	isPlainObject,
 	isValidNumber,
 	isValidSignalKId,
@@ -38,6 +40,14 @@ export interface ConfigIssue {
 	message: string;
 }
 
+/** A whole-number field, from `min` (default 0) to `max` (default MAX_N2K_INSTANCE). */
+interface InstanceField {
+	key: string;
+	label: string;
+	min?: number;
+	max?: number;
+}
+
 interface RowRule {
 	collection: string;
 	label: string;
@@ -46,9 +56,13 @@ interface RowRule {
 	/** For a signalkPath row: the message for an unacceptable path, else undefined. */
 	pathIssue?: (value: unknown) => string | undefined;
 	allowNumericId?: boolean;
-	instanceFields?: ReadonlyArray<{ key: string; label: string; max?: number }>;
-	/** Scalar wire identities that must be unique across rows in this mapping. */
-	outputIdentities?: ReadonlyArray<{ key: string; label: string }>;
+	instanceFields?: ReadonlyArray<InstanceField>;
+	/**
+	 * Scalar wire identities that must be unique across rows in this mapping.
+	 * `within` names a field that scopes the identity, such as the bank a
+	 * switch channel belongs to.
+	 */
+	outputIdentities?: ReadonlyArray<{ key: string; label: string; within?: string }>;
 }
 
 const MAPPING_RULES: Readonly<Record<string, RowRule>> = {
@@ -172,9 +186,17 @@ const MAPPING_RULES: Readonly<Record<string, RowRule>> = {
 			parseSignalKAssetPath(value, SWITCH_PATH_ROOT) === null
 				? "Signal K switch path must be a path such as electrical.switches.anchorLight."
 				: undefined,
-		// Several rows share a bank, so the bank and channel pair is checked in
-		// validateSwitchChannels rather than as a scalar output identity.
-		instanceFields: [{ key: "instanceId", label: "NMEA 2000 bank instance" }],
+		instanceFields: [
+			{ key: "instanceId", label: "NMEA 2000 bank instance" },
+			{
+				key: "channel",
+				label: "NMEA 2000 channel",
+				min: MIN_SWITCH_BANK_CHANNEL,
+				max: MAX_SWITCH_BANK_CHANNEL,
+			},
+		],
+		// Several rows share a bank, so a channel need only be unique within it.
+		outputIdentities: [{ key: "channel", label: "NMEA 2000 bank channel", within: "instanceId" }],
 	},
 	DC_VOLTAGE_CURRENT: {
 		collection: "dcSources",
@@ -261,71 +283,24 @@ function tankPathIssue(value: unknown): string | undefined {
 		: "Signal K tank path must be a supported path such as tanks.fuel.0.";
 }
 
-// PGN 127501 numbers its indicators 1 to 28, and one bank and channel pair can
-// carry only one switch, so a repeated pair would hide one of the two states.
-function validateSwitchChannels(
-	issues: ConfigIssue[],
-	config: ConversionConfig,
-	rows: readonly unknown[],
-): void {
-	const seen = new Map<string, number>();
-	for (const [rowIndex, row] of rows.entries()) {
-		if (!isPlainObject(row)) continue;
-		const channel = row.channel;
-		if (
-			!isValidNumber(channel) ||
-			!Number.isInteger(channel) ||
-			channel < 1 ||
-			channel > MAX_SWITCH_BANK_CHANNEL
-		) {
-			addIssue(
-				issues,
-				config,
-				"SWITCH_BANK",
-				"channel",
-				`NMEA 2000 channel must be a whole number from 1 to ${MAX_SWITCH_BANK_CHANNEL}.`,
-				rowIndex,
-				"switches",
-			);
-			continue;
-		}
-		if (!isValidNumber(row.instanceId) || !Number.isInteger(row.instanceId)) continue;
-		const pair = `${row.instanceId}:${channel}`;
-		const first = seen.get(pair);
-		if (first === undefined) {
-			seen.set(pair, rowIndex);
-		} else {
-			addIssue(
-				issues,
-				config,
-				"SWITCH_BANK",
-				"channel",
-				`Bank ${row.instanceId} channel ${channel} duplicates row ${first + 1}.`,
-				rowIndex,
-				"switches",
-			);
-		}
-	}
-}
-
 function validateInstance(
 	issues: ConfigIssue[],
 	config: ConversionConfig | undefined,
 	conversionKey: string,
 	row: Record<string, unknown>,
 	rowIndex: number,
-	field: { key: string; label: string; max?: number },
+	field: InstanceField,
 	collection: string,
 ): void {
+	const min = field.min ?? 0;
 	const max = field.max ?? MAX_N2K_INSTANCE;
-	const value = row[field.key];
-	if (!isValidNumber(value) || !Number.isInteger(value) || value < 0 || value > max) {
+	if (!isIntegerInRange(row[field.key], min, max)) {
 		addIssue(
 			issues,
 			config,
 			conversionKey,
 			field.key,
-			`${field.label} must be a whole number from 0 to ${max}.`,
+			`${field.label} must be a whole number from ${min} to ${max}.`,
 			rowIndex,
 			collection,
 		);
@@ -435,7 +410,8 @@ function validateMapping(
 			) {
 				continue;
 			}
-			const normalized = `${typeof raw}:${String(raw)}`;
+			const scope = identity.within === undefined ? "" : `${String(candidate[identity.within])}/`;
+			const normalized = `${scope}${typeof raw}:${String(raw)}`;
 			const first = seenOutputIdentities.get(normalized);
 			if (first !== undefined) {
 				const location =
@@ -1085,10 +1061,6 @@ export function validateConfig(config: Pick<Config, "conversions">): ConfigIssue
 	validateCompetingWindProducers(issues, config.conversions);
 	for (const [conversionKey, rule] of Object.entries(MAPPING_RULES)) {
 		validateMapping(issues, conversionKey, config.conversions[conversionKey], rule);
-	}
-	const switchBank = config.conversions.SWITCH_BANK;
-	if (switchBank !== undefined && Array.isArray(switchBank.extras.switches)) {
-		validateSwitchChannels(issues, switchBank, switchBank.extras.switches);
 	}
 	validateVesselTrip(issues, config.conversions.VESSEL_TRIP);
 	for (const [conversionKey, conversion] of Object.entries(config.conversions)) {

@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { RootConfig } from "../config/schema.js";
 import { SLOW_DATA_TIMEOUT_MS, SOURCE_TYPE } from "../constants.js";
 import { outputStateFor } from "../panel/outputState.js";
 import { PluginManager } from "../plugin-manager.js";
-import type { SignalKApp, SignalKPlugin } from "../types/index.js";
+import type { SignalKApp } from "../types/index.js";
+import { mockPlugin } from "./testPlugin.js";
 
 function makeMockApp(): SignalKApp {
 	interface MockStream {
@@ -37,15 +37,6 @@ function makeMockApp(): SignalKApp {
 		removeListener: () => undefined,
 	} as unknown as SignalKApp;
 }
-
-const mockPlugin: SignalKPlugin = {
-	id: "signalk-nmea2000-emitter-cannon",
-	name: "Test Plugin",
-	description: "Test plugin",
-	schema: () => RootConfig,
-	start: () => {},
-	stop: () => {},
-};
 
 describe("outputStateFor", () => {
 	it("reports loading before the first status snapshot arrives", () => {

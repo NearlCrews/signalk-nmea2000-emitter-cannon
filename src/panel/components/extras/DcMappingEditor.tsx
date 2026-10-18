@@ -1,7 +1,7 @@
 import type * as React from "react";
-import { SIGNALK_ID_SEGMENT_PATTERN } from "../../../utils/validation.js";
+import { DC_PATH_MIN_SEGMENTS, DC_PATH_ROOT } from "../../../constants.js";
 import { extraRows } from "./extraRows";
-import MappingTable, { instanceIdColumn, signalkPathColumn } from "./MappingTable";
+import MappingTable, { instanceIdColumn, signalkAssetPathColumn } from "./MappingTable";
 
 // signalkPath is the DC source's full SK path (e.g. "electrical.alternators.main")
 // because the source can sit under any electrical group, not one registry root.
@@ -31,16 +31,13 @@ export default function DcMappingEditor({
 			emptyRow={() => ({ signalkPath: "", instanceId: 0 })}
 			onChange={setRows}
 			columns={[
-				signalkPathColumn<Row>({
+				signalkAssetPathColumn<Row>({
 					header: "Signal K DC source path",
 					field: "signalkPath",
-					placeholder: "electrical.alternators.main",
-					pathPattern: /^(electrical\.[^.]+\.[^.]+)\.(?:voltage|current)$/,
-					pattern: `electrical(\\.${SIGNALK_ID_SEGMENT_PATTERN}){2,}`,
-					requiredInput: () => ({
-						label: "voltage or current",
-						alternatives: [["voltage"], ["current"]],
-					}),
+					placeholder: `${DC_PATH_ROOT}.alternators.main`,
+					root: DC_PATH_ROOT,
+					minSegments: DC_PATH_MIN_SEGMENTS,
+					leaves: ["voltage", "current"],
 				}),
 				instanceIdColumn<Row>({
 					header: "NMEA 2000 connection number",

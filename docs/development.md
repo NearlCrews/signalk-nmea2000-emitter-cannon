@@ -245,9 +245,10 @@ server's ports or advertise itself on the network.
    case must use an input the previous bound admitted; one the old code already
    rejected is a green test that proves nothing.
 6. If the conversion emits a PGN the plugin did not emit before, check it
-   against the vendor receive lists in the PGN reference and classify it in
-   `src/api/vendorSupport.ts`. `vendorSupport.test.ts` fails until every
-   emitted PGN is classified.
+   against the vendor receive lists in the PGN reference and add it to each
+   listing vendor's `listed` or `limited` set in `src/api/vendorSupport.ts`, or
+   to `CHECKED_BUT_UNLISTED` when no vendor lists it. `vendorSupport.test.ts`
+   fails until every emitted PGN is classified.
 7. Run `npm run verify:fast` while iterating, then `npm run verify` before the
    change is ready (the pre-push hook runs it too).
 

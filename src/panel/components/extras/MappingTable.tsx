@@ -353,6 +353,41 @@ export function signalkPathColumn<R>(opts: {
 	});
 }
 
+// A regular-expression literal for a fixed piece of a Signal K path.
+function regexLiteral(text: string): string {
+	return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * A Signal K asset path column for the paths parseSignalKAssetPath accepts:
+ * `root` plus at least `minSegments` id segments. The input pattern, the
+ * inventory suggestions, and the live-input status all derive from the root
+ * and the leaves the conversion reads, so they cannot drift from validation.
+ */
+export function signalkAssetPathColumn<R>(opts: {
+	header: string;
+	field: keyof R & string;
+	placeholder: string;
+	root: string;
+	minSegments?: number;
+	leaves: readonly string[];
+}): Column<R> {
+	const root = regexLiteral(opts.root);
+	const minSegments = opts.minSegments ?? 1;
+	const leaves = opts.leaves.map(regexLiteral).join("|");
+	return signalkPathColumn<R>({
+		header: opts.header,
+		field: opts.field,
+		placeholder: opts.placeholder,
+		pattern: `${root}(\\.${SIGNALK_ID_SEGMENT_PATTERN}){${minSegments},}`,
+		pathPattern: new RegExp(`^(${root}(?:\\.[^.]+){${minSegments},})\\.(?:${leaves})$`),
+		requiredInput: () => ({
+			label: opts.leaves.join(" or "),
+			alternatives: opts.leaves.map((leaf) => [leaf]),
+		}),
+	});
+}
+
 // Standard NMEA 2000 instance-number column, shared by every mapping editor
 // that carries one: the conversion's own instance and the linked battery, AC,
 // and DC instances beside it. Clamps negatives to 0; the `min` attribute is
@@ -469,7 +504,7 @@ export default function MappingTable<T>(props: Props<T>): React.ReactElement {
 									{group.label}
 								</TableHeaderCell>
 							))}
-							<TableHeaderCell rowSpan={2}>
+							<TableHeaderCell rowSpan={2} style={C.mappingActionCell}>
 								<VisuallyHidden>Actions</VisuallyHidden>
 							</TableHeaderCell>
 						</tr>
@@ -514,7 +549,7 @@ export default function MappingTable<T>(props: Props<T>): React.ReactElement {
 												</TableCell>
 											);
 										})}
-										<TableCell>
+										<TableCell style={C.mappingActionCell}>
 											<Button
 												size="compact"
 												variant="danger"

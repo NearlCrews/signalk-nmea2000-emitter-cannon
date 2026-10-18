@@ -231,8 +231,9 @@ export default function createAisConversion(
 			const ctx = delta.context;
 			const isVessel = ctx.startsWith("vessels.");
 			const isAton = ctx.startsWith("atons.");
-			const isBaseStation = ctx.startsWith(BASE_STATION_CONTEXT_PREFIX);
-			if (!isVessel && !isAton && !isBaseStation) {
+			const isBaseStationContext =
+				!isVessel && !isAton && ctx.startsWith(BASE_STATION_CONTEXT_PREFIX);
+			if (!isVessel && !isAton && !isBaseStationContext) {
 				return [];
 			}
 
@@ -298,33 +299,23 @@ export default function createAisConversion(
 				return res;
 			}
 
-			if (isBaseStation || indexedFindValue<string>(index, "sensors.ais.class") === "BASE") {
-				if (!indexHasAnyKeys(currentIndex, baseStationTriggerKeys)) return [];
-				const mmsiValue = indexedFindValue(index, "mmsi");
-				if (!mmsiValue || typeof mmsiValue !== "string") return [];
-				const baseStationMsg = generateBaseStation(
-					mmsiValue,
-					index,
-					nowMs,
-					indexHasAnyKeys(currentIndex, positionKeys),
-				);
-				return baseStationMsg ? [baseStationMsg] : [];
-			}
-
-			if (!indexHasAnyKeys(currentIndex, atonTriggerKeys)) return [];
+			// An NMEA 0183 base station shares the atons context, marked by its class.
+			const isBaseStation =
+				isBaseStationContext || indexedFindValue<string>(index, "sensors.ais.class") === "BASE";
+			const [triggerKeys, generate] = isBaseStation
+				? [baseStationTriggerKeys, generateBaseStation]
+				: [atonTriggerKeys, generateAtoN];
+			if (!indexHasAnyKeys(currentIndex, triggerKeys)) return [];
 			const mmsiValue = indexedFindValue(index, "mmsi");
+			if (!mmsiValue || typeof mmsiValue !== "string") return [];
 
-			if (!mmsiValue || typeof mmsiValue !== "string") {
-				return [];
-			}
-
-			const atonMsg = generateAtoN(
+			const message = generate(
 				mmsiValue,
 				index,
 				nowMs,
 				indexHasAnyKeys(currentIndex, positionKeys),
 			);
-			return atonMsg ? [atonMsg] : [];
+			return message ? [message] : [];
 		}) as ConversionCallback<[AisDelta]>,
 		tests: [
 			{
@@ -1229,22 +1220,31 @@ function generatePosition(mmsi: string, index: AisStateIndex, nowMs: number): N2
 	};
 }
 
-function generateAtoN(
-	mmsi: string,
+/** The cached position when it is fresh and a valid coordinate, else null. */
+function freshValidPosition(
 	index: AisStateIndex,
 	nowMs: number,
 	positionIsCurrent: boolean,
-): N2KMessage | null {
+): Position | null {
 	const position = indexedFindFreshValue<Position>(
 		index,
 		"navigation.position",
 		nowMs,
 		positionIsCurrent,
 	);
+	return position && isValidLatitude(position.latitude) && isValidLongitude(position.longitude)
+		? position
+		: null;
+}
 
-	if (!position || !isValidLatitude(position.latitude) || !isValidLongitude(position.longitude)) {
-		return null;
-	}
+function generateAtoN(
+	mmsi: string,
+	index: AisStateIndex,
+	nowMs: number,
+	positionIsCurrent: boolean,
+): N2KMessage | null {
+	const position = freshValidPosition(index, nowMs, positionIsCurrent);
+	if (!position) return null;
 
 	const name = indexedFindValue<string>(index, "name");
 	const lengthObj = indexedFindValue<{ overall?: number }>(index, "design.length");
@@ -1315,21 +1315,9 @@ function generateBaseStation(
 	nowMs: number,
 	positionIsCurrent: boolean,
 ): N2KMessage | null {
-	const position = indexedFindFreshValue<Position>(
-		index,
-		"navigation.position",
-		nowMs,
-		positionIsCurrent,
-	);
+	const position = freshValidPosition(index, nowMs, positionIsCurrent);
 	const userId = parseMmsi(mmsi);
-	if (
-		userId === undefined ||
-		!position ||
-		!isValidLatitude(position.latitude) ||
-		!isValidLongitude(position.longitude)
-	) {
-		return null;
-	}
+	if (userId === undefined || !position) return null;
 
 	return {
 		prio: N2K_DEFAULT_PRIORITY,

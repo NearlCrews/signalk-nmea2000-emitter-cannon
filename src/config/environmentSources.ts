@@ -29,6 +29,13 @@ export interface TemperatureDefinition {
 	source: string;
 	instance: number;
 	option: string;
+	/**
+	 * The Environmental preset also enables this source's PGN 130312
+	 * conversion, not only its PGN 130316 one. Set for sea temperature, which
+	 * Garmin reads only from the legacy frames (see the TEMPERATURE_SEA vendor
+	 * note in src/api/vendorSupport.ts).
+	 */
+	environmentalLegacy?: true;
 }
 
 /**
@@ -42,6 +49,7 @@ export const TEMPERATURE_DEFINITIONS: readonly TemperatureDefinition[] = [
 		source: "environment.water.temperature",
 		instance: 100,
 		option: "SEA",
+		environmentalLegacy: true,
 	},
 	{
 		n2kSource: "Outside Temperature",

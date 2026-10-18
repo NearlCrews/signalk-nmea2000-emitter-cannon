@@ -5,11 +5,11 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { RootConfig } from "../config/schema.js";
 import { SOURCE_TYPE, WEATHER_DATA_TIMEOUT_MS } from "../constants.js";
 import createPlugin from "../index.js";
 import { PluginManager } from "../plugin-manager.js";
-import type { N2KMessage, PluginOptions, SignalKApp, SignalKPlugin } from "../types/index.js";
+import type { N2KMessage, PluginOptions, SignalKApp } from "../types/index.js";
+import { mockPlugin } from "./testPlugin.js";
 
 /* ------------------------------------------------------------------ *
  * Mock SignalKApp
@@ -234,15 +234,6 @@ function createMockSignalKApp(): MockSignalKApp {
 		clearDeltaInputHandlers: () => deltaInputHandlers.clear(),
 	};
 }
-
-const mockPlugin: SignalKPlugin = {
-	id: "signalk-nmea2000-emitter-cannon",
-	name: "Test Plugin",
-	description: "Test plugin",
-	schema: () => RootConfig,
-	start: () => {},
-	stop: () => {},
-};
 
 /**
  * Drive the debounceTime(10) inside PluginManager.mapRxJS by advancing 11ms.

@@ -82,6 +82,8 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   no gas fluid type, so the tank editor now rejects a gas row and says why.
 - Bait well tanks, which the plugin already sent as Live well, no longer fail
   the tank editor's validation.
+- A mapping table's Remove button keeps its label on one line instead of
+  breaking it mid-word in tables with three or more columns.
 - `THIRD_PARTY_NOTICES.md` now also covers the packages the plugin bundle
   carries, starting with `@sinclair/typebox`, whose MIT notice the published
   package was missing. They are read from the bundler's own output, and

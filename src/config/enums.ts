@@ -81,6 +81,12 @@ export function tankFluidType(signalkType: string): string | undefined {
 	return Object.hasOwn(TANK_FLUID_TYPES, signalkType) ? TANK_FLUID_TYPES[signalkType] : undefined;
 }
 
+// The display vendors whose published NMEA 2000 receive lists were checked,
+// in the order the panel shows their badges. src/api/vendorSupport.ts holds
+// the evidence for each.
+export const VENDOR_IDS = ["garmin", "raymarine", "bandg", "furuno"] as const;
+export type VendorId = (typeof VENDOR_IDS)[number];
+
 export const PresetTags = [
 	"basic-nav",
 	"engine-set",

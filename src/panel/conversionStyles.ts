@@ -61,6 +61,10 @@ export const CONVERSION_STYLES = {
 	// the table compresses on a phone, where the scroll region carries the
 	// overflow.
 	mappingCell: { minWidth: "7.5rem" },
+	// The Remove column shrinks to its button and keeps the label on one line.
+	// Without this the data cells' floors squeezed it, and three-column tables
+	// broke the label mid-word.
+	mappingActionCell: { whiteSpace: "nowrap", width: "1%" },
 	// The row sits at the shared control floor: 40px with a fine pointer and
 	// 44px under a coarse one, which the library resolves through the same
 	// token its checkbox and buttons use. That keeps a helm touchscreen target

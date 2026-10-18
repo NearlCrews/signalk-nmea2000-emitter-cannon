@@ -2,15 +2,15 @@ import { readdirSync } from "node:fs";
 import { FromPgn, pgnToActisenseSerialFormat } from "@canboat/canboatjs";
 import { beforeEach, describe, expect, it } from "vitest";
 import { PGN_SUMMARIES } from "../api/pgnSummaries.js";
-import { RootConfig } from "../config/schema.js";
 import { N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import { createConversionModules } from "../conversions/index.js";
-import type { ConversionModule, SignalKApp, SignalKPlugin } from "../types/index.js";
+import type { ConversionModule, SignalKApp } from "../types/index.js";
 import { cleanN2KMessage, validateN2KMessage } from "../utils/messageUtils.js";
 import { isDefined } from "../utils/pathUtils.js";
 import { withCanonicalPgnPriority } from "../utils/pgnPriorities.js";
 import { extractPgnsFromTitle } from "../utils/pgnUtils.js";
 import { validateN2KMessageStrict } from "./strictValidation.js";
+import { mockPlugin } from "./testPlugin.js";
 
 /**
  * Mock Signal K data storage
@@ -55,18 +55,6 @@ const mockApp: SignalKApp = {
 		subscribe: () => {},
 	},
 } as unknown as SignalKApp;
-
-/**
- * Mock plugin instance
- */
-const mockPlugin: SignalKPlugin = {
-	id: "signalk-nmea2000-emitter-cannon",
-	name: "Test Plugin",
-	description: "Test plugin",
-	schema: () => RootConfig,
-	start: () => {},
-	stop: () => {},
-};
 
 describe("Conversion modules", () => {
 	let conversions: ConversionModule[];

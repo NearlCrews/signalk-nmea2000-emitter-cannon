@@ -59,7 +59,12 @@ function makeTemperatureConversion(
 		// The "Raymarine" preset remaps the inside-family sources (PGN 130316
 		// only) onto "Inside Temperature" with distinct instances, so the keys it
 		// touches also carry the "raymarine" tag. Derived from the patch table.
-		presets: raymarinePresetsFor(optionKey),
+		// raymarinePresetsFor tags no PGN 130312 key, so the one legacy frame the
+		// Environmental preset enables (environmentalLegacy) is tagged here.
+		presets:
+			pgn === 130312 && info.environmentalLegacy
+				? ["environmental"]
+				: raymarinePresetsFor(optionKey),
 		keys: [info.source],
 
 		// Flat option shape, matching production: `instance` and `n2kSource` are

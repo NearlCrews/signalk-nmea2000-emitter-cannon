@@ -1,4 +1,5 @@
-import type { ConversionCompatibility, VendorId, VendorSupport } from "./types.js";
+import { VENDOR_IDS, type VendorId } from "../config/enums.js";
+import type { ConversionCompatibility, VendorSupport } from "./types.js";
 
 /**
  * Which emitted PGNs each vendor's published NMEA 2000 receive lists include.
@@ -12,18 +13,6 @@ interface VendorEvidence {
 	listed: ReadonlySet<number>;
 	limited: ReadonlySet<number>;
 }
-
-// Data PGNs this plugin emits that were checked against every vendor list.
-// A test asserts that every PGN in the conversion catalog is here or in
-// UNCLASSIFIED_PGNS, so a new conversion cannot ship without a decision.
-export const CHECKED_PGNS: ReadonlySet<number> = new Set([
-	126983, 126985, 126992, 127245, 127250, 127251, 127252, 127257, 127258, 127488, 127489, 127493,
-	127496, 127497, 127498, 127501, 127503, 127504, 127505, 127506, 127507, 127508, 127509, 127751,
-	128000, 128259, 128267, 128275, 129025, 129026, 129029, 129033, 129038, 129039, 129040, 129041,
-	129283, 129284, 129291, 129301, 129302, 129539, 129540, 129793, 129794, 129798, 129799, 129802,
-	129808, 129809, 129810, 130306, 130310, 130311, 130312, 130313, 130314, 130316, 130576, 130577,
-	130578,
-]);
 
 // PGN 126464 is protocol housekeeping, and 65288 and 126720 are Seatalk
 // proprietary messages that no vendor publishes in a receive list.
@@ -83,7 +72,20 @@ export const VENDOR_EVIDENCE: Readonly<Record<VendorId, VendorEvidence>> = {
 	},
 };
 
-const VENDOR_ORDER: readonly VendorId[] = ["garmin", "raymarine", "bandg", "furuno"];
+// PGN 129302 was checked too, but only the Maretron DSM410 lists it.
+const CHECKED_BUT_UNLISTED: readonly number[] = [129302];
+
+// Data PGNs this plugin emits that were checked against every vendor list:
+// each one some vendor lists, plus the few none does. A test asserts that every
+// PGN in the conversion catalog is here or in UNCLASSIFIED_PGNS, so a new
+// conversion cannot ship without a decision.
+export const CHECKED_PGNS: ReadonlySet<number> = new Set([
+	...Object.values(VENDOR_EVIDENCE).flatMap((evidence) => [
+		...evidence.listed,
+		...evidence.limited,
+	]),
+	...CHECKED_BUT_UNLISTED,
+]);
 
 function supportFor(evidence: VendorEvidence, pgn: number): VendorSupport {
 	if (evidence.listed.has(pgn)) return "listed";
@@ -99,9 +101,7 @@ function combine(values: VendorSupport[]): VendorSupport {
 
 // Field-specific evidence a receive list cannot express, and notes for the
 // cases where the list alone would mislead.
-export const CONVERSION_OVERRIDES: Readonly<
-	Record<string, { vendors?: Partial<Record<VendorId, VendorSupport>>; note?: string }>
-> = {
+const CONVERSION_OVERRIDES: Readonly<Record<string, Partial<ConversionCompatibility>>> = {
 	TEMPERATURE2_SEA: {
 		vendors: { garmin: "limited" },
 		note: "Garmin's NMEA 2000 technical reference reads water temperature from PGN 130310, 130311, or 130312, not 130316. The Environmental preset also enables Sea Temperature (PGN 130312) for that reason; enable it by hand if you configure conversions one at a time.",
@@ -138,6 +138,11 @@ export const CONVERSION_OVERRIDES: Readonly<
 	},
 };
 
+/** The optionKeys the overrides name, for the orphan-key check in extras-meta. */
+export function vendorOverrideKeys(): string[] {
+	return Object.keys(CONVERSION_OVERRIDES);
+}
+
 /**
  * The vendor receive-list summary for one conversion, derived from the PGNs in
  * its title, or undefined when none of its PGNs was checked and it has no note.
@@ -147,15 +152,17 @@ export function compatibilityFor(
 	pgns: readonly string[],
 ): ConversionCompatibility | undefined {
 	const checked = pgns.map(Number).filter((pgn) => CHECKED_PGNS.has(pgn));
-	const override = CONVERSION_OVERRIDES[optionKey];
-	const vendors: Partial<Record<VendorId, VendorSupport>> = {};
-	if (checked.length > 0) {
-		for (const vendor of VENDOR_ORDER) {
-			const evidence = VENDOR_EVIDENCE[vendor];
-			vendors[vendor] =
-				override?.vendors?.[vendor] ?? combine(checked.map((pgn) => supportFor(evidence, pgn)));
-		}
-	}
-	if (checked.length === 0 && override?.note === undefined) return undefined;
-	return override?.note === undefined ? { vendors } : { vendors, note: override.note };
+	const { vendors: overrides, note } = CONVERSION_OVERRIDES[optionKey] ?? {};
+	if (checked.length === 0 && note === undefined) return undefined;
+	const vendors =
+		checked.length === 0
+			? {}
+			: Object.fromEntries(
+					VENDOR_IDS.map((vendor) => [
+						vendor,
+						overrides?.[vendor] ??
+							combine(checked.map((pgn) => supportFor(VENDOR_EVIDENCE[vendor], pgn))),
+					]),
+				);
+	return note === undefined ? { vendors } : { vendors, note };
 }

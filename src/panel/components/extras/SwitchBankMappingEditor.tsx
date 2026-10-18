@@ -1,8 +1,15 @@
 import type * as React from "react";
-import { MAX_SWITCH_BANK_CHANNEL } from "../../../constants.js";
-import { SIGNALK_ID_SEGMENT_PATTERN } from "../../../utils/validation.js";
+import {
+	MAX_SWITCH_BANK_CHANNEL,
+	MIN_SWITCH_BANK_CHANNEL,
+	SWITCH_PATH_ROOT,
+} from "../../../constants.js";
 import { extraRows } from "./extraRows";
-import MappingTable, { instanceIdColumn, numberColumn, signalkPathColumn } from "./MappingTable";
+import MappingTable, {
+	instanceIdColumn,
+	numberColumn,
+	signalkAssetPathColumn,
+} from "./MappingTable";
 
 // signalkPath is the switch's full SK path (e.g. "electrical.switches.anchorLight")
 // because providers nest switch ids differently; the conversion reads its
@@ -32,16 +39,15 @@ export default function SwitchBankMappingEditor({
 			helpText="Rows with the same bank instance are sent together as one bank. Give each switch its own channel in that bank."
 			rows={rows}
 			available={availablePaths}
-			emptyRow={() => ({ signalkPath: "", instanceId: 0, channel: 1 })}
+			emptyRow={() => ({ signalkPath: "", instanceId: 0, channel: MIN_SWITCH_BANK_CHANNEL })}
 			onChange={setRows}
 			columns={[
-				signalkPathColumn<Row>({
+				signalkAssetPathColumn<Row>({
 					header: "Signal K switch path",
 					field: "signalkPath",
-					placeholder: "electrical.switches.anchorLight",
-					pathPattern: /^(electrical\.switches\..+)\.state$/,
-					pattern: `electrical\\.switches(\\.${SIGNALK_ID_SEGMENT_PATTERN})+`,
-					requiredInput: () => ({ label: "state", alternatives: [["state"]] }),
+					placeholder: `${SWITCH_PATH_ROOT}.anchorLight`,
+					root: SWITCH_PATH_ROOT,
+					leaves: ["state"],
 				}),
 				instanceIdColumn<Row>({
 					header: "NMEA 2000 bank instance",
@@ -50,7 +56,7 @@ export default function SwitchBankMappingEditor({
 					header: "NMEA 2000 channel",
 					field: "channel",
 					group: "NMEA 2000 output",
-					min: 1,
+					min: MIN_SWITCH_BANK_CHANNEL,
 					max: MAX_SWITCH_BANK_CHANNEL,
 				}),
 			]}

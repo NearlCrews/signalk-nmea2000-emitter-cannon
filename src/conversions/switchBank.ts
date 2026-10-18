@@ -1,5 +1,6 @@
 import {
 	MAX_SWITCH_BANK_CHANNEL,
+	MIN_SWITCH_BANK_CHANNEL,
 	N2K_BROADCAST_DST,
 	N2K_DEFAULT_PRIORITY,
 	SLOW_DATA_TIMEOUT_MS,
@@ -12,7 +13,7 @@ import type {
 	SignalKApp,
 	SubConversionModule,
 } from "../types/index.js";
-import { isPlainObject, parseSignalKAssetPath } from "../utils/validation.js";
+import { isIntegerInRange, isPlainObject, parseSignalKAssetPath } from "../utils/validation.js";
 import { instanceList, normalizedN2kInstance } from "./instanceOptions.js";
 
 // NMEA 2000 bank input (n2k-signalk's electrical.switches.bank.*) is blocked
@@ -34,10 +35,7 @@ function normalizedSwitchConfig(config: unknown): SwitchConfig | null {
 	if (
 		signalkPath === null ||
 		instanceId === undefined ||
-		typeof channel !== "number" ||
-		!Number.isInteger(channel) ||
-		channel < 1 ||
-		channel > MAX_SWITCH_BANK_CHANNEL
+		!isIntegerInRange(channel, MIN_SWITCH_BANK_CHANNEL, MAX_SWITCH_BANK_CHANNEL)
 	) {
 		return null;
 	}
@@ -85,8 +83,8 @@ export default function createSwitchBankConversion(_app: SignalKApp): Conversion
 				.filter((row): row is SwitchConfig => row !== null);
 			if (switches.length === 0) return null;
 
-			return [...banksFrom(switches)].map(([instance, rows]): SubConversionModule => {
-				return {
+			return [...banksFrom(switches)].map(
+				([instance, rows]): SubConversionModule => ({
 					keys: rows.map((row) => `${row.signalkPath}.state`),
 					timeouts: rows.map(() => SLOW_DATA_TIMEOUT_MS),
 					callback: (...states: unknown[]): N2KMessage[] => {
@@ -135,8 +133,8 @@ export default function createSwitchBankConversion(_app: SignalKApp): Conversion
 							expected: [],
 						},
 					],
-				};
-			});
+				}),
+			);
 		},
 	};
 }

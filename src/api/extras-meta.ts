@@ -2,7 +2,7 @@ import { HUMIDITY_SOURCE_VALUES, TEMPERATURE_SOURCE_VALUES } from "../config/env
 import { MAX_N2K_INSTANCE } from "../constants.js";
 import type { ConversionModule } from "../types/index.js";
 import type { ConversionLifecycle, ExtrasMeta } from "./types.js";
-import { CONVERSION_OVERRIDES } from "./vendorSupport.js";
+import { vendorOverrideKeys } from "./vendorSupport.js";
 
 function sourceOptions(
 	values: readonly string[],
@@ -124,10 +124,21 @@ export function purposeFor(optionKey: string): string | undefined {
 	return CONVERSION_PURPOSES[optionKey];
 }
 
-// Per-optionKey legacy-PGN metadata. PGN 130312 (the TEMPERATURE_* keys) is
-// handled by prefix in lifecycleFor, not listed here, because it spans many
-// per-source optionKeys.
+// PGN 130312 is a softer legacy case than 130310/130311: canboat does not
+// flag it obsolete, but PGN 130316 (Temperature, Extended Range) supersedes
+// it with wider range and resolution. It spans many per-source optionKeys, so
+// lifecycleFor applies it by prefix.
+const TEMPERATURE_LEGACY: ConversionLifecycle = {
+	supersededBy: "PGN 130316 (the TEMPERATURE2_* conversions)",
+	note: "PGN 130312 is superseded by the extended-range PGN 130316. Enable it only when an older receiver does not read PGN 130316.",
+};
+
+// Per-optionKey legacy-PGN metadata, checked before the PGN 130312 prefix rule.
 const CONVERSION_LIFECYCLE: Record<string, ConversionLifecycle> = {
+	TEMPERATURE_SEA: {
+		...TEMPERATURE_LEGACY,
+		note: "PGN 130312 is superseded by the extended-range PGN 130316. The Environmental preset still enables this one, for the Garmin reason in the vendor note.",
+	},
 	AC_STATUS: {
 		supersededBy: "PGNs 127744 to 127749 (per-phase AC power, current, voltage, and frequency)",
 		note: "The NMEA 3.002 Network Message Database marks PGNs 127503 and 127504 deprecated. Their replacements remain incomplete in the bundled Canboat database, so retain this conversion only for receivers that still require the legacy AC status frames.",
@@ -152,32 +163,14 @@ const CONVERSION_LIFECYCLE: Record<string, ConversionLifecycle> = {
 	},
 };
 
-// PGN 130312 is a softer legacy case than 130310/130311: canboat does not
-// flag it obsolete, but PGN 130316 (Temperature, Extended Range) supersedes
-// it with wider range and resolution. The environmental preset enables the
-// modern PGN 130316, plus PGN 130312 for sea temperature only, because Garmin
-// reads water temperature from that frame; every other PGN 130312 conversion
-// remains a manual compatibility option.
-const TEMPERATURE_LEGACY: ConversionLifecycle = {
-	supersededBy: "PGN 130316 (the TEMPERATURE2_* conversions)",
-	note: "PGN 130312 is superseded by the extended-range PGN 130316. Enable it only when an older receiver does not read PGN 130316.",
-};
-const SEA_TEMPERATURE_LEGACY: ConversionLifecycle = {
-	...TEMPERATURE_LEGACY,
-	note: "PGN 130312 is superseded by the extended-range PGN 130316, but Garmin chartplotters read water temperature from this PGN and not from 130316, so the Environmental preset enables both.",
-};
-
 export function lifecycleFor(optionKey: string): ConversionLifecycle | undefined {
 	// TEMPERATURE_* keys emit the legacy PGN 130312. TEMPERATURE2_* keys emit
 	// the modern PGN 130316 and must not match: startsWith("TEMPERATURE_")
 	// already excludes them because "TEMPERATURE2_" differs at the "2".
-	if (optionKey === "TEMPERATURE_SEA") {
-		return SEA_TEMPERATURE_LEGACY;
-	}
-	if (optionKey.startsWith("TEMPERATURE_")) {
-		return TEMPERATURE_LEGACY;
-	}
-	return CONVERSION_LIFECYCLE[optionKey];
+	return (
+		CONVERSION_LIFECYCLE[optionKey] ??
+		(optionKey.startsWith("TEMPERATURE_") ? TEMPERATURE_LEGACY : undefined)
+	);
 }
 
 // The instance field is an 8-bit NMEA 2000 value; bound the editor to the
@@ -235,7 +228,7 @@ export function metaFor(conversion: ConversionModule): ExtrasMeta {
 /**
  * Pure sanity check: every literal optionKey used by the per-conversion
  * metadata maps (EXTRAS_BY_OPTION_KEY, CONVERSION_DESCRIPTIONS,
- * CONVERSION_PURPOSES, CONVERSION_LIFECYCLE, and the vendor CONVERSION_OVERRIDES) must
+ * CONVERSION_PURPOSES, CONVERSION_LIFECYCLE, and the vendor overrides) must
  * match a loaded conversion's optionKey. Returns the list of orphaned keys
  * for the caller to log via whatever channel it prefers (debug, error, test
  * harness). Prefix-matched entries (TEMPERATURE_*) are intentionally not
@@ -247,7 +240,7 @@ export function findOrphanExtrasMetaKeys(loaded: readonly ConversionModule[]): s
 		...Object.keys(EXTRAS_BY_OPTION_KEY),
 		...Object.keys(CONVERSION_DESCRIPTIONS),
 		...Object.keys(CONVERSION_PURPOSES),
-		...Object.keys(CONVERSION_OVERRIDES),
+		...vendorOverrideKeys(),
 		...Object.keys(CONVERSION_LIFECYCLE),
 	]);
 	return [...checked].filter((key) => !loadedKeys.has(key));

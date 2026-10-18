@@ -20,12 +20,8 @@ import {
 	Text,
 } from "signalk-nearlcrews-ui";
 import { pgnSummaryFor } from "../../api/pgnSummaries.js";
-import type {
-	ConversionMetadata,
-	PerConversionStatus,
-	VendorId,
-	VendorSupport,
-} from "../../api/types.js";
+import type { ConversionMetadata, PerConversionStatus, VendorSupport } from "../../api/types.js";
+import { VENDOR_IDS, type VendorId } from "../../config/enums.js";
 import type { ConversionConfig } from "../../config/schema.js";
 import type { ConfigIssue } from "../../config/validation.js";
 import { pathToPropName } from "../../utils/pathUtils.js";
@@ -107,9 +103,10 @@ export default function ConversionDetail(props: Props): React.ReactElement {
 	const hasValidationError = props.validationIssues.some((issue) => issue.severity === "error");
 
 	const compatibility = meta.compatibility;
-	const vendorSupport = compatibility
-		? (Object.entries(compatibility.vendors) as Array<[VendorId, VendorSupport]>)
-		: [];
+	const vendorSupport = VENDOR_IDS.flatMap((vendor) => {
+		const support = compatibility?.vendors[vendor];
+		return support === undefined ? [] : [{ vendor, support }];
+	});
 	const health = conversionHealth(status);
 	const healthMessage =
 		health.state === "publisher-filter-mismatch"
@@ -337,7 +334,7 @@ export default function ConversionDetail(props: Props): React.ReactElement {
 						<Text tone="muted" size="sm">
 							Vendor receive lists:
 						</Text>
-						{vendorSupport.map(([vendor, support]) => (
+						{vendorSupport.map(({ vendor, support }) => (
 							<Badge key={vendor} tone={VENDOR_SUPPORT[support].tone}>
 								{VENDOR_LABELS[vendor]}: {VENDOR_SUPPORT[support].label}
 							</Badge>

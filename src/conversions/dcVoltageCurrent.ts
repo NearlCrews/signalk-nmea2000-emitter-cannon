@@ -50,8 +50,8 @@ export default function createDcVoltageCurrentConversion(_app: SignalKApp): Conv
 				.filter((source): source is DcConfig => source !== null);
 			if (sources.length === 0) return null;
 
-			return sources.map((source): SubConversionModule => {
-				return {
+			return sources.map(
+				(source): SubConversionModule => ({
 					keys: [`${source.signalkPath}.voltage`, `${source.signalkPath}.current`],
 					timeouts: [SLOW_DATA_TIMEOUT_MS, SLOW_DATA_TIMEOUT_MS],
 					callback: (voltage: unknown, current: unknown): N2KMessage[] => {
@@ -117,8 +117,8 @@ export default function createDcVoltageCurrentConversion(_app: SignalKApp): Conv
 							expected: [],
 						},
 					],
-				};
-			});
+				}),
+			);
 		},
 	};
 }

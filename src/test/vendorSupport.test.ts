@@ -13,9 +13,9 @@ import {
 	UNCLASSIFIED_PGNS,
 	VENDOR_EVIDENCE,
 } from "../api/vendorSupport.js";
-import { RootConfig } from "../config/schema.js";
 import { createConversionModules } from "../conversions/index.js";
-import type { SignalKApp, SignalKPlugin } from "../types/index.js";
+import type { SignalKApp } from "../types/index.js";
+import { mockPlugin } from "./testPlugin.js";
 
 const mockApp = {
 	getSelfPath: () => undefined,
@@ -28,15 +28,6 @@ const mockApp = {
 	subscriptionmanager: { subscribe: () => {} },
 } as unknown as SignalKApp;
 
-const mockPlugin: SignalKPlugin = {
-	id: "signalk-nmea2000-emitter-cannon",
-	name: "Test Plugin",
-	description: "Test plugin",
-	schema: () => RootConfig,
-	start: () => {},
-	stop: () => {},
-};
-
 const modules = createConversionModules(mockApp, mockPlugin);
 const catalog = buildConversionMetadata(modules);
 
@@ -48,12 +39,9 @@ describe("vendor receive-list table", () => {
 		expect(unclassified).toEqual([]);
 	});
 
-	it("keeps the checked, unclassified, and per-vendor sets consistent", () => {
+	it("never files a PGN as both listed and limited, or as both checked and unclassified", () => {
 		for (const pgn of UNCLASSIFIED_PGNS) expect(CHECKED_PGNS.has(pgn)).toBe(false);
 		for (const [vendor, evidence] of Object.entries(VENDOR_EVIDENCE)) {
-			for (const pgn of [...evidence.listed, ...evidence.limited]) {
-				expect(CHECKED_PGNS.has(pgn), `${vendor} ${pgn}`).toBe(true);
-			}
 			for (const pgn of evidence.listed) {
 				expect(evidence.limited.has(pgn), `${vendor} ${pgn}`).toBe(false);
 			}

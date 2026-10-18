@@ -8,10 +8,10 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { RootConfig } from "../config/schema.js";
 import { createConversionModules } from "../conversions/index.js";
-import type { SignalKApp, SignalKPlugin } from "../types/index.js";
+import type { SignalKApp } from "../types/index.js";
 import { matchPathPrefix, pathToPropName } from "../utils/pathUtils.js";
+import { mockPlugin } from "./testPlugin.js";
 
 /* Minimal mock app: pathUtils only needs the conversion factories to run.
  * They're called purely to harvest the `keys` arrays; no streams fire. */
@@ -33,15 +33,6 @@ const mockApp: SignalKApp = {
 	},
 	subscriptionmanager: { subscribe: () => {} },
 } as unknown as SignalKApp;
-
-const mockPlugin: SignalKPlugin = {
-	id: "signalk-nmea2000-emitter-cannon",
-	name: "Test Plugin",
-	description: "Test plugin",
-	schema: () => RootConfig,
-	start: () => {},
-	stop: () => {},
-};
 
 describe("pathToPropName", () => {
 	it("collapses dots in a Signal K path", () => {

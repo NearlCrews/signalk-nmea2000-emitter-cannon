@@ -1,4 +1,4 @@
-import type { ConversionCategory, PresetTag } from "../config/enums.js";
+import type { ConversionCategory, PresetTag, VendorId } from "../config/enums.js";
 import type { ApplyDecision, PendingReviewResult, ReviewResult } from "../recommendation/types.js";
 
 export interface StatusSnapshot {
@@ -133,9 +133,6 @@ export interface ConversionMetadata {
 	// Drives the "Legacy" badge on the card. See ConversionLifecycle.
 	legacy?: ConversionLifecycle;
 }
-
-/** The display vendors whose published NMEA 2000 receive lists were checked. */
-export type VendorId = "garmin" | "raymarine" | "bandg" | "furuno";
 
 /**
  * "listed": every documented model of the vendor lists the PGN as received.

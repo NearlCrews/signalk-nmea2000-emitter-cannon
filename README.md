@@ -235,7 +235,7 @@ separately in `devEngines`: Node 22 from 22.22.2, Node 24 from 24.15.0, or Node
 verifies on that toolchain floor and the current Node 24 release rather than on
 the lower runtime floor, because CI installs the full development tree.
 CanboatJS and `@canboat/ts-pgns` are exercised in the test suite and are not
-runtime dependencies. `signalk-nearlcrews-ui` 0.14.1 is bundled into the panel
+runtime dependencies. `signalk-nearlcrews-ui` 0.14.2 is bundled into the panel
 as a pinned development dependency, while React and React DOM `^19.2.0` are
 supplied by Signal K Admin.
 

@@ -5,6 +5,11 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- The configuration panel uses signalk-nearlcrews-ui 0.14.2 with React Aria
+  3.53.1 and React Aria Components 1.22.1.
+
 <a id="v1120"></a>
 
 ## [1.12.0] - 2026-10-18

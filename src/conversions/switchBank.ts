@@ -1,9 +1,9 @@
 import {
+	MAX_N2K_INSTANCE,
 	MAX_SWITCH_BANK_CHANNEL,
 	MIN_SWITCH_BANK_CHANNEL,
 	N2K_BROADCAST_DST,
 	N2K_DEFAULT_PRIORITY,
-	SLOW_DATA_TIMEOUT_MS,
 	SWITCH_PATH_ROOT,
 	VESSELS_SELF_CONTEXT,
 } from "../constants.js";
@@ -14,7 +14,7 @@ import type {
 	SubConversionModule,
 } from "../types/index.js";
 import { isIntegerInRange, isPlainObject, parseSignalKAssetPath } from "../utils/validation.js";
-import { instanceList, normalizedN2kInstance } from "./instanceOptions.js";
+import { instanceList } from "./instanceOptions.js";
 
 // NMEA 2000 bank input (n2k-signalk's electrical.switches.bank.*) is blocked
 // by the echo guard, so a mapped bus switch can never be re-sent.
@@ -23,23 +23,24 @@ interface SwitchConfig {
 	signalkPath: string;
 	instanceId: number;
 	channel: number;
+	/** The row's position in the mapping table. */
+	row: number;
 }
 
-function normalizedSwitchConfig(config: unknown): SwitchConfig | null {
+function normalizedSwitchConfig(config: unknown, row: number): SwitchConfig | null {
 	if (!isPlainObject(config)) return null;
 	const signalkPath = parseSignalKAssetPath(config.signalkPath, SWITCH_PATH_ROOT);
-	const instanceId = normalizedN2kInstance(config.instanceId);
-	// A channel is dropped rather than clamped: clamping 29 onto 28 would
-	// report one switch's state as another's.
-	const channel = config.channel;
+	// The bank and channel are dropped rather than clamped: clamping 300 onto
+	// 252, or 29 onto 28, would report one switch's state as another's.
+	const { instanceId, channel } = config;
 	if (
 		signalkPath === null ||
-		instanceId === undefined ||
+		!isIntegerInRange(instanceId, 0, MAX_N2K_INSTANCE) ||
 		!isIntegerInRange(channel, MIN_SWITCH_BANK_CHANNEL, MAX_SWITCH_BANK_CHANNEL)
 	) {
 		return null;
 	}
-	return { signalkPath, instanceId, channel };
+	return { signalkPath, instanceId, channel, row };
 }
 
 // Signal K publishers disagree on the state type: n2k-signalk writes 1 or 0,
@@ -78,15 +79,21 @@ export default function createSwitchBankConversion(_app: SignalKApp): Conversion
 		},
 
 		conversions: (options: unknown): SubConversionModule[] | null => {
-			const switches = instanceList<unknown>(options, "switches")
-				.map(normalizedSwitchConfig)
-				.filter((row): row is SwitchConfig => row !== null);
+			const switches = instanceList<unknown>(options, "switches").flatMap((config, row) => {
+				const normalized = normalizedSwitchConfig(config, row);
+				return normalized === null ? [] : [normalized];
+			});
 			if (switches.length === 0) return null;
 
+			// No timeouts: a switch holds its state until it changes, and many
+			// providers publish only on a change, so an expiry would drop the bank
+			// from the bus a minute after the last toggle while the switch is
+			// still on. The bank reports the last state Signal K holds.
 			return [...banksFrom(switches)].map(
 				([instance, rows]): SubConversionModule => ({
+					title: `Switch Bank Status (PGN 127501), bank ${instance}`,
+					mappingRow: rows[0]?.row ?? 0,
 					keys: rows.map((row) => `${row.signalkPath}.state`),
-					timeouts: rows.map(() => SLOW_DATA_TIMEOUT_MS),
 					callback: (...states: unknown[]): N2KMessage[] => {
 						const indicators: Record<string, string> = {};
 						for (const [index, row] of rows.entries()) {

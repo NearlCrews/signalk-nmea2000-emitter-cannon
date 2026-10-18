@@ -65,6 +65,18 @@ export function parseSignalKAssetPath(
 	return segments.length >= minSegments && segments.every(isValidSignalKId) ? value : null;
 }
 
+/** Parse a three-segment Signal K tank path without restricting schema-valid ids. */
+export function parseSignalKTankPath(
+	value: unknown,
+): { type: string; id: string; path: string } | null {
+	if (typeof value !== "string") return null;
+	const segments = value.split(".");
+	const type = segments[1];
+	const id = segments[2];
+	if (segments.length !== 3 || segments[0] !== "tanks" || !type || !id) return null;
+	return { type, id, path: value };
+}
+
 /** True for a whole number from `min` to `max` inclusive. */
 export function isIntegerInRange(value: unknown, min: number, max: number): value is number {
 	return typeof value === "number" && Number.isInteger(value) && value >= min && value <= max;

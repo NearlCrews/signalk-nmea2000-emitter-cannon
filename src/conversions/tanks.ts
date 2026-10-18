@@ -7,8 +7,8 @@ import {
 	VESSELS_SELF_CONTEXT,
 } from "../constants.js";
 import type { ConversionModule, N2KMessage, SignalKApp } from "../types/index.js";
-import { isPlainObject, toFiniteInRange } from "../utils/validation.js";
-import { instanceList, normalizedN2kInstance, parseSignalKTankPath } from "./instanceOptions.js";
+import { isPlainObject, parseSignalKTankPath, toFiniteInRange } from "../utils/validation.js";
+import { instanceList, normalizedN2kInstance } from "./instanceOptions.js";
 
 // PGN 127505 capacity is unsigned 32-bit at 0.1 L, so it tops out at
 // 429,496,729.2 L. Signal K publishes cubic metres, hence the /1000.
@@ -18,9 +18,11 @@ interface TankConfig {
 	signalkPath: string;
 	instanceId: number;
 	type: string;
+	/** The row's position in the mapping table. */
+	row: number;
 }
 
-function normalizedTankConfig(config: unknown): TankConfig | null {
+function normalizedTankConfig(config: unknown, row: number): TankConfig | null {
 	if (!isPlainObject(config) || typeof config.signalkPath !== "string") return null;
 	const tankPath = parseSignalKTankPath(config.signalkPath);
 	if (tankPath === null) return null;
@@ -29,7 +31,7 @@ function normalizedTankConfig(config: unknown): TankConfig | null {
 	// field width; seven sibling modules already use it.
 	const instanceId = normalizedN2kInstance(config.instanceId, MAX_TANK_INSTANCE);
 	if (type === undefined || instanceId === undefined) return null;
-	return { signalkPath: tankPath.path, instanceId, type };
+	return { signalkPath: tankPath.path, instanceId, type, row };
 }
 
 export default function createTanksConversion(_app: SignalKApp): ConversionModule {
@@ -50,13 +52,17 @@ export default function createTanksConversion(_app: SignalKApp): ConversionModul
 		},
 
 		conversions: (options: unknown) => {
-			const tanks = instanceList<unknown>(options, "tanks")
-				.map(normalizedTankConfig)
-				.filter((tank): tank is TankConfig => tank !== null);
+			// A skipped row (a gas tank kept from an older configuration, for
+			// example) must not renumber the rows after it in the panel.
+			const tanks = instanceList<unknown>(options, "tanks").flatMap((config, row) => {
+				const normalized = normalizedTankConfig(config, row);
+				return normalized === null ? [] : [normalized];
+			});
 			if (tanks.length === 0) return null;
 
 			return tanks.map((tank) => {
 				return {
+					mappingRow: tank.row,
 					keys: [`${tank.signalkPath}.currentLevel`, `${tank.signalkPath}.capacity`],
 					timeouts: [SLOW_DATA_TIMEOUT_MS, SLOW_DATA_TIMEOUT_MS],
 					callback: (currentLevel: unknown, capacity: unknown): N2KMessage[] => {

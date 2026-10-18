@@ -471,3 +471,24 @@ describe("AIS base stations", () => {
 		expect(output).toEqual([]);
 	});
 });
+
+describe("AIS base stations from older NMEA 0183 parsers", () => {
+	it("relays a base station filed under vessels with class BASE as PGN 129793", async () => {
+		const conversion = createAisConversion(appForAis(), plugin);
+
+		const output = await invoke(conversion, {
+			context: "vessels.urn:mrn:imo:mmsi:003669704",
+			updates: [
+				{
+					values: [
+						{ path: "", value: { mmsi: "003669704" } },
+						{ path: "navigation.position", value: { longitude: -122.4, latitude: 37.8 } },
+						{ path: "sensors.ais.class", value: "BASE" },
+					],
+				},
+			],
+		});
+
+		expect(output.map(({ pgn }) => pgn)).toEqual([129793]);
+	});
+});

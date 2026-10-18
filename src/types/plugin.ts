@@ -37,6 +37,12 @@ export function isConversionOptions(v: ConversionOptions | undefined): v is Conv
 // strictFunctionTypes would break compilation in every module.
 export interface SubConversionModule<T extends unknown[] = unknown[]> {
 	title?: string;
+	/**
+	 * The mapping table row this sub-conversion came from, when the factory
+	 * skipped invalid rows or merged several rows into one; defaults to its
+	 * position in the returned list. The panel numbers mapping activity by it.
+	 */
+	mappingRow?: number;
 	keys?: string[] | ((options: ConversionOptions) => string[]);
 	context?: string;
 	sourceType?: SourceType;

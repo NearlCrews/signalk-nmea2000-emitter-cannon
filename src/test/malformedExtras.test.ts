@@ -187,6 +187,16 @@ describe("malformed mapped extras", () => {
 		expect(
 			conversions({ enabled: true, tanks: [{ signalkPath: "tanks.baitWell.0", instanceId: 1 }] }),
 		).toHaveLength(1);
+		// A skipped row keeps the rows after it on their own table row numbers.
+		expect(
+			conversions({
+				enabled: true,
+				tanks: [
+					{ signalkPath: "tanks.gas.0", instanceId: 1 },
+					{ signalkPath: "tanks.fuel.0", instanceId: 2 },
+				],
+			})?.map((tank) => tank.mappingRow),
+		).toEqual([1]);
 		expect(
 			conversions({
 				enabled: true,
@@ -209,6 +219,9 @@ describe("malformed mapped extras", () => {
 			{ ...row, channel: 29 },
 			{ ...row, channel: 1.5 },
 			{ ...row, instanceId: "seven" },
+			// An out-of-range bank is dropped, not clamped onto bank 252.
+			{ ...row, instanceId: 300 },
+			{ ...row, instanceId: -1 },
 		]) {
 			expect(conversions({ enabled: true, switches: [bad] }), JSON.stringify(bad)).toBeNull();
 		}
@@ -228,6 +241,11 @@ describe("malformed mapped extras", () => {
 			["electrical.switches.anchorLight.state", "electrical.switches.deckLight.state"],
 			["electrical.switches.bank.0.4.state"],
 		]);
+		// Each bank is numbered by its first table row and named by its bank.
+		expect(banks?.map((bank) => [bank.mappingRow, bank.title])).toEqual([
+			[0, "Switch Bank Status (PGN 127501), bank 7"],
+			[3, "Switch Bank Status (PGN 127501), bank 8"],
+		]);
 	});
 
 	it("ignores DC source rows that do not name an electrical asset", () => {
@@ -235,6 +253,12 @@ describe("malformed mapped extras", () => {
 		expect(typeof conversions).toBe("function");
 		if (typeof conversions !== "function") return;
 
+		expect(
+			conversions({
+				enabled: true,
+				dcSources: [{ signalkPath: "electrical.alternators.main", instanceId: 300 }],
+			}),
+		).toBeNull();
 		for (const signalkPath of ["electrical", "electrical.alternators", "propulsion.main.x", 3]) {
 			expect(
 				conversions({ enabled: true, dcSources: [{ signalkPath, instanceId: 1 }] }),

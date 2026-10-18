@@ -13,8 +13,13 @@ import type {
 	SignalKApp,
 	SubConversionModule,
 } from "../types/index.js";
-import { isPlainObject, isValidNumber, toFiniteInRange } from "../utils/validation.js";
-import { isValidInstanceSignalKId, parseSignalKTankPath } from "./instanceOptions.js";
+import {
+	isPlainObject,
+	isValidNumber,
+	parseSignalKTankPath,
+	toFiniteInRange,
+} from "../utils/validation.js";
+import { isValidInstanceSignalKId } from "./instanceOptions.js";
 
 const MAX_TIME_TO_EMPTY_SECONDS = 4_294_967.292;
 const MAX_DISTANCE_TO_EMPTY_METERS = 42_949_672.92;

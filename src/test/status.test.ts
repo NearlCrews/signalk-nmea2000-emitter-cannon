@@ -243,6 +243,31 @@ describe("PluginManager.getStatusSnapshot", () => {
 		pm.stop();
 	});
 
+	it("numbers a mapping row by its table row when an earlier row was skipped", () => {
+		const pm = new PluginManager(makeMockApp(), mockPlugin);
+		pm.start({
+			globalResendInterval: 0,
+			conversions: {
+				TANKS: {
+					enabled: true,
+					resend: 0,
+					sources: {},
+					extras: {
+						tanks: [
+							{ signalkPath: "tanks.gas.0", instanceId: 0 },
+							{ signalkPath: "tanks.fuel.0", instanceId: 1 },
+						],
+					},
+				},
+			},
+		});
+
+		const fuel = pm.getStatusSnapshot().perConversion.find((row) => row.key === "TANKS[0]");
+		expect(fuel).toMatchObject({ parentKey: "TANKS", mappingIndex: 1 });
+		expect(fuel?.title).toBe("Tank Levels (PGN 127505), mapping row 2");
+		pm.stop();
+	});
+
 	it("flags a previously active child input after its conversion timeout", () => {
 		vi.useFakeTimers();
 		const startedAt = new Date("2026-07-22T12:00:00Z");

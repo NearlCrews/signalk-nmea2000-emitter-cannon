@@ -20,6 +20,18 @@ interface Row {
 	channel: number;
 }
 
+// A new row joins the last row's bank on its next free channel, so adding a
+// row does not start out duplicating one.
+function nextRow(rows: readonly Row[]): Row {
+	const instanceId = rows.at(-1)?.instanceId ?? 0;
+	const used = new Set(
+		rows.filter((row) => row.instanceId === instanceId).map((row) => row.channel),
+	);
+	let channel = MIN_SWITCH_BANK_CHANNEL;
+	while (used.has(channel) && channel < MAX_SWITCH_BANK_CHANNEL) channel++;
+	return { signalkPath: "", instanceId, channel };
+}
+
 interface Props {
 	value: Record<string, unknown>;
 	onChange: (next: Record<string, unknown>) => void;
@@ -39,7 +51,7 @@ export default function SwitchBankMappingEditor({
 			helpText="Rows with the same bank instance are sent together as one bank. Give each switch its own channel in that bank."
 			rows={rows}
 			available={availablePaths}
-			emptyRow={() => ({ signalkPath: "", instanceId: 0, channel: MIN_SWITCH_BANK_CHANNEL })}
+			emptyRow={() => nextRow(rows)}
 			onChange={setRows}
 			columns={[
 				signalkAssetPathColumn<Row>({
@@ -48,6 +60,9 @@ export default function SwitchBankMappingEditor({
 					placeholder: `${SWITCH_PATH_ROOT}.anchorLight`,
 					root: SWITCH_PATH_ROOT,
 					leaves: ["state"],
+					// Signal K's NMEA 2000 decoder writes received banks here, and the
+					// echo guard drops them, so they could never be sent.
+					accept: (path) => !path.startsWith(`${SWITCH_PATH_ROOT}.bank.`),
 				}),
 				instanceIdColumn<Row>({
 					header: "NMEA 2000 bank instance",

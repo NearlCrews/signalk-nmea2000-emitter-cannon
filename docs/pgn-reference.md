@@ -94,7 +94,8 @@ structured source data, and the server sources tree. It removes only NMEA
 retaining safe plugin updates carried in the same delta. AIS base stations
 leave as PGN 129793 whichever way Signal K files them: the NMEA 2000 decoder
 puts them under `shore.basestations`, while the NMEA 0183 parser puts message 4
-under `atons` with `sensors.ais.class` set to `BASE`. Before this, a base
+under `atons` (under `vessels` before nmea0183-signalk 3.18.0) with
+`sensors.ais.class` set to `BASE`. Before this, a base
 station from an NMEA 0183 AIS receiver reached the bus as an aid to navigation.
 The station's own UTC time and date go out as not available, because Signal K
 keeps only its position and the reception time is this server's clock. The B&G
@@ -198,13 +199,14 @@ types.
 
 **Garmin water temperature**: Garmin's Technical Reference for NMEA 2000
 Products (September 2021) reads water temperature from PGN 130310, 130311, or
-130312, and lists PGN 130316 for air temperature only. If a Garmin display
-would otherwise show no water temperature from `TEMPERATURE2_SEA`, so the
+130312, and lists PGN 130316 for air temperature only. A Garmin display can
+therefore show no water temperature from `TEMPERATURE2_SEA` alone, so the
 Environmental preset also enables `TEMPERATURE_SEA`, the one PGN 130312
-conversion it turns on. Current Garmin receive lists include PGN 130316 without
-saying which temperature sources each model renders, so confirm the behavior
-on the model and firmware in use. Configuring conversions one at a time,
-enable `TEMPERATURE_SEA` by hand for a Garmin display.
+conversion it turns on. When you enable conversions one at a time instead,
+enable `TEMPERATURE_SEA` by hand for a Garmin display. Current Garmin receive
+lists include PGN 130316 without saying which temperature sources each model
+renders, so confirm the behavior on the model and firmware in use. Displays
+that read both frames see the same sensor, source type, and instance on each.
 
 **Raymarine i70 and i70s environmental data**: Raymarine's
 [supported-PGN list](https://docs.raymarine.com/87425/en-US/latest/SupportedNMEA2000PGNlist-AA8295AC.html)
@@ -322,9 +324,11 @@ unavailable instead of guessing at an NMEA 2000 state.
 switch under `electrical.switches.<id>`, the path Signal K's NMEA 2000 decoder
 writes for a received bank and the one switch provider plugins publish to, plus
 a bank instance and a channel from 1 to 28. Rows that share a bank instance
-leave as one frame. A state of `1` or `true` is On and `0` or `false` is Off;
-anything else, including a state older than a minute, goes out as not
-available. The conversion only reports: it sends no PGN 127502 switch command.
+leave as one frame. A state of `1` or `true` is On and `0` or `false` is Off,
+and anything else goes out as not available. A state does not expire: many
+switch providers publish only when a switch changes, so the bank keeps
+reporting the last state Signal K holds, the way the Signal K data model does.
+The conversion only reports: it sends no PGN 127502 switch command.
 Every current Garmin chartplotter list and the B&G Zeus3S and Vulcan list PGN
 127501, as part of their own digital switching. No vendor documents whether a
 display shows a bank from another sender, so confirm on the display, and give

@@ -87,10 +87,11 @@ const staticKeys = [
 const positionKeys = ["navigation.position"];
 const atonTriggerKeys = [...staticKeys, ...positionKeys, "mmsi", "atonType"];
 const baseStationTriggerKeys = [...positionKeys, "mmsi"];
-// Signal K files AIS base stations under two contexts. n2k-signalk decodes PGN
-// 129793 into shore.basestations, while the NMEA 0183 parser files message 4
-// under atons with sensors.ais.class BASE. Both become PGN 129793 here, so a
-// base station never reaches a display as an aid to navigation.
+// Signal K files AIS base stations under more than one context. n2k-signalk
+// decodes PGN 129793 into shore.basestations, while the NMEA 0183 parser files
+// message 4 under atons (vessels before 3.18.0) with sensors.ais.class BASE.
+// All become PGN 129793 here, so a base station never reaches a display as an
+// aid to navigation or a vessel.
 const BASE_STATION_CONTEXT_PREFIX = "shore.basestations.";
 const dynamicKeys = [
 	"navigation.courseOverGroundTrue",
@@ -262,7 +263,13 @@ export default function createAisConversion(
 			applyDeltaToState(index, safeDelta, nowMs);
 			if (index.size === 0) safeStateByContext.delete(ctx);
 
-			if (isVessel) {
+			// The class marks a base station outside shore.basestations: the
+			// NMEA 0183 parser files message 4 under atons, and releases before
+			// 3.18.0 filed it under vessels.
+			const aisClass = indexedFindValue<string>(index, "sensors.ais.class");
+			const isBaseStation = isBaseStationContext || aisClass === "BASE";
+
+			if (isVessel && !isBaseStation) {
 				const hasStatic = indexHasAnyKeys(currentIndex, staticKeys);
 				const hasPosition = indexHasAnyKeys(currentIndex, positionKeys);
 
@@ -271,7 +278,6 @@ export default function createAisConversion(
 				}
 
 				const mmsiValue = indexedFindValue<string>(index, "mmsi");
-				const aisClass = indexedFindValue<string>(index, "sensors.ais.class");
 
 				if (!mmsiValue || typeof mmsiValue !== "string") {
 					return [];
@@ -299,9 +305,6 @@ export default function createAisConversion(
 				return res;
 			}
 
-			// An NMEA 0183 base station shares the atons context, marked by its class.
-			const isBaseStation =
-				isBaseStationContext || indexedFindValue<string>(index, "sensors.ais.class") === "BASE";
 			const [triggerKeys, generate] = isBaseStation
 				? [baseStationTriggerKeys, generateBaseStation]
 				: [atonTriggerKeys, generateAtoN];

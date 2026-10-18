@@ -637,6 +637,7 @@ export class PluginManager {
 				this.app.error(`${this.moduleLabel(conv)} produced an undefined mapping at row ${idx + 1}`);
 				continue;
 			}
+			const mappingRow = subConversion.mappingRow ?? idx;
 			const allowResend = subConversion.allowResend ?? conv.allowResend;
 			const refreshInterval = subConversion.refreshInterval ?? conv.refreshInterval;
 			const immediate = subConversion.immediate ?? conv.immediate;
@@ -676,7 +677,7 @@ export class PluginManager {
 				title:
 					subConversion === conv
 						? conv.title
-						: (subConversion.title ?? `${conv.title}, mapping row ${idx + 1}`),
+						: (subConversion.title ?? `${conv.title}, mapping row ${mappingRow + 1}`),
 				category: conv.category,
 				sourceType,
 				...(keys === undefined ? {} : { keys }),
@@ -715,7 +716,7 @@ export class PluginManager {
 				labeled,
 				convOptions,
 				subConversion === conv ? undefined : conv.optionKey,
-				subConversion === conv ? undefined : idx,
+				subConversion === conv ? undefined : mappingRow,
 			);
 			mapper(labeled, convOptions);
 			wiredCount++;

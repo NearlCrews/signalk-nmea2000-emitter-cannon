@@ -1,4 +1,5 @@
 import type * as React from "react";
+import { tankFluidType } from "../../../config/enums.js";
 import { MAX_TANK_INSTANCE } from "../../../constants.js";
 import { extraRows } from "./extraRows";
 import MappingTable, { numberColumn, signalkPathColumn } from "./MappingTable";
@@ -38,6 +39,8 @@ export default function TankMappingEditor({
 					field: "signalkPath",
 					placeholder: "tanks.fuel.0",
 					pathPattern: /^(tanks\.[^.]+\.[^.]+)(?:\.|$)/,
+					// A type PGN 127505 cannot carry, such as gas, would only fail validation.
+					accept: (path) => tankFluidType(path.split(".")[1] ?? "") !== undefined,
 					pattern: "tanks\\.[^.]+\\.[^.]+",
 					requiredInput: () => ({
 						label: "currentLevel or capacity",

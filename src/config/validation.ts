@@ -15,6 +15,7 @@ import {
 	isValidNumber,
 	isValidSignalKId,
 	parseSignalKAssetPath,
+	parseSignalKTankPath,
 } from "../utils/validation.js";
 import { SEATALK_NETWORK_GROUPS, tankFluidType } from "./enums.js";
 import {
@@ -267,16 +268,8 @@ function validId(value: unknown, allowNumeric: boolean): boolean {
 		: isValidSignalKId(value);
 }
 
-function parseTankPath(value: unknown): { type: string; path: string } | null {
-	if (typeof value !== "string") return null;
-	const segments = value.split(".");
-	const type = segments[1];
-	if (segments.length !== 3 || segments[0] !== "tanks" || !type || !segments[2]) return null;
-	return { type, path: value };
-}
-
 function tankPathIssue(value: unknown): string | undefined {
-	const parsed = parseTankPath(value);
+	const parsed = parseSignalKTankPath(value);
 	if (parsed !== null && tankFluidType(parsed.type) !== undefined) return undefined;
 	return parsed?.type === "gas"
 		? "PGN 127505 has no NMEA 2000 fluid type for gas, and reporting a gas tank as fuel would add it to a display's fuel total and range. Remove this row."
@@ -538,7 +531,7 @@ function validateVesselTrip(issues: ConfigIssue[], config: ConversionConfig | un
 		const seen = new Map<string, number>();
 		for (const [rowIndex, candidate] of fuelTanks.entries()) {
 			const path = isPlainObject(candidate) ? candidate.signalkPath : undefined;
-			const parsed = parseTankPath(path);
+			const parsed = parseSignalKTankPath(path);
 			if (parsed?.type !== "fuel") {
 				addIssue(
 					issues,
@@ -761,7 +754,7 @@ interface WireIdentity {
 }
 
 function validWireInstance(value: unknown): value is number {
-	return isValidNumber(value) && Number.isInteger(value) && value >= 0 && value <= MAX_N2K_INSTANCE;
+	return isIntegerInRange(value, 0, MAX_N2K_INSTANCE);
 }
 
 function mappingInstances(

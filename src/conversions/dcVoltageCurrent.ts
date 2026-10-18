@@ -3,6 +3,7 @@ import {
 	DC_PATH_ROOT,
 	MAX_N2K_DC_CURRENT_A,
 	MAX_N2K_DC_VOLTAGE_V,
+	MAX_N2K_INSTANCE,
 	N2K_BROADCAST_DST,
 	N2K_DEFAULT_PRIORITY,
 	N2K_SID_ZERO,
@@ -15,8 +16,13 @@ import type {
 	SignalKApp,
 	SubConversionModule,
 } from "../types/index.js";
-import { isPlainObject, parseSignalKAssetPath, toFiniteInRange } from "../utils/validation.js";
-import { instanceList, normalizedN2kInstance } from "./instanceOptions.js";
+import {
+	isIntegerInRange,
+	isPlainObject,
+	parseSignalKAssetPath,
+	toFiniteInRange,
+} from "../utils/validation.js";
+import { instanceList } from "./instanceOptions.js";
 
 // Batteries already have PGNs 127506 and 127508; this frame is for the DC
 // sources that have no PGN of their own.
@@ -24,13 +30,18 @@ import { instanceList, normalizedN2kInstance } from "./instanceOptions.js";
 interface DcConfig {
 	signalkPath: string;
 	instanceId: number;
+	/** The row's position in the mapping table. */
+	row: number;
 }
 
-function normalizedDcConfig(config: unknown): DcConfig | null {
+function normalizedDcConfig(config: unknown, row: number): DcConfig | null {
 	if (!isPlainObject(config)) return null;
 	const signalkPath = parseSignalKAssetPath(config.signalkPath, DC_PATH_ROOT, DC_PATH_MIN_SEGMENTS);
-	const instanceId = normalizedN2kInstance(config.instanceId);
-	return signalkPath === null || instanceId === undefined ? null : { signalkPath, instanceId };
+	// Dropped rather than clamped, so two sources cannot merge onto connection 252.
+	const { instanceId } = config;
+	return signalkPath === null || !isIntegerInRange(instanceId, 0, MAX_N2K_INSTANCE)
+		? null
+		: { signalkPath, instanceId, row };
 }
 
 export default function createDcVoltageCurrentConversion(_app: SignalKApp): ConversionModule {
@@ -45,13 +56,15 @@ export default function createDcVoltageCurrentConversion(_app: SignalKApp): Conv
 		},
 
 		conversions: (options: unknown): SubConversionModule[] | null => {
-			const sources = instanceList<unknown>(options, "dcSources")
-				.map(normalizedDcConfig)
-				.filter((source): source is DcConfig => source !== null);
+			const sources = instanceList<unknown>(options, "dcSources").flatMap((config, row) => {
+				const normalized = normalizedDcConfig(config, row);
+				return normalized === null ? [] : [normalized];
+			});
 			if (sources.length === 0) return null;
 
 			return sources.map(
 				(source): SubConversionModule => ({
+					mappingRow: source.row,
 					keys: [`${source.signalkPath}.voltage`, `${source.signalkPath}.current`],
 					timeouts: [SLOW_DATA_TIMEOUT_MS, SLOW_DATA_TIMEOUT_MS],
 					callback: (voltage: unknown, current: unknown): N2KMessage[] => {

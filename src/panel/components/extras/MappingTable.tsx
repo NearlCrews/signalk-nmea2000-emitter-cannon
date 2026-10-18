@@ -336,18 +336,21 @@ export function signalkPathColumn<R>(opts: {
 	field: keyof R & string;
 	placeholder: string;
 	pathPattern: RegExp;
+	/** Leaves out suggested asset paths the conversion would refuse or never emit. */
+	accept?: (assetPath: string) => boolean;
 	ariaLabel?: string;
 	pattern?: string;
 	requiredInput?: (row: R) => RequiredInput | undefined;
 }): Column<R> {
+	const { accept, ...columnOptions } = opts;
 	return textColumn<R>({
-		...opts,
+		...columnOptions,
 		group: "Signal K input",
 		monospace: true,
 		suggestions: (available) =>
 			available.flatMap((path) => {
-				const match = path.match(opts.pathPattern);
-				return match?.[1] ? [match[1]] : [];
+				const assetPath = path.match(opts.pathPattern)?.[1];
+				return assetPath && (accept?.(assetPath) ?? true) ? [assetPath] : [];
 			}),
 		assetPrefix: (value) => value,
 	});
@@ -371,16 +374,18 @@ export function signalkAssetPathColumn<R>(opts: {
 	root: string;
 	minSegments?: number;
 	leaves: readonly string[];
+	accept?: (assetPath: string) => boolean;
 }): Column<R> {
 	const root = regexLiteral(opts.root);
-	const minSegments = opts.minSegments ?? 1;
+	const segments = `(?:\\.${SIGNALK_ID_SEGMENT_PATTERN}){${opts.minSegments ?? 1},}`;
 	const leaves = opts.leaves.map(regexLiteral).join("|");
 	return signalkPathColumn<R>({
 		header: opts.header,
 		field: opts.field,
 		placeholder: opts.placeholder,
-		pattern: `${root}(\\.${SIGNALK_ID_SEGMENT_PATTERN}){${minSegments},}`,
-		pathPattern: new RegExp(`^(${root}(?:\\.[^.]+){${minSegments},})\\.(?:${leaves})$`),
+		pattern: `${root}${segments}`,
+		pathPattern: new RegExp(`^(${root}${segments})\\.(?:${leaves})$`),
+		...(opts.accept === undefined ? {} : { accept: opts.accept }),
 		requiredInput: () => ({
 			label: opts.leaves.join(" or "),
 			alternatives: opts.leaves.map((leaf) => [leaf]),

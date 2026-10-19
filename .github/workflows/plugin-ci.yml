@@ -31,7 +31,7 @@ concurrency:
 
 jobs:
   plugin-ci:
-    uses: SignalK/signalk-server/.github/workflows/plugin-ci.yml@ad357e35c074a3d34f35cca8e77c247d48866a0f # master
+    uses: SignalK/signalk-server/.github/workflows/plugin-ci.yml@95a0ae6c067fc9dc6e0c67232a7953dc053399ba # master
     with:
       build-command: npm run build
       test-command: npm test

@@ -5,6 +5,7 @@ import type {
 	SignalKPlugin,
 } from "../types/index.js";
 import { errMessage } from "../utils/errorUtils.js";
+import { resetGnssFixSid } from "../utils/gnssFixSid.js";
 import { isDefined } from "../utils/pathUtils.js";
 import { extractPgnsFromTitle } from "../utils/pgnUtils.js";
 import createAcStatusConversion from "./acStatus.js";
@@ -86,6 +87,9 @@ export function createConversionModules(
 	app: SignalKApp,
 	plugin: SignalKPlugin,
 ): ConversionModule<unknown[]>[] {
+	// One GNSS fix SID sequencer per module set: the GNSS factories below
+	// capture it, so PGNs 129026, 129029, 129539, and 129540 share one counter.
+	resetGnssFixSid(app);
 	// Every conversion factory EXCEPT pgnList: pgnList needs the title-derived
 	// PGN list from these modules to build its 126464 transmit advertisement,
 	// so it must be constructed after the data conversions are loaded.

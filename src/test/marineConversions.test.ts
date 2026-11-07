@@ -84,8 +84,10 @@ describe("marine conversion wire contracts", () => {
 
 		expect(await invoke(dops, -0.01, 2)).toEqual([]);
 		expect(await invoke(dops, MAX_N2K_DOP + 0.01, MAX_N2K_DOP)).toEqual([]);
+		// No GNSS fix has been seen by this sequencer, so the SID is the
+		// "not available" sentinel rather than a fabricated constant.
 		expect((await invoke(dops, 2, 1))[0]?.fields).toEqual({
-			sid: 0,
+			sid: 255,
 			hdop: 2,
 		});
 		expect((await invoke(dops, 3, 5))[0]?.fields.vdop).toBe(4);
@@ -121,7 +123,11 @@ describe("marine conversion wire contracts", () => {
 		// PGN 129540 has a three-byte header and a twelve-byte repeating group.
 		expect(payload).toHaveLength(3 + 18 * 12);
 		expect(payload.length).toBeLessThanOrEqual(223);
-		expect(decoded.fields).toEqual(message.fields);
+		// SID 255 is the "not available" sentinel, which the decoder reports as
+		// absent; every data field must survive the round trip unchanged.
+		const { sid: _sentSid, ...sentFields } = message.fields;
+		const { sid: _decodedSid, ...decodedFields } = decoded.fields;
+		expect(decodedFields).toEqual(sentFields);
 	});
 
 	it("keeps wind speed inside the unsigned PGN 130306 wire range", async () => {

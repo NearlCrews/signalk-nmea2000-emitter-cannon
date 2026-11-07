@@ -4,9 +4,9 @@ import {
 	MAX_N2K_DOP,
 	N2K_BROADCAST_DST,
 	N2K_DEFAULT_PRIORITY,
-	N2K_SID_ZERO,
 } from "../constants.js";
 import type { ConversionCallback, ConversionModule, SignalKApp } from "../types/index.js";
+import { gnssFixSidFor } from "../utils/gnssFixSid.js";
 import { isValidNumber, toFiniteInRange, toUnsignedAngle } from "../utils/validation.js";
 
 const MAX_SATELLITES_PER_FAST_PACKET = 18;
@@ -20,7 +20,8 @@ interface SatelliteData {
 	used?: boolean;
 }
 
-export default function createGnssDataConversions(_app: SignalKApp): ConversionModule<unknown[]>[] {
+export default function createGnssDataConversions(app: SignalKApp): ConversionModule<unknown[]>[] {
+	const fixSid = gnssFixSidFor(app);
 	return [
 		// GNSS DOPs (PGN 129539)
 		{
@@ -51,7 +52,7 @@ export default function createGnssDataConversions(_app: SignalKApp): ConversionM
 						pgn: 129539,
 						dst: N2K_BROADCAST_DST,
 						fields: {
-							sid: N2K_SID_ZERO,
+							sid: fixSid.current(),
 							hdop: hdopValue,
 							...(vdop === undefined ? {} : { vdop }),
 						},
@@ -67,7 +68,6 @@ export default function createGnssDataConversions(_app: SignalKApp): ConversionM
 							pgn: 129539,
 							dst: 255,
 							fields: {
-								sid: N2K_SID_ZERO,
 								hdop: 1.2,
 								vdop: 2.08,
 							},
@@ -84,7 +84,6 @@ export default function createGnssDataConversions(_app: SignalKApp): ConversionM
 							pgn: 129539,
 							dst: 255,
 							fields: {
-								sid: N2K_SID_ZERO,
 								hdop: 1.5,
 							},
 						},
@@ -111,7 +110,6 @@ export default function createGnssDataConversions(_app: SignalKApp): ConversionM
 							pgn: 129539,
 							dst: 255,
 							fields: {
-								sid: N2K_SID_ZERO,
 								hdop: 2.5,
 							},
 						},
@@ -183,7 +181,7 @@ export default function createGnssDataConversions(_app: SignalKApp): ConversionM
 						pgn: 129540,
 						dst: N2K_BROADCAST_DST,
 						fields: {
-							sid: N2K_SID_ZERO,
+							sid: fixSid.current(),
 							// satsInView is the count of emitted repeating-group
 							// entries. A provider's reported count can exceed the
 							// actual satellites array, so the encoded list length is
@@ -230,7 +228,6 @@ export default function createGnssDataConversions(_app: SignalKApp): ConversionM
 							pgn: 129540,
 							dst: 255,
 							fields: {
-								sid: N2K_SID_ZERO,
 								// satsInView tracks the emitted list length, not
 								// the provider's reported count.
 								satsInView: 3,

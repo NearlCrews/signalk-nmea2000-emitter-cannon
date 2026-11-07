@@ -1,15 +1,12 @@
-import {
-	MAX_N2K_SPEED_MPS,
-	N2K_BROADCAST_DST,
-	N2K_DEFAULT_PRIORITY,
-	N2K_DEFAULT_SID,
-} from "../constants.js";
+import { MAX_N2K_SPEED_MPS, N2K_BROADCAST_DST, N2K_DEFAULT_PRIORITY } from "../constants.js";
 import type { ConversionCallback, ConversionModule, SignalKApp } from "../types/index.js";
+import { gnssFixSidFor } from "../utils/gnssFixSid.js";
 import { toFiniteInRange, toUnsignedAngle, toValidNumber } from "../utils/validation.js";
 
 export default function createCogSogConversion(
-	_app: SignalKApp,
+	app: SignalKApp,
 ): ConversionModule<[number | null, number | null]> {
+	const fixSid = gnssFixSidFor(app);
 	return {
 		title: "COG and SOG (PGN 129026)",
 		optionKey: "COG_SOG",
@@ -33,7 +30,9 @@ export default function createCogSogConversion(
 					pgn: 129026,
 					dst: N2K_BROADCAST_DST,
 					fields: {
-						sid: N2K_DEFAULT_SID,
+						// The SID of the GNSS fix this COG and SOG belong to, or
+						// 255 (not available) when no fix is current.
+						sid: fixSid.current(),
 						cogReference: "True",
 						// COG is an unsigned [0, 2pi) field; see toUnsignedAngle.
 						cog: toUnsignedAngle(validCourse),
@@ -52,7 +51,6 @@ export default function createCogSogConversion(
 						pgn: 129026,
 						dst: 255,
 						fields: {
-							sid: 87,
 							cogReference: "True",
 							cog: 2.1,
 							sog: 9,
@@ -68,7 +66,6 @@ export default function createCogSogConversion(
 						pgn: 129026,
 						dst: 255,
 						fields: {
-							sid: 87,
 							cogReference: "True",
 							sog: 5.5,
 						},
@@ -83,7 +80,6 @@ export default function createCogSogConversion(
 						pgn: 129026,
 						dst: 255,
 						fields: {
-							sid: 87,
 							cogReference: "True",
 							cog: 1.57,
 						},
@@ -100,7 +96,6 @@ export default function createCogSogConversion(
 						pgn: 129026,
 						dst: 255,
 						fields: {
-							sid: 87,
 							cogReference: "True",
 							cog: 5.7832,
 							sog: 5,
@@ -119,7 +114,6 @@ export default function createCogSogConversion(
 						pgn: 129026,
 						dst: 255,
 						fields: {
-							sid: 87,
 							cogReference: "True",
 							cog: 2,
 							sog: 0,
@@ -137,7 +131,6 @@ export default function createCogSogConversion(
 						pgn: 129026,
 						dst: 255,
 						fields: {
-							sid: 87,
 							cogReference: "True",
 							sog: 0,
 						},

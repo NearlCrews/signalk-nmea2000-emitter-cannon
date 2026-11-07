@@ -3,7 +3,6 @@ import {
 	MAX_SATELLITE_COUNT,
 	N2K_BROADCAST_DST,
 	N2K_DEFAULT_PRIORITY,
-	N2K_DEFAULT_SID,
 } from "../constants.js";
 import type {
 	ConversionCallback,
@@ -12,6 +11,7 @@ import type {
 	SignalKApp,
 } from "../types/index.js";
 import { toN2KDateTime } from "../utils/dateUtils.js";
+import { gnssFixSidFor } from "../utils/gnssFixSid.js";
 import { getSelfValue } from "../utils/pathUtils.js";
 import {
 	isValidLatitude,
@@ -93,6 +93,7 @@ export default function createGpsConversion(
 	app: SignalKApp,
 ): ConversionModule<[GpsPosition | null]> {
 	let lastUpdate: number | null = null;
+	const fixSid = gnssFixSidFor(app);
 
 	return {
 		title: "GPS Position (PGNs 129025, 129029)",
@@ -113,6 +114,11 @@ export default function createGpsConversion(
 				return [];
 			}
 
+			const now = Date.now();
+			// Every valid position marks a fix, including the ones the 129029
+			// rate limit skips, so COG/SOG and the DOPs track the live fix.
+			const sid = fixSid.advance(position.latitude, position.longitude, now);
+
 			const res: N2KMessage[] = [
 				{
 					prio: N2K_DEFAULT_PRIORITY,
@@ -125,7 +131,6 @@ export default function createGpsConversion(
 				},
 			];
 
-			const now = Date.now();
 			if (lastUpdate === null || now - lastUpdate > GNSS_RATE_LIMIT_MS) {
 				lastUpdate = now;
 
@@ -140,7 +145,7 @@ export default function createGpsConversion(
 				const geoidalSeparation = getSelfValue(app, "navigation.gnss.geoidalSeparation");
 
 				const fields: N2KMessage["fields"] = {
-					sid: N2K_DEFAULT_SID,
+					sid,
 					date,
 					time,
 					latitude: position.latitude,
@@ -210,7 +215,8 @@ export default function createGpsConversion(
 						pgn: 129029,
 						dst: 255,
 						fields: {
-							sid: 87,
+							// First fix seen by a fresh sequencer.
+							sid: 0,
 							latitude: 32.0631296,
 							longitude: -75.487264,
 							altitude: 12.5,

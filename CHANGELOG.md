@@ -5,6 +5,18 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- The GNSS PGNs now carry a per-fix sequence identifier instead of a constant.
+  GNSS Position Data (PGN 129029) and COG and SOG (PGN 129026) always sent SID
+  87, and GNSS DOPs (PGN 129539) and GNSS Satellites (PGN 129540) always sent
+  SID 0, which told receivers that every frame belonged to one never-ending
+  fix; Garmin GNX and GMI instruments showed a correct position that kept
+  flickering. A shared counter now advances 0 to 252 with each position fix
+  (the RMC and GGA position of one NMEA 0183 fix map to one SID), the four
+  PGNs from the same fix share it, and the PGNs that are not tied to a current
+  fix (none yet, or none for three seconds) send 255, "not available".
+
 ### Changed
 
 - The configuration panel uses signalk-nearlcrews-ui 0.14.2 with React Aria
